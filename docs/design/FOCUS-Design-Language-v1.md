@@ -1,12 +1,13 @@
 # FOCUS Design Language Specification v1
 
-> Version 1.1 | 2026-07-28 | Phase-1C — Design Specification & Approval Gate
+> Version 1.2 | 2026-07-28 | Phase-1C — Design Specification & Approval Gate
 >
-> **Status**: Awaiting Final Approval
+> **Status**: ✅ APPROVED — Official Engineering Charter
 >
-> This document defines the visual identity, design principles, and implementation rules for FOCUS v3.
-> It is a **decision document**, not an analysis. Every section contains final decisions.
-> No code changes until this document is approved by the product owner.
+> This document is the **permanent design authority** for FOCUS. All code, all PRs, all design decisions
+> must comply with this document. No exceptions. No "just this once."
+>
+> Approved by product owner on 2026-07-28. Effective immediately.
 
 ---
 
@@ -25,7 +26,17 @@
 11. [Motion Philosophy](#11-motion-philosophy)
 12. [Accessibility Target](#12-accessibility-target)
 13. [RTL Philosophy](#13-rtl-philosophy)
-14. [Implementation Priorities](#14-implementation-priorities)
+14. [Scientific Data Visualization](#14-scientific-data-visualization)
+15. [Empty States](#15-empty-states)
+16. [Error UX](#16-error-ux)
+17. [Success UX](#17-success-ux)
+18. [Phone Services Design Rules](#18-phone-services-design-rules)
+19. [AI Components Rules](#19-ai-components-rules)
+20. [Mobile-First Rules](#20-mobile-first-rules)
+21. [Performance Budget](#21-performance-budget)
+22. [Future Scalability](#22-future-scalability)
+23. [Definition of Done](#23-definition-of-done)
+24. [Implementation Priorities](#24-implementation-priorities)
 
 ---
 
@@ -1080,9 +1091,600 @@ RTL:
 
 ---
 
-## 14. Implementation Priorities
+## 14. Scientific Data Visualization
 
-### 14.1 Phase-2 Execution Order
+### 14.1 Core Principle
+
+> **Charts are scientific instruments, not decorations.**
+> Every chart must communicate data accurately, readably, and honestly.
+
+### 14.2 Color Rules for Charts
+
+| Rule | Detail |
+|------|--------|
+| **Maximum 5 colors** per chart | More than 5 becomes unreadable |
+| **Use theme tokens** | `accent`, `success`, `warning`, `danger`, `textMuted` — not custom hex |
+| **Sequential data** | Use lightness gradient of one color (e.g., accent light → accent dark) |
+| **Categorical data** | Use distinct hues from the theme palette |
+| **Never use red/green alone** | Always pair with shape, label, or pattern for colorblind users |
+
+### 14.3 Chart Color Palette
+
+```
+Primary:    accent
+Secondary:  accentLight
+Tertiary:   textSecondary
+Success:    success
+Warning:    warning
+Danger:     danger
+Muted:      textMuted
+```
+
+**Maximum 3 colors for a single data series.** Use muted variants for secondary data.
+
+### 14.4 Axis Rules
+
+| Rule | Detail |
+|------|--------|
+| **Y-axis starts at zero** | Unless explicitly noted otherwise (with annotation) |
+| **Axis labels** | Always present — never裸 axes |
+| **Grid lines** | `border` token color, 1px, dashed. Never solid black. |
+| **Tick labels** | `caption` size, `textMuted` color |
+| **Units** | Always shown on axis label, not on every tick (e.g., "Time (ms)" not "100ms, 200ms, ...") |
+
+### 14.5 Number Display in Charts
+
+| Rule | Detail |
+|------|--------|
+| **Tabular numbers** | `font-variant-numeric: tabular-nums` on all chart text |
+| **Decimal precision** | Reaction times: 0 decimal places (ms). Scores: 0 decimal places. Percentages: 1 decimal place. |
+| **Thousands separator** | Use locale-appropriate separator (1,000 vs 1.000) |
+| **No scientific notation** | Always display as regular numbers |
+
+### 14.6 Highlighting Important Values
+
+| Method | When to Use |
+|--------|-------------|
+| **Bold weight** | The most important number on screen (e.g., current score) |
+| **Accent color** | Best score, target achieved, positive trend |
+| **Danger color** | Worst score, threshold exceeded, negative trend |
+| **Larger size** | Primary metric vs secondary metrics |
+| **Icon** | Trend direction (↑↓→) next to the value |
+
+**Never use:**
+- ❌ Arrows pointing at values (clutter)
+- ❌ Callout boxes around numbers (heavy)
+- ❌ Animated number counting (distracting, accessibility issue)
+- ❌ Color alone — always pair with icon or text label
+
+### 14.7 Forbidden in Charts
+
+| Anti-Pattern | Why |
+|-------------|-----|
+| ❌ 3D effects | Distorts data perception |
+| ❌ Exploded pie charts | Misrepresents proportions |
+| ❌ Gradient fills on bars | Makes exact values hard to read |
+| ❌ Pie charts with >5 slices | Use bar chart instead |
+| ❌ Truncated axes without annotation | Misleading |
+| ❌ Animated chart transitions | Distracting, accessibility issue |
+| ❌ Tooltips as primary data | Data must be visible without interaction |
+| ❌ Dual Y-axes | Confusing, often misleading |
+
+### 14.8 Chart Sizing
+
+| Context | Minimum Width | Minimum Height |
+|---------|--------------|----------------|
+| Inline stat chart | 80px | 40px |
+| Card chart | 200px | 120px |
+| Full-width chart | 320px | 200px |
+
+**Never set fixed heights on chart containers.** Charts determine their own height based on data and width.
+
+---
+
+## 15. Empty States
+
+### 15.1 Core Principle
+
+> **Every screen must have a designed state for "nothing here yet."**
+> An empty page is a broken experience.
+
+### 15.2 Required Empty States
+
+Every screen must handle these 5 states:
+
+| State | Visual | Action |
+|-------|--------|--------|
+| **No data** | Illustration/icon + "No data yet" message | Primary CTA to create first item |
+| **Loading** | Skeleton or spinner + "Loading..." | None (automatic) |
+| **Error** | Error icon + friendly message + retry button | Retry action |
+| **No results** | Search icon + "No results found" | Clear filters / try different query |
+| **No connection** | WiFi icon + "No internet connection" | Retry button + offline indicator |
+
+### 15.3 Empty State Design Rules
+
+1. **Center-aligned.** Empty states are centered vertically and horizontally.
+2. **Icon/illustration first.** 48-64px icon at top, muted color.
+3. **Message second.** `body` size, `textSecondary` color. Friendly, not technical.
+4. **Action third.** Primary or secondary button if the user can take action.
+5. **No decoration.** Empty states are functional, not decorative.
+6. **Maximum 2 lines of text.** If you need more, the message is too complex.
+
+### 15.4 Empty State Template
+
+```
+[Icon: 48px, textMuted]
+
+[Title: h2, textPrimary]
+"No sessions yet" / "No results found" / "Connection lost"
+
+[Description: body, textSecondary, max 2 lines]
+"Start your first focus session to see your results here."
+
+[Action: Button, primary or secondary]
+"Start Session" / "Try Again" / "Clear Filters"
+```
+
+---
+
+## 16. Error UX
+
+### 16.1 Core Principle
+
+> **Errors are moments of friction. Handle them with care.**
+> The user didn't cause the error — the system did. Be helpful, not blaming.
+
+### 16.2 Error Display Rules
+
+| Rule | Detail |
+|------|--------|
+| **Short message** | Maximum 1 sentence. No paragraphs. |
+| **Non-technical** | "Something went wrong" not "TypeError: Cannot read property 'map' of undefined" |
+| **Actionable** | If retry is possible, show retry button. If not, explain what to do next. |
+| **No internal details** | Never show stack traces, API errors, or debug info to users |
+| **Non-blocking when possible** | Use toast for recoverable errors. Use full-page only for fatal errors. |
+
+### 16.3 Error Hierarchy
+
+| Level | Presentation | Example |
+|-------|-------------|---------|
+| **Inline** | Red text below the input/form | "Email is already registered" |
+| **Toast** | Temporary notification, auto-dismiss (5s) | "Failed to save. Tap to retry." |
+| **Modal** | Overlay with message + action | "Session failed to save" + Retry / Go Home |
+| **Full page** | Dedicated error screen | Fatal app error + Restart button |
+
+### 16.4 Error Message Tone
+
+| ❌ Don't Say | ✅ Say Instead |
+|-------------|---------------|
+| "Error 500: Internal Server Error" | "Something went wrong" |
+| "Failed to fetch" | "Couldn't load data" |
+| "Invalid input" | "Please check your input" |
+| "Unauthorized" | "Please sign in again" |
+| "Network error" | "No internet connection" |
+| "Timeout" | "Taking too long. Try again?" |
+
+### 16.5 Error Recovery
+
+| Error Type | Recovery |
+|-----------|----------|
+| **Network error** | Retry button + offline indicator |
+| **Auth error** | Redirect to login + preserve form data |
+| **Validation error** | Highlight field + inline message |
+| **Save error** | Retry button + "Your changes are saved locally" |
+| **Fatal error** | Restart button + "Contact support if this persists" |
+
+---
+
+## 17. Success UX
+
+### 17.1 Core Principle
+
+> **Success should be felt, not just displayed.**
+> A brief moment of positive feedback confirms the action worked.
+
+### 17.2 Success Feedback Types
+
+| Action Type | Feedback | Duration |
+|-------------|----------|----------|
+| **Quick action** (toggle, save setting) | Checkmark icon appears + fades | 1.5s |
+| **Form submission** | Toast "Saved successfully" | 3s |
+| **Multi-step flow** (wizard) | Success screen with checkmark animation | Until user dismisses |
+| **First-time action** | Success + brief celebration (confetti or glow) | 2s |
+| **Score/game result** | Results screen (no toast — the screen IS the success) | Persistent |
+
+### 17.3 Success Design Rules
+
+1. **Green for success.** `success` token color for checkmarks, badges, and positive states.
+2. **Brief animation.** Checkmark scales in (200ms bounce). No long celebrations.
+3. **Auto-dismiss toasts.** Success toasts auto-dismiss after 3 seconds.
+4. **Don't interrupt flow.** After saving a setting, show toast — don't navigate away.
+5. **Navigate after completion.** After a multi-step wizard, navigate to the result or parent screen.
+
+### 17.4 Success After Phone Services Flow
+
+```
+1. User completes final step
+2. Success screen appears (full screen, centered)
+3. Green checkmark circle (64px, scale-in animation)
+4. "Request Submitted" (h1)
+5. "We'll get back to you within 24 hours" (body, textSecondary)
+6. "New Request" button (secondary) — starts over
+7. "Back to Home" link — navigates to home
+```
+
+---
+
+## 18. Phone Services Design Rules
+
+### 18.1 Core Principle
+
+> **Phone Services is part of FOCUS, not an external tool.**
+> The user must never feel they left the FOCUS platform.
+
+### 18.2 Identity Rules
+
+| Rule | Detail |
+|------|--------|
+| **Same theme** | Uses the same theme tokens as the rest of FOCUS |
+| **Same components** | Uses Button, Card, Input, Pill from the design system |
+| **Same colors** | No custom colors. Accent = accent token. Status = status tokens. |
+| **Same typography** | Same font, same scale, same weights |
+| **Same animations** | Same easing curves, same durations (≤300ms) |
+| **Same container** | 480px max-width, same padding |
+
+### 18.3 Flow Rules
+
+| Rule | Detail |
+|------|--------|
+| **Minimum steps** | Every flow must be completable in ≤5 steps |
+| **Progress visible** | Stepper bar at top, always showing current position |
+| **Back always available** | User can go back to any previous step |
+| **Summary before submit** | Show a summary card before the final "Submit" action |
+| **Confirmation** | Success screen after submission (see Section 17.4) |
+
+### 18.4 Visual Treatment
+
+```
+Phone Services Screen:
+- Same background as Home screen
+- Same card style (solid, not glass — data entry context)
+- Pill selectors for options (same as settings toggles)
+- Price estimation in accent-tinted card (solid surface + accent border)
+- Stepper: thin line (3px), accent fill for completed, border for pending
+- Back/Next buttons: secondary + primary, same as form navigation
+```
+
+### 18.5 What Phone Services Is NOT
+
+- ❌ An e-commerce checkout (no cart, no payment processing)
+- ❌ A separate app (no separate navigation, no "back to FOCUS" link needed)
+- ❌ A complex configurator (keep it simple, max 5 steps)
+- ❌ A data-heavy dashboard (minimal data, maximum guidance)
+
+---
+
+## 19. AI Components Rules
+
+### 19.1 Core Principle
+
+> **AI should feel like a knowledgeable assistant, not a black box.**
+> Be transparent about confidence, show reasoning, and always let the user decide.
+
+### 19.2 AI Card Design
+
+```
+AI Card:
+  background: surface (solid)
+  border: 1px solid border
+  border-radius: radius.lg (16px)
+  padding: xl (20px)
+  Icon: Robot emoji in 28x28 accent-tinted circle (top-left)
+  Title: "AI Summary" / "Recommendation" (h2)
+  Body: body text, textSecondary, 1.6 line-height
+```
+
+### 19.3 Confidence Display
+
+| Confidence Level | Visual | Color | Text |
+|-----------------|--------|-------|------|
+| **High** (>80%) | Solid badge | `success` | "High confidence" |
+| **Medium** (50-80%) | Solid badge | `warning` | "Medium confidence" |
+| **Low** (<50%) | Solid badge | `danger` | "Low confidence" |
+
+**Badge placement:** Inline with the AI card title, right-aligned.
+
+### 19.4 Recommendation Display
+
+```
+Recommendation Card:
+  Icon: Lightbulb in 28x28 accent-tinted circle
+  Title: "Recommendations" (h2)
+  Tier label: Accent-colored uppercase overline
+  List: Bullet points, body size, textSecondary
+  Each item: max 2 lines, actionable language
+```
+
+### 19.5 AI Color Usage
+
+| Context | Color | Reason |
+|---------|-------|--------|
+| AI card background | `surface` | Neutral, readable |
+| AI icon background | `accentMuted` | Brand identity, not status |
+| High confidence | `success` | Positive signal |
+| Medium confidence | `warning` | Caution |
+| Low confidence | `danger` | Uncertainty |
+| AI text | `textSecondary` | Body text, not dominant |
+| Trend arrows | `success`/`danger` | Up = good (green), Down = bad (red) |
+
+### 19.6 AI Rules
+
+1. **Never show AI as omniscient.** Always show confidence level.
+2. **Never auto-apply AI suggestions.** Show them, let the user decide.
+3. **Plain language.** No jargon, no technical terms. "Your consistency improved" not "CV decreased by 12%."
+4. **Evidence-based.** Every recommendation must reference specific data points.
+5. **Brevity.** Maximum 3 recommendations per screen. Quality over quantity.
+
+---
+
+## 20. Mobile-First Rules
+
+### 20.1 Core Principle
+
+> **Every component is designed for mobile first, then expanded for larger screens.**
+> Desktop-first design is forbidden.
+
+### 20.2 Mobile-First Rules
+
+| Rule | Detail |
+|------|--------|
+| **Design mobile first** | Every component starts at mobile width (480px or less) |
+| **Expand, don't shrink** | Desktop is mobile + more space. Never mobile = desktop - space. |
+| **No fixed widths that break mobile** | Every container must work at 320px minimum |
+| **Touch targets ≥ 44px** | All interactive elements must be tappable on mobile |
+| **Thumb-friendly zones** | Primary actions in bottom 60% of screen |
+| **No hover-dependent UI** | Hover is enhancement, not requirement. Core functionality works without hover. |
+
+### 20.3 Consumer Screens
+
+Consumer screens are **mobile-only**. The 480px container is the design target. No responsive adaptation needed — the container handles it.
+
+### 20.4 Research Console
+
+The research console adapts at breakpoints:
+
+| Breakpoint | Behavior |
+|-----------|----------|
+| < 768px | Sidebar → drawer, full-width content, reduced padding |
+| ≥ 768px | Sidebar visible, content fills remaining space |
+| ≥ 1024px | Sidebar collapsible, content gets more space |
+| ≥ 1280px | Wide content mode for data tables |
+
+### 20.5 Forbidden
+
+| Anti-Pattern | Why |
+|-------------|-----|
+| ❌ `min-width` on containers | Breaks mobile |
+| ❌ Fixed pixel widths > 480px on consumer screens | Doesn't fit mobile |
+| ❌ Hover-only interactions | Inaccessible on touch |
+| ❌ Desktop layout that "shrinks" to mobile | Usually breaks |
+| ❌ Hidden content on mobile without alternative | Data must be accessible |
+
+---
+
+## 21. Performance Budget
+
+### 21.1 Core Principle
+
+> **Performance is a design decision.**
+> A slow interface is a broken interface. Speed is part of the visual experience.
+
+### 21.2 Bundle Size Budget
+
+| Resource | Current | Target | Maximum |
+|----------|---------|--------|---------|
+| JavaScript (total) | 817KB | 400KB | 500KB |
+| JavaScript (gzipped) | 223KB | 150KB | 200KB |
+| CSS | 0KB (inline) | 0KB | 10KB |
+| Fonts | ~0KB (system) | ~60KB (IBM Plex) | 100KB |
+| **Total** | **~817KB** | **~460KB** | **~610KB** |
+
+### 21.3 Runtime Performance Budget
+
+| Metric | Target | Maximum |
+|--------|--------|---------|
+| First Contentful Paint | < 1.0s | < 1.5s |
+| Largest Contentful Paint | < 2.0s | < 3.0s |
+| Time to Interactive | < 2.0s | < 3.5s |
+| Cumulative Layout Shift | < 0.05 | < 0.1 |
+| Total Blocking Time | < 100ms | < 200ms |
+
+### 21.4 Component Performance Rules
+
+| Rule | Detail |
+|------|--------|
+| **No heavy dependencies** | Every new npm package must be justified. Check bundle impact before adding. |
+| **Lazy load infrequent screens** | Research console, Phone Services, Achievements — use `React.lazy()` |
+| **Memoize expensive computations** | Score calculations, chart data transforms — use `useMemo` |
+| **No unnecessary re-renders** | Use `React.memo` for components that receive stable props |
+| **Image optimization** | Use WebP/AVIF. Never serve uncompressed PNGs > 100KB. |
+| **Font subsetting** | Only load glyphs needed for EN/TR/AR. Don't load full Unicode. |
+
+### 21.5 Visual Effect Performance
+
+| Effect | Performance Cost | When Allowed |
+|--------|-----------------|--------------|
+| `backdrop-filter: blur()` | High (GPU) | Max 3 simultaneous, solid fallback |
+| `box-shadow` | Medium | Subtle only, max 2 per element |
+| `transform` | Low | Preferred for animations |
+| `opacity` | Low | Preferred for fades |
+| `transition` | Low | Standard for interactions |
+| `@keyframes` | Low-Medium | Game only, max 3 concurrent |
+| Canvas/WebGL | High | Only for complex visualizations (charts) |
+
+### 21.6 Weak Device Rules
+
+When `settings.reducedMotion = true` OR device is detected as low-performance:
+
+```
+Disable: backdrop-filter blur
+Disable: box-shadow glow effects
+Disable: all @keyframes animations
+Reduce: transition durations to 0ms
+Simplify: chart rendering (fewer data points)
+Prefer: solid surfaces over glass
+```
+
+### 21.7 Performance Review Checklist
+
+Every PR that adds a new component or feature must answer:
+
+- [ ] What is the bundle size impact? (Check with `pnpm build`)
+- [ ] Does it add a new npm dependency? If so, what's the size?
+- [ ] Does it use `backdrop-filter`? If so, is there a solid fallback?
+- [ ] Does it animate? If so, is the animation under 300ms?
+- [ ] Does it render a list? If so, is it virtualized for >50 items?
+- [ ] Does it fetch data? If so, does it handle loading and error states?
+
+---
+
+## 22. Future Scalability
+
+### 22.1 Core Principle
+
+> **Every new component must be built with the system, not outside it.**
+> Ad-hoc solutions technical debt. The design system is the only way forward.
+
+### 22.2 New Component Rules
+
+| Rule | Detail |
+|------|--------|
+| **Use existing tokens** | No new colors, spacing, or typography without updating the token system first |
+| **Use existing components** | Compose from Button, Card, Input, etc. Don't create new primitives without justification |
+| **Follow variant pattern** | New components must accept `variant` and `size` props where applicable |
+| **Include accessibility** | Keyboard, screen reader, focus, contrast — from day one |
+| **Include RTL** | CSS Logical Properties from day one |
+| **Include test ID** | `data-testid` prop from day one |
+| **Include documentation** | JSDoc + usage example in component file |
+
+### 22.3 Adding New Tokens
+
+If a new token is needed:
+
+1. **Check if an existing token works.** Most needs are covered by the 25 color tokens, 10 type sizes, 9 spacing values.
+2. **If truly new:** Add to the token system in `tokens.ts`. Document the usage. Update this specification.
+3. **Never add tokens in component files.** Tokens live in the design system, not in components.
+
+### 22.4 Adding New Screens
+
+If a new screen is added:
+
+1. **Use the Container component.** 480px max-width for consumer, responsive for research console.
+2. **Use ScreenHeader.** Consistent title + optional back button.
+3. **Use existing components.** Card, Button, Input, Tabs — don't reinvent.
+4. **Handle all 5 states.** Loading, empty, error, no data, success (see Sections 15-17).
+5. **Add to navigation.** Update ScreenMap, navigation graph, and translation keys.
+
+### 22.5 Technical Debt Budget
+
+| Metric | Maximum |
+|--------|---------|
+| Inline styles per file | 0 (except game-specific) |
+| Hardcoded colors per file | 0 |
+| Hardcoded spacing per file | 0 |
+| TODO/FIXME comments | 0 (resolve or create issue) |
+| Unused imports | 0 |
+
+---
+
+## 23. Definition of Done
+
+### 23.1 Core Principle
+
+> **Every PR must meet these standards. No exceptions. No "we'll fix it later."**
+> "Later" never comes. Quality is enforced at merge time.
+
+### 23.2 PR Checklist (Mandatory)
+
+Every Pull Request must pass ALL of the following:
+
+#### Design Compliance
+
+- [ ] Uses design tokens (no hardcoded colors)
+- [ ] Uses spacing tokens (no hardcoded spacing)
+- [ ] Uses typography tokens (no new font sizes or weights)
+- [ ] Uses border-radius tokens (no custom radius)
+- [ ] Uses transition tokens (no custom durations > 300ms)
+- [ ] No pure black backgrounds (`#000000`, `#050505`)
+- [ ] No glass on research console surfaces
+- [ ] No glow on non-primary elements
+- [ ] No gradient on non-hero buttons
+
+#### Accessibility
+
+- [ ] Keyboard operable (Enter/Space for interactive elements)
+- [ ] Focus visible (`:focus-visible` outline)
+- [ ] Screen reader accessible (role, label, description where needed)
+- [ ] Color contrast ≥ 4.5:1 (normal text) / ≥ 3:1 (large text)
+- [ ] Touch target ≥ 44×44px
+- [ ] No content loss at 200% zoom
+- [ ] No fixed heights on content containers
+- [ ] No overflow hidden that hides data
+
+#### RTL
+
+- [ ] Uses CSS Logical Properties (no `margin-left`, no `padding-right`)
+- [ ] RTL tested in Arabic
+- [ ] No directional assumptions in layout
+
+#### Quality
+
+- [ ] `pnpm lint` passes (0 warnings)
+- [ ] `pnpm test` passes (all tests green)
+- [ ] `pnpm build` passes (build succeeds)
+- [ ] No new TypeScript errors
+- [ ] No new console.error calls
+- [ ] No new `any` types
+
+#### Performance
+
+- [ ] Bundle size impact documented (check `pnpm build` output)
+- [ ] No new npm dependencies without justification
+- [ ] No `backdrop-filter` without solid fallback
+- [ ] No animations > 300ms (except game)
+- [ ] No unnecessary re-renders
+
+#### Documentation
+
+- [ ] Component has JSDoc with usage example
+- [ ] New translation keys added to all 3 locales (EN, TR, AR)
+- [ ] New screens added to navigation graph
+
+### 23.3 PR Size Limit
+
+| Metric | Maximum |
+|--------|---------|
+| Files changed | 5 per PR |
+| Lines added | 500 per PR |
+| Lines removed | Unlimited |
+| New components | 1 per PR |
+| New screens | 1 per PR |
+| New tokens | Update spec first, then implement |
+
+### 23.4 Merge Requirements
+
+| Requirement | Detail |
+|-------------|--------|
+| **All checks green** | Lint, test, build must pass |
+| **Design review** | PR must be reviewed for design token compliance |
+| **Accessibility review** | PR must be reviewed for keyboard/screen reader support |
+| **No force merge** | Even by admins. Quality gates are non-negotiable. |
+
+---
+
+## 24. Implementation Priorities
+
+### 24.1 Phase-2 Execution Order
 
 After this document is approved, Phase-2 proceeds in this exact order:
 
@@ -1099,15 +1701,16 @@ After this document is approved, Phase-2 proceeds in this exact order:
 | 9 | **2I: Phone Services** | 1-2 modified | Wizard migrated |
 | 10 | **2J: Remaining** | 5-8 modified | Settings, Achievements, Auth, etc. |
 
-### 14.2 Migration Rules
+### 24.2 Migration Rules
 
 1. **One screen at a time.** Never migrate 2 screens in one commit.
 2. **Build must pass after every step.** `pnpm lint && pnpm test && pnpm build` green.
 3. **No visual regression.** The migrated screen must look identical (or better) than before.
 4. **Old tokens remain until all consumers migrate.** Don't delete tokens early.
 5. **New components coexist with old.** Old inline styles remain until the screen is migrated.
+6. **Backward compatibility during migration.** Current UI must stay functional throughout. No PR may break the app or disable users.
 
-### 14.3 What "Done" Looks Like
+### 24.3 What "Done" Looks Like
 
 Phase-2 is complete when:
 
