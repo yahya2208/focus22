@@ -24,8 +24,6 @@ function isValidTheme(v: string): v is ThemeId {
   return ['midnight', 'ocean', 'emerald', 'carbon', 'purple', 'sunrise', 'light'].includes(v);
 }
 
-export const THEME_IDS: readonly ThemeId[] = ['midnight', 'ocean', 'emerald', 'carbon', 'purple', 'sunrise', 'light'];
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeId>(getInitialTheme);
 

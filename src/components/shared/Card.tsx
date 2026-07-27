@@ -35,29 +35,3 @@ export function Card({ children, padding = '1.5rem', elevated = true, glass = tr
     </div>
   );
 }
-
-interface GlassCardProps {
-  children: ReactNode;
-  padding?: string;
-  style?: React.CSSProperties;
-}
-
-export function GlassCard({ children, padding = '1.25rem', style }: GlassCardProps) {
-  const colors = useThemeColors();
-  return (
-    <div
-      role="region"
-      style={{
-        background: `linear-gradient(135deg, ${colors.glass} 0%, ${colors.glass} 100%)`,
-        borderRadius: '20px',
-        padding,
-        border: `1px solid ${colors.glassBorder}`,
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}

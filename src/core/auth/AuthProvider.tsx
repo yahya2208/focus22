@@ -85,11 +85,3 @@ export function useAuth(): AuthContextValue {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
-
-export function useRequireAuth(requiredRole?: AuthUser['role']): AuthContextValue {
-  const ctx = useAuth();
-  if (requiredRole && ctx.state.user?.role !== requiredRole) {
-    throw new Error(`Authentication required: ${requiredRole}`);
-  }
-  return ctx;
-}

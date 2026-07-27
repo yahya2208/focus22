@@ -41,7 +41,6 @@ export interface AppState {
   currentScreen: ScreenName;
   selectedGame: string | null;
   calibrationProfile: CalibrationProfile | null;
-  sessionResults: unknown | null;
   results: {
     rawRts: readonly number[];
     correctedRts: readonly number[];
@@ -70,7 +69,6 @@ const initialState: AppState = {
   currentScreen: 'home',
   selectedGame: null,
   calibrationProfile: null,
-  sessionResults: null,
   results: null,
   sessions: [],
   isQrFlow: false,
