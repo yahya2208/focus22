@@ -1,29 +1,35 @@
 import { useState, useEffect, createContext, useContext, useCallback, type ReactNode } from 'react';
 
-type ThemeValue = 'dark' | 'light';
+export type ThemeId = 'midnight' | 'ocean' | 'emerald' | 'carbon' | 'purple' | 'sunrise' | 'light';
 
 interface ThemeContextValue {
-  theme: ThemeValue;
-  setTheme: (t: ThemeValue) => void;
+  theme: ThemeId;
+  setTheme: (t: ThemeId) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: 'dark',
+  theme: 'midnight',
   setTheme: () => {},
 });
 
 const THEME_KEY = 'focus_theme';
 
-function getInitialTheme(): ThemeValue {
+function getInitialTheme(): ThemeId {
   const stored = localStorage.getItem(THEME_KEY);
-  if (stored === 'dark' || stored === 'light') return stored;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  if (stored && isValidTheme(stored)) return stored;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'midnight' : 'light';
 }
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeValue>(getInitialTheme);
+function isValidTheme(v: string): v is ThemeId {
+  return ['midnight', 'ocean', 'emerald', 'carbon', 'purple', 'sunrise', 'light'].includes(v);
+}
 
-  const setTheme = useCallback((t: ThemeValue) => {
+export const THEME_IDS: readonly ThemeId[] = ['midnight', 'ocean', 'emerald', 'carbon', 'purple', 'sunrise', 'light'];
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setThemeState] = useState<ThemeId>(getInitialTheme);
+
+  const setTheme = useCallback((t: ThemeId) => {
     setThemeState(t);
     localStorage.setItem(THEME_KEY, t);
     document.documentElement.setAttribute('data-theme', t);

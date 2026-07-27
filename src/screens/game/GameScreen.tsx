@@ -153,6 +153,7 @@ export function GameScreen() {
   const lampElRef = useRef<HTMLButtonElement | null>(null);
 
   const stimulusTimeRef = useRef(0);
+  const sessionStartRef = useRef(Date.now());
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const roundTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const phaseRef = useRef<Phase>('waiting');
@@ -203,6 +204,8 @@ export function GameScreen() {
             const corrected = rt - calibration.displayLagMs - calibration.inputLagMs;
             return corrected >= REACTION.MIN_RT_MS;
           }).length,
+          sessionStart: sessionStartRef.current,
+          sessionEnd: Date.now(),
         },
       });
       dispatch({ type: 'NAVIGATE', screen: 'results' });

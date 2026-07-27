@@ -1,5 +1,5 @@
 export interface AppSettings {
-  theme: 'dark' | 'light' | 'system';
+  theme: 'system' | 'midnight' | 'ocean' | 'emerald' | 'carbon' | 'purple' | 'sunrise' | 'light';
   reducedMotion: boolean;
   highContrast: boolean;
   language: string;
@@ -9,7 +9,7 @@ const SETTINGS_KEY = 'focus_settings';
 const listeners = new Set<(s: AppSettings) => void>();
 
 const defaultSettings: AppSettings = {
-  theme: 'dark',
+  theme: 'midnight',
   reducedMotion: false,
   highContrast: false,
   language: navigator.language.startsWith('ar') ? 'ar' : navigator.language.startsWith('tr') ? 'tr' : 'en',

@@ -48,6 +48,8 @@ export interface AppState {
     calibration: CalibrationProfile;
     totalRounds: number;
     validRounds: number;
+    sessionStart?: number;
+    sessionEnd?: number;
   } | null;
   sessions: SessionRecord[];
   isQrFlow: boolean;

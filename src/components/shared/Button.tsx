@@ -2,9 +2,10 @@ import { type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   loading?: boolean;
+  glow?: boolean;
   children: ReactNode;
 }
 
@@ -12,6 +13,7 @@ export function Button({
   variant = 'primary',
   size = 'md',
   loading = false,
+  glow = false,
   disabled,
   children,
   style,
@@ -20,15 +22,35 @@ export function Button({
   const colors = useThemeColors();
 
   const variantStyles: Record<string, React.CSSProperties> = {
-    primary: { background: colors.accent, color: 'white' },
-    secondary: { background: colors.bgInput, color: colors.text, border: `1px solid ${colors.borderLight}` },
-    danger: { background: colors.danger, color: 'white' },
+    primary: {
+      background: `linear-gradient(135deg, ${colors.accent} 0%, ${colors.accentLight} 100%)`,
+      color: '#fff',
+      boxShadow: glow ? `0 4px 24px ${colors.accentGlow}, 0 0 48px ${colors.accentGlow}` : `0 2px 12px ${colors.accentGlow}`,
+    },
+    secondary: {
+      background: colors.glass,
+      color: colors.text,
+      border: `1px solid ${colors.glassBorder}`,
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
+    },
+    danger: {
+      background: `linear-gradient(135deg, ${colors.danger} 0%, ${colors.danger}dd 100%)`,
+      color: '#fff',
+      boxShadow: `0 2px 12px ${colors.dangerBg}`,
+    },
+    ghost: {
+      background: 'transparent',
+      color: colors.textSecondary,
+      border: 'none',
+    },
   };
 
   const sizeStyles: Record<string, React.CSSProperties> = {
-    sm: { padding: '0.5rem 1rem', fontSize: '0.875rem' },
-    md: { padding: '0.75rem 1.5rem', fontSize: '1rem' },
-    lg: { padding: '1rem 2rem', fontSize: '1.125rem' },
+    sm: { padding: '0.5rem 1rem', fontSize: '0.8rem', borderRadius: '12px' },
+    md: { padding: '0.75rem 1.5rem', fontSize: '0.9rem', borderRadius: '14px' },
+    lg: { padding: '1rem 2rem', fontSize: '1rem', borderRadius: '16px' },
+    xl: { padding: '1.25rem 2.5rem', fontSize: '1.1rem', borderRadius: '20px' },
   };
 
   return (
@@ -36,19 +58,43 @@ export function Button({
       aria-label={typeof children === 'string' ? children : undefined}
       disabled={disabled || loading}
       style={{
-        borderRadius: '8px',
-        border: 'none',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '0.5rem',
+        fontWeight: 600,
+        fontFamily: 'system-ui, -apple-system, sans-serif',
         cursor: disabled || loading ? 'not-allowed' : 'pointer',
-        opacity: disabled || loading ? 0.6 : 1,
-        transition: 'opacity 0.2s, transform 0.1s',
-        fontFamily: 'system-ui, sans-serif',
+        opacity: disabled || loading ? 0.5 : 1,
+        transition: 'all 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
+        transform: disabled ? 'none' : undefined,
+        letterSpacing: '0.01em',
         ...variantStyles[variant],
         ...sizeStyles[size],
         ...style,
       }}
+      onMouseEnter={(e) => {
+        if (!disabled && !loading) {
+          (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
+          (e.currentTarget as HTMLElement).style.filter = 'brightness(1.08)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+        (e.currentTarget as HTMLElement).style.filter = 'brightness(1)';
+      }}
       {...rest}
     >
-      {loading ? 'Loading...' : children}
+      {loading && (
+        <span style={{
+          width: '16px', height: '16px',
+          border: '2px solid rgba(255,255,255,0.3)',
+          borderTopColor: '#fff',
+          borderRadius: '50%',
+          animation: 'spin 0.6s linear infinite',
+        }} />
+      )}
+      {children}
     </button>
   );
 }
