@@ -620,9 +620,10 @@ export interface ThemeTokens {
  * Only colors change per theme.
  */
 export function getThemeTokens(themeId: ThemeId): ThemeTokens {
+  const colors = themeColors[themeId] ?? themeColors.midnight;
   return {
-    colors: themeColors[themeId],
-    semantic: buildSemanticColors(themeColors[themeId]),
+    colors,
+    semantic: buildSemanticColors(colors),
     radius,
     shadows,
     borders,

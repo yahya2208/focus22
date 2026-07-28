@@ -283,5 +283,5 @@ export const THEME_META: Record<ThemeId, { label: string; preview: string[] }> =
 
 export function useThemeColors(): ThemeColors {
   const { theme } = useTheme();
-  return THEMES[theme];
+  return THEMES[theme] ?? THEMES.midnight;
 }

@@ -58,7 +58,7 @@ export function useTokens(): ThemeTokens {
  */
 export function useColors(): ColorTokens {
   const { theme } = useTheme();
-  return themeColors[theme];
+  return themeColors[theme] ?? themeColors.midnight;
 }
 
 /**
