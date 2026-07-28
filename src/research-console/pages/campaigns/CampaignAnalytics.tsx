@@ -14,12 +14,30 @@ interface Props {
 
 interface HourlyData { hour: number; count: number; }
 
+interface SessionRow {
+  id: string;
+  status: string;
+  os: string;
+  osVersion: string;
+  browser: string;
+  browserVersion: string;
+  platform: string;
+  screenWidth: number;
+  screenHeight: number;
+  memoryGb: number | null;
+  cpuCores: number;
+  timezone: string;
+  language: string;
+  createdAt: string;
+}
+
 export function CampaignAnalytics({ campaign, qrCodes, sessionStats }: Props) {
   const { t } = useTranslation();
   const [hourlyData, setHourlyData] = useState<HourlyData[]>([]);
   const [dailyData, setDailyData] = useState<{ label: string; value: number }[]>([]);
   const [deviceStats, setDeviceStats] = useState<Record<string, number>>({});
   const [browserStats, setBrowserStats] = useState<Record<string, number>>({});
+  const [sessions, setSessions] = useState<SessionRow[]>([]);
 
   const stats = {
     scans: qrCodes.reduce((s, q) => s + q.scan_count, 0),
@@ -65,6 +83,59 @@ export function CampaignAnalytics({ campaign, qrCodes, sessionStats }: Props) {
     load();
   }, [campaign.id]);
 
+  useEffect(() => {
+    const loadSessions = async () => {
+      try {
+        const client = getSupabaseClient();
+        const { data, error } = await client
+          .from('sessions')
+          .select(`
+            id, status, created_at,
+            _devices:devices(
+              os, os_version, browser, browser_version, platform,
+              screen_width, screen_height, memory_gb, cpu_cores,
+              timezone, language
+            )
+          `)
+          .eq('campaign_id', campaign.id)
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        console.log('[CampaignAnalytics] raw query result', JSON.stringify(data, null, 2));
+        if (error) console.warn('[CampaignAnalytics] query error', error);
+
+        const mapped: SessionRow[] = (data ?? []).map((row: Record<string, unknown>) => {
+          const dev = (row._devices as Record<string, unknown>) ?? {};
+          return {
+            id: row.id as string,
+            status: row.status as string,
+            os: (dev.os as string) ?? '',
+            osVersion: (dev.os_version as string) ?? '',
+            browser: (dev.browser as string) ?? '',
+            browserVersion: (dev.browser_version as string) ?? '',
+            platform: (dev.platform as string) ?? '',
+            screenWidth: (dev.screen_width as number) ?? 0,
+            screenHeight: (dev.screen_height as number) ?? 0,
+            memoryGb: (dev.memory_gb as number | null) ?? null,
+            cpuCores: (dev.cpu_cores as number) ?? 0,
+            timezone: (dev.timezone as string) ?? '',
+            language: (dev.language as string) ?? '',
+            createdAt: row.created_at as string,
+          };
+        });
+
+        console.log('[CampaignAnalytics] mapped result', mapped.length, 'sessions');
+        console.log('[CampaignAnalytics] first row:', mapped[0]);
+        setSessions(mapped);
+      } catch (err) {
+        console.warn('[CampaignAnalytics] load error', err);
+      }
+    };
+    loadSessions();
+  }, [campaign.id]);
+
+  console.log('[CampaignAnalytics] rendered rows', sessions.length);
+
   const funnelSteps = [
     { label: t('campaign.totalScans'), value: stats.scans, color: '#6366f1' },
     { label: t('campaign.gameStarted'), value: stats.started, color: '#3b82f6' },
@@ -79,6 +150,9 @@ export function CampaignAnalytics({ campaign, qrCodes, sessionStats }: Props) {
     const rows = hourlyData.map(h => [`${h.hour}:00`, h.count]);
     exportCSV(`${campaign.name}-analytics`, headers, rows);
   };
+
+  const TH: React.CSSProperties = { padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.65rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '2px solid #1e1e2e', whiteSpace: 'nowrap' };
+  const TD: React.CSSProperties = { padding: '0.5rem 0.6rem', borderBottom: '1px solid #1e1e2e', fontSize: '0.75rem', color: '#ccc', whiteSpace: 'nowrap' };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -142,6 +216,58 @@ export function CampaignAnalytics({ campaign, qrCodes, sessionStats }: Props) {
           </div>
         )}
       </div>
+
+      {sessions.length > 0 && (
+        <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: '12px', overflow: 'hidden' }}>
+          <div style={{ padding: '1rem 1rem 0.5rem' }}>
+            <h3 style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
+              {campaign.name} — Sessions ({sessions.length})
+            </h3>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={TH}>Session ID</th>
+                  <th style={TH}>Status</th>
+                  <th style={TH}>OS</th>
+                  <th style={TH}>Browser</th>
+                  <th style={TH}>Platform</th>
+                  <th style={TH}>Screen</th>
+                  <th style={TH}>RAM</th>
+                  <th style={TH}>CPU</th>
+                  <th style={TH}>Timezone</th>
+                  <th style={TH}>Language</th>
+                  <th style={TH}>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessions.map(s => (
+                  <tr key={s.id}>
+                    <td style={{ ...TD, fontFamily: 'monospace', fontSize: '0.65rem', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={s.id}>{s.id.slice(0, 8)}…</td>
+                    <td style={TD}>
+                      <span style={{
+                        padding: '1px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 600,
+                        background: s.status === 'completed' ? '#22c55e20' : s.status === 'running' ? '#3b82f620' : '#f59e0b20',
+                        color: s.status === 'completed' ? '#22c55e' : s.status === 'running' ? '#3b82f6' : '#f59e0b',
+                      }}>{s.status}</span>
+                    </td>
+                    <td style={TD}>{s.os} {s.osVersion}</td>
+                    <td style={TD}>{s.browser} {s.browserVersion}</td>
+                    <td style={TD}>{s.platform}</td>
+                    <td style={TD}>{s.screenWidth}×{s.screenHeight}</td>
+                    <td style={TD}>{s.memoryGb ? `${s.memoryGb} GB` : '-'}</td>
+                    <td style={TD}>{s.cpuCores > 0 ? `${s.cpuCores} cores` : '-'}</td>
+                    <td style={TD}>{s.timezone || '-'}</td>
+                    <td style={TD}>{s.language || '-'}</td>
+                    <td style={TD}>{s.createdAt ? new Date(s.createdAt).toLocaleString() : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: '0.5rem' }}>
         <button onClick={exportData} style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', background: '#1e1e2e', color: '#ccc', border: '1px solid #333', cursor: 'pointer', fontSize: '0.78rem' }}>{t('campaign.exportCSV')}</button>
