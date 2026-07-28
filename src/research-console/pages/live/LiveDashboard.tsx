@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { subscribeToLiveSessions, type LiveSession } from '../../../core/supabase/live-sessions';
 import { ResearchLayout, StatCard, DashboardHeader } from '../../layout/ResearchLayout';
 import type { DashboardId } from '../../layout/ResearchLayout';
@@ -136,9 +136,8 @@ export function LiveDashboard() {
                 </thead>
                 <tbody>
                   {uniqueSessions.map(s => (
-                    <>
+                    <React.Fragment key={s.sessionId}>
                       <tr
-                        key={s.sessionId}
                         style={{ borderBottom: '1px solid #1e1e2e', cursor: 'pointer' }}
                         onClick={() => setExpandedId(expandedId === s.sessionId ? null : s.sessionId)}
                       >
@@ -186,7 +185,7 @@ export function LiveDashboard() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
