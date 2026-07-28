@@ -53,12 +53,7 @@ async function fetchRoleFromProfile(supa: SupabaseClient, userId: string): Promi
       .select('role')
       .eq('id', userId)
       .single();
-    if (error) {
-      return 'guest';
-    }
-    if (!data) {
-      return 'guest';
-    }
+    if (error || !data) return 'guest';
     return (data.role as AppRole) ?? 'guest';
   } catch {
     return 'guest';
@@ -84,7 +79,6 @@ export function createAuthService(client?: SupabaseClient): AuthService {
         setState({ status: 'unauthenticated', user: null, error: null });
         return;
       }
-      // Fetch role from public.users (source of truth)
       const role = await fetchRoleFromProfile(supa, base.id);
       const user: AuthUser = { ...base, role };
       setState({

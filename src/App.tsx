@@ -36,6 +36,7 @@ import { useThemeColors } from './hooks/useThemeColors';
 import { parseDeepLinkFromCurrentUrl } from './core/qr/deeplink';
 import { hasCampaign } from './core/qr/campaign';
 import { getGlobalTelemetry } from './core/telemetry';
+import { setupSessionTelemetry } from './core/telemetry';
 import { runSilentCalibration } from './core/calibration/silent';
 import { updateSettings } from './core/config/settings';
 
@@ -153,6 +154,11 @@ function ScreenRouter() {
 }
 
 export default function App() {
+  useEffect(() => {
+    const cleanup = setupSessionTelemetry();
+    return cleanup;
+  }, []);
+
   return (
     <ErrorBoundary>
       <SettingsProvider>

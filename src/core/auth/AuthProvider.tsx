@@ -35,33 +35,32 @@ function mapToResearchRole(role: AuthUser['role']): ResearchRole {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [service, setService] = useState<AuthService>(STUB_SERVICE);
   const [state, setState] = useState<AuthState>(STUB_SERVICE.getState);
-  const initRef = useRef(false);
+  const serviceRef = useRef<AuthService | null>(null);
+  const guestCreatedRef = useRef(false);
+
+  if (!serviceRef.current) {
+    try {
+      serviceRef.current = createAuthService();
+    } catch {
+      serviceRef.current = STUB_SERVICE;
+    }
+  }
+  const service = serviceRef.current;
 
   useEffect(() => {
-    if (initRef.current) return;
-    initRef.current = true;
+    const currentState = service.getState();
+    setState(currentState);
 
-    try {
-      const s = createAuthService();
-      setService(s);
-      
-      const currentState = s.getState();
-      setState(currentState);
-      
-      // Auto-create anonymous user if no existing session
-      if (currentState.status === 'unauthenticated') {
-        s.signInAsGuest().catch(() => {});
-      }
-      
-      return s.onStateChange((newState) => {
-        setState(newState);
-      });
-    } catch {
-      // Stay with stub — no crash
+    if (!guestCreatedRef.current && currentState.status === 'unauthenticated') {
+      guestCreatedRef.current = true;
+      service.signInAsGuest().catch(() => {});
     }
-  }, []);
+
+    return service.onStateChange((newState) => {
+      setState(newState);
+    });
+  }, [service]);
 
   const researchRole = useMemo(
     () => state.user ? mapToResearchRole(state.user.role) : 'none',

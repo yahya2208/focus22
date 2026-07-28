@@ -8,6 +8,8 @@ import type { TranslationKey } from '../../i18n';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Button } from '../../components/shared/Button';
 import { getGlobalTelemetry } from '../../core/telemetry';
+import { getGlobalSessionService } from '../../core/session/service';
+import { Screen, Stack, Grid } from '../../design-system/layout';
 
 function StatCard({ label, value, accent, colors }: { label: string; value: string; accent?: boolean; colors: ReturnType<typeof useThemeColors> }) {
   return (
@@ -98,7 +100,7 @@ function ScoreRing({ score, colors }: { score: number; colors: ReturnType<typeof
 
 export function ResultsScreen() {
   const dispatch = useAppDispatch();
-  const { results, isQrFlow } = useAppState();
+  const { results, isQrFlow, currentSession } = useAppState();
   const { t } = useTranslation();
   const colors = useThemeColors();
 
@@ -128,12 +130,14 @@ export function ResultsScreen() {
 
   if (!results || !analysis) {
     return (
-      <nav aria-label="Results" style={{ padding: '1.5rem 1.25rem', maxWidth: '480px', margin: '0 auto' }}>
-        <div style={{ background: colors.glass, border: `1px solid ${colors.glassBorder}`, borderRadius: '20px', padding: '1.25rem', marginBottom: '1rem', textAlign: 'center' }}>
-          <p style={{ color: colors.textMuted, margin: 0, fontSize: '0.9rem' }}>{t('results.noResults')}</p>
-        </div>
-        <Button onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })}>{t('home.startMeasurement')}</Button>
-      </nav>
+      <Screen ariaLabel="Results">
+        <Stack gap="lg">
+          <div style={{ background: colors.glass, border: `1px solid ${colors.glassBorder}`, borderRadius: '20px', padding: '1.25rem', textAlign: 'center' }}>
+            <p style={{ color: colors.textMuted, margin: 0, fontSize: '0.9rem' }}>{t('results.noResults')}</p>
+          </div>
+          <Button onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })}>{t('home.startMeasurement')}</Button>
+        </Stack>
+      </Screen>
     );
   }
 
@@ -148,181 +152,195 @@ export function ResultsScreen() {
   const earlyTaps = results.totalRounds - results.validRounds;
 
   const saveAndExit = () => {
+    const sessionService = getGlobalSessionService();
+    if (currentSession?.id && results) {
+      sessionService.completeSession(currentSession.id, {
+        rawRts: results.rawRts,
+        correctedRts: results.correctedRts,
+        totalRounds: results.totalRounds,
+        validRounds: results.validRounds,
+        calibration: results.calibration,
+        sessionStart: results.sessionStart ?? Date.now(),
+        sessionEnd: results.sessionEnd ?? Date.now(),
+      });
+    }
     dispatch({ type: 'SAVE_SESSION' });
     dispatch({ type: 'NAVIGATE', screen: 'home' });
   };
 
   return (
-    <nav aria-label="Measurement results" style={{ padding: '1.5rem 1.25rem', maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      {/* Title */}
-      <div style={{ textAlign: 'center' }}>
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: colors.text, marginBottom: '0.15rem' }}>
-          {t('results.title')}
-        </h1>
-        <p style={{ color: colors.textMuted, fontSize: '0.8rem' }}>
-          {results.validRounds}/{results.totalRounds} valid trials
-        </p>
-      </div>
-
-      {/* Score Ring */}
-      <div style={{
-        background: colors.glass, border: `1px solid ${colors.glassBorder}`,
-        borderRadius: '24px', padding: '1.5rem', textAlign: 'center',
-        backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-      }}>
-        <ScoreRing score={analysis.score.focusScore} colors={colors} />
-        <p style={{ color: colors.textMuted, marginTop: '0.75rem', fontSize: '0.85rem' }}>
-          {t('results.grade')}: <strong style={{ color: colors.text }}>{analysis.score.grade}</strong>
-        </p>
-      </div>
-
-      {/* Quick Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-        <StatCard label={t('results.best')} value={`${Math.round(bestRt)}ms`} accent colors={colors} />
-        <StatCard label={t('results.average')} value={`${Math.round(avgRt)}ms`} colors={colors} />
-        <StatCard label={t('results.consistency')} value={analysis.consistency.rating} colors={colors} />
-        <StatCard label={t('results.fatigue')} value={analysis.fatigue.hasFatigue ? t('results.yes') : t('results.no')} colors={colors} />
-      </div>
-
-      {/* Session Timing */}
-      <div style={{
-        background: colors.glass, border: `1px solid ${colors.glassBorder}`,
-        borderRadius: '20px', padding: '1rem',
-        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-      }}>
-        <h3 style={{ color: colors.text, margin: '0 0 0.75rem', fontSize: '0.85rem', fontWeight: 700 }}>Session Details</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
-          {results.sessionStart && (
-            <div>
-              <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Start</p>
-              <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                {new Date(results.sessionStart).toLocaleTimeString()}
-              </p>
-            </div>
-          )}
-          {results.sessionEnd && (
-            <div>
-              <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>End</p>
-              <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                {new Date(results.sessionEnd).toLocaleTimeString()}
-              </p>
-            </div>
-          )}
-          {sessionDuration !== null && (
-            <div>
-              <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Duration</p>
-              <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>{sessionDuration}s</p>
-            </div>
-          )}
-          <div>
-            <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Worst</p>
-            <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{Math.round(maxRt)}ms</p>
-          </div>
-          <div>
-            <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Std Dev</p>
-            <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{analysis.consistency.sdMs.toFixed(1)}ms</p>
-          </div>
-          <div>
-            <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Errors</p>
-            <p style={{ color: earlyTaps > 0 ? colors.warning : colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>{earlyTaps}</p>
-          </div>
-          <div>
-            <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Attempts</p>
-            <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>{results.totalRounds}</p>
-          </div>
-          <div>
-            <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Touches</p>
-            <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>{results.rawRts.length}</p>
-          </div>
+    <Screen ariaLabel="Measurement results">
+      <Stack gap="lg">
+        {/* Title */}
+        <div style={{ textAlign: 'center' }}>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: colors.text, marginBottom: '0.15rem' }}>
+            {t('results.title')}
+          </h1>
+          <p style={{ color: colors.textMuted, fontSize: '0.8rem' }}>
+            {results.validRounds}/{results.totalRounds} valid trials
+          </p>
         </div>
-      </div>
 
-      {/* Session Replay */}
-      <div style={{
-        background: colors.glass, border: `1px solid ${colors.glassBorder}`,
-        borderRadius: '20px', padding: '1rem',
-        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-      }}>
-        <h3 style={{ color: colors.text, margin: '0 0 0.5rem', fontSize: '0.85rem', fontWeight: 700 }}>Session Replay</h3>
-        {results.correctedRts.map((rt, i) => (
-          <TimelineRow key={i} trial={i + 1} rtMs={rt} isBest={rt === bestRt} isWorst={rt === maxRt && rt !== bestRt} avgMs={avgRt} colors={colors} />
-        ))}
-      </div>
-
-      {/* AI Summary */}
-      <div style={{
-        background: colors.glass, border: `1px solid ${colors.glassBorder}`,
-        borderRadius: '20px', padding: '1rem',
-        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-          <span style={{
-            width: 28, height: 28, borderRadius: '8px',
-            background: `${colors.accent}18`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '0.8rem',
-          }}>🤖</span>
-          <h3 style={{ color: colors.text, margin: 0, fontSize: '0.85rem', fontWeight: 700 }}>AI Summary</h3>
+        {/* Score Ring */}
+        <div style={{
+          background: colors.glass, border: `1px solid ${colors.glassBorder}`,
+          borderRadius: '24px', padding: '1.5rem', textAlign: 'center',
+          backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+        }}>
+          <ScoreRing score={analysis.score.focusScore} colors={colors} />
+          <p style={{ color: colors.textMuted, marginTop: '0.75rem', fontSize: '0.85rem' }}>
+            {t('results.grade')}: <strong style={{ color: colors.text }}>{analysis.score.grade}</strong>
+          </p>
         </div>
-        <p style={{ color: colors.textSecondary, fontSize: '0.8rem', lineHeight: 1.5, margin: 0 }}>
-          {analysis.score.focusScore >= 80
-            ? `Excellent focus! Your reaction time of ${Math.round(avgRt)}ms with ${analysis.consistency.rating} consistency shows strong cognitive performance.`
-            : analysis.score.focusScore >= 60
-              ? `Good performance. Your average of ${Math.round(avgRt)}ms is solid. Focus on consistency to improve further.`
-              : `Room for improvement. Your average ${Math.round(avgRt)}ms suggests practice could help. Try to stay relaxed between trials.`
-          }
-        </p>
-      </div>
 
-      {/* Recommendations */}
-      <div style={{
-        background: colors.glass, border: `1px solid ${colors.glassBorder}`,
-        borderRadius: '20px', padding: '1rem',
-        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-          <span style={{
-            width: 28, height: 28, borderRadius: '8px',
-            background: `${colors.accent}18`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '0.8rem',
-          }}>💡</span>
-          <h3 style={{ color: colors.text, margin: 0, fontSize: '0.85rem', fontWeight: 700 }}>{t('recommendation.title')}</h3>
+        {/* Quick Stats */}
+        <Grid columns={2} gap="md">
+          <StatCard label={t('results.best')} value={`${Math.round(bestRt)}ms`} accent colors={colors} />
+          <StatCard label={t('results.average')} value={`${Math.round(avgRt)}ms`} colors={colors} />
+          <StatCard label={t('results.consistency')} value={analysis.consistency.rating} colors={colors} />
+          <StatCard label={t('results.fatigue')} value={analysis.fatigue.hasFatigue ? t('results.yes') : t('results.no')} colors={colors} />
+        </Grid>
+
+        {/* Session Timing */}
+        <div style={{
+          background: colors.glass, border: `1px solid ${colors.glassBorder}`,
+          borderRadius: '20px', padding: '1rem',
+          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        }}>
+          <h3 style={{ color: colors.text, margin: '0 0 0.75rem', fontSize: '0.85rem', fontWeight: 700 }}>Session Details</h3>
+          <Grid columns={2} gap="sm">
+            {results.sessionStart && (
+              <div>
+                <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Start</p>
+                <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+                  {new Date(results.sessionStart).toLocaleTimeString()}
+                </p>
+              </div>
+            )}
+            {results.sessionEnd && (
+              <div>
+                <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>End</p>
+                <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+                  {new Date(results.sessionEnd).toLocaleTimeString()}
+                </p>
+              </div>
+            )}
+            {sessionDuration !== null && (
+              <div>
+                <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Duration</p>
+                <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>{sessionDuration}s</p>
+              </div>
+            )}
+            <div>
+              <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Worst</p>
+              <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{Math.round(maxRt)}ms</p>
+            </div>
+            <div>
+              <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Std Dev</p>
+              <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{analysis.consistency.sdMs.toFixed(1)}ms</p>
+            </div>
+            <div>
+              <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Errors</p>
+              <p style={{ color: earlyTaps > 0 ? colors.warning : colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>{earlyTaps}</p>
+            </div>
+            <div>
+              <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Attempts</p>
+              <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>{results.totalRounds}</p>
+            </div>
+            <div>
+              <p style={{ color: colors.textMuted, fontSize: '0.6rem', margin: '0 0 0.15rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Touches</p>
+              <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>{results.rawRts.length}</p>
+            </div>
+          </Grid>
         </div>
-        {(() => {
-          const grade = analysis.score.grade;
-          const tier = grade === 'A' ? 'A' : grade === 'B' ? 'B' : 'C';
-          const tipKeys = tier === 'A'
-            ? ['recommendation.gradeA.1', 'recommendation.gradeA.2', 'recommendation.gradeA.3', 'recommendation.gradeA.4']
-            : tier === 'B'
-              ? ['recommendation.gradeB.1', 'recommendation.gradeB.2', 'recommendation.gradeB.3', 'recommendation.gradeB.4']
-              : ['recommendation.gradeC.1', 'recommendation.gradeC.2', 'recommendation.gradeC.3', 'recommendation.gradeC.4', 'recommendation.gradeC.5'];
-          return (
-            <>
-              <p style={{ color: colors.accent, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.4rem' }}>
-                {t(`recommendation.${tier === 'A' ? 'excellent' : tier === 'B' ? 'good' : 'fair'}` as const)}
-              </p>
-              <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-                {tipKeys.map((key) => (
-                  <li key={key} style={{ color: colors.textSecondary, fontSize: '0.8rem', lineHeight: 1.6, padding: '0.15rem 0' }}>
-                    {t(key as TranslationKey)}
-                  </li>
-                ))}
-              </ul>
-            </>
-          );
-        })()}
-      </div>
 
-      {/* Actions */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingBottom: '1rem' }}>
-        <Button variant="secondary" onClick={saveAndExit} style={{ width: '100%' }}>
-          {t('results.saveAndExit')}
-        </Button>
-        <Button variant="ghost" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })} style={{ width: '100%' }}>
-          {t('results.discard')}
-        </Button>
-      </div>
-    </nav>
+        {/* Session Replay */}
+        <div style={{
+          background: colors.glass, border: `1px solid ${colors.glassBorder}`,
+          borderRadius: '20px', padding: '1rem',
+          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        }}>
+          <h3 style={{ color: colors.text, margin: '0 0 0.5rem', fontSize: '0.85rem', fontWeight: 700 }}>Session Replay</h3>
+          {results.correctedRts.map((rt, i) => (
+            <TimelineRow key={i} trial={i + 1} rtMs={rt} isBest={rt === bestRt} isWorst={rt === maxRt && rt !== bestRt} avgMs={avgRt} colors={colors} />
+          ))}
+        </div>
+
+        {/* AI Summary */}
+        <div style={{
+          background: colors.glass, border: `1px solid ${colors.glassBorder}`,
+          borderRadius: '20px', padding: '1rem',
+          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <span style={{
+              width: 28, height: 28, borderRadius: '8px',
+              background: `${colors.accent}18`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '0.8rem',
+            }}>🤖</span>
+            <h3 style={{ color: colors.text, margin: 0, fontSize: '0.85rem', fontWeight: 700 }}>AI Summary</h3>
+          </div>
+          <p style={{ color: colors.textSecondary, fontSize: '0.8rem', lineHeight: 1.5, margin: 0 }}>
+            {analysis.score.focusScore >= 80
+              ? `Excellent focus! Your reaction time of ${Math.round(avgRt)}ms with ${analysis.consistency.rating} consistency shows strong cognitive performance.`
+              : analysis.score.focusScore >= 60
+                ? `Good performance. Your average of ${Math.round(avgRt)}ms is solid. Focus on consistency to improve further.`
+                : `Room for improvement. Your average ${Math.round(avgRt)}ms suggests practice could help. Try to stay relaxed between trials.`
+            }
+          </p>
+        </div>
+
+        {/* Recommendations */}
+        <div style={{
+          background: colors.glass, border: `1px solid ${colors.glassBorder}`,
+          borderRadius: '20px', padding: '1rem',
+          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <span style={{
+              width: 28, height: 28, borderRadius: '8px',
+              background: `${colors.accent}18`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '0.8rem',
+            }}>💡</span>
+            <h3 style={{ color: colors.text, margin: 0, fontSize: '0.85rem', fontWeight: 700 }}>{t('recommendation.title')}</h3>
+          </div>
+          {(() => {
+            const grade = analysis.score.grade;
+            const tier = grade === 'A' ? 'A' : grade === 'B' ? 'B' : 'C';
+            const tipKeys = tier === 'A'
+              ? ['recommendation.gradeA.1', 'recommendation.gradeA.2', 'recommendation.gradeA.3', 'recommendation.gradeA.4']
+              : tier === 'B'
+                ? ['recommendation.gradeB.1', 'recommendation.gradeB.2', 'recommendation.gradeB.3', 'recommendation.gradeB.4']
+                : ['recommendation.gradeC.1', 'recommendation.gradeC.2', 'recommendation.gradeC.3', 'recommendation.gradeC.4', 'recommendation.gradeC.5'];
+            return (
+              <>
+                <p style={{ color: colors.accent, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.4rem' }}>
+                  {t(`recommendation.${tier === 'A' ? 'excellent' : tier === 'B' ? 'good' : 'fair'}` as const)}
+                </p>
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                  {tipKeys.map((key) => (
+                    <li key={key} style={{ color: colors.textSecondary, fontSize: '0.8rem', lineHeight: 1.6, padding: '0.15rem 0' }}>
+                      {t(key as TranslationKey)}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            );
+          })()}
+        </div>
+
+        {/* Actions */}
+        <Stack gap="sm" style={{ paddingBottom: '1rem' }}>
+          <Button variant="secondary" onClick={saveAndExit} style={{ width: '100%' }}>
+            {t('results.saveAndExit')}
+          </Button>
+          <Button variant="ghost" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })} style={{ width: '100%' }}>
+            {t('results.discard')}
+          </Button>
+        </Stack>
+      </Stack>
+    </Screen>
   );
 }

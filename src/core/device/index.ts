@@ -21,15 +21,17 @@ export interface DeviceProfile {
 
 function detectPlatform(): DeviceProfile['platform'] {
   const ua = navigator.userAgent;
-  if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) {
-    if (/iPad|Android(?!.*Mobile)/i.test(ua)) return 'tablet';
-    return 'mobile';
-  }
+  if (/iPad|Android(?!.*Mobile)|Tablet/i.test(ua)) return 'tablet';
+  if (/Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua)) return 'mobile';
   return 'desktop';
 }
 
 function detectBrowser(): { name: string; version: string } {
   const ua = navigator.userAgent;
+  if (ua.includes('SamsungBrowser/')) {
+    const match = ua.match(/SamsungBrowser\/([\d.]+)/);
+    return { name: 'Samsung Internet', version: match?.[1] ?? 'unknown' };
+  }
   if (ua.includes('Firefox/')) {
     const match = ua.match(/Firefox\/([\d.]+)/);
     return { name: 'Firefox', version: match?.[1] ?? 'unknown' };
@@ -38,7 +40,11 @@ function detectBrowser(): { name: string; version: string } {
     const match = ua.match(/Edg\/([\d.]+)/);
     return { name: 'Edge', version: match?.[1] ?? 'unknown' };
   }
-  if (ua.includes('Chrome/')) {
+  if (ua.includes('OPR/') || ua.includes('Opera/')) {
+    const match = ua.match(/(?:OPR|Opera)\/([\d.]+)/);
+    return { name: 'Opera', version: match?.[1] ?? 'unknown' };
+  }
+  if (ua.includes('Chrome/') && ua.includes('Safari/')) {
     const match = ua.match(/Chrome\/([\d.]+)/);
     return { name: 'Chrome', version: match?.[1] ?? 'unknown' };
   }
@@ -46,27 +52,50 @@ function detectBrowser(): { name: string; version: string } {
     const match = ua.match(/Version\/([\d.]+)/);
     return { name: 'Safari', version: match?.[1] ?? 'unknown' };
   }
+  if (ua.includes('MSIE') || ua.includes('Trident/')) {
+    const match = ua.match(/(?:MSIE |rv:)([\d.]+)/);
+    return { name: 'IE', version: match?.[1] ?? 'unknown' };
+  }
   return { name: 'Unknown', version: 'unknown' };
 }
 
 function detectOS(): { name: string; version: string } {
   const ua = navigator.userAgent;
-  if (ua.includes('Windows NT 10')) return { name: 'Windows', version: '10+' };
+
+  // Windows
+  if (ua.includes('Windows NT 10')) return { name: 'Windows', version: '10' };
+  if (ua.includes('Windows NT 6.3')) return { name: 'Windows', version: '8.1' };
+  if (ua.includes('Windows NT 6.2')) return { name: 'Windows', version: '8' };
   if (ua.includes('Windows NT 6.1')) return { name: 'Windows', version: '7' };
   if (ua.includes('Windows')) return { name: 'Windows', version: 'unknown' };
+
+  // macOS
   if (ua.includes('Mac OS X')) {
     const match = ua.match(/Mac OS X ([\d_]+)/);
     return { name: 'macOS', version: match?.[1]?.replace(/_/g, '.') ?? 'unknown' };
   }
+
+  // iOS
+  if (ua.includes('iPhone') || ua.includes('iPad') || ua.includes('iPod')) {
+    const match = ua.match(/OS ([\d_]+)/);
+    return { name: 'iOS', version: match?.[1]?.replace(/_/g, '.') ?? 'unknown' };
+  }
+
+  // Android
   if (ua.includes('Android')) {
     const match = ua.match(/Android ([\d.]+)/);
     return { name: 'Android', version: match?.[1] ?? 'unknown' };
   }
-  if (ua.includes('iPhone OS') || ua.includes('iPad')) {
-    const match = ua.match(/OS ([\d_]+)/);
-    return { name: 'iOS', version: match?.[1]?.replace(/_/g, '.') ?? 'unknown' };
+
+  // Linux
+  if (ua.includes('Linux')) {
+    if (ua.includes('CrOS')) return { name: 'Chrome OS', version: 'unknown' };
+    return { name: 'Linux', version: 'unknown' };
   }
-  if (ua.includes('Linux')) return { name: 'Linux', version: 'unknown' };
+
+  // Chrome OS
+  if (ua.includes('CrOS')) return { name: 'Chrome OS', version: 'unknown' };
+
   return { name: 'Unknown', version: 'unknown' };
 }
 

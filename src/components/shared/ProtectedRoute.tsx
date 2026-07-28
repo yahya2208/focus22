@@ -31,6 +31,10 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { state, researchRole } = useAuth();
 
+  if (state.status === 'loading') {
+    return null;
+  }
+
   if (requireAuth && state.status !== 'authenticated' && state.status !== 'anonymous') {
     return <LoginScreen />;
   }

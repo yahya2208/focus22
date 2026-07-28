@@ -5,7 +5,7 @@ import App from '../../App';
 describe('App', () => {
   it('should render the home screen by default', () => {
     render(<App />);
-    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeTruthy();
+    expect(screen.getByRole('main', { name: 'Main navigation' })).toBeTruthy();
     expect(screen.getAllByRole('button', { name: '▶ Start Test' }).length).toBeGreaterThanOrEqual(1);
   });
 

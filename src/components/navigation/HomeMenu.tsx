@@ -22,7 +22,8 @@ export function HomeMenu({ open, onClose }: HomeMenuProps) {
   if (!open) return null;
 
   const isAuthenticated = state.status === 'authenticated';
-  const isGuest = !isAuthenticated;
+  const isLoading = state.status === 'loading';
+  const isGuest = !isAuthenticated && !isLoading;
   const role = state.user?.role;
   const isAdmin = role === 'super_admin' || role === 'admin' || role === 'researcher';
 

@@ -216,7 +216,12 @@ export function createResearchAPI(): ResearchAPI {
         gamesThisMonth: monthResult.count ?? 0,
         avgReactionTime: allCorrectedRts.length > 0 ? Math.round(allCorrectedRts.reduce((a, b) => a + b, 0) / allCorrectedRts.length) : 0,
         avgFocusScore: Math.round(avgFocusScore * 10) / 10,
-        avgConsistency: focusScores.length > 0 ? Math.round(focusScores.reduce((a, b) => a + b, 0) / focusScores.length * 10) / 10 : 0,
+        avgConsistency: (() => {
+          const consistencyScores = completedSessions
+            .map(s => (s.scientific_results as Record<string, unknown>)?.consistency_score as number)
+            .filter(score => typeof score === 'number' && !isNaN(score));
+          return consistencyScores.length > 0 ? Math.round(consistencyScores.reduce((a, b) => a + b, 0) / consistencyScores.length * 10) / 10 : 0;
+        })(),
         avgFatigue: (() => {
           const fatigueScores = completedSessions
             .map(s => (s.scientific_results as Record<string, unknown>)?.fatigue_score as number)

@@ -12,6 +12,7 @@ import type { TranslationKey } from '../../../i18n';
 
 interface CampaignRow extends Campaign {
   scan_count: number;
+  game_start_count: number;
   game_complete_count: number;
   registration_count: number;
   qr_count: number;
@@ -49,12 +50,14 @@ export function CampaignsDashboard() {
         const cQrs = qrResult.data.filter(qr => qr.campaign_id === c.id);
         const cSessions = sessionList.filter(s => s.campaign_id === c.id);
         const scanCount = cQrs.reduce((s, q) => s + q.scan_count, 0);
-        const completeCount = cQrs.reduce((s, q) => s + q.game_complete_count, 0);
-        const regCount = cSessions.filter(s => s.status === 'completed').length;
+        const startedCount = cSessions.length;
+        const completeCount = cSessions.filter(s => s.status === 'completed').length;
+        const regCount = cQrs.reduce((s, q) => s + q.registration_count, 0);
         return {
           ...c,
           scan_count: scanCount,
           game_complete_count: completeCount,
+          game_start_count: startedCount,
           registration_count: regCount,
           qr_count: cQrs.length,
         };

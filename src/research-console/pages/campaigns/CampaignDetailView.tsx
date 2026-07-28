@@ -27,6 +27,7 @@ export function CampaignDetailView({ campaign: c, onBack, onUpdate }: Props) {
   const [editingStatus, setEditingStatus] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState(c.notes ?? '');
+  const [sessionStats, setSessionStats] = useState<{ started: number; completed: number }>({ started: 0, completed: 0 });
 
   const basePath = import.meta.env.BASE_URL || '/';
   const shortCode = c.short_code || c.id || '';
@@ -37,6 +38,22 @@ export function CampaignDetailView({ campaign: c, onBack, onUpdate }: Props) {
       const ds = getDataService(getSupabaseClient());
       const result = await ds.getQRCodes({ campaign_id: c.id });
       setQRCodes(result.data);
+    };
+    load();
+  }, [c.id]);
+
+  useEffect(() => {
+    const load = async () => {
+      const client = getSupabaseClient();
+      const { data } = await client
+        .from('sessions')
+        .select('id, status')
+        .eq('campaign_id', c.id);
+      const list = data ?? [];
+      setSessionStats({
+        started: list.length,
+        completed: list.filter(s => s.status === 'completed').length,
+      });
     };
     load();
   }, [c.id]);
@@ -71,8 +88,8 @@ export function CampaignDetailView({ campaign: c, onBack, onUpdate }: Props) {
 
   const stats = {
     scans: qrCodes.reduce((s, q) => s + q.scan_count, 0),
-    started: qrCodes.reduce((s, q) => s + q.game_start_count, 0),
-    completed: qrCodes.reduce((s, q) => s + q.game_complete_count, 0),
+    started: sessionStats.started,
+    completed: sessionStats.completed,
     registered: qrCodes.reduce((s, q) => s + q.registration_count, 0),
   };
 
@@ -207,7 +224,7 @@ export function CampaignDetailView({ campaign: c, onBack, onUpdate }: Props) {
       )}
 
       {tab === 'analytics' && (
-        <CampaignAnalytics campaign={c} qrCodes={qrCodes} />
+        <CampaignAnalytics campaign={c} qrCodes={qrCodes} sessionStats={sessionStats} />
       )}
 
       {tab === 'print' && (

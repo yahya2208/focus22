@@ -33,6 +33,8 @@ export interface SessionRecord {
   readonly timestamp: number;
   readonly rawRts: readonly number[];
   readonly correctedRts: readonly number[];
+  readonly totalRounds: number;
+  readonly validRounds: number;
   readonly score: ScoringResult | null;
 }
 
@@ -41,6 +43,10 @@ export interface AppState {
   currentScreen: ScreenName;
   selectedGame: string | null;
   calibrationProfile: CalibrationProfile | null;
+  currentSession: {
+    id: string;
+    gameMode: string;
+  } | null;
   results: {
     rawRts: readonly number[];
     correctedRts: readonly number[];
@@ -62,13 +68,16 @@ type NavigationAction =
   | { type: 'SET_RESULTS'; results: AppState['results'] }
   | { type: 'SAVE_SESSION' }
   | { type: 'RESET' }
-  | { type: 'START_QR_FLOW'; campaignId?: string | null };
+  | { type: 'START_QR_FLOW'; campaignId?: string | null }
+  | { type: 'START_SESSION'; sessionId: string; gameMode: string }
+  | { type: 'SESSION_SAVED'; sessionId: string };
 
 const initialState: AppState = {
   screen: 'home',
   currentScreen: 'home',
   selectedGame: null,
   calibrationProfile: null,
+  currentSession: null,
   results: null,
   sessions: [],
   isQrFlow: false,
@@ -85,18 +94,27 @@ function navigationReducer(state: AppState, action: NavigationAction): AppState 
       return { ...state, calibrationProfile: action.profile };
     case 'SET_RESULTS':
       return { ...state, results: action.results };
+    case 'START_SESSION':
+      return {
+        ...state,
+        currentSession: { id: action.sessionId, gameMode: action.gameMode },
+      };
     case 'SAVE_SESSION': {
-      if (!state.results) return state;
+      if (!state.results || !state.currentSession) return state;
       const session: SessionRecord = {
-        id: crypto.randomUUID(),
-        gameMode: state.selectedGame ?? 'reaction-light',
+        id: state.currentSession.id,
+        gameMode: state.currentSession.gameMode,
         timestamp: Date.now(),
         rawRts: state.results.rawRts,
         correctedRts: state.results.correctedRts,
+        totalRounds: state.results.totalRounds,
+        validRounds: state.results.validRounds,
         score: null,
       };
       return { ...state, sessions: [...state.sessions, session] };
     }
+    case 'SESSION_SAVED':
+      return { ...state, currentSession: null };
     case 'RESET':
       return initialState;
     case 'START_QR_FLOW':

@@ -161,7 +161,7 @@ export function PrintCenter({ campaignName, qrImage, logoUrl }: Props) {
         ))}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'center', overflow: 'auto', background: '#f5f5f5', borderRadius: '8px', padding: '1rem', marginBottom: '1rem', maxHeight: '60vh' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', overflow: 'auto', background: '#0a0a0f', borderRadius: '8px', padding: '1rem', marginBottom: '1rem', maxHeight: '60vh' }}>
         {renderLayout()}
       </div>
 

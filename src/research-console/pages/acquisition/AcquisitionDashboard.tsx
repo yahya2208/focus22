@@ -58,11 +58,8 @@ export function AcquisitionDashboard() {
       const sessions = sessionsResult.data ?? [];
       const devices = devicesResult.data ?? [];
 
-      const registeredUserIds = new Set(
-        sessions.filter(s => s.user_id).map(s => s.user_id)
-      );
-      const guestGames = sessions.filter(s => !s.user_id || !registeredUserIds.has(s.user_id)).length;
-      const registeredGames = gamesCompleted - guestGames;
+      const guestGames = sessions.filter(s => !s.user_id).length;
+      const registeredGames = guestGames === 0 && sessions.length > 0 ? sessions.length : Math.max(0, gamesCompleted - guestGames);
       const conversionRate = qrScans > 0 ? (registrations / qrScans) * 100 : 0;
       const bestCampaign = campaigns.campaigns[0]?.name ?? t('acquisition.noData');
       const bestQr = campaigns.referralPerformance[0]?.code ?? t('acquisition.noData');

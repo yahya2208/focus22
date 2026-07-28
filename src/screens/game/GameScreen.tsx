@@ -5,6 +5,7 @@ import { REACTION } from '../../core/scientific/constants';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { getGlobalTelemetry } from '../../core/telemetry';
+import { getGlobalSessionService } from '../../core/session/service';
 
 type Phase = 'waiting' | 'visible' | 'hit' | 'miss';
 
@@ -138,7 +139,7 @@ function GlassLamp({ visible, xPct, yPct, onRef }: { visible: boolean; xPct: num
 
 export function GameScreen() {
   const dispatch = useAppDispatch();
-  const { calibrationProfile, isQrFlow, campaignId } = useAppState();
+  const { calibrationProfile, isQrFlow, campaignId, selectedGame } = useAppState();
   const { t } = useTranslation();
   const colors = useThemeColors();
 
@@ -161,6 +162,16 @@ export function GameScreen() {
 
   phaseRef.current = phase;
   roundRef.current = round;
+
+  useEffect(() => {
+    const gameMode = selectedGame ?? 'reaction-light';
+    const sessionService = getGlobalSessionService();
+    const sessionId = sessionService.startSession({
+      gameMode,
+      campaignId: isQrFlow ? campaignId : null,
+    });
+    dispatch({ type: 'START_SESSION', sessionId, gameMode });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const calibration = useMemo(() => calibrationProfile ?? {
     refreshRate: 60, displayLagMs: 16.667, inputLagMs: 8,

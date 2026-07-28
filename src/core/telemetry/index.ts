@@ -1,3 +1,6 @@
+import { getGlobalEventPublisher } from '../events';
+import type { SessionCreatedPayload, SessionCompletedPayload } from '../session/service';
+
 export type TelemetryEventType =
   | 'app_opened'
   | 'calibration_started'
@@ -35,6 +38,7 @@ export interface TelemetryEvent {
   readonly userId: string | null;
   readonly sessionId: string | null;
   readonly deviceId: string | null;
+  readonly campaignId: string | null;
 }
 
 export interface TelemetryConfig {
@@ -55,7 +59,7 @@ export interface TelemetryService {
   getQueue(): readonly TelemetryEvent[];
   setConfig(config: Partial<TelemetryConfig>): void;
   getConfig(): TelemetryConfig;
-  setContext(userId: string | null, sessionId: string | null, deviceId: string | null): void;
+  setContext(userId: string | null, sessionId: string | null, deviceId: string | null, campaignId?: string | null): void;
 }
 
 export function createTelemetryService(
@@ -64,7 +68,7 @@ export function createTelemetryService(
 ): TelemetryService {
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
   let queue: TelemetryEvent[] = [];
-  let context = { userId: null as string | null, sessionId: null as string | null, deviceId: null as string | null };
+  let context = { userId: null as string | null, sessionId: null as string | null, deviceId: null as string | null, campaignId: null as string | null };
 
   async function flushInternal(): Promise<void> {
     if (queue.length === 0) return;
@@ -89,6 +93,7 @@ export function createTelemetryService(
         userId: context.userId,
         sessionId: context.sessionId,
         deviceId: context.deviceId,
+        campaignId: context.campaignId,
       };
       queue.push(event);
       if (queue.length >= mergedConfig.batchSize) {
@@ -112,8 +117,8 @@ export function createTelemetryService(
       return { ...mergedConfig };
     },
 
-    setContext(userId: string | null, sessionId: string | null, deviceId: string | null): void {
-      context = { userId, sessionId, deviceId };
+    setContext(userId: string | null, sessionId: string | null, deviceId: string | null, campaignId: string | null = null): void {
+      context = { userId, sessionId, deviceId, campaignId };
     },
   };
 }
@@ -135,6 +140,7 @@ async function createSupabaseSendFn(): Promise<(events: readonly TelemetryEvent[
           session_id: event.sessionId ?? undefined,
           event_type: event.type,
           event_data: event.properties,
+          campaign_id: event.campaignId ?? undefined,
           device_id: event.deviceId ?? undefined,
           user_agent: navigator.userAgent,
         });
@@ -166,4 +172,29 @@ export function resetGlobalTelemetry(): void {
     globalTelemetry.flush();
   }
   globalTelemetry = null;
+}
+
+export function setupSessionTelemetry(): () => void {
+  const telemetry = getGlobalTelemetry();
+  const publisher = getGlobalEventPublisher();
+
+  const unsubCreated = publisher.subscribe<SessionCreatedPayload>('session_created', (event) => {
+    telemetry.setContext(null, event.payload.sessionId, null, event.payload.campaignId);
+    telemetry.track('game_started', {
+      game_mode: event.payload.gameMode,
+      campaign_id: event.payload.campaignId,
+    });
+  });
+
+  const unsubCompleted = publisher.subscribe<SessionCompletedPayload>('session_completed', (event) => {
+    telemetry.track('game_completed', {
+      game_mode: event.payload.gameMode,
+      campaign_id: event.payload.campaignId,
+    });
+  });
+
+  return () => {
+    unsubCreated();
+    unsubCompleted();
+  };
 }

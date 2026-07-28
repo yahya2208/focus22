@@ -9,11 +9,12 @@ import { useTranslation } from '../../../hooks/useTranslation';
 interface Props {
   campaign: Campaign;
   qrCodes: QRCode[];
+  sessionStats: { started: number; completed: number };
 }
 
 interface HourlyData { hour: number; count: number; }
 
-export function CampaignAnalytics({ campaign, qrCodes }: Props) {
+export function CampaignAnalytics({ campaign, qrCodes, sessionStats }: Props) {
   const { t } = useTranslation();
   const [hourlyData, setHourlyData] = useState<HourlyData[]>([]);
   const [dailyData, setDailyData] = useState<{ label: string; value: number }[]>([]);
@@ -22,8 +23,8 @@ export function CampaignAnalytics({ campaign, qrCodes }: Props) {
 
   const stats = {
     scans: qrCodes.reduce((s, q) => s + q.scan_count, 0),
-    started: qrCodes.reduce((s, q) => s + q.game_start_count, 0),
-    completed: qrCodes.reduce((s, q) => s + q.game_complete_count, 0),
+    started: sessionStats.started,
+    completed: sessionStats.completed,
     registered: qrCodes.reduce((s, q) => s + q.registration_count, 0),
   };
 
