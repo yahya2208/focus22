@@ -59,6 +59,13 @@ export interface Campaign {
   updated_at?: string;
 }
 
+export interface CampaignLookupResult {
+  id: string;
+  short_code: string;
+  name: string;
+  is_active: boolean;
+}
+
 export interface QRConfig {
   template?: string;
   foreground?: string;
@@ -280,15 +287,35 @@ class DataService {
       .eq('id', id);
   }
 
-  async getCampaignByShortCode(code: string): Promise<Campaign | null> {
+  // Intentionally using maybeSingle().
+  // In our current Supabase/PostgREST stack (supabase-js 2.110.8), this returns:
+  // - null when no rows exist,
+  // - the row when exactly one exists,
+  // - an error when multiple rows are returned.
+  // This behavior is protected by behavior tests
+  // (src/__tests__/supabase/maybe-single-behavior.test.ts).
+  async getCampaignByShortCode(code: string): Promise<CampaignLookupResult | null> {
     const { data, error } = await this.client
-      .from('campaigns')
-      .select('*')
-      .eq('short_code', code)
-      .single();
+      .rpc('lookup_campaign_by_short_code', { p_code: code })
+      .maybeSingle();
 
-    if (error || !data) return null;
-    return data;
+    if (error) {
+      if (error.code === 'PGRST202') {
+        console.error(
+          'lookup_campaign_by_short_code RPC is missing. Run the database migration.'
+        );
+        throw error;
+      }
+
+      console.error('[lookup_campaign_by_short_code]', error);
+      throw error;
+    }
+
+    if (import.meta.env.DEV) {
+      console.debug('[lookup_campaign_by_short_code] result', data);
+    }
+
+    return data as CampaignLookupResult | null;
   }
 
   async addTimelineEntry(campaignId: string, action: string, by?: string): Promise<void> {
