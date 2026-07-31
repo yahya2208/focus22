@@ -1,11 +1,17 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useAuth } from '../../core/auth/AuthProvider';
 import { HomeMenu } from '../../components/navigation/HomeMenu';
-import { Screen, Stack, Grid } from '../../design-system/layout';
+import { Screen, Grid } from '../../design-system/layout';
+import { Button } from '../../design-system/components/Button';
+import { Card } from '../../design-system/components/Card';
+import { Stack } from '../../design-system/components/Stack';
+import { Flex } from '../../design-system/components/Flex';
+
 import { useState } from 'react';
+import { getGlobalTelemetry } from '../../core/telemetry';
 
 function getGreetingKey() {
   const h = new Date().getHours();
@@ -16,10 +22,7 @@ function getGreetingKey() {
 
 function FocusLogo({ colors }: { colors: ReturnType<typeof useThemeColors> }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: '0.6rem',
-      marginBottom: '0.25rem',
-    }}>
+    <Flex gap="sm" align="center" style={{ marginBottom: '0.25rem' }}>
       <div style={{
         width: '36px', height: '36px', borderRadius: '10px',
         background: `linear-gradient(135deg, ${colors.accent} 0%, ${colors.accentLight} 100%)`,
@@ -36,7 +39,7 @@ function FocusLogo({ colors }: { colors: ReturnType<typeof useThemeColors> }) {
       }}>
         FOCUS
       </span>
-    </div>
+    </Flex>
   );
 }
 
@@ -76,14 +79,15 @@ function ScoreRing({ score, colors }: { score: number; colors: ReturnType<typeof
   );
 }
 
-const SERVICE_ITEMS = [
-  { key: 'buyNew' as const, emoji: '🟢', color: '#22c55e' },
-  { key: 'buyUsed' as const, emoji: '🔵', color: '#3b82f6' },
-  { key: 'sell' as const, emoji: '🟠', color: '#f97316' },
-  { key: 'exchange' as const, emoji: '🟣', color: '#a855f7' },
+const SERVICE_ITEMS: { key: 'buyNew' | 'buyUsed' | 'sell' | 'exchange' | 'repair'; emoji: string; color: string; screen: 'phone-services' | 'repair-home' }[] = [
+  { key: 'buyNew', emoji: '🟢', color: '#22c55e', screen: 'phone-services' },
+  { key: 'buyUsed', emoji: '🔵', color: '#3b82f6', screen: 'phone-services' },
+  { key: 'sell', emoji: '🟠', color: '#f97316', screen: 'phone-services' },
+  { key: 'exchange', emoji: '🟣', color: '#a855f7', screen: 'phone-services' },
+  { key: 'repair', emoji: '🔧', color: '#ef4444', screen: 'repair-home' },
 ];
 
-export function HomeScreen() {
+export const HomeScreen = memo(function HomeScreen() {
   const dispatch = useAppDispatch();
   const { sessions } = useAppState();
   const { t } = useTranslation();
@@ -123,6 +127,7 @@ export function HomeScreen() {
   }, [sessions]);
 
   const startTest = () => {
+    getGlobalTelemetry().track('game_started', { source: 'home_start_button' });
     dispatch({ type: 'SELECT_GAME', gameMode: 'reaction-light' });
     dispatch({ type: 'NAVIGATE', screen: 'countdown' });
   };
@@ -131,25 +136,18 @@ export function HomeScreen() {
     <Screen ariaLabel="Main navigation" bottomPad="6rem">
       <Stack gap="xl">
         {/* Top bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Flex justify="space-between" align="center">
           <FocusLogo colors={colors} />
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label={t('home.menu')}
             aria-expanded={menuOpen}
-            style={{
-              background: colors.glass,
-              border: `1px solid ${colors.glassBorder}`,
-              borderRadius: '14px',
-              width: '40px', height: '40px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', fontSize: '1.1rem', color: colors.text,
-              backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-            }}
           >
             ☰
-          </button>
-        </div>
+          </Button>
+        </Flex>
 
         <HomeMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
 
@@ -223,36 +221,44 @@ export function HomeScreen() {
           </p>
           <Grid columns={2} gap="md">
             {SERVICE_ITEMS.map((item) => (
-              <button
+              <Card
                 key={item.key}
-                onClick={() => dispatch({ type: 'NAVIGATE', screen: 'phone-services' })}
-                style={{
-                  background: colors.glass,
-                  border: `1px solid ${colors.glassBorder}`,
-                  borderRadius: '18px',
-                  padding: '1rem',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  transition: 'all 0.2s ease',
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = item.color + '44';
-                  (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = colors.glassBorder;
-                  (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+                variant="interactive"
+                padding="lg"
+                onClick={() => {
+                  if (item.key === 'repair') {
+                    dispatch({ type: 'NAVIGATE', screen: item.screen as 'repair-home' });
+                  } else {
+                    getGlobalTelemetry().track('phone_service_opened', { source: 'home_grid' });
+                    dispatch({ type: 'NAVIGATE', screen: item.screen as 'phone-services' });
+                  }
                 }}
               >
-                <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '0.35rem' }}>{item.emoji}</span>
-                <span style={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
-                  {t(`home.services.${item.key}`)}
-                </span>
-              </button>
+                <div style={{ textAlign: 'center' }}>
+                  <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '0.35rem' }}>{item.emoji}</span>
+                  <span style={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
+                    {t(`home.services.${item.key}`)}
+                  </span>
+                </div>
+              </Card>
             ))}
           </Grid>
+        </div>
+
+        {/* Sticker Studio */}
+        <div>
+          <Card
+            variant="interactive"
+            padding="lg"
+            onClick={() => dispatch({ type: 'NAVIGATE', screen: 'sticker-studio' })}
+          >
+            <div style={{ textAlign: 'center' }}>
+              <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '0.35rem' }}>🖼️</span>
+              <span style={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
+                {t('home.stickerStudio')}
+              </span>
+            </div>
+          </Card>
         </div>
 
         {/* Statistics */}
@@ -271,21 +277,14 @@ export function HomeScreen() {
               { label: t('home.stats.bestTime'), value: stats.bestTime !== null ? `${stats.bestTime}ms` : '—' },
               { label: t('home.stats.streak'), value: stats.streak.toString() },
             ].map((stat) => (
-              <div key={stat.label} style={{
-                background: colors.glass,
-                border: `1px solid ${colors.glassBorder}`,
-                borderRadius: '16px',
-                padding: '0.85rem 1rem',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-              }}>
+              <Card key={stat.label} variant="glass" padding="lg">
                 <p style={{ color: colors.textMuted, fontSize: '0.65rem', margin: '0 0 0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   {stat.label}
                 </p>
                 <p style={{ color: colors.text, fontSize: '1.3rem', fontWeight: 800, margin: 0, fontVariantNumeric: 'tabular-nums' }}>
                   {stat.value}
                 </p>
-              </div>
+              </Card>
             ))}
           </Grid>
         </div>
@@ -302,56 +301,44 @@ export function HomeScreen() {
           {lastResults.length > 0 ? (
             <Stack gap="sm">
               {lastResults.map((r) => (
-                <div
+                <Card
                   key={r.id}
-                  style={{
-                    background: colors.glass,
-                    border: `1px solid ${colors.glassBorder}`,
-                    borderRadius: '16px',
-                    padding: '0.85rem 1rem',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                    cursor: 'pointer',
-                  }}
+                  variant="surface"
+                  padding="lg"
                   onClick={() => dispatch({ type: 'NAVIGATE', screen: 'history' })}
                 >
-                  <div>
-                    <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>
-                      {r.date}
-                    </p>
-                    <p style={{ color: colors.textMuted, fontSize: '0.7rem', margin: '0.15rem 0 0' }}>
-                      {r.rts.length} trials
-                    </p>
-                  </div>
-                  {r.score !== null && (
-                    <span style={{
-                      color: colors.accent, fontSize: '1.2rem', fontWeight: 800,
-                      fontVariantNumeric: 'tabular-nums',
-                    }}>
-                      {r.score}
-                    </span>
-                  )}
-                </div>
+                  <Flex justify="space-between" align="center">
+                    <div>
+                      <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>
+                        {r.date}
+                      </p>
+                      <p style={{ color: colors.textMuted, fontSize: '0.7rem', margin: '0.15rem 0 0' }}>
+                        {r.rts.length} trials
+                      </p>
+                    </div>
+                    {r.score !== null && (
+                      <span style={{
+                        color: colors.accent, fontSize: '1.2rem', fontWeight: 800,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {r.score}
+                      </span>
+                    )}
+                  </Flex>
+                </Card>
               ))}
             </Stack>
           ) : (
-            <div style={{
-              background: colors.glass,
-              border: `1px dashed ${colors.borderLight}`,
-              borderRadius: '16px',
-              padding: '1.5rem',
-              textAlign: 'center',
-            }}>
-              <p style={{ color: colors.textMuted, fontSize: '0.8rem', margin: 0 }}>
-                {t('home.noResults')}
-              </p>
-            </div>
+            <Card variant="outlined" padding="lg">
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ color: colors.textMuted, fontSize: '0.8rem', margin: 0 }}>
+                  {t('home.noResults')}
+                </p>
+              </div>
+            </Card>
           )}
         </div>
       </Stack>
     </Screen>
   );
-}
+});

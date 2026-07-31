@@ -14,6 +14,18 @@ import { SurveysDashboard } from './pages/surveys/SurveysDashboard';
 import { CampaignsDashboard } from './pages/campaigns/CampaignsDashboard';
 import { LiveDashboard } from './pages/live/LiveDashboard';
 import { SystemDashboard } from './pages/system/SystemDashboard';
+import { JourneyExplorer } from './pages/journey/JourneyExplorer';
+import { AnalyticsHealth } from './pages/health/AnalyticsHealth';
+import { ConversionIntelligence } from './pages/conversion/ConversionIntelligence';
+import { FunnelComparator } from './pages/comparator/FunnelComparator';
+import { JourneyIntelligence } from './pages/intelligence/JourneyIntelligence';
+import { BusinessInsights } from './pages/insights/BusinessInsights';
+import { PhoneExchangeEngine } from './pages/exchange/PhoneExchangeEngine';
+import { CatalogInventoryScreen } from '../screens/inventory/CatalogInventoryScreen';
+import { CatalogHealth } from './pages/catalog/CatalogHealth';
+import { VariantCoverageScreen } from '../screens/research/VariantCoverageScreen';
+import { InventoryHealthScreen } from '../screens/research/InventoryHealthScreen';
+import { PriceMemoryCard } from '../components/research/PriceMemoryCard';
 import type { DashboardId } from './layout/ResearchLayout';
 
 const guard = createPermissionGuard();
@@ -36,6 +48,18 @@ const DASHBOARD_RESOURCE_MAP: Record<DashboardId, string> = {
   campaigns: 'campaigns',
   live: 'overview',
   system: 'overview',
+  journey: 'overview',
+  health: 'overview',
+  conversion: 'overview',
+  comparator: 'overview',
+  intelligence: 'overview',
+  insights: 'overview',
+  exchange: 'overview',
+  inventory: 'overview',
+  'catalog-health': 'overview',
+  'variant-coverage': 'overview',
+  'inventory-health': 'overview',
+  'price-memory': 'overview',
 };
 
 const dashboards: { id: DashboardId; translationKey: string }[] = [
@@ -46,6 +70,18 @@ const dashboards: { id: DashboardId; translationKey: string }[] = [
   { id: 'devices', translationKey: '' },
   { id: 'surveys', translationKey: 'research.surveys' },
   { id: 'campaigns', translationKey: 'research.campaigns' },
+  { id: 'journey', translationKey: '' },
+  { id: 'health', translationKey: '' },
+  { id: 'conversion', translationKey: '' },
+  { id: 'comparator', translationKey: '' },
+  { id: 'intelligence', translationKey: '' },
+  { id: 'insights', translationKey: '' },
+  { id: 'exchange', translationKey: '' },
+  { id: 'inventory', translationKey: '' },
+  { id: 'catalog-health', translationKey: '' },
+  { id: 'variant-coverage', translationKey: 'research.variantCoverage.title' },
+  { id: 'inventory-health', translationKey: 'research.inventoryHealth.title' },
+  { id: 'price-memory', translationKey: 'research.priceMemory.title' },
   { id: 'live', translationKey: '' },
   { id: 'system', translationKey: '' },
 ];
@@ -59,6 +95,18 @@ const dashboardComponents: Record<DashboardId, React.FC> = {
   devices: DevicesDashboard,
   surveys: SurveysDashboard,
   campaigns: CampaignsDashboard,
+  journey: JourneyExplorer,
+  health: AnalyticsHealth,
+  conversion: ConversionIntelligence,
+  comparator: FunnelComparator,
+  intelligence: JourneyIntelligence,
+  insights: BusinessInsights,
+  exchange: PhoneExchangeEngine,
+  inventory: CatalogInventoryScreen,
+  'catalog-health': CatalogHealth,
+  'variant-coverage': VariantCoverageScreen,
+  'inventory-health': InventoryHealthScreen,
+  'price-memory': PriceMemoryCard,
   live: LiveDashboard,
   system: SystemDashboard,
 };

@@ -124,8 +124,8 @@ export function CampaignWizard({ onClose, onCreated }: Props) {
 
   if (result) {
     return (
-      <div style={overlay} onClick={onClose}>
-        <div style={modal} onClick={e => e.stopPropagation()}>
+      <div style={overlay} onClick={onClose} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose(); } }}>
+        <div style={modal} onClick={e => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
           <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.1rem', color: '#22c55e' }}>{t('campaign.created')}</h3>
           <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
             <p style={{ color: '#f0f0f0', fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>{t('campaign.focusTest')}</p>
@@ -146,8 +146,8 @@ export function CampaignWizard({ onClose, onCreated }: Props) {
   }
 
   return (
-    <div style={overlay} onClick={onClose}>
-      <div style={modal} onClick={e => e.stopPropagation()}>
+    <div style={overlay} onClick={onClose} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose(); } }}>
+      <div style={modal} onClick={e => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('campaign.new')}</h3>
           <span style={{ color: '#6366f1', fontSize: '0.8rem' }}>{t('campaign.step')} {step} {t('campaign.of')} 3</span>

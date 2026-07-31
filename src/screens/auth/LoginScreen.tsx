@@ -1,12 +1,13 @@
-import { useState, useCallback } from 'react';
+import { memo, useState, useCallback } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useAuth } from '../../core/auth/AuthProvider';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Button } from '../../components/shared/Button';
 import { Card } from '../../components/shared/Card';
+import { trackLogin } from '../../core/analytics/tracker';
 
-export function LoginScreen() {
+export const LoginScreen = memo(function LoginScreen() {
   const dispatch = useAppDispatch();
   const { service } = useAuth();
   const { t } = useTranslation();
@@ -25,6 +26,7 @@ export function LoginScreen() {
     setError(null);
     try {
       await service.signInWithEmail(email, password);
+      trackLogin('email');
       dispatch({ type: 'NAVIGATE', screen: 'home' });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('login.failed'));
@@ -42,6 +44,7 @@ export function LoginScreen() {
     setError(null);
     try {
       await service.signInWithMagicLink(email);
+      trackLogin('magic_link');
       setError(null);
       alert(t('login.magicLinkSent'));
     } catch (err) {
@@ -56,6 +59,7 @@ export function LoginScreen() {
     setError(null);
     try {
       await service.signInAsGuest();
+      trackLogin('guest');
       dispatch({ type: 'NAVIGATE', screen: 'home' });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('login.failed'));
@@ -152,4 +156,4 @@ export function LoginScreen() {
       </div>
     </nav>
   );
-}
+});

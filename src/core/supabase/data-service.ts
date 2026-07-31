@@ -457,6 +457,157 @@ class DataService {
   }
 
   // Aggregate queries for dashboards
+  async getJourney(filters: {
+    user_id?: string;
+    session_id?: string;
+    device_id?: string;
+    limit?: number;
+  }): Promise<AnalyticsEvent[]> {
+    let query = this.client
+      .from('analytics_events')
+      .select('*');
+
+    if (filters?.user_id) {
+      query = query.eq('user_id', filters.user_id);
+    }
+    if (filters?.session_id) {
+      query = query.eq('session_id', filters.session_id);
+    }
+    if (filters?.device_id) {
+      query = query.eq('device_id', filters.device_id);
+    }
+
+    const { data } = await query
+      .order('created_at', { ascending: true })
+      .limit(filters?.limit ?? 200);
+
+    return (data ?? []) as AnalyticsEvent[];
+  }
+
+  // Health checks for analytics integrity audit
+  async getEventTypeCounts(): Promise<Record<string, number>> {
+    const { data } = await this.client
+      .from('analytics_events')
+      .select('event_type');
+    const counts: Record<string, number> = {};
+    for (const row of data ?? []) {
+      const et = row.event_type as string;
+      counts[et] = (counts[et] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  async getOrphanEventCounts(): Promise<{ no_session: number; no_device: number; no_session_or_device: number }> {
+    const [noSession, noDevice, noEither] = await Promise.all([
+      this.client.from('analytics_events').select('id', { count: 'exact', head: true }).is('session_id', null),
+      this.client.from('analytics_events').select('id', { count: 'exact', head: true }).is('device_id', null),
+      this.client.from('analytics_events').select('id', { count: 'exact', head: true }).or('session_id.is.null,device_id.is.null'),
+    ]);
+    return {
+      no_session: noSession.count ?? 0,
+      no_device: noDevice.count ?? 0,
+      no_session_or_device: noEither.count ?? 0,
+    };
+  }
+
+  async getSessionEventSequences(limitSessions = 50): Promise<AnalyticsEvent[]> {
+    const { data } = await this.client
+      .from('analytics_events')
+      .select('*')
+      .not('session_id', 'is', null)
+      .order('created_at', { ascending: true })
+      .limit(limitSessions * 30);
+    return (data ?? []) as AnalyticsEvent[];
+  }
+
+  async getEventVolumeStats(): Promise<{ average: number; max: number; min: number; suspicious: number }> {
+    const { data } = await this.client
+      .from('analytics_events')
+      .select('session_id');
+    const perSession: Record<string, number> = {};
+    for (const row of data ?? []) {
+      const sid = row.session_id as string | null;
+      if (!sid) continue;
+      perSession[sid] = (perSession[sid] ?? 0) + 1;
+    }
+    const counts = Object.values(perSession);
+    if (counts.length === 0) return { average: 0, max: 0, min: 0, suspicious: 0 };
+    return {
+      average: Math.round(counts.reduce((a, b) => a + b, 0) / counts.length),
+      max: Math.max(...counts),
+      min: Math.min(...counts),
+      suspicious: counts.filter((c) => c <= 5).length,
+    };
+  }
+
+  async getRecentSessions(limit = 30): Promise<{ session_id: string; events: AnalyticsEvent[] }[]> {
+    const { data } = await this.client
+      .from('analytics_events')
+      .select('session_id, event_type, created_at, device_id')
+      .not('session_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1000);
+    const raw = (data ?? []) as Pick<AnalyticsEvent, 'session_id' | 'event_type' | 'created_at' | 'device_id'>[];
+    const grouped: Record<string, AnalyticsEvent[]> = {};
+    for (const row of raw) {
+      const sid = row.session_id!;
+      if (!grouped[sid]) grouped[sid] = [];
+      grouped[sid].push(row as AnalyticsEvent);
+    }
+    for (const evs of Object.values(grouped)) {
+      evs.sort((a, b) => new Date(a.created_at!).getTime() - new Date(b.created_at!).getTime());
+    }
+    const sorted = Object.entries(grouped)
+      .sort(([, a], [, b]) => new Date(b[b.length - 1]!.created_at!).getTime() - new Date(a[a.length - 1]!.created_at!).getTime())
+      .slice(0, limit)
+      .map(([session_id, events]) => ({ session_id, events }));
+    return sorted;
+  }
+
+  async getFunnelEvents(dateFrom?: string): Promise<AnalyticsEvent[]> {
+    let query = this.client
+      .from('analytics_events')
+      .select('event_type, campaign_id, created_at, user_agent, device_id, session_id, event_data');
+    if (dateFrom) {
+      query = query.gte('created_at', dateFrom);
+    }
+    const { data } = await query
+      .in('event_type', ['qr_scanned', 'landing_loaded', 'consent_granted', 'calibration_completed', 'game_started', 'game_completed', 'results_viewed', 'auth_registered', 'registration_completed', 'trade_requested', 'whatsapp_clicked', 'phone_service_opened', 'buy_flow_started', 'game_abandoned', 'error_occurred'])
+      .order('created_at', { ascending: false })
+      .limit(15000);
+    return (data ?? []) as AnalyticsEvent[];
+  }
+
+  async getCalibrationEvents(limit = 1000): Promise<AnalyticsEvent[]> {
+    const { data } = await this.client
+      .from('analytics_events')
+      .select('*')
+      .in('event_type', ['calibration_started', 'calibration_completed'])
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    return (data ?? []) as AnalyticsEvent[];
+  }
+
+  async getPhoneExchangeEvents(limit = 2000): Promise<AnalyticsEvent[]> {
+    const { data } = await this.client
+      .from('analytics_events')
+      .select('*')
+      .in('event_type', ['phone_service_opened', 'device_selected', 'trade_offer_viewed', 'trade_requested', 'buy_flow_started', 'sell_flow_started', 'exchange_flow_started', 'whatsapp_clicked'])
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    return (data ?? []) as AnalyticsEvent[];
+  }
+
+  async getGameEvents(limit = 1000): Promise<AnalyticsEvent[]> {
+    const { data } = await this.client
+      .from('analytics_events')
+      .select('*')
+      .in('event_type', ['game_started', 'game_completed', 'round_started', 'lamp_clicked'])
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    return (data ?? []) as AnalyticsEvent[];
+  }
+
   async getEventStats(eventType?: string): Promise<{
     total: number;
     today: number;

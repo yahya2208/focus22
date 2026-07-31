@@ -1,10 +1,11 @@
+import { memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Button } from '../../components/shared/Button';
 import { Card } from '../../components/shared/Card';
 
-export function AccessDeniedScreen() {
+export const AccessDeniedScreen = memo(function AccessDeniedScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const colors = useThemeColors();
@@ -30,4 +31,4 @@ export function AccessDeniedScreen() {
       </Card>
     </nav>
   );
-}
+});

@@ -1,15 +1,21 @@
-import { useState, useEffect } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { getGlobalTelemetry } from '../../core/telemetry';
 
-export function CountdownScreen() {
+export const CountdownScreen = memo(function CountdownScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const colors = useThemeColors();
   const [count, setCount] = useState(3);
+  const trackedRef = useRef(false);
 
   useEffect(() => {
+    if (!trackedRef.current) {
+      trackedRef.current = true;
+      getGlobalTelemetry().track('game_started', { source: 'countdown' });
+    }
     if (count <= 0) {
       dispatch({ type: 'NAVIGATE', screen: 'game' });
       return;
@@ -87,4 +93,4 @@ export function CountdownScreen() {
       </div>
     </nav>
   );
-}
+});

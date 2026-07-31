@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -5,7 +6,7 @@ import { Card } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
 import { getGlobalTelemetry } from '../../core/telemetry';
 
-export function ConsentScreen() {
+export const ConsentScreen = memo(function ConsentScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const colors = useThemeColors();
@@ -52,4 +53,4 @@ export function ConsentScreen() {
       </div>
     </nav>
   );
-}
+});

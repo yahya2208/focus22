@@ -1,35 +1,9 @@
 import { getGlobalEventPublisher } from '../events';
 import type { SessionCreatedPayload, SessionCompletedPayload } from '../session/service';
 
-export type TelemetryEventType =
-  | 'app_opened'
-  | 'calibration_started'
-  | 'calibration_completed'
-  | 'game_started'
-  | 'game_completed'
-  | 'game_abandoned'
-  | 'results_viewed'
-  | 'session_saved'
-  | 'session_synced'
-  | 'auth_guest_created'
-  | 'auth_registered'
-  | 'auth_converted'
-  | 'settings_changed'
-  | 'qr_scanned'
-  | 'error_occurred'
-  | 'landing_loaded'
-  | 'registration_prompt'
-  | 'registration_completed'
-  | 'guest_converted'
-  | 'share_clicked'
-  | 'qr_generated'
-  | 'campaign_detected'
-  | 'referral_clicked'
-  | 'consent_granted'
-  | 'consent_withdrawn'
-  | 'game_intro_shown'
-  | 'register_cta_clicked'
-  | 'qr_game_completed';
+import type { AnalyticsEventType } from '../analytics/events';
+
+export type TelemetryEventType = AnalyticsEventType;
 
 export interface TelemetryEvent {
   readonly type: TelemetryEventType;
@@ -60,6 +34,9 @@ export interface TelemetryService {
   setConfig(config: Partial<TelemetryConfig>): void;
   getConfig(): TelemetryConfig;
   setContext(userId: string | null, sessionId: string | null, deviceId: string | null, campaignId?: string | null): void;
+  setUserId(userId: string | null): void;
+  setDeviceId(deviceId: string | null): void;
+  setCampaignId(campaignId: string | null): void;
 }
 
 export function createTelemetryService(
@@ -119,6 +96,15 @@ export function createTelemetryService(
 
     setContext(userId: string | null, sessionId: string | null, deviceId: string | null, campaignId: string | null = null): void {
       context = { userId, sessionId, deviceId, campaignId };
+    },
+    setUserId(userId: string | null): void {
+      context = { ...context, userId };
+    },
+    setDeviceId(deviceId: string | null): void {
+      context = { ...context, deviceId };
+    },
+    setCampaignId(campaignId: string | null): void {
+      context = { ...context, campaignId };
     },
   };
 }

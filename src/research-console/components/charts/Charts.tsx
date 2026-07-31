@@ -5,46 +5,55 @@ interface BarChartProps {
   readonly title?: string;
   readonly dimensions?: ChartDimensions;
   readonly color?: string;
+  readonly emptyLabel?: string;
 }
 
-export function BarChart({ data, title, dimensions, color }: BarChartProps) {
+export function BarChart({ data, title, dimensions, color, emptyLabel }: BarChartProps) {
   const { bars, maxValue } = computeBarChartLayout(data, dimensions);
   const dims = dimensions ?? { width: 400, height: 250, padding: { top: 20, right: 20, bottom: 40, left: 50 } };
+
+  const hasData = data.some(d => d.value > 0);
 
   return (
     <div>
       {title && <h3 style={{ color: '#f0f0f0', fontSize: '0.95rem', marginBottom: '0.5rem' }}>{title}</h3>}
-      <svg width={dims.width} height={dims.height} role="img" aria-label={title ?? 'Bar chart'}>
-        {bars.map((bar, i) => (
-          <rect
-            key={i}
-            x={bar.x}
-            y={bar.y}
-            width={bar.width}
-            height={bar.height}
-            fill={color ?? bar.color}
-            rx={3}
-          >
-            <title>{`${bar.label}: ${bar.value}`}</title>
-          </rect>
-        ))}
-        {bars.map((bar, i) => (
-          <text
-            key={`label-${i}`}
-            x={bar.x + bar.width / 2}
-            y={dims.height - 10}
-            textAnchor="middle"
-            fill="#888"
-            fontSize={10}
-          >
-            {bar.label.length > 8 ? bar.label.slice(0, 8) + '…' : bar.label}
-          </text>
-        ))}
-        <line x1={dims.padding.left} y1={dims.height - dims.padding.bottom} x2={dims.width - dims.padding.right} y2={dims.height - dims.padding.bottom} stroke="#333" />
-        <line x1={dims.padding.left} y1={dims.padding.top} x2={dims.padding.left} y2={dims.height - dims.padding.bottom} stroke="#333" />
-        <text x={dims.padding.left - 5} y={dims.padding.top + 10} textAnchor="end" fill="#888" fontSize={10}>{maxValue.toFixed(0)}</text>
-        <text x={dims.padding.left - 5} y={dims.height - dims.padding.bottom} textAnchor="end" fill="#888" fontSize={10}>0</text>
-      </svg>
+      {!hasData ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: dims.height, color: '#555', fontSize: '0.85rem' }}>
+          {emptyLabel ?? 'No data'}
+        </div>
+      ) : (
+        <svg width={dims.width} height={dims.height} role="img" aria-label={title ?? 'Bar chart'}>
+          {bars.map((bar, i) => (
+            <rect
+              key={i}
+              x={bar.x}
+              y={bar.y}
+              width={bar.width}
+              height={bar.height}
+              fill={color ?? bar.color}
+              rx={3}
+            >
+              <title>{`${bar.label}: ${bar.value}`}</title>
+            </rect>
+          ))}
+          {bars.map((bar, i) => (
+            <text
+              key={`label-${i}`}
+              x={bar.x + bar.width / 2}
+              y={dims.height - 10}
+              textAnchor="middle"
+              fill="#888"
+              fontSize={10}
+            >
+              {bar.label.length > 8 ? bar.label.slice(0, 8) + '…' : bar.label}
+            </text>
+          ))}
+          <line x1={dims.padding.left} y1={dims.height - dims.padding.bottom} x2={dims.width - dims.padding.right} y2={dims.height - dims.padding.bottom} stroke="#333" />
+          <line x1={dims.padding.left} y1={dims.padding.top} x2={dims.padding.left} y2={dims.height - dims.padding.bottom} stroke="#333" />
+          <text x={dims.padding.left - 5} y={dims.padding.top + 10} textAnchor="end" fill="#888" fontSize={10}>{maxValue.toFixed(0)}</text>
+          <text x={dims.padding.left - 5} y={dims.height - dims.padding.bottom} textAnchor="end" fill="#888" fontSize={10}>0</text>
+        </svg>
+      )}
     </div>
   );
 }

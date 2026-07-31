@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 
 interface CardProps {
@@ -10,7 +10,7 @@ interface CardProps {
   style?: React.CSSProperties;
 }
 
-export function Card({ children, padding = '1.5rem', elevated = true, glass = true, glow = false, style }: CardProps) {
+export const Card = memo(function Card({ children, padding = '1.5rem', elevated = true, glass = true, glow = false, style }: CardProps) {
   const colors = useThemeColors();
   return (
     <div
@@ -34,4 +34,4 @@ export function Card({ children, padding = '1.5rem', elevated = true, glass = tr
       {children}
     </div>
   );
-}
+});

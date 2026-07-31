@@ -1,0 +1,15 @@
+{
+  "brand": "Nothing",
+  "aliases": ["نوثينج", "Nothing"],
+  "models": [
+    {"model":"Phone (1)","series":"Phone","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"8"},{"storage":"256","ram":"12"}],"modelNumbers":["A063"],"releaseYear":2022},
+    {"model":"Phone (2)","series":"Phone","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"},{"storage":"512","ram":"12"}],"modelNumbers":["A065"],"releaseYear":2023},
+    {"model":"Phone (2a)","series":"Phone","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"}],"modelNumbers":["A142"],"releaseYear":2024},
+    {"model":"Phone (2a) Plus","series":"Phone","variants":[{"storage":"256","ram":"12"}],"modelNumbers":["A145"],"releaseYear":2024},
+    {"model":"Phone (3)","series":"Phone","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"},{"storage":"512","ram":"12"}],"modelNumbers":["A168"],"releaseYear":2025},
+    {"model":"Phone (3a)","series":"Phone","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"}],"modelNumbers":["A169"],"releaseYear":2025},
+    {"model":"Phone (4)","series":"Phone","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["A192"],"releaseYear":2026},
+    {"model":"CMF Phone 1","series":"CMF","variants":[{"storage":"128","ram":"6"},{"storage":"256","ram":"8"}],"modelNumbers":["A115"],"releaseYear":2024},
+    {"model":"CMF Phone 2","series":"CMF","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"8"}],"modelNumbers":["A125"],"releaseYear":2025}
+  ]
+}

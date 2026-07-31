@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { createShareHandler, SHARE_PLATFORMS } from '../../core/qr/share';
 import { generateQRDataUrl } from '../../core/qr/generate';
@@ -8,7 +8,7 @@ import { Button } from '../../components/shared/Button';
 import { Card } from '../../components/shared/Card';
 import { getGlobalTelemetry } from '../../core/telemetry';
 
-export function ShareScreen() {
+export const ShareScreen = memo(function ShareScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const colors = useThemeColors();
@@ -96,4 +96,4 @@ export function ShareScreen() {
       </div>
     </nav>
   );
-}
+});

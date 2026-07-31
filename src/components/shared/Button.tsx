@@ -1,5 +1,6 @@
-import { type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { memo, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useThemeStyles } from '../../hooks/useThemeStyles';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -9,7 +10,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
 }
 
-export function Button({
+export const Button = memo(function Button({
   variant = 'primary',
   size = 'md',
   loading = false,
@@ -20,27 +21,26 @@ export function Button({
   ...rest
 }: ButtonProps) {
   const colors = useThemeColors();
+  const styles = useThemeStyles();
 
   const variantStyles: Record<string, React.CSSProperties> = {
     primary: {
+      ...styles.btnPrimary,
       background: `linear-gradient(135deg, ${colors.accent} 0%, ${colors.accentLight} 100%)`,
-      color: '#fff',
       boxShadow: glow ? `0 4px 24px ${colors.accentGlow}, 0 0 48px ${colors.accentGlow}` : `0 2px 12px ${colors.accentGlow}`,
     },
     secondary: {
-      background: colors.glass,
-      color: colors.text,
-      border: `1px solid ${colors.glassBorder}`,
+      ...styles.btnSecondary,
       backdropFilter: 'blur(12px)',
       WebkitBackdropFilter: 'blur(12px)',
     },
     danger: {
+      ...styles.btnDanger,
       background: `linear-gradient(135deg, ${colors.danger} 0%, ${colors.danger}dd 100%)`,
-      color: '#fff',
       boxShadow: `0 2px 12px ${colors.dangerBg}`,
     },
     ghost: {
-      background: 'transparent',
+      ...styles.ghostBtn,
       color: colors.textSecondary,
       border: 'none',
     },
@@ -97,4 +97,4 @@ export function Button({
       {children}
     </button>
   );
-}
+});

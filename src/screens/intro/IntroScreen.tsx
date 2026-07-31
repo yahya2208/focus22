@@ -1,10 +1,11 @@
+import { memo } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Card } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
 
-export function IntroScreen() {
+export const IntroScreen = memo(function IntroScreen() {
   const dispatch = useAppDispatch();
   const { selectedGame } = useAppState();
   const { t } = useTranslation();
@@ -41,4 +42,4 @@ export function IntroScreen() {
       </Card>
     </nav>
   );
-}
+});

@@ -1,13 +1,15 @@
-import { useEffect } from 'react';
+import { memo, useEffect } from 'react';
 import { useAppDispatch } from '../../store/navigation';
+import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { getGlobalTelemetry } from '../../core/telemetry';
 import { runSilentCalibration } from '../../core/calibration/silent';
 
 const INTRO_DURATION_MS = 1000;
 
-export function GameIntroScreen() {
+export const GameIntroScreen = memo(function GameIntroScreen() {
   const dispatch = useAppDispatch();
+  const { t } = useTranslation();
   const colors = useThemeColors();
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export function GameIntroScreen() {
           marginBottom: '0.5rem',
           lineHeight: 1.2,
         }}>
-          Test Your Focus
+          {t('gameIntro.title')}
         </h1>
 
         <p style={{
@@ -78,11 +80,9 @@ export function GameIntroScreen() {
           lineHeight: 1.5,
           margin: 0,
         }}>
-          Tap the glowing lamp
-          <br />
-          as soon as it appears.
+          {t('gameIntro.instruction')}
         </p>
       </div>
     </nav>
   );
-}
+});

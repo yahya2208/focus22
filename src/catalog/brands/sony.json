@@ -1,0 +1,33 @@
+{
+  "brand": "Sony",
+  "aliases": ["سوني", "Sony", "xperia"],
+  "models": [
+    {"model":"Xperia 1","series":"Xperia 1","variants":[{"storage":"64","ram":"6"}],"modelNumbers":["J8110"],"releaseYear":2019},
+    {"model":"Xperia 1 II","series":"Xperia 1","variants":[{"storage":"128","ram":"8"}],"modelNumbers":["XQ-AT51"],"releaseYear":2020},
+    {"model":"Xperia 1 III","series":"Xperia 1","variants":[{"storage":"256","ram":"12"}],"modelNumbers":["XQ-BC62"],"releaseYear":2021},
+    {"model":"Xperia 1 IV","series":"Xperia 1","variants":[{"storage":"256","ram":"12"}],"modelNumbers":["XQ-CT62"],"releaseYear":2022},
+    {"model":"Xperia 1 V","series":"Xperia 1","variants":[{"storage":"256","ram":"12"}],"modelNumbers":["XQ-DQ62"],"releaseYear":2023},
+    {"model":"Xperia 1 VI","series":"Xperia 1","variants":[{"storage":"256","ram":"12"}],"modelNumbers":["XQ-EC62"],"releaseYear":2024},
+    {"model":"Xperia 1 VII","series":"Xperia 1","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["XQ-FC62"],"releaseYear":2025},
+    {"model":"Xperia 5 II","series":"Xperia 5","variants":[{"storage":"128","ram":"8"}],"modelNumbers":["XQ-AS62"],"releaseYear":2020},
+    {"model":"Xperia 5 III","series":"Xperia 5","variants":[{"storage":"128","ram":"8"}],"modelNumbers":["XQ-BQ62"],"releaseYear":2021},
+    {"model":"Xperia 5 IV","series":"Xperia 5","variants":[{"storage":"128","ram":"8"}],"modelNumbers":["XQ-CQ62"],"releaseYear":2022},
+    {"model":"Xperia 5 V","series":"Xperia 5","variants":[{"storage":"128","ram":"8"}],"modelNumbers":["XQ-DE54"],"releaseYear":2023},
+    {"model":"Xperia 10 II","series":"Xperia 10","variants":[{"storage":"64","ram":"4"}],"modelNumbers":["XQ-AU52"],"releaseYear":2020},
+    {"model":"Xperia 10 III","series":"Xperia 10","variants":[{"storage":"64","ram":"6"},{"storage":"128","ram":"6"}],"modelNumbers":["XQ-BT52"],"releaseYear":2021},
+    {"model":"Xperia 10 IV","series":"Xperia 10","variants":[{"storage":"128","ram":"6"}],"modelNumbers":["XQ-CC54"],"releaseYear":2022},
+    {"model":"Xperia 10 V","series":"Xperia 10","variants":[{"storage":"128","ram":"6"}],"modelNumbers":["XQ-DC54"],"releaseYear":2023},
+    {"model":"Xperia 10 VI","series":"Xperia 10","variants":[{"storage":"128","ram":"8"}],"modelNumbers":["XQ-ED54"],"releaseYear":2024},
+    {"model":"Xperia 10 VII","series":"Xperia 10","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"8"}],"modelNumbers":["XQ-FD54"],"releaseYear":2025},
+    {"model":"Xperia Z","series":"Xperia Z","variants":[{"storage":"16","ram":"2"}],"modelNumbers":["C6603"],"releaseYear":2013},
+    {"model":"Xperia Z1","series":"Xperia Z","variants":[{"storage":"16","ram":"2"}],"modelNumbers":["C6903"],"releaseYear":2013},
+    {"model":"Xperia Z2","series":"Xperia Z","variants":[{"storage":"16","ram":"3"}],"modelNumbers":["D6503"],"releaseYear":2014},
+    {"model":"Xperia Z3","series":"Xperia Z","variants":[{"storage":"16","ram":"3"},{"storage":"32","ram":"3"}],"modelNumbers":["D6603"],"releaseYear":2014},
+    {"model":"Xperia Z5","series":"Xperia Z","variants":[{"storage":"32","ram":"3"}],"modelNumbers":["E6603"],"releaseYear":2015},
+    {"model":"Xperia XZ","series":"Xperia XZ","variants":[{"storage":"32","ram":"3"},{"storage":"64","ram":"3"}],"modelNumbers":["F8331"],"releaseYear":2016},
+    {"model":"Xperia XZ Premium","series":"Xperia XZ","variants":[{"storage":"64","ram":"4"}],"modelNumbers":["G8141"],"releaseYear":2017},
+    {"model":"Xperia XZ1","series":"Xperia XZ","variants":[{"storage":"64","ram":"4"}],"modelNumbers":["G8341"],"releaseYear":2017},
+    {"model":"Xperia XZ2","series":"Xperia XZ","variants":[{"storage":"64","ram":"4"}],"modelNumbers":["H8216"],"releaseYear":2018},
+    {"model":"Xperia XZ3","series":"Xperia XZ","variants":[{"storage":"64","ram":"4"}],"modelNumbers":["H8416"],"releaseYear":2018}
+  ]
+}

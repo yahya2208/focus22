@@ -1,0 +1,24 @@
+{
+  "brand": "ZTE",
+  "aliases": ["زد تي اي", "ZTE", "nubia", "axon"],
+  "models": [
+    {"model":"Axon 10 Pro","series":"Axon","variants":[{"storage":"128","ram":"8"}],"modelNumbers":["A2020"],"releaseYear":2019},
+    {"model":"Axon 20 5G","series":"Axon","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"8"}],"modelNumbers":["A2121"],"releaseYear":2020},
+    {"model":"Axon 30","series":"Axon","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"}],"modelNumbers":["A2322"],"releaseYear":2021},
+    {"model":"Axon 30 Ultra","series":"Axon","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"}],"modelNumbers":["A2022"],"releaseYear":2021},
+    {"model":"Axon 40 Ultra","series":"Axon","variants":[{"storage":"256","ram":"8"},{"storage":"512","ram":"12"}],"modelNumbers":["A2023"],"releaseYear":2022},
+    {"model":"Axon 50 Ultra","series":"Axon","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["A2024"],"releaseYear":2024},
+    {"model":"Axon 60 Ultra","series":"Axon","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["A2025"],"releaseYear":2025},
+    {"model":"Nubia Z50","series":"Nubia Z","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"}],"modelNumbers":["NX711J"],"releaseYear":2022},
+    {"model":"Nubia Z60 Ultra","series":"Nubia Z","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["NX721J"],"releaseYear":2023},
+    {"model":"Nubia Z70 Ultra","series":"Nubia Z","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"},{"storage":"1000","ram":"24"}],"modelNumbers":["NX731J"],"releaseYear":2024},
+    {"model":"Nubia Z80 Ultra","series":"Nubia Z","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"},{"storage":"1000","ram":"24"}],"modelNumbers":["NX741J"],"releaseYear":2025},
+    {"model":"Nubia Z90 Ultra","series":"Nubia Z","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"},{"storage":"1000","ram":"24"}],"modelNumbers":["NX751J"],"releaseYear":2026},
+    {"model":"Blade A31","series":"Blade","variants":[{"storage":"32","ram":"2"}],"modelNumbers":["BLADE A31"],"releaseYear":2021},
+    {"model":"Blade A52","series":"Blade","variants":[{"storage":"64","ram":"3"}],"modelNumbers":["BLADE A52"],"releaseYear":2022},
+    {"model":"Blade A72","series":"Blade","variants":[{"storage":"64","ram":"4"}],"modelNumbers":["BLADE A72"],"releaseYear":2022},
+    {"model":"Blade A73","series":"Blade","variants":[{"storage":"128","ram":"4"}],"modelNumbers":["BLADE A73"],"releaseYear":2023},
+    {"model":"Blade V40","series":"Blade","variants":[{"storage":"128","ram":"4"},{"storage":"128","ram":"6"}],"modelNumbers":["BLADE V40"],"releaseYear":2022},
+    {"model":"Blade V50","series":"Blade","variants":[{"storage":"128","ram":"6"}],"modelNumbers":["BLADE V50"],"releaseYear":2024}
+  ]
+}

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { useAuth, type ResearchRole } from '../../core/auth/AuthProvider';
 import { createPermissionGuard } from '../../core/research/permissions';
 import { LoginScreen } from '../../screens/auth/LoginScreen';
@@ -22,7 +22,7 @@ interface ProtectedRouteProps {
   requiredAction?: 'read' | 'write' | 'export' | 'delete';
 }
 
-export function ProtectedRoute({
+export const ProtectedRoute = memo(function ProtectedRoute({
   children,
   requireAuth = true,
   requiredRole,
@@ -58,4 +58,4 @@ export function ProtectedRoute({
   }
 
   return <>{children}</>;
-}
+});

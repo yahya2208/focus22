@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { memo, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { correctReactionTime } from '../../core/measurement';
 import { REACTION } from '../../core/scientific/constants';
@@ -6,6 +6,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { getGlobalTelemetry } from '../../core/telemetry';
 import { getGlobalSessionService } from '../../core/session/service';
+import { trackLampAppeared, trackLampClicked, trackMissClick, trackRoundStarted } from '../../core/analytics/tracker';
 
 type Phase = 'waiting' | 'visible' | 'hit' | 'miss';
 
@@ -137,7 +138,7 @@ function GlassLamp({ visible, xPct, yPct, onRef }: { visible: boolean; xPct: num
   );
 }
 
-export function GameScreen() {
+export const GameScreen = memo(function GameScreen() {
   const dispatch = useAppDispatch();
   const { calibrationProfile, isQrFlow, campaignId, selectedGame } = useAppState();
   const { t } = useTranslation();
@@ -179,6 +180,7 @@ export function GameScreen() {
   }, [calibrationProfile]);
 
   const startRound = useCallback(() => {
+    trackRoundStarted(roundRef.current + 1, TOTAL_ROUNDS, campaignId ?? undefined);
     setPhase('waiting');
     lastRtRef.current = null;
     const delay = MIN_DELAY_MS + secureRandom() * (MAX_DELAY_MS - MIN_DELAY_MS);
@@ -187,6 +189,7 @@ export function GameScreen() {
       lampCellRef.current = nextCell;
       stimulusTimeRef.current = performance.now();
       setPhase('visible');
+      trackLampAppeared(roundRef.current + 1, delay);
     }, delay);
   }, []);
 
@@ -231,9 +234,14 @@ export function GameScreen() {
 
   const handleLampTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
-    if (phaseRef.current !== 'visible') return;
+    if (phaseRef.current !== 'visible') {
+      trackMissClick(roundRef.current + 1, 'early');
+      return;
+    }
 
     const rt = performance.now() - stimulusTimeRef.current;
+    const corrected = rt - calibration.displayLagMs - calibration.inputLagMs;
+    trackLampClicked(roundRef.current + 1, Math.round(rt), corrected >= REACTION.MIN_RT_MS);
     rawRtsRef.current.push(rt);
     lastRtRef.current = rt;
     if (bestTimeRef.current === null || rt < bestTimeRef.current) {
@@ -247,7 +255,7 @@ export function GameScreen() {
     roundTimerRef.current = setTimeout(() => {
       setRound((r) => r + 1);
     }, 700);
-  }, []);
+  }, [calibration]);
 
   useEffect(() => {
     if (phase === 'visible' && lampElRef.current) {
@@ -452,4 +460,4 @@ export function GameScreen() {
       </nav>
     </>
   );
-}
+});

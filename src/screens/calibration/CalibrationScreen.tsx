@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { CALIBRATION } from '../../core/scientific/constants';
 import { createDefaultCalibrationProfile } from '../../core/calibration';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Card } from '../../components/shared/Card';
+import { trackCalibrationStarted, trackCalibrationCompleted } from '../../core/analytics/tracker';
 
-export function CalibrationScreen() {
+export const CalibrationScreen = memo(function CalibrationScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const colors = useThemeColors();
@@ -18,6 +19,7 @@ export function CalibrationScreen() {
 
   useEffect(() => {
     startTimeRef.current = performance.now();
+    trackCalibrationStarted();
     let lastTime = performance.now();
 
     function measure(timestamp: number) {
@@ -46,6 +48,8 @@ export function CalibrationScreen() {
             ? 'iOS'
             : 'desktop';
         const inputLagMap: Record<string, number> = { Android: 16, iOS: 12, desktop: 8 };
+
+        trackCalibrationCompleted(confidence, refreshRate, displayLagMs, inputLagMap[platform] ?? 16);
 
         const profile = {
           ...createDefaultCalibrationProfile(),
@@ -108,4 +112,4 @@ export function CalibrationScreen() {
       </Card>
     </nav>
   );
-}
+});

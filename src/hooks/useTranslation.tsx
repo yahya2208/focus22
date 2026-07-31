@@ -8,7 +8,7 @@ interface TranslationContextValue {
   dir: 'ltr' | 'rtl';
 }
 
-const TranslationContext = createContext<TranslationContextValue>({
+export const TranslationContext = createContext<TranslationContextValue>({
   t: (key) => key,
   locale: 'en',
   dir: 'ltr',

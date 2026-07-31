@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { memo, useState, useCallback, useEffect } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { getSupabaseClient } from '../../core/supabase/client';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -6,7 +6,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { Button } from '../../components/shared/Button';
 import { Card } from '../../components/shared/Card';
 
-export function AdminSetupScreen() {
+export const AdminSetupScreen = memo(function AdminSetupScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const colors = useThemeColors();
@@ -191,4 +191,4 @@ export function AdminSetupScreen() {
       </div>
     </nav>
   );
-}
+});

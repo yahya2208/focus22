@@ -1,10 +1,11 @@
+import { memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Card } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
 
-export function AboutScreen() {
+export const AboutScreen = memo(function AboutScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const colors = useThemeColors();
@@ -44,4 +45,4 @@ export function AboutScreen() {
       </Button>
     </nav>
   );
-}
+});

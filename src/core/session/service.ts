@@ -2,6 +2,15 @@ import type { CalibrationProfile } from '../calibration';
 import { getGlobalEventPublisher, type EventPublisher } from '../events';
 import { createSessionId } from './index';
 
+export type EndedReason =
+  | 'completed'
+  | 'abandoned'
+  | 'browser_closed'
+  | 'timeout'
+  | 'crash'
+  | 'admin_closed'
+  | 'network_lost';
+
 export interface SessionResults {
   readonly rawRts: readonly number[];
   readonly correctedRts: readonly number[];
@@ -30,11 +39,18 @@ export interface SessionCompletedPayload {
   readonly campaignId: string | null;
   readonly results: SessionResults;
   readonly createdAt: number;
+  readonly endedReason: EndedReason;
+}
+
+export interface SessionAbandonedPayload {
+  readonly sessionId: string;
+  readonly reason: EndedReason;
 }
 
 export interface SessionService {
   startSession(params: SessionStartParams): string;
   completeSession(sessionId: string, results: SessionResults): void;
+  abandonSession(sessionId: string, reason: EndedReason): void;
 }
 
 export function createSessionService(
@@ -70,6 +86,19 @@ export function createSessionService(
         campaignId: session.campaignId,
         results,
         createdAt: session.createdAt,
+        endedReason: 'completed',
+      }, 'session-service');
+    },
+
+    abandonSession(sessionId: string, reason: EndedReason): void {
+      const session = activeSessions.get(sessionId);
+      if (!session) return;
+
+      activeSessions.delete(sessionId);
+
+      publisher.publish<SessionAbandonedPayload>('session_abandoned', {
+        sessionId,
+        reason,
       }, 'session-service');
     },
   };

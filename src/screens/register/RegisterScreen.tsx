@@ -1,12 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useAuth } from '../../core/auth/AuthProvider';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Button } from '../../components/shared/Button';
 import { Card } from '../../components/shared/Card';
+import { getGlobalTelemetry } from '../../core/telemetry';
 
-export function RegisterScreen() {
+export const RegisterScreen = memo(function RegisterScreen() {
   const dispatch = useAppDispatch();
   const { service } = useAuth();
   const { t } = useTranslation();
@@ -30,10 +31,13 @@ export function RegisterScreen() {
       setError(t('register.passwordTooShort'));
       return;
     }
+    getGlobalTelemetry().track('register_cta_clicked', { method: 'email' });
     setIsLoading(true);
     setError(null);
     try {
       await service.signUpWithEmail(email, password, displayName || undefined);
+      getGlobalTelemetry().track('auth_registered', { email, method: 'email' });
+      getGlobalTelemetry().track('registration_completed', { email });
       dispatch({ type: 'NAVIGATE', screen: 'home' });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('register.failed'));
@@ -51,6 +55,7 @@ export function RegisterScreen() {
     setError(null);
     try {
       await service.signInWithMagicLink(email);
+      getGlobalTelemetry().track('auth_registered', { email, method: 'magic_link' });
       alert(t('login.magicLinkSent'));
     } catch (err) {
       setError(err instanceof Error ? err.message : t('register.failed'));
@@ -156,4 +161,4 @@ export function RegisterScreen() {
       </div>
     </nav>
   );
-}
+});

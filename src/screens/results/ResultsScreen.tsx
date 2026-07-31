@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, memo } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { calculateFocusScore } from '../../core/engine/scoring';
 import { analyzeConsistency } from '../../core/engine/consistency';
@@ -6,28 +6,24 @@ import { detectFatigue } from '../../core/engine/fatigue';
 import { useTranslation } from '../../hooks/useTranslation';
 import type { TranslationKey } from '../../i18n';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { Button } from '../../components/shared/Button';
+import { Button } from '../../design-system/components/Button';
+import { Card } from '../../design-system/components/Card';
+import { Stack } from '../../design-system/components/Stack';
+import { Flex } from '../../design-system/components/Flex';
+import { Screen, Grid } from '../../design-system/layout';
 import { getGlobalTelemetry } from '../../core/telemetry';
 import { getGlobalSessionService } from '../../core/session/service';
-import { Screen, Stack, Grid } from '../../design-system/layout';
 
 function StatCard({ label, value, accent, colors }: { label: string; value: string; accent?: boolean; colors: ReturnType<typeof useThemeColors> }) {
   return (
-    <div style={{
-      background: accent ? `${colors.accent}0a` : colors.glass,
-      border: `1px solid ${accent ? colors.accent + '33' : colors.glassBorder}`,
-      borderRadius: '16px',
-      padding: '0.85rem 1rem',
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)',
-    }}>
+    <Card variant="glass" padding="lg">
       <p style={{ color: colors.textMuted, fontSize: '0.65rem', margin: '0 0 0.2rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
         {label}
       </p>
       <p style={{ color: accent ? colors.accent : colors.text, fontSize: '1.15rem', fontWeight: 800, margin: 0, fontVariantNumeric: 'tabular-nums' }}>
         {value}
       </p>
-    </div>
+    </Card>
   );
 }
 
@@ -37,11 +33,7 @@ function TimelineRow({ trial, rtMs, isBest, isWorst, avgMs, colors }: {
   const barWidth = Math.min(100, Math.max(8, (rtMs / (avgMs * 2)) * 100));
   const barColor = isBest ? colors.accent : isWorst ? colors.warning : colors.textMuted;
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: '0.75rem',
-      padding: '0.5rem 0',
-      borderBottom: `1px solid ${colors.border}`,
-    }}>
+    <Flex gap="md" align="center" style={{ padding: '0.5rem 0', borderBottom: `1px solid ${colors.border}` }}>
       <span style={{ color: colors.textMuted, fontSize: '0.65rem', fontWeight: 600, minWidth: '24px', textAlign: 'right' }}>
         {trial}
       </span>
@@ -61,7 +53,7 @@ function TimelineRow({ trial, rtMs, isBest, isWorst, avgMs, colors }: {
       }}>
         {Math.round(rtMs)}ms
       </span>
-    </div>
+    </Flex>
   );
 }
 
@@ -98,7 +90,7 @@ function ScoreRing({ score, colors }: { score: number; colors: ReturnType<typeof
   );
 }
 
-export function ResultsScreen() {
+export const ResultsScreen = memo(function ResultsScreen() {
   const dispatch = useAppDispatch();
   const { results, isQrFlow, currentSession } = useAppState();
   const { t } = useTranslation();
@@ -132,14 +124,14 @@ export function ResultsScreen() {
     return (
       <Screen ariaLabel="Results">
         <Stack gap="lg">
-          <div style={{ background: colors.glass, border: `1px solid ${colors.glassBorder}`, borderRadius: '20px', padding: '1.25rem', textAlign: 'center' }}>
-            <p style={{ color: colors.textMuted, margin: 0, fontSize: '0.9rem' }}>{t('results.noResults')}</p>
-          </div>
+          <Card variant="outlined" padding="lg">
+            <p style={{ color: colors.textMuted, margin: 0, fontSize: '0.9rem', textAlign: 'center' }}>{t('results.noResults')}</p>
+          </Card>
           <Button onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })}>{t('home.startMeasurement')}</Button>
         </Stack>
-      </Screen>
-    );
-  }
+    </Screen>
+  );
+}
 
   const bestRt = Math.min(...results.correctedRts);
   const avgRt = results.correctedRts.reduce((a, b) => a + b, 0) / results.correctedRts.length;
@@ -173,7 +165,7 @@ export function ResultsScreen() {
       <Stack gap="lg">
         {/* Title */}
         <div style={{ textAlign: 'center' }}>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: colors.text, marginBottom: '0.15rem' }}>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 700, margin: '0 0 0.15rem', color: colors.text }}>
             {t('results.title')}
           </h1>
           <p style={{ color: colors.textMuted, fontSize: '0.8rem' }}>
@@ -182,16 +174,14 @@ export function ResultsScreen() {
         </div>
 
         {/* Score Ring */}
-        <div style={{
-          background: colors.glass, border: `1px solid ${colors.glassBorder}`,
-          borderRadius: '24px', padding: '1.5rem', textAlign: 'center',
-          backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-        }}>
-          <ScoreRing score={analysis.score.focusScore} colors={colors} />
-          <p style={{ color: colors.textMuted, marginTop: '0.75rem', fontSize: '0.85rem' }}>
-            {t('results.grade')}: <strong style={{ color: colors.text }}>{analysis.score.grade}</strong>
-          </p>
-        </div>
+        <Card variant="glass" padding="lg">
+          <div style={{ textAlign: 'center' }}>
+            <ScoreRing score={analysis.score.focusScore} colors={colors} />
+            <p style={{ color: colors.textMuted, marginTop: '0.75rem', fontSize: '0.85rem' }}>
+              {t('results.grade')}: <strong style={{ color: colors.text }}>{analysis.score.grade}</strong>
+            </p>
+          </div>
+        </Card>
 
         {/* Quick Stats */}
         <Grid columns={2} gap="md">
@@ -202,12 +192,8 @@ export function ResultsScreen() {
         </Grid>
 
         {/* Session Timing */}
-        <div style={{
-          background: colors.glass, border: `1px solid ${colors.glassBorder}`,
-          borderRadius: '20px', padding: '1rem',
-          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        }}>
-          <h3 style={{ color: colors.text, margin: '0 0 0.75rem', fontSize: '0.85rem', fontWeight: 700 }}>Session Details</h3>
+        <Card variant="glass" padding="lg">
+          <h3 style={{ fontSize: '0.85rem', fontWeight: 700, margin: '0 0 0.75rem', color: colors.text }}>Session Details</h3>
           <Grid columns={2} gap="sm">
             {results.sessionStart && (
               <div>
@@ -252,27 +238,19 @@ export function ResultsScreen() {
               <p style={{ color: colors.text, fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>{results.rawRts.length}</p>
             </div>
           </Grid>
-        </div>
+        </Card>
 
         {/* Session Replay */}
-        <div style={{
-          background: colors.glass, border: `1px solid ${colors.glassBorder}`,
-          borderRadius: '20px', padding: '1rem',
-          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        }}>
-          <h3 style={{ color: colors.text, margin: '0 0 0.5rem', fontSize: '0.85rem', fontWeight: 700 }}>Session Replay</h3>
+        <Card variant="glass" padding="lg">
+          <h3 style={{ fontSize: '0.85rem', fontWeight: 700, margin: '0 0 0.5rem', color: colors.text }}>Session Replay</h3>
           {results.correctedRts.map((rt, i) => (
             <TimelineRow key={i} trial={i + 1} rtMs={rt} isBest={rt === bestRt} isWorst={rt === maxRt && rt !== bestRt} avgMs={avgRt} colors={colors} />
           ))}
-        </div>
+        </Card>
 
         {/* AI Summary */}
-        <div style={{
-          background: colors.glass, border: `1px solid ${colors.glassBorder}`,
-          borderRadius: '20px', padding: '1rem',
-          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+        <Card variant="glass" padding="lg">
+          <Flex gap="sm" align="center" style={{ marginBottom: '0.5rem' }}>
             <span style={{
               width: 28, height: 28, borderRadius: '8px',
               background: `${colors.accent}18`,
@@ -280,7 +258,7 @@ export function ResultsScreen() {
               fontSize: '0.8rem',
             }}>🤖</span>
             <h3 style={{ color: colors.text, margin: 0, fontSize: '0.85rem', fontWeight: 700 }}>AI Summary</h3>
-          </div>
+          </Flex>
           <p style={{ color: colors.textSecondary, fontSize: '0.8rem', lineHeight: 1.5, margin: 0 }}>
             {analysis.score.focusScore >= 80
               ? `Excellent focus! Your reaction time of ${Math.round(avgRt)}ms with ${analysis.consistency.rating} consistency shows strong cognitive performance.`
@@ -289,15 +267,11 @@ export function ResultsScreen() {
                 : `Room for improvement. Your average ${Math.round(avgRt)}ms suggests practice could help. Try to stay relaxed between trials.`
             }
           </p>
-        </div>
+        </Card>
 
         {/* Recommendations */}
-        <div style={{
-          background: colors.glass, border: `1px solid ${colors.glassBorder}`,
-          borderRadius: '20px', padding: '1rem',
-          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+        <Card variant="glass" padding="lg">
+          <Flex gap="sm" align="center" style={{ marginBottom: '0.5rem' }}>
             <span style={{
               width: 28, height: 28, borderRadius: '8px',
               background: `${colors.accent}18`,
@@ -305,7 +279,7 @@ export function ResultsScreen() {
               fontSize: '0.8rem',
             }}>💡</span>
             <h3 style={{ color: colors.text, margin: 0, fontSize: '0.85rem', fontWeight: 700 }}>{t('recommendation.title')}</h3>
-          </div>
+          </Flex>
           {(() => {
             const grade = analysis.score.grade;
             const tier = grade === 'A' ? 'A' : grade === 'B' ? 'B' : 'C';
@@ -329,18 +303,18 @@ export function ResultsScreen() {
               </>
             );
           })()}
-        </div>
+        </Card>
 
         {/* Actions */}
         <Stack gap="sm" style={{ paddingBottom: '1rem' }}>
-          <Button variant="secondary" onClick={saveAndExit} style={{ width: '100%' }}>
+          <Button variant="secondary" onClick={saveAndExit} fullWidth>
             {t('results.saveAndExit')}
           </Button>
-          <Button variant="ghost" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })} style={{ width: '100%' }}>
+          <Button variant="ghost" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })} fullWidth>
             {t('results.discard')}
           </Button>
         </Stack>
       </Stack>
     </Screen>
   );
-}
+});

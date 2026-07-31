@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { AppProvider, useAppState, useAppDispatch } from './store/navigation';
 import { ThemeProvider } from './design-system/use-theme';
 import { SettingsProvider } from './hooks/useSettings';
@@ -8,31 +8,9 @@ import { PersistenceProvider } from './core/supabase/PersistenceProvider';
 import { useThemeSync } from './hooks/useThemeSync';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { ProtectedRoute } from './components/shared/ProtectedRoute';
-import { HomeScreen } from './screens/home/HomeScreen';
-import { LibraryScreen } from './screens/library/LibraryScreen';
-import { IntroScreen } from './screens/intro/IntroScreen';
-import { CalibrationScreen } from './screens/calibration/CalibrationScreen';
-import { CountdownScreen } from './screens/countdown/CountdownScreen';
-import { GameScreen } from './screens/game/GameScreen';
-import { GameIntroScreen } from './screens/game-intro/GameIntroScreen';
-import { ResultsScreen } from './screens/results/ResultsScreen';
-import { HistoryScreen } from './screens/history/HistoryScreen';
-import { SettingsScreen } from './screens/settings/SettingsScreen';
-import { AboutScreen } from './screens/about/AboutScreen';
-import { LandingScreen } from './screens/landing/LandingScreen';
-import { ShareScreen } from './screens/share/ShareScreen';
-import { RegisterScreen } from './screens/register/RegisterScreen';
-import { ConsentScreen } from './screens/consent/ConsentScreen';
-import { PreGameMessageScreen } from './screens/message/PreGameMessageScreen';
-import { ResearchConsole } from './research-console/ResearchConsole';
-import { CoachScreen } from './screens/coach/CoachScreen';
-import { LoginScreen } from './screens/auth/LoginScreen';
-import { AdminSetupScreen } from './screens/auth/AdminSetupScreen';
-import { AccessDeniedScreen } from './screens/auth/AccessDeniedScreen';
-import { PhoneServicesScreen } from './screens/phone-services/PhoneServicesScreen';
-import { AchievementsScreen } from './screens/achievements/AchievementsScreen';
 import type { ScreenName } from './store/navigation';
 import { useThemeColors } from './hooks/useThemeColors';
+import { AppShell } from './components/layout/AppShell';
 import { parseDeepLinkFromCurrentUrl } from './core/qr/deeplink';
 import { hasCampaign } from './core/qr/campaign';
 import { getGlobalTelemetry } from './core/telemetry';
@@ -40,7 +18,47 @@ import { setupSessionTelemetry } from './core/telemetry';
 import { runSilentCalibration } from './core/calibration/silent';
 import { updateSettings } from './core/config/settings';
 
-const screens: Record<ScreenName, React.FC> = {
+// Small/critical screens — lazy loaded to reduce initial bundle size
+const LibraryScreen = lazy(() => import('./screens/library/LibraryScreen').then(m => ({ default: m.LibraryScreen })));
+const IntroScreen = lazy(() => import('./screens/intro/IntroScreen').then(m => ({ default: m.IntroScreen })));
+const CalibrationScreen = lazy(() => import('./screens/calibration/CalibrationScreen').then(m => ({ default: m.CalibrationScreen })));
+const CountdownScreen = lazy(() => import('./screens/countdown/CountdownScreen').then(m => ({ default: m.CountdownScreen })));
+const GameIntroScreen = lazy(() => import('./screens/game-intro/GameIntroScreen').then(m => ({ default: m.GameIntroScreen })));
+const HistoryScreen = lazy(() => import('./screens/history/HistoryScreen').then(m => ({ default: m.HistoryScreen })));
+const SettingsScreen = lazy(() => import('./screens/settings/SettingsScreen').then(m => ({ default: m.SettingsScreen })));
+const AboutScreen = lazy(() => import('./screens/about/AboutScreen').then(m => ({ default: m.AboutScreen })));
+const LandingScreen = lazy(() => import('./screens/landing/LandingScreen').then(m => ({ default: m.LandingScreen })));
+const ShareScreen = lazy(() => import('./screens/share/ShareScreen').then(m => ({ default: m.ShareScreen })));
+const RegisterScreen = lazy(() => import('./screens/register/RegisterScreen').then(m => ({ default: m.RegisterScreen })));
+const ConsentScreen = lazy(() => import('./screens/consent/ConsentScreen').then(m => ({ default: m.ConsentScreen })));
+const PreGameMessageScreen = lazy(() => import('./screens/message/PreGameMessageScreen').then(m => ({ default: m.PreGameMessageScreen })));
+const LoginScreen = lazy(() => import('./screens/auth/LoginScreen').then(m => ({ default: m.LoginScreen })));
+const AdminSetupScreen = lazy(() => import('./screens/auth/AdminSetupScreen').then(m => ({ default: m.AdminSetupScreen })));
+const AccessDeniedScreen = lazy(() => import('./screens/auth/AccessDeniedScreen').then(m => ({ default: m.AccessDeniedScreen })));
+const AchievementsScreen = lazy(() => import('./screens/achievements/AchievementsScreen').then(m => ({ default: m.AchievementsScreen })));
+const StickerStudioScreen = lazy(() => import('./screens/stickers/StickerStudioScreen').then(m => ({ default: m.StickerStudioScreen })));
+const StickerScanHandler = lazy(() => import('./screens/stickers/StickerScanHandler').then(m => ({ default: m.StickerScanHandler })));
+const RepairHomeScreen = lazy(() => import('./screens/repair/RepairHomeScreen').then(m => ({ default: m.RepairHomeScreen })));
+const RepairDiagnosticsScreen = lazy(() => import('./screens/repair/RepairDiagnosticsScreen').then(m => ({ default: m.RepairDiagnosticsScreen })));
+const RepairPersonnelScreen = lazy(() => import('./screens/repair/RepairPersonnelScreen').then(m => ({ default: m.RepairPersonnelScreen })));
+const DesignSystemPlayground = lazy(() => import('./screens/design-system-playground/DesignSystemPlayground').then(m => ({ default: m.DesignSystemPlayground })));
+import { ResearchConsole } from './research-console/ResearchConsole';
+
+// Large screens — lazy loaded to reduce initial bundle size
+const HomeScreen = lazy(() => import('./screens/home/HomeScreen').then(m => ({ default: m.HomeScreen })));
+const GameScreen = lazy(() => import('./screens/game/GameScreen').then(m => ({ default: m.GameScreen })));
+const ResultsScreen = lazy(() => import('./screens/results/ResultsScreen').then(m => ({ default: m.ResultsScreen })));
+const CoachScreen = lazy(() => import('./screens/coach/CoachScreen').then(m => ({ default: m.CoachScreen })));
+const PhoneServicesScreen = lazy(() => import('./screens/phone-services/PhoneServicesScreen').then(m => ({ default: m.PhoneServicesScreen })));
+const RepairRequestScreen = lazy(() => import('./screens/repair/RepairRequestScreen').then(m => ({ default: m.RepairRequestScreen })));
+const RepairTrackingScreen = lazy(() => import('./screens/repair/RepairTrackingScreen').then(m => ({ default: m.RepairTrackingScreen })));
+const RepairAdminDashboard = lazy(() => import('./screens/repair/RepairAdminDashboard').then(m => ({ default: m.RepairAdminDashboard })));
+const RepairCourierScreen = lazy(() => import('./screens/repair/RepairCourierScreen').then(m => ({ default: m.RepairCourierScreen })));
+const RepairCustomerHistory = lazy(() => import('./screens/repair/RepairCustomerHistory').then(m => ({ default: m.RepairCustomerHistory })));
+const StickerAnalyticsScreen = lazy(() => import('./screens/stickers/StickerAnalyticsScreen').then(m => ({ default: m.StickerAnalyticsScreen })));
+const BusinessIntelligenceCenter = lazy(() => import('./business-intelligence/BusinessIntelligenceCenter').then(m => ({ default: m.BusinessIntelligenceCenter })));
+
+const screens: Record<ScreenName, React.ComponentType> = {
   home: HomeScreen,
   library: LibraryScreen,
   intro: IntroScreen,
@@ -58,12 +76,25 @@ const screens: Record<ScreenName, React.FC> = {
   consent: ConsentScreen,
   message: PreGameMessageScreen,
   research: ResearchConsole,
+  'business-intelligence': BusinessIntelligenceCenter,
   coach: CoachScreen,
   login: LoginScreen,
   'admin-setup': AdminSetupScreen,
   'access-denied': AccessDeniedScreen,
   'phone-services': PhoneServicesScreen,
   achievements: AchievementsScreen,
+  'repair-home': RepairHomeScreen,
+  'repair-request': RepairRequestScreen,
+  'repair-tracking': RepairTrackingScreen,
+  'repair-admin': RepairAdminDashboard,
+  'repair-courier': RepairCourierScreen,
+  'repair-customer-history': RepairCustomerHistory,
+  'repair-diagnostics': RepairDiagnosticsScreen,
+  'repair-personnel': RepairPersonnelScreen,
+  'sticker-studio': StickerStudioScreen,
+  'sticker-analytics': StickerAnalyticsScreen,
+  'sticker-scan': StickerScanHandler,
+  'design-system-playground': DesignSystemPlayground,
 };
 
 function HtmlSync() {
@@ -101,6 +132,7 @@ function InitialRoute() {
           if (campaign?.id) {
             updateSettings({ language: 'ar' });
             const telemetry = getGlobalTelemetry();
+            telemetry.setCampaignId(campaign.id);
             telemetry.track('qr_scanned', { campaign_id: campaign.id });
             telemetry.flush();
             dispatch({ type: 'START_QR_FLOW', campaignId: campaign.id });
@@ -118,6 +150,7 @@ function InitialRoute() {
     const hasQrParams = hasCampaign(deepLink.campaign) || deepLink.referralCode;
 
     if (deepLink.isValid && hasQrParams) {
+      telemetry.setCampaignId(deepLink.campaign.campaign ?? deepLink.campaign.source ?? null);
       telemetry.track('qr_scanned', {
         source: deepLink.campaign.source,
         campaign: deepLink.campaign.campaign,
@@ -138,23 +171,72 @@ function InitialRoute() {
   return null;
 }
 
+function ScreenFallback() {
+  const colors = useThemeColors();
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: colors.text, background: colors.bg }}>
+      Loading...
+    </div>
+  );
+}
+
 function ScreenRouter() {
   const { currentScreen } = useAppState();
 
+  let content: React.ReactNode;
+
   if (currentScreen === 'research') {
-    return (
+    content = (
       <ProtectedRoute requiredRole="researcher">
         <ResearchConsole />
       </ProtectedRoute>
     );
+  } else if (currentScreen === 'business-intelligence') {
+    content = (
+      <ProtectedRoute requiredRole="researcher">
+        <BusinessIntelligenceCenter />
+      </ProtectedRoute>
+    );
+  } else if (currentScreen === 'repair-admin') {
+    content = (
+      <ProtectedRoute requiredRole="admin">
+        <RepairAdminDashboard />
+      </ProtectedRoute>
+    );
+  } else if (currentScreen === 'repair-courier') {
+    content = (
+      <ProtectedRoute requiredRole="admin">
+        <RepairCourierScreen />
+      </ProtectedRoute>
+    );
+  } else if (currentScreen === 'repair-customer-history') {
+    content = (
+      <ProtectedRoute requiredRole="admin">
+        <RepairCustomerHistory />
+      </ProtectedRoute>
+    );
+  } else if (currentScreen === 'repair-personnel') {
+    content = (
+      <ProtectedRoute requiredRole="admin">
+        <RepairPersonnelScreen />
+      </ProtectedRoute>
+    );
+  } else {
+    const Screen = screens[currentScreen];
+    content = <Screen />;
   }
 
-  const Screen = screens[currentScreen];
-  return <Screen />;
+  return (
+    <Suspense fallback={<ScreenFallback />}>
+      {content}
+    </Suspense>
+  );
 }
 
 export default function App() {
   useEffect(() => {
+    const telemetry = getGlobalTelemetry();
+    telemetry.track('app_opened', { source: 'app_mount', timestamp: Date.now() });
     const cleanup = setupSessionTelemetry();
     return cleanup;
   }, []);
@@ -169,7 +251,7 @@ export default function App() {
                 <PersistenceProvider>
                   <HtmlSync />
                   <InitialRoute />
-                  <ScreenRouter />
+                  <AppShell><ScreenRouter /></AppShell>
                 </PersistenceProvider>
               </AppProvider>
             </AuthProvider>

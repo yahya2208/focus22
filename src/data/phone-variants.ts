@@ -1,0 +1,121 @@
+export type StorageSize = '8GB' | '16GB' | '32GB' | '64GB' | '128GB' | '256GB' | '512GB' | '1TB' | '2TB';
+export type RamSize = '1GB' | '2GB' | '3GB' | '4GB' | '6GB' | '8GB' | '12GB' | '16GB' | '18GB' | '24GB' | '32GB';
+
+export interface PhoneVariant {
+  ram: RamSize;
+  storage: StorageSize;
+  label: string;
+}
+
+export const RAM_VALUES: RamSize[] = ['1GB', '2GB', '3GB', '4GB', '6GB', '8GB', '12GB', '16GB', '18GB', '24GB', '32GB'];
+export const STORAGE_VALUES: StorageSize[] = ['8GB', '16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB', '2TB'];
+
+export const RAM_OPTIONS = RAM_VALUES;
+export const STORAGE_OPTIONS = STORAGE_VALUES;
+
+export const VARIANT_EXCEPTIONS: string[] = [
+  '1/256', '1/512', '1/1T',
+  '2/512', '2/1T',
+  '3/512', '3/1T',
+  '4/1T', '4/2T',
+  '6/1T', '6/2T',
+  '8/1T',
+  '32/64', '32/128', '32/256', '32/512', '32/1T', '32/2T',
+  '18/8', '18/16', '18/32', '18/64', '18/128',
+  '24/8', '24/16', '24/32', '24/64', '24/128',
+  '32/8', '32/16', '32/32',
+  '16/8', '16/16', '16/32', '16/64',
+  '12/8', '12/16', '12/32',
+  '8/8', '8/16',
+  '6/8', '6/16',
+  '4/8',
+  '3/8',
+  '2/8',
+];
+
+export const MODEL_VARIANT_OVERRIDES: Record<string, string[]> = {};
+
+function toGB(value: string): number {
+  if (value.endsWith('TB')) return parseInt(value) * 1024;
+  return parseInt(value);
+}
+
+function storageLabel(storage: StorageSize): string {
+  if (storage.endsWith('TB')) return `${parseInt(storage)}T`;
+  return storage.replace('GB', '');
+}
+
+export function generateAllVariants(): PhoneVariant[] {
+  const variants: PhoneVariant[] = [];
+  for (const ram of RAM_VALUES) {
+    const ramGB = toGB(ram);
+    for (const storage of STORAGE_VALUES) {
+      const storageGB = toGB(storage);
+      if (ramGB >= 1 && storageGB >= 8 && storageGB / ramGB <= 128) {
+        const label = `${parseInt(ram)}/${storageLabel(storage)}`;
+        if (!VARIANT_EXCEPTIONS.includes(label)) {
+          variants.push({ ram, storage, label });
+        }
+      }
+    }
+  }
+  variants.sort((a, b) => {
+    const aRam = toGB(a.ram);
+    const bRam = toGB(b.ram);
+    if (aRam !== bRam) return aRam - bRam;
+    return toGB(a.storage) - toGB(b.storage);
+  });
+  return variants;
+}
+
+export const PHONE_VARIANTS = generateAllVariants();
+
+export const VARIANT_LOOKUP: Map<string, PhoneVariant> = new Map(
+  PHONE_VARIANTS.map(v => [v.label, v])
+);
+
+export function getVariantsForModel(modelName: string): PhoneVariant[] {
+  if (MODEL_VARIANT_OVERRIDES[modelName]) {
+    return MODEL_VARIANT_OVERRIDES[modelName]
+      .map(label => VARIANT_LOOKUP.get(label))
+      .filter((v): v is PhoneVariant => v !== undefined);
+  }
+  const lower = modelName.toLowerCase();
+  const isHighEnd = lower.includes('pro') || lower.includes('ultra') || lower.includes('max') || lower.includes('plus')
+    || lower.includes('s25') || lower.includes('s24') || lower.includes('s23') || lower.includes('s22') || lower.includes('s21')
+    || lower.includes('iphone 15') || lower.includes('iphone 16') || lower.includes('iphone 14 pro')
+    || lower.includes('fold') || lower.includes('flip') || lower.includes('note20') || lower.includes('note10');
+  const isBudget = lower.includes('a0') || lower.includes('a1') || lower.includes('a2') || lower.includes('a3')
+    || lower.includes('y6') || lower.includes('y5') || lower.includes('y4')
+    || lower.includes('redmi 9') || lower.includes('redmi 8') || lower.includes('redmi 7')
+    || lower.includes('note 8') || lower.includes('note 9') || lower.includes('note 10')
+    || /^j\d/.test(lower) || lower.includes('galaxy j')
+    || lower.includes('galaxy a0') || lower.includes('galaxy a1') || lower.includes('galaxy a2') || lower.includes('galaxy a3');
+
+  if (isHighEnd) {
+    return PHONE_VARIANTS.filter(v =>
+      ['8/128', '8/256', '8/512', '12/128', '12/256', '12/512', '12/1T', '16/256', '16/512', '16/1T', '24/1T'].includes(v.label)
+    );
+  }
+  if (isBudget) {
+    return PHONE_VARIANTS.filter(v =>
+      ['1/8', '1/16', '2/16', '2/32', '2/64', '3/32', '3/64', '4/64', '4/128'].includes(v.label)
+    );
+  }
+  return PHONE_VARIANTS.filter(v =>
+    ['2/32', '2/64', '3/32', '3/64', '4/64', '4/128', '4/256', '6/64', '6/128', '6/256', '8/128', '8/256'].includes(v.label)
+  );
+}
+
+export function formatVariant(ram: string, storage: string): string {
+  return `${ram.replace('GB', '')}/${storage.replace('GB', '')}`;
+}
+
+export function parseVariant(label: string): { ram: string; storage: string } | null {
+  const match = label.match(/^(\d+)\/(\d+)(T)?$/i);
+  if (!match) return null;
+  const ramNum = match[1]!;
+  const storageNum = match[2]!;
+  const isTB = !!match[3];
+  return { ram: `${ramNum}GB`, storage: isTB ? `${storageNum}TB` : `${storageNum}GB` };
+}

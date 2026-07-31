@@ -126,6 +126,7 @@ describe('Persistence UPSERT idempotency (same session.id, not two rows)', () =>
       campaignId: 'camp-456',
       results,
       createdAt: Date.now(),
+      endedReason: 'completed',
     };
 
     // The UPSERT in PersistenceProvider line 170-171 uses: id: payload.sessionId

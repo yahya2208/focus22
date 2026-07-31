@@ -20,12 +20,25 @@ export type ScreenName =
   | 'consent'
   | 'message'
   | 'research'
+  | 'business-intelligence'
   | 'coach'
   | 'login'
   | 'admin-setup'
   | 'access-denied'
   | 'phone-services'
-  | 'achievements';
+  | 'achievements'
+  | 'repair-home'
+  | 'repair-request'
+  | 'repair-tracking'
+  | 'repair-admin'
+  | 'repair-courier'
+  | 'repair-customer-history'
+  | 'repair-diagnostics'
+  | 'repair-personnel'
+  | 'sticker-studio'
+  | 'sticker-analytics'
+  | 'sticker-scan'
+  | 'design-system-playground';
 
 export interface SessionRecord {
   readonly id: string;

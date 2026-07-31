@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -8,7 +9,7 @@ const GAMES = [
   { id: 'reaction-light' },
 ];
 
-export function LibraryScreen() {
+export const LibraryScreen = memo(function LibraryScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const colors = useThemeColors();
@@ -35,4 +36,4 @@ export function LibraryScreen() {
       </Button>
     </nav>
   );
-}
+});

@@ -1,5 +1,6 @@
 import { useState, useEffect, createContext, useContext, useMemo, useRef, type ReactNode } from 'react';
 import { createAuthService, type AuthService, type AuthState, type AuthUser } from './index';
+import { getGlobalTelemetry } from '../telemetry';
 
 export type ResearchRole = 'super_admin' | 'research_admin' | 'analyst' | 'viewer' | 'none';
 
@@ -59,6 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return service.onStateChange((newState) => {
       setState(newState);
+      const uid = newState.user?.id ?? null;
+      getGlobalTelemetry().setUserId(uid);
     });
   }, [service]);
 

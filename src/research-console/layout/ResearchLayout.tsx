@@ -11,7 +11,8 @@ const MOBILE_BREAKPOINT = 768;
 
 export type DashboardId =
   | 'overview' | 'scientific' | 'users' | 'sessions'
-  | 'devices' | 'surveys' | 'campaigns' | 'live' | 'system' | 'acquisition';
+  | 'devices' | 'surveys' | 'campaigns' | 'live' | 'system' | 'acquisition' | 'journey' | 'health'
+  | 'conversion' | 'comparator' | 'intelligence' | 'insights' | 'exchange' | 'inventory' | 'catalog-health' | 'variant-coverage' | 'inventory-health' | 'price-memory';
 
 const DASHBOARDS: { id: DashboardId; labelKey: TranslationKey; icon: string }[] = [
   { id: 'overview', labelKey: 'research.nav.overview', icon: '📊' },
@@ -64,7 +65,7 @@ export function ResearchLayout({ activeDashboard, onNavigate, children }: Resear
   const SidebarContent = () => (
     <>
       <div style={{ padding: '0 1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#6366f1' }}>FOCUS Research</span>
+        <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#6366f1' }}>{t('sidebar.focusResearch')}</span>
         {isMobile && (
           <button onClick={() => setDrawerOpen(false)} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem', padding: '0.25rem' }} aria-label="Close menu">
             ✕
@@ -145,7 +146,7 @@ export function ResearchLayout({ activeDashboard, onNavigate, children }: Resear
             <button onClick={() => setDrawerOpen(true)} style={{ background: 'none', border: 'none', color: '#f0f0f0', cursor: 'pointer', fontSize: '1.3rem', padding: '0.25rem' }} aria-label="Open menu">
               ☰
             </button>
-            <span style={{ fontWeight: 'bold', color: '#6366f1' }}>FOCUS Research</span>
+            <span style={{ fontWeight: 'bold', color: '#6366f1' }}>{t('sidebar.focusResearch')}</span>
           </div>
         )}
         <main style={{ flex: 1, padding: isMobile ? '1rem' : '1.5rem', overflow: 'auto', width: '100%', minWidth: 0 }}>
@@ -182,11 +183,14 @@ export function StatCard({ label, value, subtitle, color, onClick }: StatCardPro
       style={{
         cursor: onClick ? 'pointer' : undefined,
         transition: 'transform 0.1s',
+        minHeight: '120px',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
-      <div onClick={onClick} role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined}>
-        <p style={{ color: '#888', fontSize: '0.8rem', marginBottom: '0.25rem' }}>{label}</p>
-        <p style={{ color: resolvedColor, fontSize: '1.5rem', fontWeight: 'bold' }}>{displayText}</p>
+      <div onClick={onClick} role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <p style={{ color: '#888', fontSize: '0.8rem', margin: 0 }}>{label}</p>
+        <p style={{ color: resolvedColor, fontSize: '1.5rem', fontWeight: 'bold', margin: 0 }}>{displayText}</p>
         {isComingSoon && (
           <span style={{
             display: 'inline-block', padding: '1px 6px', borderRadius: '4px',
@@ -194,7 +198,7 @@ export function StatCard({ label, value, subtitle, color, onClick }: StatCardPro
             marginTop: '4px', border: '1px solid #333',
           }}>Coming Soon</span>
         )}
-        {subtitle && <p style={{ color: '#666', fontSize: '0.75rem', marginTop: '0.25rem' }}>{subtitle}</p>}
+        {subtitle && <p style={{ color: '#666', fontSize: '0.75rem', margin: 0 }}>{subtitle}</p>}
       </div>
     </Card>
   );
@@ -210,7 +214,7 @@ export function DashboardHeader({ title, subtitle, actions }: DashboardHeaderPro
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
       <div>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f0f0f0' }}>{title}</h1>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f0f0f0', margin: 0 }}>{title}</h1>
         {subtitle && <p style={{ color: '#888', fontSize: '0.9rem', marginTop: '0.25rem' }}>{subtitle}</p>}
       </div>
       {actions && <div style={{ display: 'flex', gap: '0.5rem' }}>{actions}</div>}
@@ -225,11 +229,12 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ filters, onFilterChange, onReset }: FilterBarProps) {
+  const { t } = useTranslation();
   const activeCount = Object.values(filters).filter((v) => v !== null && v !== undefined).length;
   return (
     <Card padding="0.75rem" style={{ marginBottom: '1rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-        <span style={{ color: '#888', fontSize: '0.85rem' }}>Filters {activeCount > 0 ? `(${activeCount})` : ''}</span>
+        <span style={{ color: '#888', fontSize: '0.85rem' }}>{t('sidebar.filters')}{activeCount > 0 ? ` (${activeCount})` : ''}</span>
         <input
           type="date"
           aria-label="Date from"
@@ -244,7 +249,7 @@ export function FilterBar({ filters, onFilterChange, onReset }: FilterBarProps) 
         />
         {activeCount > 0 && (
           <Button variant="secondary" onClick={onReset}>
-            Reset
+            {t('sidebar.reset')}
           </Button>
         )}
       </div>

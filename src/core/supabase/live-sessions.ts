@@ -40,6 +40,9 @@ export interface LiveSession {
   readonly currentRound: number;
   readonly totalRounds: number;
   readonly pluginId: string;
+  readonly lastActivityAt: number | null;
+  readonly endedReason: string | null;
+  readonly source: string;
 }
 
 type LiveSessionsListener = (sessions: readonly LiveSession[]) => void;
@@ -115,6 +118,8 @@ function mapRowToLiveSession(row: Record<string, unknown>): LiveSession | null {
     totalRounds: (row.measurements as { total_rounds?: number })?.total_rounds ?? 7,
     pluginId: row.plugin_id as string,
     source: metadata?.source ?? 'web-app',
+    lastActivityAt: null,
+    endedReason: null,
   } as LiveSession;
 }
 
@@ -124,7 +129,7 @@ async function fetchActiveSessions(): Promise<void> {
     const { data, error } = await client
       .from('sessions')
       .select(`
-        id, user_id, campaign_id, status, plugin_id, created_at, measurements, metadata,
+        id, user_id, campaign_id, status, plugin_id, created_at, updated_at, measurements, metadata,
         _devices:devices(
           browser, browser_version, os, os_version, platform,
           screen_width, screen_height, pixel_ratio, refresh_rate,
@@ -132,18 +137,16 @@ async function fetchActiveSessions(): Promise<void> {
           language, timezone, user_agent, collected_at
         ),
         _campaigns:campaigns(name),
-        _users:users(display_name, role, email)
+        _users:users(display_name, role)
       `)
       .in('status', ['running', 'paused'])
       .order('created_at', { ascending: false })
       .limit(50);
 
     if (error || !data) {
-      if (error) console.warn('[RAW SUPABASE ERROR]', error);
+      if (error) console.error({ code: error.code, message: error.message, details: error.details, hint: error.hint });
       return;
     }
-
-    console.log('[RAW SUPABASE SESSIONS]', JSON.stringify(data, null, 2));
 
     const newIds = new Set<string>();
     for (const row of data) {
@@ -163,8 +166,6 @@ async function fetchActiveSessions(): Promise<void> {
     const json = JSON.stringify(Array.from(activeSessions.values()), null, 2);
     if (json !== lastFetchedJson) {
       lastFetchedJson = json;
-      console.log('[LiveDashboard] activeSessions updated:', activeSessions.size, 'sessions');
-      console.log('[LiveDashboard] session data:', json);
     }
 
     notifyListeners();

@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { memo, useState, useMemo } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { Card } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
 import {
@@ -88,14 +89,15 @@ function ProgressBar({ value, max = 100 }: { value: number; max?: number }) {
 function OverviewTab({ state }: { state: CoachState }) {
   const { t } = useTranslation();
   const colors = useThemeColors();
+  const styles = useThemeStyles();
   const { performance, confidence, recommendations, goals } = state;
   const dims = ['reactionTime', 'consistency', 'fatigue', 'calibration', 'focusScore', 'accuracy'] as const;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+    <div style={{ ...styles.flexCol, gap: '0.75rem' }}>
       {/* Confidence ring */}
       <Card style={{ background: colors.gradient, border: `1px solid ${colors.glassBorder}`, textAlign: 'center' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+        <div style={{ ...styles.flexBetween, marginBottom: '0.75rem' }}>
           <h3 style={{ color: colors.text, margin: 0, fontSize: '0.85rem' }}>{t('coach.confidenceLevel')}</h3>
           <ConfidenceBadge level={confidence.level} />
         </div>
@@ -171,12 +173,13 @@ function OverviewTab({ state }: { state: CoachState }) {
 function TrendsTab({ state }: { state: CoachState }) {
   const { t } = useTranslation();
   const colors = useThemeColors();
+  const styles = useThemeStyles();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+    <div style={{ ...styles.flexCol, gap: '0.75rem' }}>
       {state.trends.map((trend) => (
         <Card key={trend.dimension}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={styles.flexBetween}>
             <div>
               <h3 style={{ color: colors.text, margin: 0, fontSize: '0.85rem', textTransform: 'capitalize' }}>{trend.dimension}</h3>
               <p style={{ color: colors.textFaint, margin: 0, fontSize: '0.65rem' }}>Magnitude: {trend.magnitude.toFixed(3)} · p={trend.statisticalSignificance.toFixed(3)}</p>
@@ -206,13 +209,14 @@ function TrendsTab({ state }: { state: CoachState }) {
 function GoalsTab({ state }: { state: CoachState }) {
   const { t } = useTranslation();
   const colors = useThemeColors();
+  const styles = useThemeStyles();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+    <div style={{ ...styles.flexCol, gap: '0.75rem' }}>
       {state.goals.length === 0 && <Card><p style={{ color: colors.textMuted, fontSize: '0.8rem' }}>{t('coach.noGoals')}</p></Card>}
       {state.goals.map((g) => (
         <Card key={g.id}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+          <div style={{ ...styles.flexBetween, marginBottom: '0.35rem' }}>
             <h3 style={{ color: colors.text, margin: 0, fontSize: '0.85rem' }}>{g.title}</h3>
             <span style={{
               color: g.status === 'completed' ? colors.success : g.status === 'overdue' ? colors.danger : g.status === 'adapted' ? colors.warning : colors.accent,
@@ -235,9 +239,10 @@ function GoalsTab({ state }: { state: CoachState }) {
 function InsightsTab({ state }: { state: CoachState }) {
   const { t } = useTranslation();
   const colors = useThemeColors();
+  const styles = useThemeStyles();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+    <div style={{ ...styles.flexCol, gap: '0.75rem' }}>
       {state.insights.length === 0 && <Card><p style={{ color: colors.textMuted, fontSize: '0.8rem' }}>{t('coach.noInsights')}</p></Card>}
       {state.insights.map((ins) => (
         <Card key={ins.id}>
@@ -266,6 +271,7 @@ function InsightsTab({ state }: { state: CoachState }) {
 
 function PassportTab({ state }: { state: CoachState }) {
   const colors = useThemeColors();
+  const styles = useThemeStyles();
   const { t } = useTranslation();
   const { passport } = state;
   const sessions = useAppState().sessions;
@@ -294,7 +300,7 @@ function PassportTab({ state }: { state: CoachState }) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+    <div style={{ ...styles.flexCol, gap: '0.75rem' }}>
       {/* Focus Passport Card */}
       <div style={{
         background: `linear-gradient(135deg, ${colors.accent}18 0%, ${colors.accent}08 100%)`,
@@ -350,9 +356,9 @@ function PassportTab({ state }: { state: CoachState }) {
           </div>
 
           <div style={{
+            ...styles.flexBetween,
             background: colors.glass, border: `1px solid ${colors.glassBorder}`,
             borderRadius: '10px', padding: '0.5rem 0.75rem',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           }}>
             <span style={{ color: colors.textMuted, fontSize: '0.7rem' }}>Last Played</span>
             <span style={{ color: colors.text, fontSize: '0.75rem', fontWeight: 600 }}>{formatLastPlayed(lastPlayed)}</span>
@@ -402,11 +408,12 @@ function PassportTab({ state }: { state: CoachState }) {
   );
 }
 
-export function CoachScreen() {
+export const CoachScreen = memo(function CoachScreen() {
   const dispatch = useAppDispatch();
   const { sessions } = useAppState();
   const { t } = useTranslation();
   const colors = useThemeColors();
+  const styles = useThemeStyles();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('weekly');
 
@@ -465,7 +472,7 @@ export function CoachScreen() {
 
   return (
     <nav aria-label="AI Coach" style={{ padding: '1.5rem', maxWidth: '480px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+      <div style={{ ...styles.flexBetween, marginBottom: '1rem' }}>
         <h1 style={{ fontSize: '1.375rem', fontWeight: 'bold', color: colors.text, margin: 0 }}>{t('coach.title')}</h1>
         <span style={{
           color: colors.textFaint, fontSize: '0.7rem',
@@ -546,4 +553,4 @@ export function CoachScreen() {
       </Button>
     </nav>
   );
-}
+});

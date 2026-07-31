@@ -1,4 +1,5 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface Props {
   children: ReactNode;
@@ -8,6 +9,49 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+}
+
+function ErrorFallback({ error }: { error: Error | null }) {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="alert"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        padding: '2rem',
+        textAlign: 'center',
+        fontFamily: 'system-ui, sans-serif',
+        backgroundColor: '#0a0a0f',
+        color: '#f0f0f0',
+      }}
+    >
+      <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>{t('error.title')}</h1>
+      <p style={{ color: '#888', marginBottom: '1rem', fontSize: '0.85rem', maxWidth: '500px', wordBreak: 'break-all' }}>
+        {error?.message ?? t('error.unexpected')}
+      </p>
+      <pre style={{ color: '#666', fontSize: '0.7rem', marginBottom: '2rem', maxWidth: '500px', overflow: 'auto', textAlign: 'left' }}>
+        {error?.stack}
+      </pre>
+      <button
+        onClick={() => window.location.reload()}
+        style={{
+          padding: '0.75rem 1.5rem',
+          borderRadius: '8px',
+          border: 'none',
+          backgroundColor: '#6366f1',
+          color: 'white',
+          cursor: 'pointer',
+          fontSize: '1rem',
+        }}
+      >
+        {t('error.reload')}
+      </button>
+    </div>
+  );
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -34,45 +78,7 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        this.props.fallback ?? (
-          <div
-            role="alert"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100vh',
-              padding: '2rem',
-              textAlign: 'center',
-              fontFamily: 'system-ui, sans-serif',
-              backgroundColor: '#0a0a0f',
-              color: '#f0f0f0',
-            }}
-          >
-            <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Something went wrong</h1>
-            <p style={{ color: '#888', marginBottom: '1rem', fontSize: '0.85rem', maxWidth: '500px', wordBreak: 'break-all' }}>
-              {this.state.error?.message ?? 'An unexpected error occurred.'}
-            </p>
-            <pre style={{ color: '#666', fontSize: '0.7rem', marginBottom: '2rem', maxWidth: '500px', overflow: 'auto', textAlign: 'left' }}>
-              {this.state.error?.stack}
-            </pre>
-            <button
-              onClick={() => window.location.reload()}
-              style={{
-                padding: '0.75rem 1.5rem',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: '#6366f1',
-                color: 'white',
-                cursor: 'pointer',
-                fontSize: '1rem',
-              }}
-            >
-              Reload
-            </button>
-          </div>
-        )
+        this.props.fallback ?? <ErrorFallback error={this.state.error} />
       );
     }
     return this.props.children;

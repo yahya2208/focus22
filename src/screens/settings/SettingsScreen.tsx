@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useSettingsContext } from '../../hooks/useSettings';
 import { useAuth } from '../../core/auth/AuthProvider';
@@ -53,7 +54,7 @@ function ThemeSwatch({ name, preview, active, onClick, colors }: {
   );
 }
 
-export function SettingsScreen() {
+export const SettingsScreen = memo(function SettingsScreen() {
   const navDispatch = useAppDispatch();
   const { settings, update } = useSettingsContext();
   const { state, service } = useAuth();
@@ -163,10 +164,15 @@ export function SettingsScreen() {
 
       {isResearcher && (
         <Card glass>
-          <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>{t('settings.researchConsole')}</h2>
-          <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'research' })} style={{ width: '100%' }}>
-            {t('settings.researchConsole')}
-          </Button>
+          <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>Business Intelligence</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'business-intelligence' })} style={{ width: '100%' }}>
+              🏴‍☠️ Treasure Mode — BI Center
+            </Button>
+            <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'research' })} style={{ width: '100%' }}>
+              {t('settings.researchConsole')}
+            </Button>
+          </div>
         </Card>
       )}
 
@@ -182,4 +188,4 @@ export function SettingsScreen() {
       </Button>
     </nav>
   );
-}
+});

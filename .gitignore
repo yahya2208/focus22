@@ -5,4 +5,8 @@ dist/
 coverage/
 .cache/
 .env
+.catalog-store/
 pnpm-workspace.yaml
+anchored-summary.md
+catalog-audit/
+nul

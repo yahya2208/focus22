@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { memo, useEffect } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { parseDeepLinkFromCurrentUrl, createLandingSession } from '../../core/qr/deeplink';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -7,7 +7,7 @@ import { Button } from '../../components/shared/Button';
 import { Card } from '../../components/shared/Card';
 import { getGlobalTelemetry } from '../../core/telemetry';
 
-export function LandingScreen() {
+export const LandingScreen = memo(function LandingScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const colors = useThemeColors();
@@ -120,4 +120,4 @@ export function LandingScreen() {
       </div>
     </nav>
   );
-}
+});

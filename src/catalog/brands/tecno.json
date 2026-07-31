@@ -1,0 +1,29 @@
+{
+  "brand": "Tecno",
+  "aliases": ["تكنو", "Tecno"],
+  "models": [
+    {"model":"Camon 17","series":"Camon","variants":[{"storage":"64","ram":"4"},{"storage":"128","ram":"6"}],"modelNumbers":["CG6"],"releaseYear":2021},
+    {"model":"Camon 18","series":"Camon","variants":[{"storage":"128","ram":"6"},{"storage":"128","ram":"8"}],"modelNumbers":["CG7"],"releaseYear":2021},
+    {"model":"Camon 19","series":"Camon","variants":[{"storage":"128","ram":"4"},{"storage":"128","ram":"6"}],"modelNumbers":["CG8"],"releaseYear":2022},
+    {"model":"Camon 20","series":"Camon","variants":[{"storage":"128","ram":"8"}],"modelNumbers":["CK8"],"releaseYear":2023},
+    {"model":"Camon 30","series":"Camon","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"8"}],"modelNumbers":["CL9"],"releaseYear":2024},
+    {"model":"Camon 40","series":"Camon","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"}],"modelNumbers":["CM9"],"releaseYear":2025},
+    {"model":"Spark 8","series":"Spark","variants":[{"storage":"64","ram":"3"},{"storage":"128","ram":"4"}],"modelNumbers":["KG5k"],"releaseYear":2021},
+    {"model":"Spark 9","series":"Spark","variants":[{"storage":"64","ram":"4"},{"storage":"128","ram":"6"}],"modelNumbers":["KG6"],"releaseYear":2022},
+    {"model":"Spark 10","series":"Spark","variants":[{"storage":"128","ram":"4"},{"storage":"128","ram":"8"}],"modelNumbers":["KG7"],"releaseYear":2023},
+    {"model":"Spark 20","series":"Spark","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"8"}],"modelNumbers":["KL8"],"releaseYear":2023},
+    {"model":"Spark 30","series":"Spark","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"8"}],"modelNumbers":["KL9"],"releaseYear":2024},
+    {"model":"Spark 40","series":"Spark","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"}],"modelNumbers":["KM9"],"releaseYear":2025},
+    {"model":"Pova 3","series":"Pova","variants":[{"storage":"64","ram":"4"},{"storage":"128","ram":"6"}],"modelNumbers":["LG6"],"releaseYear":2022},
+    {"model":"Pova 4","series":"Pova","variants":[{"storage":"128","ram":"6"},{"storage":"128","ram":"8"}],"modelNumbers":["LG7"],"releaseYear":2022},
+    {"model":"Pova 5","series":"Pova","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"8"}],"modelNumbers":["LH8"],"releaseYear":2023},
+    {"model":"Pova 6","series":"Pova","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"}],"modelNumbers":["LI9"],"releaseYear":2024},
+    {"model":"Pova 7","series":"Pova","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"}],"modelNumbers":["LJ9"],"releaseYear":2025},
+    {"model":"Phantom X","series":"Phantom","variants":[{"storage":"256","ram":"8"}],"modelNumbers":["AB7"],"releaseYear":2021},
+    {"model":"Phantom X2","series":"Phantom","variants":[{"storage":"256","ram":"8"}],"modelNumbers":["AD8"],"releaseYear":2022},
+    {"model":"Phantom V Flip","series":"Phantom","variants":[{"storage":"256","ram":"8"}],"modelNumbers":["AE9"],"releaseYear":2023},
+    {"model":"Phantom V Fold","series":"Phantom","variants":[{"storage":"256","ram":"12"}],"modelNumbers":["AD9"],"releaseYear":2023},
+    {"model":"Phantom V Fold 2","series":"Phantom","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"12"}],"modelNumbers":["AE10"],"releaseYear":2024},
+    {"model":"Phantom V3","series":"Phantom","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["AF10"],"releaseYear":2025}
+  ]
+}

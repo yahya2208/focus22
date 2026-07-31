@@ -1,10 +1,12 @@
+import { memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Card } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
+import { getGlobalTelemetry } from '../../core/telemetry';
 
-export function PreGameMessageScreen() {
+export const PreGameMessageScreen = memo(function PreGameMessageScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const colors = useThemeColors();
@@ -18,10 +20,13 @@ export function PreGameMessageScreen() {
         <p style={{ color: colors.textSecondary, fontSize: '1rem', marginBottom: '2rem' }}>
           {t('message.subtitle')}
         </p>
-        <Button onClick={() => dispatch({ type: 'NAVIGATE', screen: 'countdown' })} style={{ width: '100%' }}>
+        <Button onClick={() => {
+          getGlobalTelemetry().track('game_intro_shown', { source: 'pregame_continue' });
+          dispatch({ type: 'NAVIGATE', screen: 'countdown' });
+        }} style={{ width: '100%' }}>
           {t('landing.startNow')}
         </Button>
       </Card>
     </nav>
   );
-}
+});

@@ -1,6 +1,7 @@
 import type { ResearchFilters } from './filters';
 import { getSupabaseClient } from '../supabase/client';
 import { getDataService } from '../supabase/data-service';
+import { parseDeviceBrandModel } from '../device/parser';
 
 export interface OverviewStats {
   readonly totalUsers: number;
@@ -83,6 +84,69 @@ export interface DeviceAnalytics {
   readonly inputLagDistribution: { readonly label: string; readonly count: number }[];
 }
 
+export interface DeviceHealthMetrics {
+  readonly avgCalibrationConfidence: number;
+  readonly reactionConsistency: number;
+  readonly completionRate: number;
+  readonly failureRate: number;
+  readonly abandonRate: number;
+  readonly ranking: 'excellent' | 'good' | 'average' | 'poor' | 'bad';
+  readonly avgFocusScore: number;
+}
+
+export interface DeviceIntelligence {
+  readonly id: string;
+  readonly browser: string;
+  readonly browserVersion: string;
+  readonly os: string;
+  readonly osVersion: string;
+  readonly platform: string;
+  readonly brand: string;
+  readonly model: string;
+  readonly marketingName: string;
+  readonly screenWidth: number | null;
+  readonly screenHeight: number | null;
+  readonly pixelRatio: number | null;
+  readonly refreshRate: number | null;
+  readonly touchSupport: boolean | null;
+  readonly pointerType: string | null;
+  readonly cpuCores: number | null;
+  readonly memoryGb: number | null;
+  readonly language: string | null;
+  readonly timezone: string | null;
+  readonly userAgent: string | null;
+  readonly collectedAt: string | null;
+  readonly sessionsCount: number;
+  readonly completedSessions: number;
+  readonly abandonedSessions: number;
+  readonly avgDuration: number;
+  readonly avgRt: number;
+  readonly avgFocusScore: number;
+  readonly campaigns: readonly string[];
+  readonly firstSeen: string;
+  readonly lastSeen: string;
+  readonly health: DeviceHealthMetrics;
+}
+
+export interface DeviceHierarchyGroup {
+  readonly os: string;
+  readonly count: number;
+  readonly brands: readonly DeviceBrandGroup[];
+}
+
+export interface DeviceBrandGroup {
+  readonly brand: string;
+  readonly count: number;
+  readonly models: readonly DeviceModelGroup[];
+}
+
+export interface DeviceModelGroup {
+  readonly model: string;
+  readonly count: number;
+  readonly marketingName: string;
+  readonly devices: readonly DeviceIntelligence[];
+}
+
 export interface SurveyAnalytics {
   readonly ageDistribution: { readonly range: string; readonly count: number }[];
   readonly genderDistribution: { readonly gender: string; readonly count: number }[];
@@ -132,6 +196,9 @@ export interface SystemHealth {
 export interface SessionRow {
   readonly id: string;
   readonly createdAt: string;
+  readonly status: string;
+  readonly endedReason: string | null;
+  readonly lastActivityAt: string | null;
   readonly userName: string;
   readonly userType: 'Guest' | 'Registered';
   readonly pluginId: string;
@@ -142,7 +209,25 @@ export interface SessionRow {
   readonly focusScore: number;
   readonly consistencyRating: string;
   readonly deviceInfo: string;
+  readonly deviceOs: string;
+  readonly deviceBrowser: string;
   readonly campaignSource: string | null;
+  readonly brand: string;
+  readonly model: string;
+  readonly marketingName: string;
+  readonly screenWidth: number | null;
+  readonly screenHeight: number | null;
+  readonly refreshRate: number | null;
+  readonly pixelRatio: number | null;
+  readonly memoryGb: number | null;
+  readonly cpuCores: number | null;
+  readonly pointerType: string | null;
+  readonly touchSupport: boolean | null;
+  readonly language: string | null;
+  readonly timezone: string | null;
+  readonly userAgent: string | null;
+  readonly fatigueScore: number | null;
+  readonly calibrationConfidence: number | null;
 }
 
 export interface ResearchAPI {
@@ -152,6 +237,7 @@ export interface ResearchAPI {
   getSessionAnalytics(filters?: ResearchFilters): Promise<SessionAnalytics>;
   getSessionList(filters?: ResearchFilters): Promise<readonly SessionRow[]>;
   getDeviceAnalytics(filters?: ResearchFilters): Promise<DeviceAnalytics>;
+  getDeviceIntelligence(filters?: ResearchFilters): Promise<readonly DeviceHierarchyGroup[]>;
   getSurveyAnalytics(filters?: ResearchFilters): Promise<SurveyAnalytics>;
   getCampaignAnalytics(filters?: ResearchFilters): Promise<CampaignAnalytics>;
   getLiveEvents(): readonly LiveEvent[];
@@ -172,17 +258,19 @@ export function createResearchAPI(): ResearchAPI {
       const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-      const [usersResult, sessionsResult, todayResult, weekResult, monthResult, qrStats] = await Promise.all([
+      const [usersResult, sessionsResult, todayResult, weekResult, monthResult, runningResult, qrStats] = await Promise.all([
         client.from('users').select('id, role', { count: 'exact' }),
-        client.from('sessions').select('id, status, measurements, scientific_results, created_at, device_id', { count: 'exact' }),
-        client.from('sessions').select('id', { count: 'exact' }).gte('created_at', todayStart),
+        client.from('sessions').select('id, status, measurements, scientific_results, created_at, device_id, user_id', { count: 'exact' }),
+        client.from('sessions').select('id, created_at', { count: 'exact' }).gte('created_at', todayStart),
         client.from('sessions').select('id', { count: 'exact' }).gte('created_at', weekStart),
         client.from('sessions').select('id', { count: 'exact' }).gte('created_at', monthStart),
+        client.from('sessions').select('id', { count: 'exact', head: true }).eq('status', 'running'),
         dataService.getQRStats(),
       ]);
 
       const users = usersResult.data ?? [];
       const sessions = sessionsResult.data ?? [];
+      const runningCount = runningResult.count ?? 0;
       const completedSessions = sessions.filter(s => s.status === 'completed');
 
       const guestUsers = users.filter(u => u.role === 'guest').length;
@@ -203,6 +291,55 @@ export function createResearchAPI(): ResearchAPI {
         : 0;
 
       const uniqueDevices = new Set(sessions.map(s => s.device_id)).size;
+
+      const todaySessions = todayResult.data ?? [];
+      const hourBuckets = new Map<number, number>();
+      for (const s of todaySessions) {
+        if (s.created_at) {
+          const hour = new Date(s.created_at as string).getHours();
+          hourBuckets.set(hour, (hourBuckets.get(hour) ?? 0) + 1);
+        }
+      }
+      const peakToday = hourBuckets.size > 0 ? Math.max(...hourBuckets.values()) : 0;
+
+      const userFirstSession = new Map<string, string>();
+      const userDaySet = new Map<string, Set<string>>();
+      for (const s of sessions) {
+        if (!s.user_id) continue;
+        const uid = s.user_id as string;
+        const day = (s.created_at as string).slice(0, 10);
+        if (!userFirstSession.has(uid)) userFirstSession.set(uid, day);
+        if (!userDaySet.has(uid)) userDaySet.set(uid, new Set());
+        userDaySet.get(uid)!.add(day);
+      }
+      const retentionD1 = (() => {
+        let returned = 0;
+        let total = 0;
+        for (const [uid, firstDay] of userFirstSession) {
+          const days = userDaySet.get(uid);
+          if (!days || days.size < 1) continue;
+          total++;
+          const nextDay = new Date(firstDay);
+          nextDay.setDate(nextDay.getDate() + 1);
+          const nextDayStr = nextDay.toISOString().slice(0, 10);
+          if (days.has(nextDayStr)) returned++;
+        }
+        return total > 0 ? Math.round((returned / total) * 100) : 0;
+      })();
+      const retentionD7 = (() => {
+        let returned = 0;
+        let total = 0;
+        for (const [uid, firstDay] of userFirstSession) {
+          const days = userDaySet.get(uid);
+          if (!days || days.size < 1) continue;
+          total++;
+          const weekLater = new Date(firstDay);
+          weekLater.setDate(weekLater.getDate() + 7);
+          const weekLaterStr = weekLater.toISOString().slice(0, 10);
+          if (days.has(weekLaterStr)) returned++;
+        }
+        return total > 0 ? Math.round((returned / total) * 100) : 0;
+      })();
 
       return {
         totalUsers: users.length,
@@ -233,10 +370,10 @@ export function createResearchAPI(): ResearchAPI {
         cities: 0,
         campaigns: qrStats.totalCampaigns,
         devices: uniqueDevices,
-        currentOnline: 0,
-        peakToday: 0,
-        retentionD1: 0,
-        retentionD7: 0,
+        currentOnline: runningCount,
+        peakToday,
+        retentionD1,
+        retentionD7,
         retentionD30: 0,
       };
     },
@@ -427,7 +564,7 @@ export function createResearchAPI(): ResearchAPI {
 
     async getSessionList(filters?: ResearchFilters): Promise<readonly SessionRow[]> {
       let query = client.from('sessions')
-        .select('id, user_id, device_id, plugin_id, status, measurements, scientific_results, metadata, campaign_id, created_at');
+        .select('id, user_id, device_id, plugin_id, status, updated_at, measurements, scientific_results, metadata, campaign_id, created_at');
 
       if (filters?.dateFrom) query = query.gte('created_at', new Date(filters.dateFrom).toISOString());
       if (filters?.dateTo) query = query.lte('created_at', new Date(filters.dateTo).toISOString());
@@ -446,12 +583,14 @@ export function createResearchAPI(): ResearchAPI {
           ? client.from('users').select('id, display_name, role').in('id', userIds)
           : Promise.resolve({ data: [] }),
         deviceIds.length > 0
-          ? client.from('devices').select('id, browser, os').in('id', deviceIds)
+          ? client.from('devices').select('id, os, os_version, browser, browser_version, platform, screen_width, screen_height, refresh_rate, memory_gb, cpu_cores, pointer_type, touch_support, pixel_ratio, language, timezone, user_agent').in('id', deviceIds)
           : Promise.resolve({ data: [] }),
       ]);
 
       const usersMap = new Map((usersResult.data ?? []).map(u => [u.id, u]));
       const devicesMap = new Map((devicesResult.data ?? []).map(d => [d.id, d]));
+
+      const { parseDeviceBrandModel } = await import('../device/parser');
 
       return sessionList.map(s => {
         const measurements = s.measurements as Record<string, unknown> | null;
@@ -464,10 +603,15 @@ export function createResearchAPI(): ResearchAPI {
         const user = usersMap.get(s.user_id);
         const device = devicesMap.get(s.device_id);
         const meta = s.metadata as Record<string, unknown> | null;
+        const ua = device?.user_agent ?? '';
+        const parsed = ua ? parseDeviceBrandModel(ua) : { brand: 'Unknown', model: 'Unknown', marketingName: 'Unknown' };
 
         return {
           id: s.id,
           createdAt: s.created_at,
+          status: s.status ?? 'unknown',
+          endedReason: null,
+          lastActivityAt: s.updated_at ?? null,
           userName: user?.display_name ?? (user?.role === 'guest' ? 'Guest' : 'User'),
           userType: user?.role === 'guest' ? 'Guest' as const : 'Registered' as const,
           pluginId: s.plugin_id ?? 'unknown',
@@ -478,7 +622,25 @@ export function createResearchAPI(): ResearchAPI {
           focusScore: (results?.focus_score as number) ?? 0,
           consistencyRating: (results?.consistency_rating as string) ?? '-',
           deviceInfo: device ? `${device.browser} / ${device.os}` : '-',
-        campaignSource: (s.campaign_id as string) ?? (meta?.campaign_source as string) ?? null,
+          deviceOs: device ? `${device.os} ${device.os_version ?? ''}`.trim() : '-',
+          deviceBrowser: device ? `${device.browser} ${device.browser_version ?? ''}`.trim() : '-',
+          campaignSource: (s.campaign_id as string) ?? (meta?.campaign_source as string) ?? null,
+          brand: parsed.brand,
+          model: parsed.model,
+          marketingName: parsed.marketingName,
+          screenWidth: device?.screen_width ?? null,
+          screenHeight: device?.screen_height ?? null,
+          refreshRate: device?.refresh_rate ?? null,
+          pixelRatio: device?.pixel_ratio ?? null,
+          memoryGb: device?.memory_gb ?? null,
+          cpuCores: device?.cpu_cores ?? null,
+          pointerType: device?.pointer_type ?? null,
+          touchSupport: device?.touch_support ?? null,
+          language: device?.language ?? null,
+          timezone: device?.timezone ?? null,
+          userAgent: ua || null,
+          fatigueScore: (results?.fatigue_score as number) ?? null,
+          calibrationConfidence: (results?.calibration_confidence as number) ?? null,
         };
       });
     },
@@ -513,6 +675,181 @@ export function createResearchAPI(): ResearchAPI {
         calibrationByDevice: [],
         inputLagDistribution: [],
       };
+    },
+
+    async getDeviceIntelligence(_filters?: ResearchFilters): Promise<readonly DeviceHierarchyGroup[]> {
+      const { data: deviceRows } = await client.from('devices').select('*');
+      const deviceList = deviceRows ?? [];
+      if (deviceList.length === 0) return [];
+
+      const deviceIds = deviceList.map(d => d.id);
+      const { data: sessionsData } = await client
+        .from('sessions')
+        .select('id, device_id, status, campaign_id, created_at, finished_at, measurements, scientific_results')
+        .in('device_id', deviceIds);
+      if (!sessionsData) return [];
+
+      interface SessionData { id?: string; device_id: string; status: string; campaign_id: string | null; created_at: string | null; finished_at: string | null; measurements: Record<string, unknown> | null; scientific_results: Record<string, unknown> | null }
+
+      const sessionsByDevice = new Map<string, SessionData[]>();
+      for (const s of sessionsData as SessionData[]) {
+        const list = sessionsByDevice.get(s.device_id) ?? [];
+        list.push(s);
+        sessionsByDevice.set(s.device_id, list);
+      }
+
+      // Fetch calibration data for health metrics
+      const sessionIds = (sessionsData ?? []).filter(s => s.id).map(s => s.id!);
+      let calibrationData: Map<string, { confidence: number }[]> = new Map();
+      if (sessionIds.length > 0) {
+        const { data: calSessions } = await client
+          .from('sessions')
+          .select('id, calibration_id')
+          .in('id', sessionIds.slice(0, 100))
+          .not('calibration_id', 'is', null);
+        const calIds = [...new Set((calSessions ?? []).map(s => s.calibration_id).filter(Boolean))];
+        if (calIds.length > 0) {
+          const { data: cals } = await client
+            .from('calibrations')
+            .select('id, confidence')
+            .in('id', calIds);
+          const calMap = new Map((cals ?? []).map(c => [c.id, c.confidence]));
+          calibrationData = new Map();
+          for (const s of calSessions ?? []) {
+            const list = calibrationData.get(s.id) ?? [];
+            const conf = calMap.get(s.calibration_id);
+            if (conf != null) list.push({ confidence: conf });
+            calibrationData.set(s.id, list);
+          }
+        }
+      }
+
+      const deviceIntelligenceList: DeviceIntelligence[] = deviceList.map(d => {
+        const ua = d.user_agent ?? '';
+        const { brand, model, marketingName } = parseDeviceBrandModel(ua);
+        const devSessions = sessionsByDevice.get(d.id) ?? [];
+        const completed = devSessions.filter(s => s.status === 'completed');
+        const abandoned = devSessions.filter(s => s.status === 'abandoned');
+        const failed = devSessions.filter(s => s.status === 'failed');
+        const durations = devSessions.filter(s => s.finished_at && s.created_at).map(s => (new Date(s.finished_at!).getTime() - new Date(s.created_at!).getTime()) / 1000);
+        const avgRts = devSessions.map(s => {
+          const m = s.measurements?.corrected_rts as number[] | undefined;
+          if (!m || m.length === 0) return null;
+          return m.reduce((a, b) => a + b, 0) / m.length;
+        }).filter((v): v is number => v !== null);
+        const focusScores = devSessions.map(s => s.scientific_results?.focus_score as number | undefined).filter((v): v is number => v != null);
+        const campaignNames = [...new Set(devSessions.map(s => s.campaign_id).filter((c): c is string => c !== null))];
+        const timestamps = devSessions.flatMap(s => [s.created_at ? new Date(s.created_at).getTime() : null, s.finished_at ? new Date(s.finished_at).getTime() : null]).filter((t): t is number => t !== null);
+
+        const total = devSessions.length || 1;
+        const calibrations = calibrationData.get(d.id) ?? [];
+        const avgCalConf = calibrations.length > 0 ? calibrations.reduce((s, c) => s + c.confidence, 0) / calibrations.length : 0;
+        const rtStdDev = avgRts.length > 1 ? Math.sqrt(avgRts.reduce((s, v) => s + (v - (avgRts.reduce((a, b) => a + b, 0) / avgRts.length)) ** 2, 0) / avgRts.length) : 0;
+        const meanRt = avgRts.length > 0 ? avgRts.reduce((a, b) => a + b, 0) / avgRts.length : 1;
+        const cv = meanRt > 0 ? rtStdDev / meanRt : 1;
+        const consistency = Math.max(0, Math.min(100, (1 - cv) * 100));
+
+        const completionRate = completed.length / total;
+        const failureRate = failed.length / total;
+        const abandonRate = abandoned.length / total;
+
+        let ranking: DeviceHealthMetrics['ranking'] = 'average';
+        const healthScore = (completionRate * 40) + ((1 - abandonRate) * 20) + (consistency / 100 * 20) + (avgCalConf * 20);
+        if (healthScore >= 85) ranking = 'excellent';
+        else if (healthScore >= 70) ranking = 'good';
+        else if (healthScore >= 50) ranking = 'average';
+        else if (healthScore >= 30) ranking = 'poor';
+        else ranking = 'bad';
+
+        return {
+          id: d.id,
+          browser: d.browser ?? '',
+          browserVersion: d.browser_version ?? '',
+          os: d.os ?? '',
+          osVersion: d.os_version ?? '',
+          platform: d.platform ?? '',
+          brand,
+          model,
+          marketingName,
+          screenWidth: d.screen_width ?? null,
+          screenHeight: d.screen_height ?? null,
+          pixelRatio: d.pixel_ratio ?? null,
+          refreshRate: d.refresh_rate ?? null,
+          touchSupport: d.touch_support ?? null,
+          pointerType: d.pointer_type ?? null,
+          cpuCores: d.cpu_cores ?? null,
+          memoryGb: d.memory_gb ?? null,
+          language: d.language ?? null,
+          timezone: d.timezone ?? null,
+          userAgent: ua || null,
+          collectedAt: d.collected_at ?? null,
+          sessionsCount: devSessions.length,
+          completedSessions: completed.length,
+          abandonedSessions: abandoned.length,
+          avgDuration: durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0,
+          avgRt: avgRts.length > 0 ? avgRts.reduce((a, b) => a + b, 0) / avgRts.length : 0,
+          avgFocusScore: focusScores.length > 0 ? focusScores.reduce((a, b) => a + b, 0) / focusScores.length : 0,
+          campaigns: campaignNames,
+          firstSeen: timestamps.length > 0 ? new Date(Math.min(...timestamps)).toISOString() : '',
+          lastSeen: timestamps.length > 0 ? new Date(Math.max(...timestamps)).toISOString() : '',
+          health: {
+            avgCalibrationConfidence: avgCalConf,
+            reactionConsistency: consistency,
+            completionRate,
+            failureRate,
+            abandonRate,
+            ranking,
+            avgFocusScore: focusScores.length > 0 ? focusScores.reduce((a, b) => a + b, 0) / focusScores.length : 0,
+          },
+        };
+      });
+
+      const osGroups = new Map<string, DeviceIntelligence[]>();
+      for (const device of deviceIntelligenceList) {
+        const os = device.os || 'Unknown';
+        const list = osGroups.get(os) ?? [];
+        list.push(device);
+        osGroups.set(os, list);
+      }
+
+      return Array.from(osGroups.entries())
+        .map(([os, devices]) => {
+          const brandGroups = new Map<string, DeviceIntelligence[]>();
+          for (const d of devices) {
+            const brand = d.brand || 'Unknown';
+            const list = brandGroups.get(brand) ?? [];
+            list.push(d);
+            brandGroups.set(brand, list);
+          }
+          return {
+            os,
+            count: devices.length,
+            brands: Array.from(brandGroups.entries())
+              .map(([brand, brandDevices]) => {
+                const modelGroups = new Map<string, DeviceIntelligence[]>();
+                for (const d of brandDevices) {
+                  const model = d.model || 'Unknown';
+                  const list = modelGroups.get(model) ?? [];
+                  list.push(d);
+                  modelGroups.set(model, list);
+                }
+                return {
+                  brand,
+                  count: brandDevices.length,
+                  models: Array.from(modelGroups.entries())
+                    .map(([model, modelDevices]) => ({
+                      model,
+                      count: modelDevices.length,
+                      marketingName: modelDevices[0]?.marketingName ?? model,
+                      devices: modelDevices,
+                    }))
+                    .sort((a, b) => b.count - a.count),
+                };
+              })
+              .sort((a, b) => b.count - a.count),
+          };
+        })
+        .sort((a, b) => b.count - a.count);
     },
 
     async getSurveyAnalytics(_filters?: ResearchFilters): Promise<SurveyAnalytics> {

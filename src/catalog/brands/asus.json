@@ -1,0 +1,26 @@
+{
+  "brand": "Asus",
+  "aliases": ["اسوس", "Asus", "rog phone", "zenfone"],
+  "models": [
+    {"model":"Zenfone 10","series":"Zenfone","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"8"}],"modelNumbers":["AI2301"],"releaseYear":2023},
+    {"model":"Zenfone 11","series":"Zenfone","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["AI2401"],"releaseYear":2024},
+    {"model":"Zenfone 11 Ultra","series":"Zenfone","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["AI2402"],"releaseYear":2024},
+    {"model":"Zenfone 12","series":"Zenfone","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["AI2501"],"releaseYear":2025},
+    {"model":"Zenfone 13","series":"Zenfone","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["AI2601"],"releaseYear":2026},
+    {"model":"ROG Phone","series":"ROG","variants":[{"storage":"128","ram":"8"},{"storage":"512","ram":"8"}],"modelNumbers":["ZS600KL"],"releaseYear":2018},
+    {"model":"ROG Phone II","series":"ROG","variants":[{"storage":"128","ram":"8"},{"storage":"512","ram":"12"}],"modelNumbers":["ZS660KL"],"releaseYear":2019},
+    {"model":"ROG Phone 3","series":"ROG","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"}],"modelNumbers":["ZS661KS"],"releaseYear":2020},
+    {"model":"ROG Phone 5","series":"ROG","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"},{"storage":"256","ram":"16"}],"modelNumbers":["ZS673KS"],"releaseYear":2021},
+    {"model":"ROG Phone 5s","series":"ROG","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"},{"storage":"256","ram":"16"}],"modelNumbers":["ZS676KS"],"releaseYear":2021},
+    {"model":"ROG Phone 6","series":"ROG","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["AI2201"],"releaseYear":2022},
+    {"model":"ROG Phone 7","series":"ROG","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["AI2302"],"releaseYear":2023},
+    {"model":"ROG Phone 8","series":"ROG","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["AI2403"],"releaseYear":2024},
+    {"model":"ROG Phone 8 Pro","series":"ROG","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"},{"storage":"1000","ram":"24"}],"modelNumbers":["AI2404"],"releaseYear":2024},
+    {"model":"ROG Phone 9","series":"ROG","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["AI2502"],"releaseYear":2024},
+    {"model":"ROG Phone 9 Pro","series":"ROG","variants":[{"storage":"512","ram":"16"},{"storage":"1000","ram":"24"}],"modelNumbers":["AI2503"],"releaseYear":2024},
+    {"model":"ROG Phone 10","series":"ROG","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"},{"storage":"1000","ram":"24"}],"modelNumbers":["AI2602"],"releaseYear":2025},
+    {"model":"ROG Phone 11","series":"ROG","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"},{"storage":"1000","ram":"24"}],"modelNumbers":["AI2701"],"releaseYear":2026},
+    {"model":"Zenfone Max Pro M1","series":"Zenfone Max","variants":[{"storage":"32","ram":"3"},{"storage":"64","ram":"4"}],"modelNumbers":["ZB602KL"],"releaseYear":2018},
+    {"model":"Zenfone Max Pro M2","series":"Zenfone Max","variants":[{"storage":"32","ram":"3"},{"storage":"64","ram":"4"},{"storage":"128","ram":"6"}],"modelNumbers":["ZB631KL"],"releaseYear":2018}
+  ]
+}

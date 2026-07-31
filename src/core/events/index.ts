@@ -2,6 +2,7 @@ export type EventType =
   | 'session_created'
   | 'session_updated'
   | 'session_completed'
+  | 'session_abandoned'
   | 'session_deleted'
   | 'session_synced'
   | 'calibration_updated'

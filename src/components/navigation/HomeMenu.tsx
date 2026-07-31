@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors, THEME_IDS } from '../../hooks/useThemeColors';
@@ -12,7 +13,7 @@ interface HomeMenuProps {
 
 const LANGS = ['en', 'ar', 'tr'] as const;
 
-export function HomeMenu({ open, onClose }: HomeMenuProps) {
+export const HomeMenu = memo(function HomeMenu({ open, onClose }: HomeMenuProps) {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const colors = useThemeColors();
@@ -115,4 +116,4 @@ export function HomeMenu({ open, onClose }: HomeMenuProps) {
       </button>
     </div>
   );
-}
+});

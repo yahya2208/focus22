@@ -6,11 +6,20 @@ import {
   type ColorTokens,
   type SemanticColors,
 } from './tokens';
+import { buildColorRoles, type ColorRoles } from './colors';
+import {
+  buttonRecipe, type ButtonRecipeVariant, type ButtonRecipeSize,
+  cardRecipe, type CardRecipeVariant,
+  badgeRecipe, type BadgeRecipeVariant,
+  inputRecipe,
+  modalRecipe,
+} from './recipes';
 
 export type {
   ThemeTokens,
   ColorTokens,
   SemanticColors,
+  ColorRoles,
 } from './tokens';
 
 export {
@@ -29,47 +38,51 @@ export {
 
 export { radius, shadows, borders, spacing, fontFamily, fontSize, fontWeight, lineHeight, letterSpacing, duration, easing, blur, zIndex, layout, themeColors } from './tokens';
 
-/**
- * Primary hook for accessing the complete design token set.
- *
- * Usage:
- * ```tsx
- * const { colors, semantic, radius, spacing } = useTokens();
- *
- * // Use raw colors
- * <div style={{ background: colors.bg, color: colors.text }}>
- *
- * // Use semantic colors
- * <div style={{ background: semantic.surfaceRaised, color: semantic.statusSuccess }}>
- *
- * // Use static tokens (same across all themes)
- * <div style={{ borderRadius: radius.lg, padding: spacing.xl }}>
- * ```
- */
+export { buildColorRoles } from './colors';
+
 export function useTokens(): ThemeTokens {
   const { theme } = useTheme();
   return getThemeTokens(theme);
 }
 
-/**
- * Hook for accessing just the color tokens (most common use case).
- *
- * This is a lighter alternative to useTokens() when you only need colors.
- */
 export function useColors(): ColorTokens {
   const { theme } = useTheme();
   return themeColors[theme] ?? themeColors.midnight;
 }
 
-/**
- * Hook for accessing semantic color tokens.
- *
- * Use this when you want role-based colors (surfaceBase, statusSuccess, etc.)
- * rather than raw palette colors.
- */
 export function useSemanticColors(): SemanticColors {
   const { colors } = useTokens();
   return buildSemanticColorsFromColors(colors);
+}
+
+export function useColorRoles(): ColorRoles {
+  const { theme } = useTheme();
+  return buildColorRoles(themeColors[theme] ?? themeColors.midnight);
+}
+
+export function useButtonRecipe(variant: ButtonRecipeVariant, size: ButtonRecipeSize) {
+  const roles = useColorRoles();
+  return buttonRecipe(roles, variant, size);
+}
+
+export function useCardRecipe(variant: CardRecipeVariant, padding: string = 'lg', radius?: string) {
+  const roles = useColorRoles();
+  return cardRecipe(roles, variant, padding, radius);
+}
+
+export function useBadgeRecipe(variant: BadgeRecipeVariant) {
+  const roles = useColorRoles();
+  return badgeRecipe(roles, variant);
+}
+
+export function useInputRecipe(rad?: string) {
+  const roles = useColorRoles();
+  return inputRecipe(roles, rad as any);
+}
+
+export function useModalRecipe() {
+  const roles = useColorRoles();
+  return modalRecipe(roles);
 }
 
 function buildSemanticColorsFromColors(colors: ColorTokens): SemanticColors {

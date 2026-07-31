@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import type { TranslationKey } from '../../i18n';
@@ -7,7 +7,8 @@ import { Button } from '../../components/shared/Button';
 import { loadAchievements, getCompletedChallengeCount, type Achievement } from '../../core/gamification';
 
 const ANIM_KEYFRAMES = `
-@keyframes badgePop { 0% { transform: scale(0.8); opacity: 0; } 50% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes badgePop { 0% { transform: scale(0.8); opacity: 0; } 50% { transform: scale(1.08  );
+}); 100% { transform: scale(1); opacity: 1; } }
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 `;
 
@@ -23,6 +24,7 @@ const CATEGORIES: { id: Category; labelKey: TranslationKey }[] = [
 ];
 
 function AchievementBadge({ achievement, index }: { achievement: Achievement; index: number }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const unlocked = !!achievement.unlockedAt;
 
@@ -79,7 +81,7 @@ function AchievementBadge({ achievement, index }: { achievement: Achievement; in
             padding: '0.15rem 0.4rem', borderRadius: '6px',
             flexShrink: 0,
           }}>
-            Unlocked
+            {t('achievements.unlocked')}
           </span>
         )}
       </div>
@@ -87,7 +89,7 @@ function AchievementBadge({ achievement, index }: { achievement: Achievement; in
   );
 }
 
-export function AchievementsScreen() {
+export const AchievementsScreen = memo(function AchievementsScreen() {
   const dispatch = useAppDispatch();
   const { sessions } = useAppState();
   const { t } = useTranslation();
@@ -109,7 +111,7 @@ export function AchievementsScreen() {
       <nav aria-label="Achievements" style={{ padding: '2rem 1.5rem', maxWidth: '480px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <h1 style={{ fontSize: '1.375rem', fontWeight: 'bold', color: colors.text, margin: 0 }}>Achievements</h1>
+          <h1 style={{ fontSize: '1.375rem', fontWeight: 'bold', color: colors.text, margin: 0 }}>{t('achievements.pageTitle')}</h1>
           <span style={{
             color: colors.textFaint, fontSize: '0.7rem',
             background: colors.glass, border: `1px solid ${colors.glassBorder}`,
@@ -120,15 +122,15 @@ export function AchievementsScreen() {
         {/* Summary cards */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '1.25rem' }}>
           {[
-            { label: 'Unlocked', value: `${unlockedCount}`, color: colors.accent },
-            { label: 'Challenges', value: `${completedChallenges}`, color: colors.success },
-            { label: 'Sessions', value: `${sessions.length}`, color: colors.warning },
-          ].map(({ label, value, color }) => (
-            <div key={label} style={{
+            { labelKey: 'achievements.unlocked' as TranslationKey, value: `${unlockedCount}`, color: colors.accent },
+            { labelKey: 'achievements.challenges' as TranslationKey, value: `${completedChallenges}`, color: colors.success },
+            { labelKey: 'achievements.sessions' as TranslationKey, value: `${sessions.length}`, color: colors.warning },
+          ].map(({ labelKey, value, color }: { labelKey: TranslationKey; value: string; color: string }) => (
+            <div key={labelKey} style={{
               background: colors.glass, border: `1px solid ${colors.glassBorder}`,
               borderRadius: '12px', padding: '0.6rem', textAlign: 'center',
             }}>
-              <p style={{ color: colors.textMuted, fontSize: '0.55rem', textTransform: 'uppercase' as const, letterSpacing: '0.05em', margin: '0 0 0.15rem' }}>{label}</p>
+              <p style={{ color: colors.textMuted, fontSize: '0.55rem', textTransform: 'uppercase' as const, letterSpacing: '0.05em', margin: '0 0 0.15rem' }}>{t(labelKey)}</p>
               <p style={{ color, fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>{value}</p>
             </div>
           ))}
@@ -171,4 +173,4 @@ export function AchievementsScreen() {
       </nav>
     </>
   );
-}
+});

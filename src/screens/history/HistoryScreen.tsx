@@ -1,10 +1,11 @@
+import { memo } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Card } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
 
-export function HistoryScreen() {
+export const HistoryScreen = memo(function HistoryScreen() {
   const dispatch = useAppDispatch();
   const { sessions } = useAppState();
   const { t } = useTranslation();
@@ -48,4 +49,4 @@ export function HistoryScreen() {
       </Button>
     </nav>
   );
-}
+});

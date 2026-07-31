@@ -1,0 +1,28 @@
+{
+  "brand": "Infinix",
+  "aliases": ["انفينيكس", "Infinix"],
+  "models": [
+    {"model":"Hot 10","series":"Hot","variants":[{"storage":"64","ram":"3"},{"storage":"128","ram":"4"}],"modelNumbers":["X688B"],"releaseYear":2020},
+    {"model":"Hot 11","series":"Hot","variants":[{"storage":"64","ram":"4"},{"storage":"128","ram":"6"}],"modelNumbers":["X662"],"releaseYear":2021},
+    {"model":"Hot 12","series":"Hot","variants":[{"storage":"64","ram":"4"},{"storage":"128","ram":"6"}],"modelNumbers":["X6817"],"releaseYear":2022},
+    {"model":"Hot 20","series":"Hot","variants":[{"storage":"64","ram":"4"},{"storage":"128","ram":"6"}],"modelNumbers":["X6826"],"releaseYear":2022},
+    {"model":"Hot 30","series":"Hot","variants":[{"storage":"128","ram":"4"},{"storage":"128","ram":"8"}],"modelNumbers":["X6833"],"releaseYear":2023},
+    {"model":"Hot 40","series":"Hot","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"8"}],"modelNumbers":["X6850"],"releaseYear":2023},
+    {"model":"Hot 50","series":"Hot","variants":[{"storage":"128","ram":"4"},{"storage":"256","ram":"8"}],"modelNumbers":["X6860"],"releaseYear":2024},
+    {"model":"Hot 60","series":"Hot","variants":[{"storage":"128","ram":"6"},{"storage":"256","ram":"8"}],"modelNumbers":["X6870"],"releaseYear":2025},
+    {"model":"Note 10","series":"Note","variants":[{"storage":"64","ram":"4"},{"storage":"128","ram":"6"}],"modelNumbers":["X693"],"releaseYear":2021},
+    {"model":"Note 11","series":"Note","variants":[{"storage":"64","ram":"4"},{"storage":"128","ram":"6"}],"modelNumbers":["X6620"],"releaseYear":2021},
+    {"model":"Note 12","series":"Note","variants":[{"storage":"128","ram":"6"},{"storage":"128","ram":"8"}],"modelNumbers":["X6827"],"releaseYear":2022},
+    {"model":"Note 30","series":"Note","variants":[{"storage":"128","ram":"4"},{"storage":"128","ram":"8"}],"modelNumbers":["X6835"],"releaseYear":2023},
+    {"model":"Note 40","series":"Note","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"8"}],"modelNumbers":["X6851"],"releaseYear":2024},
+    {"model":"Note 50","series":"Note","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"12"}],"modelNumbers":["X6861"],"releaseYear":2025},
+    {"model":"Zero 20","series":"Zero","variants":[{"storage":"128","ram":"8"}],"modelNumbers":["X6721"],"releaseYear":2022},
+    {"model":"Zero 30","series":"Zero","variants":[{"storage":"128","ram":"8"},{"storage":"256","ram":"8"}],"modelNumbers":["X6733"],"releaseYear":2023},
+    {"model":"Zero 40","series":"Zero","variants":[{"storage":"256","ram":"8"},{"storage":"256","ram":"12"}],"modelNumbers":["X6740"],"releaseYear":2024},
+    {"model":"Zero 50","series":"Zero","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"12"}],"modelNumbers":["X6750"],"releaseYear":2025},
+    {"model":"Zero 60","series":"Zero","variants":[{"storage":"256","ram":"12"},{"storage":"512","ram":"16"}],"modelNumbers":["X6760"],"releaseYear":2026},
+    {"model":"Smart 8","series":"Smart","variants":[{"storage":"64","ram":"3"},{"storage":"128","ram":"4"}],"modelNumbers":["X6525"],"releaseYear":2023},
+    {"model":"Smart 9","series":"Smart","variants":[{"storage":"64","ram":"3"},{"storage":"128","ram":"4"}],"modelNumbers":["X6530"],"releaseYear":2024},
+    {"model":"Smart 10","series":"Smart","variants":[{"storage":"128","ram":"4"},{"storage":"128","ram":"6"}],"modelNumbers":["X6540"],"releaseYear":2025}
+  ]
+}
