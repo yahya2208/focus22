@@ -1,3 +1,26 @@
+/**
+ * ╔══════════════════════════════════════════════════════════════════════════╗
+ * ║  DEPRECATED — DO NOT USE IN NEW CODE (AUDIT 2026-08-01)                 ║
+ * ╠══════════════════════════════════════════════════════════════════════════╣
+ * ║  This legacy catalog (PHONE_DATABASE) is the OLD hardcoded list of      ║
+ * ║  ~63 top-end phone models. It IS NOT the canonical source of truth.     ║
+ * ║  It was last updated before the catalog was restructured around JSON    ║
+ * ║  brand files and therefore is OUT OF DATE.                              ║
+ * ║                                                                          ║
+ * ║  SINGLE SOURCE OF TRUTH — use INSTEAD:                                  ║
+ * ║    src/catalog/brands/*.json                                             ║
+ * ║       ↳ loaded via src/catalog/loader.ts (getAllModels / getAllBrands)  ║
+ * ║           ↳ flattened via src/services/catalog-service.ts               ║
+ * ║                (searchCatalog, getModelDetails, getVariantsForModel).    ║
+ * ║                                                                          ║
+ * ║  Scheduled for removal: 2026-Q4 (after a 6-month deprecation window).   ║
+ * ║  At the time of writing (2026-08-01) grep confirms there are ZERO       ║
+ * ║  production imports of this module — it is effectively tree-shaken      ║
+ * ║  out of production builds. NO console.warn added (per Product policy):  ║
+ * ║  since no one imports this, a warn would add noise only in devtools     ║
+ * ║  while never reaching an actual user.                                   ║
+ * ╚══════════════════════════════════════════════════════════════════════════╝
+ */
 export interface PhoneModel {
   readonly model: string;
   readonly year: number;

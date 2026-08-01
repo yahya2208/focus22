@@ -1,3 +1,15 @@
+/**
+ * ╔══════════════════════════════════════════════════════════════════════════╗
+ * ║  QUARANTINE — UNWIRED MODULE (AUDIT 2026-08-01, P2-A)                   ║
+ * ╠══════════════════════════════════════════════════════════════════════════╣
+ * ║  PricingIntelligence has ZERO consumers in the codebase (no import of    ║
+ * ║  this module outside this file). Its storage key "pricing_records" is    ║
+ * ║  never written or read in production.                                    ║
+ * ║                                                                          ║
+ * ║  Candidate for removal in Legacy Removal (P2-D). Kept intact because it  ║
+ * ║  may be revived by the Business Intelligence center.                     ║
+ * ╚══════════════════════════════════════════════════════════════════════════╝
+ */
 import { getBrandTier } from './brand-rules';
 import { generateId } from '../business-intelligence/data-source';
 

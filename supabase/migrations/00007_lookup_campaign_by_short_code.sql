@@ -1,3 +1,5 @@
+-- Type: Additive
+-- Notes: v1 lookup RPC. DO NOT modify (contract); v2 lives in 00011.
 -- Migration: Lookup campaign by short code (pre-auth QR flow)
 -- Secure, least-privilege RPC so an anonymous guest can resolve an active
 -- campaign from its Base62 short code WITHOUT any direct table access.

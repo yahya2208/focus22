@@ -1,3 +1,34 @@
+/**
+ * Device Ledger — INDIVIDUAL ASSET REGISTER (IMEI BOUNDED CONTEXT)
+ *
+ * ── AUDIT ARCHITECTURE NOTE 2026-08-01 ─────────────────────────────────
+ *  This module tracks the LIFETIME OF EACH PHYSICAL DEVICE identified by
+ *  its IMEI. It records purchase price, sale price, repairs, exchanges,
+ *  warranty returns, profit-per-device, and a full event log per IMEI.
+ *
+ *  STATUS — Feature complete, NOT YET WIRED INTO PRODUCTION WORKFLOWS.
+ *    Used today only by automated tests and the read-only golden audit
+ *    module. There are 0 Runtime screens (UIs) that call DeviceLedger
+ *    APIs. Product decision required: should the removal of N stock
+ *    units in InventoryService automatically spawn N Ledger entries?
+ *    (Answer pending from Product Owner.)
+ *
+ *  RELATIONSHIP TO OTHER MODULES (this is NOT duplicate stock data):
+ *
+ *    • InventoryService  → *HOW MANY* of each SKU variant are in stock
+ *                           (aggregate / SKU-level / no IMEI)
+ *
+ *    • DeviceLedger      → *WHICH EXACT DEVICES* (per IMEI), who bought
+ *                           them, their profitability, repair history
+ *                           (individual / IMEI-level / event-sourced)
+ *
+ *    • InventoryIntelligence → BI Sandbox copy for analyst "what if"
+ *                              experiments — completely separate.
+ *
+ *  DO NOT DELETE or merge with InventoryService until the Product team
+ *  has formally decided to activate per-IMEI tracking in UX flows.
+ * ────────────────────────────────────────────────────────────────────────
+ */
 import { generateId } from '../business-intelligence/data-source';
 
 export type DeviceStatus =

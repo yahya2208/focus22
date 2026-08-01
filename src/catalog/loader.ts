@@ -147,6 +147,34 @@ export function searchProgressive(query: string): { brands: string[]; series: st
   };
 }
 
+/**
+ * @deprecated — LEGACY SEARCH PATH (AUDIT 2026-08-01)
+ *
+ *   This legacy internal search function is no longer used by production UI.
+ *   The OFFICIAL, production-grade search path for catalog lookups is:
+ *
+ *       services/catalog-service.ts → searchCatalog(query, limit)
+ *           ↓
+ *       services/alias-engine.ts  → searchWithAliases(query, limit)
+ *           ↳ combines alias fuzzy matching + reverse-lookup + popularity ranking
+ *
+ *   Why two paths exist historically:
+ *     - loader.search() was the V1 index-based search built at the same time
+ *       as the CatalogIndex. It scored matches using pure token overlap
+ *       without aliases or popularity signals.
+ *     - alias-engine was added later to handle Arabic/Latin aliases, common
+ *       synonyms, and store-specific shorthand naming. It is now the SOLE
+ *       runtime search path used by Autocomplete, Cascade Selector, Inventory
+ *       Modals, Search Screens, and every other UI search entry-point.
+ *
+ *   This function is preserved ONLY as a reference for replaying against the
+ *   canonical index (e.g. in index-build-time consistency checks). Do NOT
+ *   expose to new code paths. Scheduled for removal after 30+ days of
+ *   confirmed zero runtime imports.
+ *
+ *   @param query free-form user query (any case, any language).
+ *   @returns ranked list of {brand, model, matchScore, matchType} matches.
+ */
 export function search(query: string): SearchResult[] {
   const idx = getIndex();
   const qTokens = tokenize(query);

@@ -1,3 +1,5 @@
+-- Type: Baseline
+-- Notes: pre-contract repair OS tables (legacy subsystem).
 -- Repair OS tables for Supabase migration
 
 create table if not exists repair_requests (

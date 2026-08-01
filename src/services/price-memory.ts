@@ -1,3 +1,28 @@
+/**
+ * ╔══════════════════════════════════════════════════════════════════════════╗
+ * ║  QUARANTINE — SPLIT-BRAIN STORAGE (AUDIT 2026-08-01, P2-A)              ║
+ * ╠══════════════════════════════════════════════════════════════════════════╣
+ * ║  This module hosts TWO independent localStorage systems that are BOTH    ║
+ * ║  unwired from production writes today:                                   ║
+ * ║                                                                          ║
+ * ║  (1) "price_memory_v1"  → PriceMemory learning engine                    ║
+ * ║      (recordBuy / recordSell / recordExchange / getHistory).             ║
+ * ║      PRODUCTION WRITERS: NONE (only __tests__/price-memory.test.ts).     ║
+ * ║      READERS: getPriceSummary (CatalogCascadeTypes reads this key        ║
+ * ║      directly) + database/golden-audit.ts. → always empty in the app.    ║
+ * ║                                                                          ║
+ * ║  (2) "focus-price-memory" → catalog price records (seedSampleData /      ║
+ * ║      logPrice / getPriceHistory / getAllPriceMemory).                    ║
+ * ║      CALLERS of seedSampleData + logPrice: NONE.                         ║
+ * ║      READERS: PriceMemoryCard + InventoryHealthScreen (research only).   ║
+ * ║                                                                          ║
+ * ║  Decision pending (product): wire these stores into real price/inventory ║
+ * ║  operations OR remove them in Legacy Removal (P2-D). The exported types  ║
+ * ║  and constants below (DeviceCondition / ALL_CONDITIONS / CONDITION_ORDER /║
+ * ║  PhonePriceIdentity) ARE actively used by AddInventoryModal +            ║
+ * ║  CustomerPhoneFlow — DO NOT delete exports.                              ║
+ * ╚══════════════════════════════════════════════════════════════════════════╝
+ */
 import { getAllBrands } from '../catalog';
 
 export type DeviceCondition =

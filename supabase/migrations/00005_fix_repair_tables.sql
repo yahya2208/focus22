@@ -1,3 +1,5 @@
+-- Type: Additive
+-- Notes: pre-contract repair OS fixes (legacy subsystem).
 -- Fix repair_requests schema: add condition, make old fields nullable, add RLS
 
 -- Add condition column (was missing in original migration)

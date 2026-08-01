@@ -1,3 +1,29 @@
+/**
+ * Inventory Intelligence — BI ANALYSIS SANDBOX (SEPARATE Bounded Context)
+ *
+ * ── AUDIT ARCHITECTURE NOTE 2026-08-01 ─────────────────────────────────
+ *  This module owns its OWN localStorage key: 'bi_inventory'.
+ *  This is INTENTIONAL isolation. It is used inside the Business
+ *  Intelligence Center to run "what-if" inventory scenarios, import
+ *  demo datasets, and experiment with stock strategy — WITHOUT TOUCHING
+ *  the REAL operational stock in InventoryService.
+ *
+ *  RELATIONSHIP TO OPERATIONAL STOCK:
+ *
+ *    • Operational SKU-level stock (source of truth)
+ *        → lives in InventoryService (catalog_inventory localStorage key)
+ *
+ *    • BI Inventory (this file — sandbox workspace)
+ *        → 'bi_inventory' localStorage key. UI MUST display DemoBadge
+ *          so the user is aware it is NOT the real stock view.
+ *
+ *  RECOMMENDED UX IMPROVEMENT (Low-risk, additive only):
+ *    Add a single button "Import from real inventory" that copies data
+ *    from InventoryService.getAll() into the sandbox on user request.
+ *    Do NOT merge this file into InventoryService — isolation exists
+ *    by design to protect the operational stock from analyst edits.
+ * ────────────────────────────────────────────────────────────────────────
+ */
 import { useState } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { DemoBadge, DemoNotice } from '../DemoBadge';

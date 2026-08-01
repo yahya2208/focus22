@@ -1,5 +1,25 @@
 /**
- * Inventory Service — simplified stock management.
+ * Inventory Service — OPERATIONAL STOCK (WAREHOUSE BOUNDED CONTEXT)
+ *
+ * ── AUDIT ARCHITECTURE NOTE 2026-08-01 ─────────────────────────────────
+ *  This service manages SKU-level stock: each inventory record is
+ *  ModelID + Variant + Quantity. It is the SINGLE SOURCE OF TRUTH for
+ *  *quantities in stock*. It does NOT track individual IMEIs, profit
+ *  per-unit, or per-device lifecycle events.
+ *
+ *  This module is intentionally SEPARATE from two sibling modules that
+ *  handle DIFFERENT Bounded Contexts:
+ *
+ *    1. DeviceLedger    (IMEI-level individual asset register + events)
+ *                        → see src/services/device-ledger.ts
+ *    2. InventoryIntelligence (BI ANALYSIS SANDBOX — a copy/importable
+ *                        workspace used for "what-if" scenarios).
+ *                        → see src/business-intelligence/actions/InventoryIntelligence.tsx
+ *
+ *  DO NOT merge these three contexts without a Product/Architecture
+ *  decision — they solve three distinct business problems today.
+ * ────────────────────────────────────────────────────────────────────────
+ *
  * Each inventory item is: ModelID + Variant + Quantity.
  * No free-text fields for model info.
  */

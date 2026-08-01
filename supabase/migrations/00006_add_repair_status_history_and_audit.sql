@@ -1,3 +1,5 @@
+-- Type: Additive
+-- Notes: pre-contract repair OS history/audit tables (legacy subsystem).
 -- Repair status history + audit log tables
 
 create table if not exists repair_status_history (

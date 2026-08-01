@@ -1,3 +1,6 @@
+-- Type: Baseline
+-- Notes: users.id is declared TEXT here but is UUID on the live DB — reconciled
+-- in the 00008 baseline.
 -- Users table for auth profiles (mirrors auth.users)
 create table if not exists users (
   id text primary key,

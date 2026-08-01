@@ -1,3 +1,5 @@
+-- Type: Additive
+-- Notes: analytics_events performance indexes; most already exist on the live DB.
 -- Migration: Add performance indexes for analytics_events
 -- This ensures fast queries as the analytics_events table grows to millions of rows.
 
