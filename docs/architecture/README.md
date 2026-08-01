@@ -21,6 +21,8 @@ This directory contains comprehensive architecture documentation for the FOCUS p
 | 13 | [Local Storage](./13-local-storage.md) | Every localStorage key, data patterns, migration strategy |
 | 14 | [Performance](./14-performance.md) | Bundle optimization, lazy loading, known issues, guidelines |
 | 15 | [Coding Guidelines](./15-coding-guidelines.md) | Rules for contributing: TypeScript, i18n, theme, memo, cleanup |
+| 16 | [Contract Coverage Matrix](./16-contract-coverage-matrix.md) | Product Contract v1.0 ↔ DB object mapping and phase-1 rule compliance |
+| 17 | [Migration Dependency Map](./17-migration-dependency-map.md) | `supabase/migrations/` execution order, reasons, and future-migration rules |
 
 ## Project Component Map
 
