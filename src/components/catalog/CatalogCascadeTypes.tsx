@@ -79,11 +79,11 @@ export function getPriceSummary(modelId: string): { lastBuy?: number; avgBuy?: n
   try {
     const raw = localStorage.getItem('price_memory_v1');
     if (!raw) return {};
-    const prices = JSON.parse(raw);
+    const prices: Record<string, Array<{ operation: string; price: number }>> = JSON.parse(raw);
     const modelPrices = prices[modelId];
     if (!modelPrices) return {};
-    const buys = modelPrices.filter((p: any) => p.operation === 'buy').map((p: any) => p.price);
-    const sells = modelPrices.filter((p: any) => p.operation === 'sell').map((p: any) => p.price);
+    const buys = modelPrices.filter((p) => p.operation === 'buy').map((p) => p.price);
+    const sells = modelPrices.filter((p) => p.operation === 'sell').map((p) => p.price);
     return {
       lastBuy: buys.length > 0 ? buys[buys.length - 1] : undefined,
       avgBuy: buys.length > 0 ? Math.round(buys.reduce((a: number, b: number) => a + b, 0) / buys.length) : undefined,

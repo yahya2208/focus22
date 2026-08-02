@@ -152,18 +152,17 @@ export function PieChart({ data, title, size = 200 }: PieChartProps) {
 }
 
 interface HistogramProps {
-  readonly values: readonly number[];
+  readonly values?: readonly number[];
+  readonly binned?: readonly { readonly label: string; readonly value: number }[];
   readonly bins?: number;
   readonly title?: string;
   readonly dimensions?: ChartDimensions;
 }
 
-export function Histogram({ values, bins = 10, title, dimensions }: HistogramProps) {
-  const dims = dimensions ?? { width: 400, height: 250, padding: { top: 20, right: 20, bottom: 40, left: 50 } };
-  if (values.length === 0) return <div>{title && <h3 style={{ color: '#f0f0f0', fontSize: '0.95rem' }}>{title}</h3>}<p style={{ color: '#888' }}>No data</p></div>;
-
+function buildBars(values: readonly number[], bins: number): { readonly label: string; readonly value: number }[] {
   const min = Math.min(...values);
   const max = Math.max(...values);
+  if (min === max) return [{ label: min.toFixed(0), value: values.length }];
   const binSize = (max - min) / bins || 1;
   const binCounts: number[] = new Array(bins).fill(0);
   for (const v of values) {
@@ -172,21 +171,29 @@ export function Histogram({ values, bins = 10, title, dimensions }: HistogramPro
     const count = binCounts[idx];
     if (count !== undefined) binCounts[idx] = count + 1;
   }
-  const maxCount = Math.max(...binCounts, 1);
+  return binCounts.map((count, i) => ({ label: `${(min + i * binSize).toFixed(0)}-${(min + (i + 1) * binSize).toFixed(0)}`, value: count }));
+}
+
+export function Histogram({ values, binned, bins = 10, title, dimensions }: HistogramProps) {
+  const dims = dimensions ?? { width: 400, height: 250, padding: { top: 20, right: 20, bottom: 40, left: 50 } };
+  const bars = binned ?? (values ? buildBars(values, bins) : []);
+  if (bars.length === 0) return <div>{title && <h3 style={{ color: '#f0f0f0', fontSize: '0.95rem' }}>{title}</h3>}<p style={{ color: '#888' }}>No data</p></div>;
+
+  const maxCount = Math.max(...bars.map(b => b.value), 1);
   const chartW = dims.width - dims.padding.left - dims.padding.right;
   const chartH = dims.height - dims.padding.top - dims.padding.bottom;
-  const barW = chartW / bins - 2;
+  const barW = chartW / bars.length - 2;
 
   return (
     <div>
       {title && <h3 style={{ color: '#f0f0f0', fontSize: '0.95rem', marginBottom: '0.5rem' }}>{title}</h3>}
       <svg width={dims.width} height={dims.height} role="img" aria-label={title ?? 'Histogram'}>
-        {binCounts.map((count, i) => {
-          const x = dims.padding.left + (chartW / bins) * i + 1;
-          const h = (count / maxCount) * chartH;
+        {bars.map((bar, i) => {
+          const x = dims.padding.left + (chartW / bars.length) * i + 1;
+          const h = (bar.value / maxCount) * chartH;
           return (
             <rect key={i} x={x} y={dims.padding.top + chartH - h} width={barW} height={h} fill="#6366f1" rx={2}>
-              <title>{`${(min + i * binSize).toFixed(0)}-${(min + (i + 1) * binSize).toFixed(0)}: ${count}`}</title>
+              <title>{`${bar.label}: ${bar.value}`}</title>
             </rect>
           );
         })}

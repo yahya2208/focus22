@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { subscribeToLiveSessions, type LiveSession } from '../../../core/supabase/live-sessions';
 import { getSupabaseClient } from '../../../core/supabase/client';
-import { ResearchLayout, StatCard, DashboardHeader } from '../../layout/ResearchLayout';
-import type { DashboardId } from '../../layout/ResearchLayout';
+import { markRender } from '../../../core/supabase/live-diagnostics';
+import { StatCard, DashboardHeader } from '../../layout/ResearchLayout';
 import { useTranslation } from '../../../hooks/useTranslation';
 
 function formatElapsed(ms: number): string {
@@ -84,7 +84,6 @@ function RecentEventCard({ event }: { readonly event: RecentEvent }) {
 
 export function LiveDashboard() {
   const { t } = useTranslation();
-  const [dashboard, setDashboard] = useState<DashboardId>('live');
   const [sessions, setSessions] = useState<readonly LiveSession[]>([]);
   const [now, setNow] = useState(Date.now());
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -96,6 +95,10 @@ export function LiveDashboard() {
     const tick = setInterval(() => setNow(Date.now()), 1000);
     return () => { unsub(); clearInterval(tick); };
   }, []);
+
+  useEffect(() => {
+    markRender();
+  }, [sessions]);
 
   useEffect(() => {
     const loadRecent = async () => {
@@ -195,8 +198,6 @@ export function LiveDashboard() {
     load28();
   }, []);
 
-  if (dashboard !== 'live') return null;
-
   const running = sessions.filter(s => s.status === 'running');
   const campaignCounts = sessions.reduce<Record<string, number>>((acc, s) => {
     acc[s.campaignName ?? 'Direct'] = (acc[s.campaignName ?? 'Direct'] ?? 0) + 1;
@@ -214,7 +215,7 @@ export function LiveDashboard() {
   const latestAbandon = recentEvents.find(e => e.type === 'abandoned');
 
   return (
-    <ResearchLayout activeDashboard={dashboard} onNavigate={setDashboard}>
+    <>
       <DashboardHeader title={t('live.title')} subtitle={t('live.subtitle')} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -322,6 +323,6 @@ export function LiveDashboard() {
           </div>
         </div>
       )}
-    </ResearchLayout>
+    </>
   );
 }

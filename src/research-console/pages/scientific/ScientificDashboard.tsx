@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import { createResearchAPI, type ScientificMetrics } from '../../../core/research/api-supabase';
-import { ResearchLayout, StatCard, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
+import { StatCard, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
 import { Histogram, BarChart } from '../../components/charts/Charts';
-import type { DashboardId } from '../../layout/ResearchLayout';
 import type { ResearchFilters } from '../../../core/research/filters';
 import { createEmptyFilters } from '../../../core/research/filters';
 import { useTranslation } from '../../../hooks/useTranslation';
 
 export function ScientificDashboard() {
   const { t } = useTranslation();
-  const [dashboard, setDashboard] = useState<DashboardId>('scientific');
   const [metrics, setMetrics] = useState<ScientificMetrics | null>(null);
   const [filters, setFilters] = useState<ResearchFilters>(createEmptyFilters());
 
@@ -18,10 +16,8 @@ export function ScientificDashboard() {
     api.getScientific(filters).then(setMetrics);
   }, [filters]);
 
-  if (dashboard !== 'scientific') return null;
-
   return (
-    <ResearchLayout activeDashboard={dashboard} onNavigate={setDashboard}>
+    <>
       <DashboardHeader title={t('scientific.title')} subtitle={t('scientific.subtitle')} />
       <FilterBar filters={filters} onFilterChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={() => setFilters(createEmptyFilters())} />
       {metrics && (
@@ -33,7 +29,7 @@ export function ScientificDashboard() {
             <StatCard label={t('scientific.p50')} value={`${metrics.percentiles.p50.toFixed(0)}ms`} />
             <StatCard label={t('scientific.p90')} value={`${metrics.percentiles.p90.toFixed(0)}ms`} />
             <StatCard label={t('scientific.p95')} value={`${metrics.percentiles.p95.toFixed(0)}ms`} />
-            <StatCard label={t('scientific.accuracy')} value={`${(metrics.accuracy * 100).toFixed(1)}%`} color="#22c55e" />
+            <StatCard label={t('scientific.accuracy')} value={`${metrics.accuracy.toFixed(1)}%`} color="#22c55e" />
             <StatCard label={t('scientific.consistency')} value={`${metrics.consistency.score.toFixed(1)}%`} color="#6366f1" />
             <StatCard label={t('scientific.fatigue')} value={`${metrics.fatigue.score.toFixed(1)}%`} color="#ef4444" />
           </div>
@@ -51,7 +47,7 @@ export function ScientificDashboard() {
               />
             </div>
             <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: '12px', padding: '1rem' }}>
-              <Histogram values={[]} title={t('scientific.rtDistribution')} />
+              <Histogram binned={metrics.distribution} title={t('scientific.rtDistribution')} />
             </div>
           </div>
           {Object.keys(metrics.byDimension).length > 0 && (
@@ -66,6 +62,6 @@ export function ScientificDashboard() {
           )}
         </>
       )}
-    </ResearchLayout>
+    </>
   );
 }

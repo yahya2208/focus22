@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createResearchAPI, type SystemHealth } from '../../../core/research/api-supabase';
-import { ResearchLayout, StatCard, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
+import { StatCard, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
 import { BarChart } from '../../components/charts/Charts';
-import type { DashboardId } from '../../layout/ResearchLayout';
 import type { ResearchFilters } from '../../../core/research/filters';
 import { createEmptyFilters } from '../../../core/research/filters';
 import { realMetric, comingSoonMetric } from '../../../core/research/types';
@@ -13,7 +12,6 @@ const GIT_TAG = import.meta.env.VITE_GIT_SHA ?? 'unknown';
 
 export function SystemDashboard() {
   const { t } = useTranslation();
-  const [dashboard, setDashboard] = useState<DashboardId>('system');
   const [data, setData] = useState<SystemHealth | null>(null);
   const [filters, setFilters] = useState<ResearchFilters>(createEmptyFilters());
 
@@ -22,14 +20,12 @@ export function SystemDashboard() {
     api.getSystemHealth().then(setData);
   }, []);
 
-  if (dashboard !== 'system') return null;
-
   return (
-    <ResearchLayout activeDashboard={dashboard} onNavigate={setDashboard}>
+    <>
       <DashboardHeader title={t('system.title')} subtitle={t('system.subtitle')} />
       <FilterBar filters={filters} onFilterChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={() => setFilters(createEmptyFilters())} />
       {data && <SystemHealthPanel data={data} />}
-    </ResearchLayout>
+    </>
   );
 }
 

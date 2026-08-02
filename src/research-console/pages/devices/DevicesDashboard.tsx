@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createResearchAPI, type DeviceAnalytics, type DeviceHierarchyGroup, type DeviceBrandGroup, type DeviceModelGroup, type DeviceIntelligence } from '../../../core/research/api-supabase';
-import { ResearchLayout, StatCard, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
+import { StatCard, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
 import { BarChart, PieChart } from '../../components/charts/Charts';
-import type { DashboardId } from '../../layout/ResearchLayout';
 import type { ResearchFilters } from '../../../core/research/filters';
 import { createEmptyFilters } from '../../../core/research/filters';
 import { useTranslation } from '../../../hooks/useTranslation';
@@ -181,7 +180,6 @@ function OsGroup({ group }: { readonly group: DeviceHierarchyGroup }) {
 
 export function DevicesDashboard() {
   const { t } = useTranslation();
-  const [dashboard, setDashboard] = useState<DashboardId>('devices');
   const [analytics, setAnalytics] = useState<DeviceAnalytics | null>(null);
   const [hierarchy, setHierarchy] = useState<readonly DeviceHierarchyGroup[]>([]);
   const [filters, setFilters] = useState<ResearchFilters>(createEmptyFilters());
@@ -192,12 +190,10 @@ export function DevicesDashboard() {
     api.getDeviceIntelligence(filters).then(setHierarchy);
   }, [filters]);
 
-  if (dashboard !== 'devices') return null;
-
   const totalDevices = (analytics?.osDistribution ?? []).reduce((s, d) => s + d.count, 0);
 
   return (
-    <ResearchLayout activeDashboard={dashboard} onNavigate={setDashboard}>
+    <>
       <DashboardHeader title={t('devices.title')} subtitle={t('devices.subtitle')} />
       <FilterBar filters={filters} onFilterChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={() => setFilters(createEmptyFilters())} />
       {analytics && (
@@ -243,6 +239,6 @@ export function DevicesDashboard() {
         {hierarchy.map(group => <OsGroup key={group.os} group={group} />)}
         {hierarchy.length === 0 && <p style={{ color: '#666', textAlign: 'center', padding: '2rem' }}>No devices found</p>}
       </div>
-    </ResearchLayout>
+    </>
   );
 }

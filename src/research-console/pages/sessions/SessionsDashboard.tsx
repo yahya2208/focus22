@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo } from 'react';
 import { createResearchAPI, type SessionRow } from '../../../core/research/api-supabase';
-import { ResearchLayout, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
-import type { DashboardId } from '../../layout/ResearchLayout';
+import { DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
 import type { ResearchFilters } from '../../../core/research/filters';
 import { createEmptyFilters } from '../../../core/research/filters';
 import { useTranslation } from '../../../hooks/useTranslation';
@@ -157,7 +156,6 @@ function SessionDetail({ session: s }: { session: SessionRow }) {
 
 export function SessionsDashboard() {
   const { t } = useTranslation();
-  const [dashboard, setDashboard] = useState<DashboardId>('sessions');
   const [sessions, setSessions] = useState<readonly SessionRow[]>([]);
   const [filters, setFilters] = useState<ResearchFilters>(createEmptyFilters());
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -190,10 +188,8 @@ export function SessionsDashboard() {
     URL.revokeObjectURL(a.href);
   };
 
-  if (dashboard !== 'sessions') return null;
-
   return (
-    <ResearchLayout activeDashboard={dashboard} onNavigate={setDashboard}>
+    <>
       <DashboardHeader
         title={t('sessions.title')}
         subtitle={`${sessions.length} ${t('sessions.found')}`}
@@ -220,9 +216,8 @@ export function SessionsDashboard() {
             </thead>
             <tbody>
               {sessions.map(s => (
-                <>
+                <Fragment key={s.id}>
                   <tr
-                    key={s.id}
                     onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
                     style={{ cursor: 'pointer', background: expandedId === s.id ? '#1a1a2e' : 'transparent', transition: 'background 0.1s' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#16162a'; }}
@@ -242,13 +237,13 @@ export function SessionsDashboard() {
                     <td style={{ ...ROW_STYLE, fontSize: '0.7rem', color: '#888' }}>{s.status}</td>
                   </tr>
                   {expandedId === s.id && (
-                    <tr key={`${s.id}-detail`}>
+                    <tr>
                       <td colSpan={10} style={{ padding: '1rem', background: '#0e0e18', borderBottom: '2px solid #6366f1' }}>
                         <SessionDetail session={s} />
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
               {sessions.length === 0 && (
                 <tr>
@@ -259,6 +254,6 @@ export function SessionsDashboard() {
           </table>
         </div>
       </div>
-    </ResearchLayout>
+    </>
   );
 }

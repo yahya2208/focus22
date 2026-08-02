@@ -12,7 +12,7 @@ const MOBILE_BREAKPOINT = 768;
 export type DashboardId =
   | 'overview' | 'scientific' | 'users' | 'sessions'
   | 'devices' | 'surveys' | 'campaigns' | 'live' | 'system' | 'acquisition' | 'journey' | 'health'
-  | 'conversion' | 'comparator' | 'intelligence' | 'insights' | 'exchange' | 'inventory' | 'catalog-health' | 'variant-coverage' | 'inventory-health' | 'price-memory';
+  | 'conversion' | 'comparator' | 'intelligence' | 'insights' | 'exchange' | 'inventory' | 'catalog-health' | 'variant-coverage' | 'inventory-health' | 'price-memory' | 'diagnostics';
 
 const DASHBOARDS: { id: DashboardId; labelKey: TranslationKey; icon: string }[] = [
   { id: 'overview', labelKey: 'research.nav.overview', icon: '📊' },
@@ -25,6 +25,19 @@ const DASHBOARDS: { id: DashboardId; labelKey: TranslationKey; icon: string }[] 
   { id: 'campaigns', labelKey: 'research.nav.campaigns', icon: '📣' },
   { id: 'live', labelKey: 'research.nav.live', icon: '🟢' },
   { id: 'system', labelKey: 'research.nav.system', icon: '⚙' },
+  { id: 'journey', labelKey: 'research.nav.journey', icon: '🧭' },
+  { id: 'health', labelKey: 'research.nav.health', icon: '🩺' },
+  { id: 'conversion', labelKey: 'research.nav.conversion', icon: '🔄' },
+  { id: 'comparator', labelKey: 'research.nav.comparator', icon: '⚖️' },
+  { id: 'intelligence', labelKey: 'research.nav.intelligence', icon: '🧠' },
+  { id: 'insights', labelKey: 'research.nav.insights', icon: '💡' },
+  { id: 'exchange', labelKey: 'research.nav.exchange', icon: '🔁' },
+  { id: 'inventory', labelKey: 'research.nav.inventory', icon: '📦' },
+  { id: 'catalog-health', labelKey: 'research.nav.catalog-health', icon: '🗂' },
+  { id: 'variant-coverage', labelKey: 'research.nav.variant-coverage', icon: '🧩' },
+  { id: 'inventory-health', labelKey: 'research.nav.inventory-health', icon: '🗃' },
+  { id: 'price-memory', labelKey: 'research.nav.price-memory', icon: '🏷' },
+  { id: 'diagnostics', labelKey: 'research.nav.diagnostics', icon: '🩻' },
 ];
 
 function useIsMobile(): boolean {
@@ -45,9 +58,11 @@ interface ResearchLayoutProps {
   activeDashboard: DashboardId;
   onNavigate: (dashboard: DashboardId) => void;
   children: React.ReactNode;
+  availableDashboards?: readonly DashboardId[];
+  onBack?: () => void;
 }
 
-export function ResearchLayout({ activeDashboard, onNavigate, children }: ResearchLayoutProps) {
+export function ResearchLayout({ activeDashboard, onNavigate, children, availableDashboards, onBack }: ResearchLayoutProps) {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -58,11 +73,15 @@ export function ResearchLayout({ activeDashboard, onNavigate, children }: Resear
     setDrawerOpen(false);
   }, [onNavigate]);
 
+  const visibleDashboards = availableDashboards
+    ? DASHBOARDS.filter((d) => availableDashboards.includes(d.id))
+    : DASHBOARDS;
+
   useEffect(() => {
     if (isMobile) setSidebarOpen(false);
   }, [isMobile]);
 
-  const SidebarContent = () => (
+  const sidebarContent = (
     <>
       <div style={{ padding: '0 1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#6366f1' }}>{t('sidebar.focusResearch')}</span>
@@ -77,8 +96,8 @@ export function ResearchLayout({ activeDashboard, onNavigate, children }: Resear
           </button>
         )}
       </div>
-      <nav aria-label="Research console navigation">
-        {DASHBOARDS.map((d) => (
+      <nav aria-label="Research console navigation" style={{ flex: 1, overflowY: 'auto' }}>
+        {visibleDashboards.map((d) => (
           <button
             key={d.id}
             onClick={() => navigate(d.id)}
@@ -99,6 +118,25 @@ export function ResearchLayout({ activeDashboard, onNavigate, children }: Resear
           </button>
         ))}
       </nav>
+      {onBack && (
+        <div style={{ marginTop: '1rem', padding: '0 0.5rem' }}>
+          <button
+            onClick={onBack}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+              width: '100%', padding: '0.6rem 0.5rem',
+              justifyContent: (isMobile || sidebarOpen) ? 'flex-start' : 'center',
+              background: 'transparent',
+              border: '1px solid #333', borderRadius: '6px', color: '#888',
+              cursor: 'pointer', fontSize: '0.85rem',
+            }}
+            title={t('research.back')}
+          >
+            <span>←</span>
+            {(isMobile || sidebarOpen) && <span>{t('research.back')}</span>}
+          </button>
+        </div>
+      )}
     </>
   );
 
@@ -120,8 +158,10 @@ export function ResearchLayout({ activeDashboard, onNavigate, children }: Resear
           transition: 'width 0.2s',
           flexShrink: 0,
           overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
         }}>
-          <SidebarContent />
+          {sidebarContent}
         </aside>
       )}
 
@@ -135,8 +175,10 @@ export function ResearchLayout({ activeDashboard, onNavigate, children }: Resear
           transition: 'left 0.25s ease',
           zIndex: 100,
           overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
         }}>
-          <SidebarContent />
+          {sidebarContent}
         </aside>
       )}
 

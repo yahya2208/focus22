@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import { createResearchAPI, type UserAnalytics, type CampaignAnalytics, type OverviewStats } from '../../../core/research/api-supabase';
 import { getDataService } from '../../../core/supabase/data-service';
 import { getSupabaseClient } from '../../../core/supabase/client';
-import { ResearchLayout, StatCard, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
+import { StatCard, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
 import { BarChart } from '../../components/charts/Charts';
-import type { DashboardId } from '../../layout/ResearchLayout';
 import type { ResearchFilters } from '../../../core/research/filters';
 import { createEmptyFilters } from '../../../core/research/filters';
 import { comingSoonMetric } from '../../../core/research/types';
@@ -34,7 +33,6 @@ interface AcquisitionStats {
 
 export function AcquisitionDashboard() {
   const { t } = useTranslation();
-  const [dashboard, setDashboard] = useState<DashboardId>('acquisition');
   const [stats, setStats] = useState<AcquisitionStats | null>(null);
   const [filters, setFilters] = useState<ResearchFilters>(createEmptyFilters());
 
@@ -112,7 +110,7 @@ export function AcquisitionDashboard() {
   }, [filters, t]);
 
   return (
-    <ResearchLayout activeDashboard={dashboard} onNavigate={setDashboard}>
+    <>
       <DashboardHeader title={t('acquisition.title')} subtitle={t('acquisition.subtitle')} />
       <FilterBar filters={filters} onFilterChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={() => setFilters(createEmptyFilters())} />
 
@@ -181,6 +179,6 @@ export function AcquisitionDashboard() {
           </div>
         </>
       )}
-    </ResearchLayout>
+    </>
   );
 }

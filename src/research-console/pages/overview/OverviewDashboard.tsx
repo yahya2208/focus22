@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createResearchAPI, type OverviewStats } from '../../../core/research/api-supabase';
-import { ResearchLayout, StatCard, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
+import { StatCard, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
 import { BarChart } from '../../components/charts/Charts';
-import type { DashboardId } from '../../layout/ResearchLayout';
 import type { ResearchFilters } from '../../../core/research/filters';
 import { createEmptyFilters } from '../../../core/research/filters';
 import { useTranslation } from '../../../hooks/useTranslation';
@@ -81,7 +80,6 @@ interface LiveCounts {
 
 export function OverviewDashboard() {
   const { t } = useTranslation();
-  const [dashboard, setDashboard] = useState<DashboardId>('overview');
   const [stats, setStats] = useState<OverviewStats | null>(null);
   const [yesterdayStats, setYesterdayStats] = useState<OverviewStats | null>(null);
   const [liveCounts, setLiveCounts] = useState<LiveCounts | null>(null);
@@ -134,10 +132,8 @@ export function OverviewDashboard() {
   const summary = stats ? generateSummary(stats) : [];
   const recommendations = stats && liveCounts ? generateRecommendations(stats, liveCounts, t) : [];
 
-  if (dashboard !== 'overview') return null;
-
   return (
-    <ResearchLayout activeDashboard={dashboard} onNavigate={setDashboard}>
+    <>
       <DashboardHeader title={t('overview.title')} subtitle={t('overview.subtitle')} />
       <FilterBar filters={filters} onFilterChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={() => setFilters(createEmptyFilters())} />
 
@@ -250,6 +246,6 @@ export function OverviewDashboard() {
           </div>
         </>
       )}
-    </ResearchLayout>
+    </>
   );
 }

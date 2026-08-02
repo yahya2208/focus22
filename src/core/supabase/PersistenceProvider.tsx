@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { getSupabaseClient, getSupabaseConfig } from './client';
+import { markCompleted, markHeartbeat, markPatch, emitDiagnosticLog } from './live-diagnostics';
 import { collectDeviceProfile, type DeviceProfile } from '../device';
 import type { CalibrationProfile } from '../calibration';
 import { analyzeConsistency } from '../engine/consistency';
@@ -35,12 +36,14 @@ function clearCachedUserId(): void {
 }
 
 async function closeStaleSessionsForUser(userId: string): Promise<void> {
+  const cutoff = new Date(Date.now() - STALE_CUTOFF_MINUTES * 60 * 1000).toISOString();
   const client = getSupabaseClient();
   const { error } = await client
     .from('sessions')
     .update({ status: 'completed', finished_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('user_id', userId)
-    .eq('status', 'running');
+    .eq('status', 'running')
+    .lt('updated_at', cutoff);
   if (error) {
     console.error({ code: error.code, message: error.message, details: error.details, hint: error.hint });
   }
@@ -82,6 +85,7 @@ async function doCloseSession(
       totalRounds: payload.results.totalRounds,
     });
 
+    const t0 = performance.now();
     const { error } = await client.from('sessions').upsert({
       id: sessionId,
       user_id: payload.userId,
@@ -113,17 +117,28 @@ async function doCloseSession(
       finished_at: now,
       version: '2.0',
     });
+    markPatch();
+    markCompleted();
     if (error) {
+      emitDiagnosticLog({ service: 'persistence', action: 'session_completed', durationMs: performance.now() - t0, status: 'error', errorCode: error.code, caller: 'persistence-provider', trigger: 'session_completed_event', sessionId });
       console.error({ code: error.code, message: error.message, details: error.details, hint: error.hint });
+    } else {
+      emitDiagnosticLog({ service: 'persistence', action: 'session_completed', durationMs: performance.now() - t0, status: 'ok', caller: 'persistence-provider', trigger: 'session_completed_event', sessionId });
     }
   } else {
+    const t0 = performance.now();
     const { error } = await client.from('sessions').update({
       status: 'completed',
       finished_at: now,
       updated_at: now,
     }).eq('id', sessionId);
+    markPatch();
+    markCompleted();
     if (error) {
+      emitDiagnosticLog({ service: 'persistence', action: 'session_completed', durationMs: performance.now() - t0, status: 'error', errorCode: error.code, caller: 'persistence-provider', trigger: 'session_completed_event', sessionId });
       console.error({ code: error.code, message: error.message, details: error.details, hint: error.hint });
+    } else {
+      emitDiagnosticLog({ service: 'persistence', action: 'session_completed', durationMs: performance.now() - t0, status: 'ok', caller: 'persistence-provider', trigger: 'session_completed_event', sessionId });
     }
   }
 }
@@ -146,6 +161,10 @@ function sendCloseSessionBeacon(sessionId: string, _endedReason: EndedReason): v
 
 async function sendCloseSessionFetch(sessionId: string, _endedReason: EndedReason): Promise<void> {
   try {
+    const client = getSupabaseClient();
+    const { data: { session } } = await client.auth.getSession();
+    const accessToken = session?.access_token;
+    if (!accessToken) return;
     const config = getSupabaseConfig();
     const url = `${config.url}/rest/v1/sessions?id=eq.${sessionId}`;
     const now = new Date().toISOString();
@@ -159,7 +178,7 @@ async function sendCloseSessionFetch(sessionId: string, _endedReason: EndedReaso
       headers: {
         'Content-Type': 'application/json',
         'apikey': config.anonKey,
-        'Authorization': `Bearer ${config.anonKey}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
       body,
       keepalive: true,
@@ -202,6 +221,42 @@ async function autoCleanupStaleSessions(): Promise<void> {
       .in('id', ids);
     if (updateErr) {
       console.error({ code: updateErr.code, message: updateErr.message, details: updateErr.details, hint: updateErr.hint });
+    }
+  }
+}
+
+// Contract (P0-1): a session with status='running' AND zero rounds AND
+// updated_at older than 30s never started a real game → mark it abandoned so it
+// disappears from Live. Runs frequently to respect the ≤10s visibility contract.
+const ZERO_ROUND_STALE_MS = 30_000;
+
+async function autoCleanupAbandonedZeroRoundSessions(): Promise<void> {
+  const cutoff = new Date(Date.now() - ZERO_ROUND_STALE_MS).toISOString();
+  const client = getSupabaseClient();
+
+  const { data: stale, error: selectErr } = await client
+    .from('sessions')
+    .select('id, measurements')
+    .eq('status', 'running')
+    .lt('updated_at', cutoff);
+  if (selectErr) {
+    console.error({ code: selectErr.code, message: selectErr.message, details: selectErr.details, hint: selectErr.hint });
+    return;
+  }
+  if (!stale || stale.length === 0) return;
+
+  const ids = [...new Set(stale.filter(r => r.measurements == null).map(r => r.id))];
+  if (ids.length === 0) return;
+
+  const { error: updateErr } = await client
+    .from('sessions')
+    .update({ status: 'completed', finished_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .in('id', ids);
+  if (updateErr) {
+    console.error({ code: updateErr.code, message: updateErr.message, details: updateErr.details, hint: updateErr.hint });
+  } else {
+    for (const id of ids) {
+      emitDiagnosticLog({ service: 'persistence', action: 'session_abandoned_auto', caller: 'persistence-provider', trigger: 'zero_round_stale', sessionId: id, status: 'ok' });
     }
   }
 }
@@ -316,17 +371,23 @@ export function PersistenceProvider({ children }: { children: React.ReactNode })
   const updateActivity = useCallback(async () => {
     const sessionId = activeSessionIdRef.current;
     if (!sessionId) return;
+    markHeartbeat(true);
     const now = new Date().toISOString();
+    const t0 = performance.now();
     const client = getSupabaseClient();
     const { error } = await client.from('sessions').update({ updated_at: now }).eq('id', sessionId);
     if (error) {
+      emitDiagnosticLog({ service: 'persistence', action: 'heartbeat_ping', durationMs: performance.now() - t0, status: 'error', errorCode: error.code, caller: 'persistence-provider', trigger: 'heartbeat_interval', sessionId });
       console.error({ code: error.code, message: error.message, details: error.details, hint: error.hint });
+    } else {
+      emitDiagnosticLog({ service: 'persistence', action: 'heartbeat_ping', durationMs: performance.now() - t0, status: 'ok', caller: 'persistence-provider', trigger: 'heartbeat_interval', sessionId });
     }
   }, []);
 
   const clearSession = useCallback(() => {
     activeSessionIdRef.current = null;
     sessionDataRef.current = null;
+    markHeartbeat(false);
     if (pingIntervalRef.current) {
       clearInterval(pingIntervalRef.current);
       pingIntervalRef.current = null;
@@ -345,6 +406,7 @@ export function PersistenceProvider({ children }: { children: React.ReactNode })
 
     const createdAt = new Date(payload.createdAt).toISOString();
     const client = getSupabaseClient();
+    const t0 = performance.now();
     const { error } = await client.from('sessions').insert({
       id: payload.sessionId,
       user_id: userId,
@@ -361,11 +423,14 @@ export function PersistenceProvider({ children }: { children: React.ReactNode })
       version: '2.0',
     });
     if (error) {
+      emitDiagnosticLog({ service: 'persistence', action: 'session_created', durationMs: performance.now() - t0, status: 'error', errorCode: error.code, caller: 'persistence-provider', trigger: 'session_created_event', sessionId: payload.sessionId });
       console.error({ code: error.code, message: error.message, details: error.details, hint: error.hint });
       return;
     }
+    emitDiagnosticLog({ service: 'persistence', action: 'session_created', durationMs: performance.now() - t0, status: 'ok', caller: 'persistence-provider', trigger: 'session_created_event', sessionId: payload.sessionId });
 
     activeSessionIdRef.current = payload.sessionId;
+    markHeartbeat(true);
     sessionDataRef.current = { userId, deviceId, calibrationId, campaignId: payload.campaignId, gameMode: payload.gameMode, createdAt };
 
     if (!pingIntervalRef.current) {
@@ -399,6 +464,7 @@ export function PersistenceProvider({ children }: { children: React.ReactNode })
   }, [clearSession]);
 
   const handleSessionAbandoned = useCallback(async (payload: SessionAbandonedPayload) => {
+    emitDiagnosticLog({ service: 'persistence', action: 'handleSessionCompleted', caller: 'persistence-provider', trigger: 'session_abandoned_event', sessionId: payload.sessionId, status: 'ok' });
     await doCloseSession(payload.sessionId, payload.reason);
     clearSession();
   }, [clearSession]);
@@ -434,7 +500,9 @@ export function PersistenceProvider({ children }: { children: React.ReactNode })
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     autoCleanupStaleSessions();
+    autoCleanupAbandonedZeroRoundSessions();
     const cleanupTimer = setInterval(autoCleanupStaleSessions, STALE_CUTOFF_MINUTES * 60 * 1000);
+    const zeroRoundTimer = setInterval(autoCleanupAbandonedZeroRoundSessions, 15_000);
 
     return () => {
       unsubCreated();
@@ -443,6 +511,7 @@ export function PersistenceProvider({ children }: { children: React.ReactNode })
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearInterval(cleanupTimer);
+      clearInterval(zeroRoundTimer);
       if (pingIntervalRef.current) {
         clearInterval(pingIntervalRef.current);
       }

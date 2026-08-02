@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ResearchLayout, StatCard, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
-import type { DashboardId } from '../../layout/ResearchLayout';
+import { StatCard, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
 import type { ResearchFilters } from '../../../core/research/filters';
 import { createEmptyFilters } from '../../../core/research/filters';
 import { getSupabaseClient } from '../../../core/supabase/client';
@@ -29,7 +28,6 @@ const btnSmall: React.CSSProperties = { padding: '0.4rem 0.8rem', borderRadius: 
 
 export function CampaignsDashboard() {
   const { t } = useTranslation();
-  const [dashboard, setDashboard] = useState<DashboardId>('campaigns');
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [filters, setFilters] = useState<ResearchFilters>(createEmptyFilters());
   const [showWizard, setShowWizard] = useState(false);
@@ -84,8 +82,6 @@ export function CampaignsDashboard() {
     loadData();
   };
 
-  if (dashboard !== 'campaigns') return null;
-
   const selected = selectedId ? campaigns.find(c => c.id === selectedId) ?? null : null;
   const filtered = statusFilter === 'all' ? campaigns : campaigns.filter(c => (c.status ?? 'active') === statusFilter);
   const totalScans = campaigns.reduce((s, c) => s + c.scan_count, 0);
@@ -94,14 +90,14 @@ export function CampaignsDashboard() {
 
   if (selected) {
     return (
-      <ResearchLayout activeDashboard={dashboard} onNavigate={setDashboard}>
+      <>
         <CampaignDetailView campaign={selected} onBack={() => setSelectedId(null)} onUpdate={loadData} />
-      </ResearchLayout>
+      </>
     );
   }
 
   return (
-    <ResearchLayout activeDashboard={dashboard} onNavigate={setDashboard}>
+    <>
       <DashboardHeader
         title={t('campaign.title')}
         subtitle={`${campaigns.length} ${t('campaign.title').toLowerCase()}`}
@@ -185,6 +181,6 @@ export function CampaignsDashboard() {
       </div>
 
       {showWizard && <CampaignWizard onClose={() => setShowWizard(false)} onCreated={loadData} />}
-    </ResearchLayout>
+    </>
   );
 }

@@ -1,0 +1,69 @@
+-- ============================================================================
+-- FOCUS Product Contract v1.0 — Phase E roadmap: future constraints (docs)
+--
+-- Type: Documentation
+-- Phase: E roadmap
+-- Needs backfill: no
+-- Directly reversible: N/A (creates no objects)
+-- Depends on: none
+-- Required by: none
+--
+-- THIS MIGRATION ADDS NO OBJECTS.
+--
+-- It documents the constraints that WILL be enforced once the app conversion
+-- (Phase E) stops writing legacy values. Applying them before that conversion
+-- would reject rows the current app still writes, so each entry notes when it
+-- becomes safe. Keeping the roadmap here makes the migration history itself an
+-- architecture document.
+--
+-- Phase 1 rules honored: ADD ONLY. No DROP, no ALTER TYPE, no new CHECK, no
+-- change to any default the current app relies on.
+--
+-- Rollback: nothing to undo — no objects were created.
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- TODO (Phase E): campaigns.status state machine
+--   After the app stops writing legacy 'active':
+--     ALTER TABLE public.campaigns
+--       ADD CONSTRAINT campaigns_status_check
+--       CHECK (status IN ('draft','scheduled','running','paused','ended','archived'));
+--     ALTER TABLE public.campaigns
+--       ALTER COLUMN status SET DEFAULT 'draft';
+--   When to enforce: with the app conversion (create = draft, publish = running).
+--   Backfill dependency: 00012 maps is_active=true -> 'running', false -> 'ended'.
+-- ----------------------------------------------------------------------------
+
+-- ----------------------------------------------------------------------------
+-- TODO (Phase E): job_assignments.status transitions
+--   ALTER TABLE public.job_assignments
+--     ADD CONSTRAINT job_assignments_status_check
+--     CHECK (status IN ('pending','accepted','rejected','expired','transferred','completed','cancelled'));
+--   When to enforce: with the delegate UI.
+--
+--   Future (not Phase 1): job_assignments.priority INTEGER for workload ranking.
+-- ----------------------------------------------------------------------------
+
+-- ----------------------------------------------------------------------------
+-- TODO (Phase E): sessions.status transitions
+--   ALTER TABLE public.sessions
+--     ADD CONSTRAINT sessions_status_check
+--     CHECK (status IN ('draft','running','paused','completed','archived','synced','failed'));
+--   When to enforce: with the unified queue / sync workers.
+-- ----------------------------------------------------------------------------
+
+-- ----------------------------------------------------------------------------
+-- TODO (Phase F): retention jobs
+--   - Scheduled job: campaigns with status='running' whose end_date <= now()
+--     are moved to 'ended' (insert audit_log entry with reason).
+--   - Scheduled job: sessions idle past campaigns.abandon_timeout_minutes
+--     (last_activity_at) are moved to 'failed' with ended_reason='abandoned'.
+-- ----------------------------------------------------------------------------
+
+-- ----------------------------------------------------------------------------
+-- TODO (Phase F): unified queue workers
+--   - v1 queue is client-side (IndexedDB); no DB table required.
+--   - Workers must reconcile sessions.campaign_snapshot before replay.
+--   - Observability invariant: every analytics_events row carries
+--     schema_version, request_id, service, action, duration_ms, status, error_code.
+-- ----------------------------------------------------------------------------

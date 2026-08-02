@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createResearchAPI, type SurveyAnalytics } from '../../../core/research/api-supabase';
-import { ResearchLayout, StatCard, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
+import { StatCard, DashboardHeader, FilterBar } from '../../layout/ResearchLayout';
 import { BarChart, PieChart } from '../../components/charts/Charts';
-import type { DashboardId } from '../../layout/ResearchLayout';
 import type { ResearchFilters } from '../../../core/research/filters';
 import { createEmptyFilters } from '../../../core/research/filters';
 import { comingSoonMetric } from '../../../core/research/types';
@@ -10,7 +9,6 @@ import { useTranslation } from '../../../hooks/useTranslation';
 
 export function SurveysDashboard() {
   const { t } = useTranslation();
-  const [dashboard, setDashboard] = useState<DashboardId>('surveys');
   const [data, setData] = useState<SurveyAnalytics | null>(null);
   const [filters, setFilters] = useState<ResearchFilters>(createEmptyFilters());
 
@@ -19,10 +17,8 @@ export function SurveysDashboard() {
     api.getSurveyAnalytics(filters).then(setData);
   }, [filters]);
 
-  if (dashboard !== 'surveys') return null;
-
   return (
-    <ResearchLayout activeDashboard={dashboard} onNavigate={setDashboard}>
+    <>
       <DashboardHeader title={t('surveys.title')} subtitle={t('surveys.subtitle')} />
       <FilterBar filters={filters} onFilterChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={() => setFilters(createEmptyFilters())} />
       {data && (
@@ -80,6 +76,6 @@ export function SurveysDashboard() {
           </div>
         </>
       )}
-    </ResearchLayout>
+    </>
   );
 }

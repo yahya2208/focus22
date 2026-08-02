@@ -6,6 +6,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { getGlobalTelemetry } from '../../core/telemetry';
 import { getGlobalSessionService } from '../../core/session/service';
+import { emitDiagnosticLog } from '../../core/supabase/live-diagnostics';
 import { trackLampAppeared, trackLampClicked, trackMissClick, trackRoundStarted } from '../../core/analytics/tracker';
 
 type Phase = 'waiting' | 'visible' | 'hit' | 'miss';
@@ -156,6 +157,8 @@ export const GameScreen = memo(function GameScreen() {
 
   const stimulusTimeRef = useRef(0);
   const sessionStartRef = useRef(Date.now());
+  const sessionIdRef = useRef<string | null>(null);
+  const completedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const roundTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const phaseRef = useRef<Phase>('waiting');
@@ -171,8 +174,21 @@ export const GameScreen = memo(function GameScreen() {
       gameMode,
       campaignId: isQrFlow ? campaignId : null,
     });
+    sessionIdRef.current = sessionId;
     dispatch({ type: 'START_SESSION', sessionId, gameMode });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Contract: every exit path must end in completeSession() or abandonSession().
+  // This cleanup covers: unmount, SPA navigation away, refresh/close of the tab,
+  // and any path that leaves the game before round 7.
+  useEffect(() => {
+    return () => {
+      const sessionId = sessionIdRef.current;
+      if (sessionId && !completedRef.current) {
+        getGlobalSessionService().abandonSession(sessionId, 'abandoned');
+      }
+    };
+  }, []);
 
   const calibration = useMemo(() => calibrationProfile ?? {
     refreshRate: 60, displayLagMs: 16.667, inputLagMs: 8,
@@ -180,7 +196,9 @@ export const GameScreen = memo(function GameScreen() {
   }, [calibrationProfile]);
 
   const startRound = useCallback(() => {
-    trackRoundStarted(roundRef.current + 1, TOTAL_ROUNDS, campaignId ?? undefined);
+    const nextRound = roundRef.current + 1;
+    emitDiagnosticLog({ service: 'game', action: 'round_started', caller: 'game-screen', trigger: 'startRound', sessionId: sessionIdRef.current ?? undefined, detail: `round=${nextRound}/${TOTAL_ROUNDS}` });
+    trackRoundStarted(nextRound, TOTAL_ROUNDS, campaignId ?? undefined);
     setPhase('waiting');
     lastRtRef.current = null;
     const delay = MIN_DELAY_MS + secureRandom() * (MAX_DELAY_MS - MIN_DELAY_MS);
@@ -196,32 +214,37 @@ export const GameScreen = memo(function GameScreen() {
   useEffect(() => {
     if (round >= TOTAL_ROUNDS) {
       const rts = rawRtsRef.current;
+      const correctedRts = rts.map((rt) => correctReactionTime(rt, calibration).correctedRtMs);
+      const validRounds = rts.filter((rt) => {
+        const corrected = rt - calibration.displayLagMs - calibration.inputLagMs;
+        return corrected >= REACTION.MIN_RT_MS;
+      }).length;
+      const results = {
+        rawRts: rts,
+        correctedRts,
+        calibration,
+        totalRounds: TOTAL_ROUNDS,
+        validRounds,
+        sessionStart: sessionStartRef.current,
+        sessionEnd: Date.now(),
+      };
+
+      const sessionId = sessionIdRef.current;
+      if (sessionId) {
+        completedRef.current = true;
+        emitDiagnosticLog({ service: 'game', action: 'game_completed', caller: 'game-screen', trigger: 'round7_reached', sessionId, detail: `rounds=${TOTAL_ROUNDS} valid=${validRounds}` });
+        getGlobalSessionService().completeSession(sessionId, results);
+      }
+
       const telemetry = getGlobalTelemetry();
       telemetry.track('game_completed', {
         totalRounds: TOTAL_ROUNDS,
-        validRounds: rts.filter((rt) => {
-          const corrected = rt - calibration.displayLagMs - calibration.inputLagMs;
-          return corrected >= REACTION.MIN_RT_MS;
-        }).length,
+        validRounds,
         isQrFlow,
         campaign_id: campaignId,
       });
       telemetry.flush();
-      dispatch({
-        type: 'SET_RESULTS',
-        results: {
-          rawRts: rts,
-          correctedRts: rts.map((rt) => correctReactionTime(rt, calibration).correctedRtMs),
-          calibration,
-          totalRounds: TOTAL_ROUNDS,
-          validRounds: rts.filter((rt) => {
-            const corrected = rt - calibration.displayLagMs - calibration.inputLagMs;
-            return corrected >= REACTION.MIN_RT_MS;
-          }).length,
-          sessionStart: sessionStartRef.current,
-          sessionEnd: Date.now(),
-        },
-      });
+      dispatch({ type: 'SET_RESULTS', results });
       dispatch({ type: 'NAVIGATE', screen: 'results' });
       return;
     }
@@ -247,6 +270,7 @@ export const GameScreen = memo(function GameScreen() {
     if (bestTimeRef.current === null || rt < bestTimeRef.current) {
       bestTimeRef.current = rt;
     }
+    emitDiagnosticLog({ service: 'game', action: 'round_completed', caller: 'game-screen', trigger: 'lamp_tap', sessionId: sessionIdRef.current ?? undefined, detail: `round=${roundRef.current + 1} rt=${Math.round(rt)}ms` });
 
     setPhase('hit');
     playBreakSound();

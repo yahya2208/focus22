@@ -1,6 +1,7 @@
 import type { CalibrationProfile } from '../calibration';
 import { getGlobalEventPublisher, type EventPublisher } from '../events';
 import { createSessionId } from './index';
+import { emitDiagnosticLog } from '../supabase/live-diagnostics';
 
 export type EndedReason =
   | 'completed'
@@ -64,6 +65,14 @@ export function createSessionService(
       const now = Date.now();
       activeSessions.set(sessionId, { gameMode: params.gameMode, campaignId: params.campaignId, createdAt: now });
 
+      emitDiagnosticLog({
+        service: 'session',
+        action: 'session_created',
+        caller: 'session-service',
+        sessionId,
+        status: 'ok',
+      });
+
       publisher.publish<SessionCreatedPayload>('session_created', {
         sessionId,
         gameMode: params.gameMode,
@@ -76,9 +85,35 @@ export function createSessionService(
 
     completeSession(sessionId: string, results: SessionResults): void {
       const session = activeSessions.get(sessionId);
-      if (!session) return;
+      if (!session) {
+        emitDiagnosticLog({
+          service: 'session',
+          action: 'session_completed_skipped',
+          caller: 'session-service',
+          trigger: 'unknown_session',
+          sessionId,
+          status: 'skipped',
+        });
+        return;
+      }
 
       activeSessions.delete(sessionId);
+
+      emitDiagnosticLog({
+        service: 'session',
+        action: 'game_completed',
+        caller: 'session-service',
+        sessionId,
+        status: 'ok',
+      });
+      emitDiagnosticLog({
+        service: 'session',
+        action: 'completeSession',
+        caller: 'session-service',
+        trigger: 'completeSession',
+        sessionId,
+        status: 'ok',
+      });
 
       publisher.publish<SessionCompletedPayload>('session_completed', {
         sessionId,
@@ -92,9 +127,28 @@ export function createSessionService(
 
     abandonSession(sessionId: string, reason: EndedReason): void {
       const session = activeSessions.get(sessionId);
-      if (!session) return;
+      if (!session) {
+        emitDiagnosticLog({
+          service: 'session',
+          action: 'session_abandoned_skipped',
+          caller: 'session-service',
+          trigger: 'unknown_session',
+          sessionId,
+          status: 'skipped',
+        });
+        return;
+      }
 
       activeSessions.delete(sessionId);
+
+      emitDiagnosticLog({
+        service: 'session',
+        action: 'abandonSession',
+        caller: 'session-service',
+        trigger: reason,
+        sessionId,
+        status: 'ok',
+      });
 
       publisher.publish<SessionAbandonedPayload>('session_abandoned', {
         sessionId,
