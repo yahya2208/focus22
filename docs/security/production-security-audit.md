@@ -1,10 +1,17 @@
 # FOCUS Production Security Audit
 
-**الإصدار:** 3.6 · **التاريخ:** 2026-08-02 · **النوع:** Zero-Trust Security Review (P0)
+**الإصدار:** 3.7 · **التاريخ:** 2026-08-02 · **النوع:** Zero-Trust Security Review (P0)
 **النطاق:** `focus-production` (React 19 + Vite SPA → GitHub Pages، Backend: Supabase anon-key)
 **الحكم النهائي:** 🔴 **C — NOT READY**
 
 > **ملاحظة أمان:** أنشأ الفحص حسابَي ضيف (anonymous) على القاعدة الحية (`5af72e8a-…` و`6d509eb1-…`)، وأدرج علامة في `analytics_events` (201). طلب الحذف (204) حذف **0 صفاً** — لا توجد سياسة DELETE على الجدول (DV-9)؛ أي بقايا تتطلب تنظيفاً بصلاحيات owner عبر SQL Editor. **فحص LV-9 أُجري بصفّ صفري (أثر صفر)** ولم يُنفَّذ أي ترقية صلاحيات. تعليمات التنظيف الكاملة في الملحق أ.
+
+## سجل التغييرات
+
+| الإصدار | التاريخ | التغيير |
+|---|---|---|
+| 3.6 | 2026-08-02 | الإصدار الأول للتدقيق الكامل. |
+| **3.7** | **2026-08-02** | **تصحيح جوهري بالأدلة (round 2 من Gate 1):** (1) **DV-10 مُكذَّب** — `on_auth_user_created` **موجودة ومفعّلة** على `auth.users` (استعلام pg_trigger المباشر بـ `tgfoid`)؛ (2) **NR-1 أُعيد تصنيفه إلى مسار تنفيذ مؤكد** — دالة حية تثق بـ `raw_user_meta_data->>'role'` عبر SECURITY DEFINER + ربط trigger نشط؛ (3) **إصلاح Phase 1 مُطبَّق ومُغلَق**: `handle_new_user` يفرض الآن `role='guest'` دائماً (قرار C) — إثبات حي: signup بـ`role:"super_admin"` في metadata → HTTP 200 + `users.role='guest'`؛ (4) **REVOKE EXECUTE عن `bootstrap_super_admin`** من anon/authenticated/PUBLIC — probe حي: `42501 permission denied`؛ (5) `has_super_admin` = **Documented Exception** (RLS + شاشة الإعداد). راجع `supabase/security-hardening/phase1/` (بنود 4-5). |
 
 ---
 
@@ -21,11 +28,11 @@
 | LV-5 | 🟢 SQL Verified | Production | ضيف **يُدرج** أحداثاً في `analytics_events` (with_check true)؛ الحذف محجوب (لا سياسة DELETE)؛ **Database DoS**: إدراج غير محدود من أي bot |
 | LV-6 | 🟢 SQL Verified | Production | PATCH الدور الذاتي **محجوب** — سياسة UPDATE الوحيدة حصرية للأدمن |
 | LV-7 | 🟢 SQL Verified | Production | جداول repair **غير موجودة** في Supabase الحيّ (404) |
-| LV-8 | 🟢 SQL Verified | Production | تنفيذ `handle_new_user` الحيّ **سيُدرج** `guest`/`is_anonymous=true` لو اشتغل (المستودع ينص `user`/false) — لكنه **غير مربوط بأي trigger (DV-10)**، فالسلوك **غير نشط في الإنتاج** |
+| LV-8 | 🟢 SQL Verified | Production | تنفيذ `handle_new_user` الحيّ **سيُدرج** `guest`/`is_anonymous=true` لو اشتغل (المستودع ينص `user`/false) — **مُصلَح 2026-08-02**: الدالة تفرض `role='guest'` ثابتاً + مرتبطة بـ trigger **مفعّلة** (لا DV-10) — انظر v3.7 |
 | LV-9 | 🟢 SQL Verified | Production (pg_proc + proacl + **PostgREST probe**) | RPC `admin_promote_user`: **استدعاء مُثبت عملياً** بجلسة مجهولة عبر `/rest/v1/rpc` (صفّ صفري، أثر صفر — P0001) + بلا فحص متصل + SECURITY DEFINER → رفع صلاحية (الترقية الفعلية لم تُنفَّذ) |
 | LV-10 | 🟢 SQL Verified | Production (pg_policies) | `sessions` INSERT بـ`user_id` اعتباطي (with_check بلا فحص ملكية) → تزوير/تلويث نتائج أي مستخدم |
 | LV-11 | 🟢 SQL Verified | Production (pg_policies) | `qr_codes` UPDATE للعموم (USING/WITH CHECK true) → **Business Integrity Attack**: تزوير عدّادات/نجاح حملات/تقارير/ROI |
-| CV-1 | 🟡 Production Verified Design — **لم يُحدَّد مسار استغلال** | Production (pg_proc، استعلام 8) | `handle_new_user()` = **`RETURNS trigger` بلا معاملات + يقرأ `NEW`** → غير قابل للاستدعاء عبر RPC (يرفع خطأ `record NEW is not assigned yet`)؛ ومسار signup ملغى (DV-10) → **حقن role عبر metadata بلا مسار تنفيذ في النشر الحالي** — خطر كامن لو أُضيف الربط لاحقاً |
+| CV-1 | 🔴 **مسار تنفيذ مؤكد ثم مُغلَق** | Production (pg_trigger + pg_proc + **PostgREST signup test**) | `handle_new_user` مرتبطة بـ trigger **مفعّلة** (`on_auth_user_created` على `auth.users`) + تثق بـ `raw_user_meta_data->>'role'` عبر SECURITY DEFINER → **حقن role عند التسجيل مؤكد** (تصحيح v3.7 — كان «بلا مسار» خطأً بسبب DV-10). **أُغلق:** الدالة تفرض `role='guest'`؛ إثبات حي: signup بدور malicious → `users.role='guest'` |
 | CV-2 | 🟡 Code Verified | Repository | Bootstrap مفتوح (TOCTOU) |
 | CV-3 | 🟡 Code Verified | Repository | repair migrations PII مفتوحة **عند التطبيق** |
 | CV-4 | 🟡 Code Verified | Repository | لا تحقق سيرفر لسلامة النتائج (Scientific Integrity) |
@@ -40,10 +47,10 @@
 | DV-5 | 🔄 Divergence | Production ≠ Repository | جداول repair في repo / **غير موجودة** حياً |
 | DV-6 | 🔄 Divergence | Production ≠ Repository | `00008` يصرّح: لا يمكن إعادة بناء القاعدة من الـ migrations |
 | DV-7 | 🔄 Divergence | Production ≠ Repository | `system_settings`/`audit_log`/`job_assignments` (00009) **غير موجودة** حياً؛ و`devices`/`calibrations`/`qr_codes`/`surveys` موجودة بلا تعريف في repo |
-| DV-8 | 🔄 Divergence | Production ≠ Repository | `handle_new_user` الحيّ (default `guest`, `is_anonymous true`, بلا ON CONFLICT/أعمدة زمنية) ≠ `00002:38-53` — **وليس مربوطاً بأي trigger (DV-10)** |
+| DV-8 | 🔄 Divergence | Production ≠ Repository | `handle_new_user` الحيّ (default `guest`, `is_anonymous true`, بلا ON CONFLICT/أعمدة زمنية) ≠ `00002:38-53` — **مُصلَح جزئياً 2026-08-02** (الدالة الآن تفرض `guest` + `now()` للأعمدة الزمنية timestamptz) |
 | DV-9 | 🔄 Divergence | Production ≠ Repository | سياسات RLS الحية (نمط `Authenticated read …` + `Admins …`) **تختلف كلياً** عن `00002:20-32` على `users`؛ وعلى بقية الجداول لا وجود لسياسات repo أصلاً |
-| DV-10 | 🔄 Divergence | Production ≠ Repository | `auth` **بلا أي trigger** في الإنتاج — `on_auth_user_created`/`on_auth_user_login` المعلنان في `00002:59-70` غير موجودين → `handle_new_user` **غير مربوط**؛ وفي الفحص النهائي (استعلام 9) لم تُوجد صفوف مقابلة للحسابين التجريبيين في `public.users` |
-| NR-1 | ✅ مُحسم (لم يُحدَّد مسار استغلال) | Production (استعلام 8: `pg_get_functiondef`) | رفع دور عبر `handle_new_user` **بلا مسار تنفيذ**: دالة trigger بلا معاملات ترفع خطأ لو استُدعيت كـ RPC + لا ربط بـ signup (DV-10) — يبقى خطراً كامناً عند إضافة الربط |
+| DV-10 | ✅ **مُكذَّب (False Negative — أُصحَّح v3.7)** | Production (pg_trigger مباشر 2026-08-02) | **`on_auth_user_created` موجودة ومفعّلة (`tgenabled='O'`) على `auth.users`** ومربوطة بـ `handle_new_user` — النتيجة السابقة «صفر triggers في auth» **خاطئة** (الاستعلام الأصلي فاته الربط). استعلام 9 (لا صفوف للمحاسبين) **لا ينفي الربط** — التفسير الأرجح: الحسابان أُنشئا قبل تفعيل الربط أو عبر مسار لا يشغّله؛ غير حاسم ولا يُبنى عليه حكم أمني. **العبرة الأمنية:** الربط نشط + metadata موثوقة = مسار تصعيد مؤكد (NR-1) |
+| NR-1 | ✅ **مسار مؤكد ثم مُغلَق (v3.7)** | Production (pg_trigger + pg_proc + **PostgREST signup test**) | رفع دور عبر `handle_new_user` **مؤكد المسار** (trigger مفعّلة + `coalesce(raw_user_meta_data->>'role','guest')` عبر SECURITY DEFINER). **أُغلق 2026-08-02:** فرض `role='guest'` — إثبات حي: signup بـ`role:"super_admin"` → HTTP 200 + `users.role='guest'` |
 | NR-2 | ⚪ Unverifiable (Staging) | يحتاج Staging | **Design Risk Confirmed:** bootstrap مفتوح أول وصول — **محجوب الآن** (`has_super_admin()=true` يمنع INSERT وتشغيل bootstrap) |
 | UV-3 | ⚪ Unverifiable (Owner) | يحتاج صلاحيات Owner | إعدادات لوحة Supabase (تأكيد البريد، expiry، JWT) |
 | UV-4 | ⚪ Unverifiable (Owner) | يحتاج صلاحيات Owner | تساوي `vars.*` في CI مع `.env` المحلي |
@@ -277,7 +284,7 @@ END; $function$;
 | الاسم | الجسم الحيّ (ملخّص) | التقييم |
 |---|---|---|
 | `has_super_admin` | `SELECT exists (SELECT 1 FROM users WHERE role='super_admin')` · STABLE SECURITY DEFINER | ✅ سليم |
-| `handle_new_user` | `RETURNS trigger` بلا معاملات (يقرأ `NEW`) — إدراج `role = coalesce(raw_user_meta_data->>'role','guest')`, `is_anonymous = coalesce(...::boolean,true)` · بلا ON CONFLICT/أعمدة زمنية | 🔄 **DV-8** يخالف `00002:38-53`؛ **غير مربوط (DV-10)**؛ **غير قابل للاستدعاء كـ RPC** (يرفع خطأ `record NEW is not assigned yet`) → أساس CV-1 بلا استغلال حالياً |
+| `handle_new_user` | **مُصلَح (v3.7):** `RETURNS trigger` يقرأ `NEW` — إدراج `role='guest'` **ثابتاً** (لا يقرأ role من metadata إطلاقاً) + `now()` للأعمدة الزمنية (timestamptz) · SECURITY DEFINER | ✅ **أُغلق NR-1**: مرتبطة بـ trigger مفعّلة (`on_auth_user_created`) + مصدر الحقيقة صار سيرفراً (guest دائماً). KEEP (دالة trigger-only بلا استدعاء عميل) |
 | `increment_qr_counter` | whitelist صارم لـ `p_column` ثم `UPDATE qr_codes SET <col>+1 WHERE campaign_id=...` | ✅ **لا SQL injection** (يحلّ UV-1)؛ لكنه قابل للسبام مباشرة (LV-11 يتجاوزه) |
 | `bootstrap_super_admin` | يرفض لو وُجد super_admin؛ يُرقّي `target_user_id` | 🟡 **Design Risk Confirmed** — محجوب الآن بوجود super_admin (أساس NR-2) |
 | `admin_promote_user` | **بلا فحص متصل** — يرقّي لأي `new_role` ما دام يوجد super_admin | 🔴 **LV-9** |
@@ -292,11 +299,11 @@ END; $function$;
 > | `sessions_updated_at` | sessions | BEFORE | `EXECUTE FUNCTION update_updated_at()` |
 > | `campaigns_updated_at` | campaigns | BEFORE | `EXECUTE FUNCTION update_updated_at()` |
 > | `qr_codes_updated_at` | qr_codes | BEFORE | `EXECUTE FUNCTION update_updated_at()` |
-> - `auth`: **صفر triggers** (`pg_trigger where tgrelid::regnamespace='auth'` → No rows). → **`handle_new_user` غير مربوط بأي trigger في الإنتاج** (المستودع يعلن `on_auth_user_created`/`on_auth_user_login` في `00002:59-70`).
+> - `auth`: **trigger واحدة مفعّلة** (تصحيح v3.7): `on_auth_user_created` على `auth.users` (AFTER INSERT) → `EXECUTE FUNCTION handle_new_user()` — كانت «صفر triggers» في v3.6 (DV-10) وهو **خطأ**.
 >
-> **🔴 DV-10 (جديد):** غياب `on_auth_user_created`/`on_auth_user_login` من الإنتاج ثابت (صفر triggers في `auth`). والاستعلام 9 (2026-08-02): **لم تُوجد صفوف مقابلة للحسابين التجريبيين في `public.users` وقت الفحص** — يثبت الغياب فقط، لا سببه (لم يُنشآ أصلاً أم أُزيلا سابقاً). لا يوجد أي automatic wiring لدالة `handle_new_user` في Production (افتراض «الربط يعمل» في النسخ السابقة **خاطئ وأُصحّح هنا**).
-> - **أثر وظيفي (استنتاجي):** أي ميزة تفترض إنشاء صف `public.users` تلقائياً عند التسجيل تعتمد على wiring غير موجود — يُتحقق منه وظيفياً عند الحاجة.
-> - **أثر أمني (أُحسم بالاستعلام 8):** التوقيع الحيّ = `RETURNS trigger` بلا معاملات يقرأ `NEW` → **غير قابل للاستدعاء كـ RPC** (يستدعي `NEW` غير المعيّن فيرفع خطأ)؛ ومع غياب الربط لا يوجد أي مسار وصول لـ `handle_new_user` → **حقن role عبر metadata بلا مسار تنفيذ في النشر الحالي** (خطر كامن لو أُعيد الربط).
+> **🔴 تصحيح v3.7 (2026-08-02):** الاستعلام المباشر `select tgname, tgrelid::regclass, tgenabled from pg_trigger where tgfoid = 'public.handle_new_user()'::regprocedure` → **`on_auth_user_created` على `auth.users`، `tgenabled = O` (مفعّلة)**. النتيجة السابقة «صفر triggers في `auth`» (DV-10) **خاطئة — False Negative** (الاستعلام الأصلي فاته الربط). **الربط نشط فعلياً** → `handle_new_user` تُشغَّل عند كل تسجيل Auth → مسار حقن الدور مؤكد (NR-1) قبل الإصلاح.
+>
+> **أثر أمني (أُغلِق v3.7):** الدالة كانت تثق بـ `raw_user_meta_data->>'role'` عبر SECURITY DEFINER → أي مهاجم يسجّل بـ`role:"super_admin"` في metadata فيصبح super_admin. **الإصلاح:** الدالة تفرض `role='guest'` دائماً + `now()` للأعمدة الزمنية. إثبات حي (signup بـ`role:"super_admin"`): HTTP 200 + `users.role='guest'` — **لا تصعيد**. ملاحظة: نسخة v1 من الإصلاح سبّبت خطأ `42804` مؤقتاً (استخدمت `now()::text` بينما السكيمة الحية timestamptz) — صُحّحت إلى `now()`، وهذا يؤكد درس «الاشتقاق من التعريف الحي لا من migrations».
 
 ## III.3 Storage / Realtime
 
@@ -363,7 +370,7 @@ END; $function$;
 | **Tried & Blocked:** PATCH دور ذاتي | **فشل** (LV-6) |
 
 ### 🟡 Code-Verified (لم تُنفَّذ — Scope Limitation)
-- **NR-1 أُحسم (لا مسار تنفيذ):** حقن role عبر metadata بلا مسار استغلال في النشر الحالي (trigger-only + غير مربوط، DV-10) — خطر كامن فقط.
+- **NR-1 (تصحيح v3.7):** مسار مؤكد ثم **مُغلَق قبل الاستغلال** — لم نثبت استحواذاً فعلياً (الإصلاح سبق التجربة)، لكن مسار الحقن كان مؤكداً (trigger مفعّلة + metadata موثوقة) وأُغلق بفرض `guest`.
 - Bootstrap TOCTOU (NR-2) بانتظار staging · تزوير معايرة/نتيجة (Part IV) مثبت من pg_policies (LV-10) بلا تنفيذ.
 
 ### 🔵 Non-issues
@@ -385,7 +392,9 @@ SQLi ❌ · XSS ❌ · CSRF ❌ · JWT forgery ❌ · Session replay/fixation �
 | LV-6 | `users` (pg_policies) | 🟡 | PATCH الدور محجوب (مقيد لا مفتوح) | عطل وظيفي | سياسة UPDATE الوحيدة `Admins update user roles` (أدمن فقط) — فالتحديث الذاتي 0 صف | إصلاح UPDATE الذاتي + `with check` يمنع role | P1 | Open |
 | LV-11 | `qr_codes` UPDATE (pg_policies) | 🔴 | **Business Integrity Attack**: تزوير نجاح حملات/تقارير/ROI | احتيال تسويقي/إداري | `Anyone can update qr scan counts`: USING/WITH CHECK true — `UPDATE qr_codes SET scan_count=999999999` مباشرة | حصر UPDATE بـ RPC + ملكية أدمن + لا كتابة مباشرة | P1 | Open |
 | LV-7 | repair (pg_tables) | 🟠 | جداول repair غير موجودة | PII محلي + sync صامت | الجداول غائبة (404 + pg_tables مثبت) | قرار بعد إصلاح سياساتها | P1 | Open |
-| LV-8 | `handle_new_user` (pg_proc) | 🟡 | الافتراضي الحيّ `guest`/`is_anonymous=true` | دليل divergence | الجسم الحيّ يخالف `00002:43,44` (DV-8) **وغير مربوط بأي trigger (DV-10)** | مزامنة migrations + ربط إنشاء المستخدم | P2 | Open |
+| LV-8 | `handle_new_user` (pg_proc) | 🟡 | الافتراضي الحيّ `guest`/`is_anonymous=true` | دليل divergence | الجسم الحيّ يخالف `00002:43,44` (DV-8) | مزامنة migrations (الحية = المرجع) | P2 | **Closed (v3.7)** — أُعيدت كتابتها تفرض `guest` + `now()` |
+| NR-1 | `handle_new_user` + `on_auth_user_created` (pg_trigger + pg_proc + **signup test**) | 🔴 | **حقن دور عند التسجيل**: metadata role موثوقة عبر SECURITY DEFINER | استحواذ إداري كامل | trigger **مفعّلة** (تصحيح DV-10) + `coalesce(raw_user_meta_data->>'role','guest')` | فرض `role='guest'` + ترقية عبر مسار خدمي فقط | P0 | **Closed (v3.7)** — إثبات حي: signup بـ`role:"super_admin"` → `users.role='guest'` |
+| §III.0.10 | `bootstrap_super_admin` (proacl + **probe**) | 🟠 | RPC ترقية مكشوف للعموم (حارس وظيفي فقط) | سطوح هجوم إضافي | proacl EXECUTE للعموم + بلا فحص متصل | REVOKE EXECUTE من anon/authenticated/PUBLIC | P1 | **Closed (v3.7)** — probe: `42501 permission denied` |
 
 > **حسم قاعدة القرار (pg_policies + pg_proc + proacl + probe وصل):**
 > - **DV-9 (مؤكد):** سياسات RLS الحية تختلف عن `00002:20-32` على `users`، والجداول الأخرى بلا سياسات في repo أصلاً — عرّضت الحية كلها (Part III.1).
@@ -398,7 +407,7 @@ SQLi ❌ · XSS ❌ · CSRF ❌ · JWT forgery ❌ · Session replay/fixation �
 
 | ID | الموقع | سيف | الوصف | التأثير | السبب | الإصلاح | أولوية | حالة |
 |---|---|---|---|---|---|---|---|---|
-| CV-1 | `handle_new_user` (pg_proc حيّ، استعلام 8) + `AdminSetupScreen.tsx:57-66` | 🟠 | **Production Verified Design — لم يُحدَّد مسار استغلال:** `role` من `raw_user_meta_data` عبر SECURITY DEFINER | التصميم مثبت (DV-8)؛ لكنه `RETURNS trigger` بلا معاملات + غير مربوط (DV-10) → **لا مسار تنفيذ**: لا signup ولا RPC | `coalesce(raw_user_meta_data->>'role',...)` | allowlist (role من metadata ممنوع) + الربط المستقبلي إن أُعيد يجب ألا يقرأ role من metadata | P1 | Closed (لم يُحدَّد مسار استغلال) |
+| CV-1 | `handle_new_user` (pg_proc + pg_trigger حيّ) + `AdminSetupScreen.tsx:57-66` | 🔴 | **مسار مؤكد ثم مُغلَق (v3.7):** `role` من `raw_user_meta_data` عبر SECURITY DEFINER + trigger مفعّلة | استحواذ إداري (لو لم يُصلَح) | trigger `on_auth_user_created` مفعّلة + `coalesce(raw_user_meta_data->>'role',...)` — **v3.6 «لا مسار» كان خطأً (DV-10)** | فرض `role='guest'` + ترقية عبر مسار خدمي فقط | P0 | **Closed (v3.7)** — إثبات حي: signup malicious → `role='guest'` |
 | CV-2 | `AdminSetupScreen.tsx:21-41` + pg_proc | 🟠 | **Design Risk Confirmed:** bootstrap مفتوح أول وصول — **محجوب الآن** (`has_super_admin()=true`) | أول وصول يحجز الدور (نافذة ابتدائية فقط) | gate واجهة + `Bootstrap insert first user` بـ `has_super_admin()=false` | ذرعة سيرفر atomic | P1 | Open (NR-2) |
 | CV-3 | `00005:33-45`/`00006:23-26` | 🔴 | repair PII مفتوحة عند التطبيق | PII عملاء | سياسات `true` | إصلاح قبل التطبيق | P1 | Open (لم تُطبَّق) |
 | CV-4 | Part IV | 🔴 | لا تحقق سيرفر للنتائج | تزوير بحث | لا RPC/CHECK/HMAC | إعادة حساب + CHECK + append-only + RLS | P0 | Open |
@@ -422,7 +431,7 @@ UV-3: إعدادات لوحة Supabase (تأكيد البريد، expiry، JWT) 
 2. تقييد **LV-5** (INSERT عبر `auth.uid()` + Rate Limit) و**LV-11** (لا كتابة مباشرة على qr_codes) وRLS العريضة (بند III.0 1-8).
 3. تشغيل ملحق أ لتنظيف أثر الفحص (حسابا الضيف + صف الاختبار المحتمل في analytics_events).
 4. إعادة فحص حي بنفس بروتوكول Part III (يجب أن تعود P2–P7 محجوبة، وتُحذف سياسات «Authenticated read…» العريضة).
-5. إثبات staging لـ NR-2 (bootstrap TOCTOU) فقط — NR-1 أُحسم (لم يُحدَّد مسار استغلال).
+5. إثبات staging لـ NR-2 (bootstrap TOCTOU) — **NR-1 أُغلق بالأدلة (v3.7)**: signup بـ`role:"super_admin"` → `users.role='guest'`، و`bootstrap_super_admin` → `42501`.
 6. P1 متبقية (ExportUtils، repair migrations، headers عبر CDN).
 7. مزامنة الحقيقة الحية نحو الـ migrations (حسم DV-8/DV-9) أو اعتماد 00008a كمرجع إعادة بناء.
 
