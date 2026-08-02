@@ -22,7 +22,7 @@
 | 3 | `03-LV3-campaigns-schema-gap.md` | **Blocked by schema** — لا عمود ملكية فعّال (created_by NULL) | LV-3 | 📝 موثّق — يُحسم في Phase 2 |
 | 4 | `04-handle-new-user-force-guest.sql` | تجاهل دور العميل في `handle_new_user` → فرض `guest` دائماً (يقفل NR-1 P0) | NR-1 (P0) | ✅ **مُغلق بالكامل** (2026-08-02) — إثبات حي: signup بـ`role:"super_admin"` → `users.role='guest'` |
 | 5 | `05-bootstrap-super-admin-revoke-execute.sql` | REVOKE EXECUTE عن `bootstrap_super_admin` من anon/authenticated/PUBLIC | §III.0 | ✅ **مُغلق بالكامل** (2026-08-02) — probe: `42501 permission denied` |
-| 6 | `06-LV10-sessions-insert-ownership.sql` (مقترح) | `WITH CHECK (user_id = auth.uid())` على INSERT sessions | LV-10 | ⏳ مسودة لم تُكتب |
+| 6 | `06-LV10-sessions-insert-ownership.sql` | إسقاط `Authenticated insert sessions` (بلا فحص ملكية) → لا تُتبقى سوى `Users manage own sessions` (`WITH CHECK auth.uid()=user_id`) | LV-10 | ✅ **مُغلق بالكامل** (2026-08-02) — Probe حي: قبل `rows_inserted=1` (متقاطع ينجح) · بعد `42501 new row violates row-level security policy` |
 | 7 | `07-LV11-qr-codes-remove-broad-update.sql` (مقترح) | إزالة سياسة `Anyone can update qr scan counts` | LV-11 | ⏳ مسودة لم تُكتب |
 | 8 | `08-LV5-analytics-insert-ownership.sql` (مقترح) | قيد INSERT analytics_events بالمِلكية (Rate Limit = Phase 2) | LV-5 | ⏳ مسودة لم تُكتب |
 | 9 | (تحقق) | تشغيل proacl/pg_policies/Probe بعد كل بند | — | ⏳ يُشغَّل دورياً |
@@ -351,6 +351,25 @@ Proxy-Status: PostgREST; error=42501
 
 **حالة البند 2:** ✅ **مُغلق رسمياً داخل Gate 1** (2026-08-02). ملاحظة حوكمة: توسعة نطاق البند بقراءات مربوطة بالدور (كانت مؤجلة لـ Phase 2) — موثّقة كقرار؛ **مواءمة الـ roadmap v2.2→v2.3 بندٌ معلّق**.
 
+## نتيجة البند 6 (LV-10) — قبل/بعد موثَّق (2026-08-02)
+
+**قبل:** السياسات على sessions كانت تُجمع بـ OR: `Users manage own sessions` (ALL، `WITH CHECK auth.uid()=user_id`) **و** `Authenticated insert sessions` (INSERT، roles=public، `WITH CHECK auth.role()='authenticated'`) → الأخيرة **تلغي فحص الملكية**: أي authenticated يُدرج جلسة كاملة (بما فيها `scientific_results`) بأي `user_id` موجود.
+
+**الأدلة (قبل):**
+- FK سليم مفرد: `sessions_user_id_fkey` → `public.users(id)` (pg_constraint — التكرار 4× في information_schema كان أثر join صناعياً).
+- بيانات نظيفة: 69/69 مملوكة · 0 يتيمة · 0 ضيف.
+- مسار الإدراج الآمن بالبناء: `session-repository.ts:120` يفرض `user_id=getUserId()=auth.uid()`؛ `data-service.ts:433` بلا callers.
+- **Probe حي مؤكد:** حساب A (44 جلسة) يُدرج ضمن معاملة بـ `user_id=B` عبر قالب نسخ (يضمن NOT NULL/FK) → `rows_inserted=1 · inserted_user_id=979e…` — **الثغرة مؤكدة عملياً** (بدل نظري).
+
+**التطبيق:** `drop policy if exists "Authenticated insert sessions" on public.sessions;` — بلا أي فهرس (وجدنا `idx_sessions_user_id` موجوداً؛ لا فهرس مكرر).
+
+**بعد (أدلة حية):**
+- نفس probe المتقاطع → **`42501 new row violates row-level security policy for table "sessions"`** — مرفوض.
+- إدراج الملكية (نفس A) → يُرجع الصف (`user_id=a549…`) — مسار التطبيق سليم.
+- السياسة الوحيدة المتبقية القادرة على INSERT: `Users manage own sessions` (`WITH CHECK auth.uid()=user_id`).
+
+**ملاحظات الإغلاق:** جلسات الضيف (`user_id IS NULL`) لم تعد قابلة للإنشاء عبر RLS عميل — متسق مع بند 2/قرار 3 (و0 جلسة ضيف حالياً)؛ إن لزم مسار موثوق/خدمي متاح. **البند 6 (LV-10) مُغلق رسمياً داخل Gate 1.**
+
 ## التحقق (Verification — يُشغَّل بعد كل بند)
 
 1. **proacl:** `select proname, proacl from pg_proc where proname in ('admin_promote_user','bootstrap_super_admin','handle_new_user','has_super_admin','increment_qr_counter');` → ألا يعود anon/authenticated/PUBLIC ضمن الممنوح إدارياً.
@@ -411,3 +430,11 @@ Proxy-Status: PostgREST; error=42501
 | 2026-08-02 | **بند 2 Close** — إغلاق رسمي داخل Gate 1 | close | دورة الإغلاق | ✅ |
 | 2026-08-02 | Commit مستقل للبند 2 | commit | سياسة Branch/PR | ✅ `a6ffe6d` |
 | 2026-08-02 | مواءمة الـ roadmap (v2.2→v2.3: توسعة نطاق البند 2 بقراءات الدور) | document | بند معلّق | ⏳ |
+| 2026-08-02 | بند 6 (LV-10): Snapshot قبل — FK واحد `sessions_user_id_fkey` → `public.users(id)` (pg_constraint) + 69/69 مملوكة + 0 يتيمة + فهرس `idx_sessions_user_id` موجود | verify | SQL Editor | ✅ |
+| 2026-08-02 | بند 6: أدلة كود — `session-repository.ts:120` يفرض `user_id=auth.uid()`؛ `data-service.ts:433` بلا callers | verify | grep/read src | ✅ |
+| 2026-08-02 | بند 6: سياسات sessions (قبل) — `Authenticated insert sessions` (roles=public، with_check `auth.role()='authenticated'`) تُلغى الملكية عبر OR | verify | pg_policies | ✅ |
+| 2026-08-02 | بند 6: **Probe حي مؤكد للثغرة** — متقاطع INSERT (A→B) ضمن CTE+rollback: `a_owns_sessions=44 · rows_inserted=1 · inserted_user_id=979e…` | verify | SQL Editor | 🔴 ثغرة مؤكدة |
+| 2026-08-02 | بند 6: كتابة `06-LV10-sessions-insert-ownership.sql` (DROP POLICY فقط — بلا index؛ `idx_sessions_user_id` موجود) | write | أدلة (a-e) | ✅ جاهز |
+| 2026-08-02 | بند 6: Apply — `drop policy "Authenticated insert sessions"` | apply | SQL Editor | ✅ |
+| 2026-08-02 | بند 6: After probe — متقاطع → `42501 new row violates row-level security policy` · ملكية (نفس A) → يُرجع الصف | verify | SQL Editor | ✅ PASS |
+| 2026-08-02 | **بند 6 Close (LV-10)** — إغلاق رسمي داخل Gate 1 | close | دورة الإغلاق | ✅ |

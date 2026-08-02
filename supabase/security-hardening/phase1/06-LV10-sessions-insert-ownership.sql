@@ -1,0 +1,26 @@
+-- Type: Hardening (Phase 1 · LV-10 · item 6)
+-- Notes: Closes the cross-user session INSERT path. Evidence (2026-08-02):
+--   (a) FK exists and is correct: sessions_user_id_fkey (single, pg_constraint)
+--       -> public.users(id) (the recommended public identity table, populated 1:1
+--       from auth.users via on_auth_user_created). Referential integrity is intact:
+--       69/69 sessions owned, 0 orphan, 0 guest.
+--   (b) RLS gap proven: "Authenticated insert sessions" (INSERT, roles=public,
+--       with_check=(auth.role()='authenticated')) is OR-combined with
+--       "Users manage own sessions" (ALL, with_check=(auth.uid()=user_id)), so ANY
+--       authenticated caller may insert a session claiming ANOTHER user's user_id.
+--       This violates the acceptance criterion: cross-user sessions INSERT fails.
+--   (c) App insert path is safe by construction (session-repository.ts:120 sets
+--       user_id=getUserId()=auth.uid(), throws when unauthenticated); the only
+--       payload-driven writer (data-service.ts:433 saveSession) has no production
+--       callers. Dropping the broad policy therefore breaks no app flow.
+--   (d) Index on user_id ALREADY exists (pg_indexes: idx_sessions_user_id) — no
+--       index work needed here (avoids a duplicate index).
+--   (e) After drop, the ONLY INSERT-capable policy is "Users manage own sessions"
+--       (auth.uid()=user_id). Guest sessions (user_id IS NULL) can no longer be
+--       created via client RLS — consistent with item-2 decision (3); a trusted /
+--       service-role path remains available if ever needed.
+-- Reference: docs/security/remediation-roadmap.md (Phase 1, LV-10) +
+--            docs/security/production-security-audit.md (LV-10).
+-- Apply via Supabase SQL Editor (owner role) on Production. Idempotent.
+
+drop policy if exists "Authenticated insert sessions" on public.sessions;

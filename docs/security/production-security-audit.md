@@ -1,6 +1,6 @@
 # FOCUS Production Security Audit
 
-**الإصدار:** 3.7 · **التاريخ:** 2026-08-02 · **النوع:** Zero-Trust Security Review (P0)
+**الإصدار:** 3.8 · **التاريخ:** 2026-08-02 · **النوع:** Zero-Trust Security Review (P0)
 **النطاق:** `focus-production` (React 19 + Vite SPA → GitHub Pages، Backend: Supabase anon-key)
 **الحكم النهائي:** 🔴 **C — NOT READY**
 
@@ -11,7 +11,8 @@
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
 | 3.6 | 2026-08-02 | الإصدار الأول للتدقيق الكامل. |
-| **3.7** | **2026-08-02** | **تصحيح جوهري بالأدلة (round 2 من Gate 1):** (1) **DV-10 مُكذَّب** — `on_auth_user_created` **موجودة ومفعّلة** على `auth.users` (استعلام pg_trigger المباشر بـ `tgfoid`)؛ (2) **NR-1 أُعيد تصنيفه إلى مسار تنفيذ مؤكد** — دالة حية تثق بـ `raw_user_meta_data->>'role'` عبر SECURITY DEFINER + ربط trigger نشط؛ (3) **إصلاح Phase 1 مُطبَّق ومُغلَق**: `handle_new_user` يفرض الآن `role='guest'` دائماً (قرار C) — إثبات حي: signup بـ`role:"super_admin"` في metadata → HTTP 200 + `users.role='guest'`؛ (4) **REVOKE EXECUTE عن `bootstrap_super_admin`** من anon/authenticated/PUBLIC — probe حي: `42501 permission denied`؛ (5) `has_super_admin` = **Documented Exception** (RLS + شاشة الإعداد). راجع `supabase/security-hardening/phase1/` (بنود 4-5). |
+| **3.8** | **2026-08-02** | **LV-10 أُغلق بالأدلة الحية:** سياسة `Authenticated insert sessions` (INSERT، with_check `auth.role()='authenticated'`) **أُسقطت** — كانت تجعل إدراج الجلسات بـ OR يُلغي شرط الملكية في `Users manage own sessions`. إثبات قبل/بعد في Production (transaction + rollback): متقاطع INSERT (A→B) قبل الإسقاط → `rows_inserted=1 · inserted_user_id=<B>` (ثغرة مؤكدة عملياً)؛ بعد الإسقاط → `42501 new row violates row-level security policy`؛ إدراج الملكية (نفس A) → ناجح. FK سليم مفرد (`sessions_user_id_fkey` → `public.users(id)`) + 0 يتيمة + فهرس `idx_sessions_user_id` موجود — بلا تغيير. راجع `06-LV10-sessions-insert-ownership.sql`. |
+| 3.7 | 2026-08-02 | **تصحيح جوهري بالأدلة (round 2 من Gate 1):** (1) **DV-10 مُكذَّب** — `on_auth_user_created` **موجودة ومفعّلة** على `auth.users` (استعلام pg_trigger المباشر بـ `tgfoid`)؛ (2) **NR-1 أُعيد تصنيفه إلى مسار تنفيذ مؤكد** — دالة حية تثق بـ `raw_user_meta_data->>'role'` عبر SECURITY DEFINER + ربط trigger نشط؛ (3) **إصلاح Phase 1 مُطبَّق ومُغلَق**: `handle_new_user` يفرض الآن `role='guest'` دائماً (قرار C) — إثبات حي: signup بـ`role:"super_admin"` في metadata → HTTP 200 + `users.role='guest'`؛ (4) **REVOKE EXECUTE عن `bootstrap_super_admin`** من anon/authenticated/PUBLIC — probe حي: `42501 permission denied`؛ (5) `has_super_admin` = **Documented Exception** (RLS + شاشة الإعداد). راجع `supabase/security-hardening/phase1/` (بنود 4-5). |
 
 ---
 
@@ -30,7 +31,7 @@
 | LV-7 | 🟢 SQL Verified | Production | جداول repair **غير موجودة** في Supabase الحيّ (404) |
 | LV-8 | 🟢 SQL Verified | Production | تنفيذ `handle_new_user` الحيّ **سيُدرج** `guest`/`is_anonymous=true` لو اشتغل (المستودع ينص `user`/false) — **مُصلَح 2026-08-02**: الدالة تفرض `role='guest'` ثابتاً + مرتبطة بـ trigger **مفعّلة** (لا DV-10) — انظر v3.7 |
 | LV-9 | 🟢 SQL Verified | Production (pg_proc + proacl + **PostgREST probe**) | RPC `admin_promote_user`: **استدعاء مُثبت عملياً** بجلسة مجهولة عبر `/rest/v1/rpc` (صفّ صفري، أثر صفر — P0001) + بلا فحص متصل + SECURITY DEFINER → رفع صلاحية (الترقية الفعلية لم تُنفَّذ) |
-| LV-10 | 🟢 SQL Verified | Production (pg_policies) | `sessions` INSERT بـ`user_id` اعتباطي (with_check بلا فحص ملكية) → تزوير/تلويث نتائج أي مستخدم |
+| LV-10 | 🟢 SQL Verified → **✅ Closed (v3.8)** | Production (pg_policies + **transaction probe**) | `sessions` INSERT بـ`user_id` اعتباطي (with_check بلا فحص ملكية) → تزوير/تلويث نتائج أي مستخدم — **أُغلق 2026-08-02**: إسقاط `Authenticated insert sessions`؛ probe حي قبل `rows_inserted=1` (متقاطع) / بعد `42501` |
 | LV-11 | 🟢 SQL Verified | Production (pg_policies) | `qr_codes` UPDATE للعموم (USING/WITH CHECK true) → **Business Integrity Attack**: تزوير عدّادات/نجاح حملات/تقارير/ROI |
 | CV-1 | 🔴 **مسار تنفيذ مؤكد ثم مُغلَق** | Production (pg_trigger + pg_proc + **PostgREST signup test**) | `handle_new_user` مرتبطة بـ trigger **مفعّلة** (`on_auth_user_created` على `auth.users`) + تثق بـ `raw_user_meta_data->>'role'` عبر SECURITY DEFINER → **حقن role عند التسجيل مؤكد** (تصحيح v3.7 — كان «بلا مسار» خطأً بسبب DV-10). **أُغلق:** الدالة تفرض `role='guest'`؛ إثبات حي: signup بدور malicious → `users.role='guest'` |
 | CV-2 | 🟡 Code Verified | Repository | Bootstrap مفتوح (TOCTOU) |
@@ -220,7 +221,7 @@ Divergence — (الاختلاف المؤكد)
 
 - **Live Database (pg_policies):**
   - `Authenticated read sessions` — SELECT، `USING (auth.role()='authenticated')` **بلا قيد صف** → أي ضيف يقرأ **كل** القياسات العلمية لكل المستخدمين (LV-2، DV-9).
-  - `Authenticated insert sessions` — INSERT، `WITH CHECK (auth.role()='authenticated')` — **لا يتحقق من ملكية `user_id`** → أي ضيف يُدرج جلسة/نتائج زائفة باسم أي مستخدم (LV-10، DV-9).
+  - `Authenticated insert sessions` — INSERT، `WITH CHECK (auth.role()='authenticated')` — **لا يتحقق من ملكية `user_id`** → أي ضيف يُدرج جلسة/نتائج زائفة باسم أي مستخدم (LV-10، DV-9). **أُسقطت 2026-08-02 (v3.8)** — راجع `06-LV10-sessions-insert-ownership.sql`.
   - `Users manage own sessions` — ALL، `USING (auth.uid()=user_id OR user_id IS NULL)` → تعديل/حذف الصفوف الذاتية (والفارغة).
 - **Repository:** صامت تماماً عن sessions (لا CREATE TABLE، لا سياسات) — DV-3.
 - **Divergence:** DV-3 + DV-9 — كل سياسات sessions حية ومكتوبة يدوياً.
@@ -273,7 +274,7 @@ END; $function$;
   - `POST /rest/v1/rpc/has_super_admin` (بلا وسائط) نفّذت وأعادت `true`.
 - **النتيجة:** أي جلسة (حتى ضيف مجهول) تستطيع `{target_user_id:<نفسها>, new_role:"super_admin"}` → استحواذ كامل. الاستدعاء مثبت؛ **الترقية الفعلية لم تُنفَّذ عمداً** (سلامة الإنتاج). ملاحظة الدقة: `EXECUTE` = إمكانية الاستدعاء، والخطورة النهائية من غياب الحارس داخل الدالة (III.0 بند 10-11).
 
-**LV-10 🔴 تزوير/تلويث نتائج عبر `sessions` (مؤكد):** `Authenticated insert sessions` بـ `WITH CHECK (auth.role()='authenticated')` لا يقيد `user_id` → إدراج جلسة كاملة (بما فيها `scientific_results`) باسم أي مستخدم ضحية (DV-9). يحوّل سيناريو التزوير رقم 1 و5 في Part IV من "ممكن نظرياً" إلى "مثبت من الإنتاج".
+**LV-10 ✅ أُغلق (v3.8):** كانت `Authenticated insert sessions` بـ `WITH CHECK (auth.role()='authenticated')` لا تقيّد `user_id` → إدراج جلسة كاملة (بما فيها `scientific_results`) باسم أي مستخدم ضحية (DV-9)، وتحوّل سيناريو التزوير رقم 1 و5 في Part IV من "ممكن نظرياً" إلى "مثبت من الإنتاج". **الإغلاق (2026-08-02):** إثبات حي في Production (transaction+rollback) — متقاطع INSERT (A→B) قبل الإسقاط: `rows_inserted=1 · inserted_user_id=<B>` (ثغرة مؤكدة عملياً)؛ بعد إسقاط السياسة: `42501 new row violates row-level security policy`؛ ملكية (نفس A): ناجح. السياسة الوحيدة المتبقية القادرة على INSERT = `Users manage own sessions` (`WITH CHECK auth.uid()=user_id`). راجع `06-LV10-sessions-insert-ownership.sql`.
 
 **LV-11 🔴 Business Integrity Attack عبر `qr_codes` (مؤكد):** `Anyone can update qr scan counts` بـ `USING true / WITH CHECK true` → أي عميل (حتى بلا جلسة) ينفّذ `UPDATE qr_codes SET scan_count = 999999999 WHERE id = ...` مباشرة على الجدول — تزوير نجاح حملات، تقارير الإدارة، التحليلات، والـ ROI، ويتجاوز RPC `increment_qr_counter` الآمن تماماً (انظر III.2). (ميّزة التسويق مبنية على هذه العدّادات.)
 
@@ -318,7 +319,7 @@ END; $function$;
 
 **الخلاصة: كل نقطة علمية تُحسب في المتصفح وتُرسل كما هي؛ القاعدة لا تعيد الحساب ولا تتحقق. النتائج قابلة للتزوير بالكامل من Console المتصفح، ولوحات البحث تثق بها عمياء.**
 
-> **تحديث من pg_policies (LV-10):** سياسة `Authenticated insert sessions` الحية لا تقيد `user_id` → تزوير النتائج ليس "ممكن نظرياً" فقط بل **مثبت من الإنتاج** (سيتحقق من البنية بدون أي تعديل سلوكي). أي جلسة ضيف تستطيع `POST /rest/v1/sessions` بجلسة كاملة بأي `user_id`/`scientific_results`.
+> **تحديث من pg_policies (LV-10):** سياسة `Authenticated insert sessions` الحية لا تقيد `user_id` → تزوير النتائج ليس "ممكن نظرياً" فقط بل **مثبت من الإنتاج** (سيتحقق من البنية بدون أي تعديل سلوكي). أي جلسة ضيف تستطيع `POST /rest/v1/sessions` بجلسة كاملة بأي `user_id`/`scientific_results`. **أُغلق 2026-08-02 (v3.8):** الإسقاط أغلق هذا المسار — probe حي: متقاطع INSERT قبل `rows_inserted=1` / بعد `42501`.
 
 ## IV.1 مسار البيانات (كلها CLIENT-TRUSTED)
 
@@ -336,7 +337,7 @@ END; $function$;
 
 ## IV.2 سيناريوهات التزوير
 
-1. **حقن نتيجة مباشرة (مثبت LV-10):** `POST /rest/v1/sessions` بجلسة كاملة `{user_id:<ضحية>, scientific_results:{focus_score:99,grade:"A"}}` — سياسة INSERT الحية بلا قيد ملكية؛ أو `PATCH /rest/v1/sessions?id=eq.<uuid>` (LV-2 + لا immutability).
+1. **حقن نتيجة مباشرة (مُثبت LV-10 → أُغلق v3.8):** `POST /rest/v1/sessions` بجلسة كاملة `{user_id:<ضحية>, scientific_results:{focus_score:99,grade:"A"}}` — سياسة INSERT الحية بلا قيد ملكية؛ أو `PATCH /rest/v1/sessions?id=eq.<uuid>` (LV-2 + لا immutability). **الإغلاق 2026-08-02:** إسقاط `Authenticated insert sessions` — المتقاطع الآن `42501`.
 2. **حدث مزور (مثبت LV-5):** `POST analytics_events` بـ `event_data:{focusScore:99,grade:"A"}` — with_check true.
 3. **تضخيم المعايرة:** تعديل `localStorage["focus_calibration_profile"]` إلى `{displayLagMs:300,inputLagMs:100,confidence:1}` → -400ms لكل RT؛ والمعايرة غير مفروضة (`GameScreen.tsx:193-196`).
 4. **DevTools monkeypatch:** `completeSession(id, {correctedRts:Array(7).fill(140),...})` ثم "حفظ وخروج" — ينفَّذ المسار كاملاً.
@@ -371,7 +372,7 @@ END; $function$;
 
 ### 🟡 Code-Verified (لم تُنفَّذ — Scope Limitation)
 - **NR-1 (تصحيح v3.7):** مسار مؤكد ثم **مُغلَق قبل الاستغلال** — لم نثبت استحواذاً فعلياً (الإصلاح سبق التجربة)، لكن مسار الحقن كان مؤكداً (trigger مفعّلة + metadata موثوقة) وأُغلق بفرض `guest`.
-- Bootstrap TOCTOU (NR-2) بانتظار staging · تزوير معايرة/نتيجة (Part IV) مثبت من pg_policies (LV-10) بلا تنفيذ.
+- Bootstrap TOCTOU (NR-2) بانتظار staging · تزوير معايرة/نتيجة (Part IV) — **مسار الحقن المباشر عبر sessions أُغلق (v3.8)**؛ التزوير المتبقي عبر المعايرة/DevTools (client-trusted) بلا تنفيذ.
 
 ### 🔵 Non-issues
 SQLi ❌ · XSS ❌ · CSRF ❌ · JWT forgery ❌ · Session replay/fixation ❌ · Path traversal/Open redirect ❌ · Prototype pollution 🔵 · Clickjacking ⚠️ (بلا headers) · DoS منطقي ⚠️.
@@ -385,7 +386,7 @@ SQLi ❌ · XSS ❌ · CSRF ❌ · JWT forgery ❌ · Session replay/fixation �
 | LV-9 | RPC `admin_promote_user` (pg_proc + proacl + **probe**) | 🔴 | رفع صلاحية: أي جلسة ترفع نفسها super_admin — **استدعاء مثبت عملياً** | استحواذ كامل | **probe (2026-08-02):** جلسة مجهولة POST `/rest/v1/rpc/admin_promote_user` بـ `{target_user_id:<nil-UUID>, new_role:"super_admin"}` → نفّذت ونفّذت `RAISE 'User not found.'` (P0001، أثر صفر) — أي أن الضيف يستدعي الدالة وتمرّ بفحص `has_super_admin()`؛ الدالة بلا فحص متصل + SECURITY DEFINER + proacl EXECUTE للعموم | فحص `auth.uid()` ∈ admin + allowlist أدوار + REVOKE EXECUTE من العموم | P0 | Open |
 | LV-1 | `users` (pg_policies) | 🔴 | ضيف يقرأ كل users | كل بريد/دور مكشوف | `Authenticated read users`: `auth.role()='authenticated'` بلا قيد صف — وجلسة الضيف تحمل role=`authenticated` | `using (id = auth.uid())` | P0 | Open |
 | LV-2 | `sessions` (pg_policies) | 🔴 | ضيف يقرأ كل القياسات | كشف بحثي + دعامة تزوير | `Authenticated read sessions` بلا قيد صف | RLS + أدمن للقراءة | P0 | Open |
-| LV-10 | `sessions` INSERT (pg_policies) | 🔴 | إدراج جلسة/نتائج زائفة بأي `user_id` | تزوير علمي مؤكد (Part IV) | `Authenticated insert sessions`: with_check بلا فحص ملكية | `user_id=auth.uid()` + CHECK معقولية | P0 | Open |
+| LV-10 | `sessions` INSERT (pg_policies + **probe**) | 🔴 | إدراج جلسة/نتائج زائفة بأي `user_id` | تزوير علمي مؤكد (Part IV) | `Authenticated insert sessions`: with_check بلا فحص ملكية | `user_id=auth.uid()` + CHECK معقولية | P0 | **Closed (v3.8)** — إسقاط السياسة؛ probe حي قبل `rows_inserted=1` (متقاطع) / بعد `42501`؛ ملكية ناجحة |
 | LV-3 | `campaigns` (pg_policies) | 🟠 | ضيف يقرأ كل الحملات | كشف تجاري | `Authenticated read campaigns` بلا قيد صف | RLS + إخفاء أعمدة | P0 | Open |
 | LV-4 | `analytics_events` (pg_policies) | 🟠 | ضيف يقرأ كل الأحداث | تسريب telemetry | `Authenticated read analytics events` بلا قيد صف | RLS قراءة | P0 | Open |
 | LV-5 | `analytics_events` INSERT (pg_policies) | 🔴 | **Database DoS + تلويث**: إدراج غير محدود | استنزاف تخزين/ملء بالـ events | `Anyone can insert analytics events`: `WITH CHECK true` حتى بلا جلسة (مثبت 201) — أي bot يرسل ملايين الأحداث | Rate Limit + INSERT بـ`auth.uid()` + حجم أقصى | P0 | Open |
@@ -424,7 +425,7 @@ UV-3: إعدادات لوحة Supabase (تأكيد البريد، expiry، JWT) 
 
 ### 🔴 C — NOT READY
 
-**التبرير:** **LV-9 مُثبت قابليته للتنفيذ فعلياً** (جلسة مجهولة استدعت `admin_promote_user` عبر PostgREST ومرّت بفحص super_admin) = استحواذ كامل P0، فوق Criticals من pg_policies: قراءة كل users/القياسات (LV-1/LV-2)، تزوير نتائج بأي user_id (LV-10)، **Database DoS** (LV-5)، **Business Integrity Attack** (LV-11)، وانعدام نزاهة القياس (Part IV: 0% تحقق سيرفر). لا يمكن الدفاع عن الإطلاق أمام أي جهة خارجية أو متطلب 18-05/GDPR.
+**التبرير:** **LV-9 مُثبت قابليته للتنفيذ فعلياً** (جلسة مجهولة استدعت `admin_promote_user` عبر PostgREST ومرّت بفحص super_admin) = استحواذ كامل P0، فوق Criticals من pg_policies: قراءة كل users/القياسات (LV-1/LV-2)، **Database DoS** (LV-5)، **Business Integrity Attack** (LV-11)، وانعدام نزاهة القياس (Part IV: 0% تحقق سيرفر). (LV-10 أُغلق 2026-08-02 — إسقاط `Authenticated insert sessions`.) لا يمكن الدفاع عن الإطلاق أمام أي جهة خارجية أو متطلب 18-05/GDPR.
 
 **مشروط الوصول إلى B:**
 1. إغلاق **LV-9 فوراً**: إضافة فحص `auth.uid()` ∈ (admin) داخل `admin_promote_user` + allowlist أدوار + `REVOKE EXECUTE` من anon/authenticated، ثم إعادة probe (يجب أن تعود 403/404).
@@ -586,7 +587,7 @@ where id in ('5af72e8a-1390-406c-9170-f190532f2bd5','6d509eb1-43fd-4c40-a7f1-31a
 
 **LV-1 —** إغلاق سياسات القراءة العامة على الجداول الحساسة.
 **LV-2 —** مراجعة جميع `SECURITY DEFINER` Functions وإضافة تحقق صريح من الصلاحيات.
-**LV-10 —** إضافة تحقق ملكية داخل INSERT الخاصة بـ `sessions` بحيث لا يقبل `user_id` لا يخص المستخدم الحالي.
+**LV-10 —** إضافة تحقق ملكية داخل INSERT الخاصة بـ `sessions` بحيث لا يقبل `user_id` لا يخص المستخدم الحالي. ✅ **نُفِّذ 2026-08-02 (v3.8):** إسقاط `Authenticated insert sessions`؛ المتقاطع الآن `42501`.
 **LV-5 —** منع Database DoS على `analytics_events` عبر: Rate Limiting · Quotas · Validation · Cleanup Jobs.
 
 ### P1 — High
