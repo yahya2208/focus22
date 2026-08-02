@@ -403,5 +403,5 @@ Proxy-Status: PostgREST; error=42501
 | 2026-08-02 | بند 2: Runtime evidence (A/B cross-user probe + anon) | verify | PostgREST (bash curl) | ✅ محجوب فعلياً |
 | 2026-08-02 | بند 2: تنظيف حسابَي الاختبار | cleanup | SQL Editor | ✅ |
 | 2026-08-02 | **بند 2 Close** — إغلاق رسمي داخل Gate 1 | close | دورة الإغلاق | ✅ |
-| 2026-08-02 | Commit مستقل للبند 2 | commit | سياسة Branch/PR | ⏳ بانتظار تأكيد المستخدم |
+| 2026-08-02 | Commit مستقل للبند 2 | commit | سياسة Branch/PR | ✅ `a6ffe6d` |
 | 2026-08-02 | مواءمة الـ roadmap (v2.2→v2.3: توسعة نطاق البند 2 بقراءات الدور) | document | بند معلّق | ⏳ |
