@@ -1,4 +1,4 @@
-import { getVariantsForModel, formatVariant } from '../data/phone-variants';
+import { getVariantsForModel, getRealVariantsForModel, formatVariant } from '../data/phone-variants';
 import { getAllBrands } from '../catalog/loader';
 import type { CatalogModel } from '../catalog/types';
 
@@ -67,7 +67,7 @@ export function verifyAllModels(): VariantReport[] {
 
   for (const brand of brands) {
     for (const model of brand.models) {
-      const actualVariants = model.variants.map(v => ({ ram: v.ram, storage: v.storage }));
+      const actualVariants = getRealVariantsForModel(model.model).map(v => ({ ram: v.ram, storage: v.storage }));
       const report = verifyModelVariants(model.model, actualVariants, brand.brand);
       reports.push(report);
     }

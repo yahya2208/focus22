@@ -1,5 +1,7 @@
-export type StorageSize = '8GB' | '16GB' | '32GB' | '64GB' | '128GB' | '256GB' | '512GB' | '1TB' | '2TB';
-export type RamSize = '1GB' | '2GB' | '3GB' | '4GB' | '6GB' | '8GB' | '12GB' | '16GB' | '18GB' | '24GB' | '32GB';
+import { getVariantsByName } from '../catalog/loader';
+
+export type StorageSize = '4GB' | '8GB' | '16GB' | '32GB' | '64GB' | '128GB' | '256GB' | '512GB' | '1TB' | '2TB';
+export type RamSize = '0.25GB' | '0.5GB' | '1GB' | '2GB' | '3GB' | '4GB' | '6GB' | '8GB' | '12GB' | '16GB' | '18GB' | '24GB' | '32GB';
 
 export interface PhoneVariant {
   ram: RamSize;
@@ -74,12 +76,62 @@ export const VARIANT_LOOKUP: Map<string, PhoneVariant> = new Map(
   PHONE_VARIANTS.map(v => [v.label, v])
 );
 
+function toGBf(value: string): number {
+  if (value.endsWith('TB')) return parseFloat(value) * 1024;
+  return parseFloat(value);
+}
+
+function ramToSize(ram: string): RamSize {
+  const n = Number(ram);
+  if (n === 0.25) return '0.25GB';
+  if (n === 0.5) return '0.5GB';
+  return `${n}GB` as RamSize;
+}
+
+function storageToSize(storage: string): StorageSize {
+  const n = Number(storage);
+  if (Number.isInteger(n) && (n === 1000 || n === 2000)) return `${n / 1000}TB` as StorageSize;
+  return `${n}GB` as StorageSize;
+}
+
+export function getRealVariantsForModel(modelName: string): PhoneVariant[] {
+  const catalogVariants = getVariantsByName(modelName);
+  const seen = new Set<string>();
+  const result: PhoneVariant[] = [];
+  for (const cv of catalogVariants) {
+    const ram = ramToSize(cv.ram);
+    const storage = storageToSize(cv.storage);
+    const label = formatVariant(ram, storage);
+    if (seen.has(label)) continue;
+    seen.add(label);
+    result.push({ ram, storage, label });
+  }
+  result.sort((a, b) => {
+    const ar = toGBf(a.ram);
+    const br = toGBf(b.ram);
+    if (ar !== br) return ar - br;
+    return toGBf(a.storage) - toGBf(b.storage);
+  });
+  return result;
+}
+
 export function getVariantsForModel(modelName: string): PhoneVariant[] {
   if (MODEL_VARIANT_OVERRIDES[modelName]) {
     return MODEL_VARIANT_OVERRIDES[modelName]
       .map(label => VARIANT_LOOKUP.get(label))
       .filter((v): v is PhoneVariant => v !== undefined);
   }
+  const real = getRealVariantsForModel(modelName);
+  if (real.length > 0) return real;
+  return getHeuristicVariants(modelName);
+}
+
+/**
+ * REMOVABLE FALLBACK (P2-C, C-1): heuristic variant buckets used ONLY when a
+ * model has no real JSON variants (0 of 866 today). Safe to delete once the
+ * JSON catalog guarantees a variants array for every model.
+ */
+function getHeuristicVariants(modelName: string): PhoneVariant[] {
   const lower = modelName.toLowerCase();
   const isHighEnd = lower.includes('pro') || lower.includes('ultra') || lower.includes('max') || lower.includes('plus')
     || lower.includes('s25') || lower.includes('s24') || lower.includes('s23') || lower.includes('s22') || lower.includes('s21')
@@ -108,14 +160,20 @@ export function getVariantsForModel(modelName: string): PhoneVariant[] {
 }
 
 export function formatVariant(ram: string, storage: string): string {
-  return `${ram.replace('GB', '')}/${storage.replace('GB', '')}`;
+  const r = ram.replace(/GB$/i, '');
+  const s = /TB$/i.test(storage)
+    ? `${storage.replace(/TB$/i, '')}T`
+    : storage.replace(/GB$/i, '');
+  return `${r}/${s}`;
 }
 
 export function parseVariant(label: string): { ram: string; storage: string } | null {
-  const match = label.match(/^(\d+)\/(\d+)(T)?$/i);
+  const match = label.trim().match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)(T|TB)?$/i);
   if (!match) return null;
   const ramNum = match[1]!;
   const storageNum = match[2]!;
-  const isTB = !!match[3];
-  return { ram: `${ramNum}GB`, storage: isTB ? `${storageNum}TB` : `${storageNum}GB` };
+  const unit = (match[3] ?? '').toUpperCase();
+  const ram = `${ramNum}GB`;
+  const storage = unit === 'T' || unit === 'TB' ? `${storageNum}TB` : `${storageNum}GB`;
+  return { ram, storage };
 }

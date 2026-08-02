@@ -101,6 +101,30 @@ export function getVariants(brandName: string, modelName: string): CatalogVarian
   return model?.variants ?? [];
 }
 
+let _variantsByName: Map<string, CatalogVariant[]> | null = null;
+
+function ensureVariantsByName(): Map<string, CatalogVariant[]> {
+  if (!_variantsByName) {
+    const map = new Map<string, CatalogVariant[]>();
+    for (const brand of ALL_BRANDS) {
+      for (const model of brand.models) {
+        const key = normalize(model.model);
+        if (!map.has(key)) map.set(key, model.variants);
+      }
+    }
+    _variantsByName = map;
+  }
+  return _variantsByName;
+}
+
+/**
+ * Real per-model variants from the canonical JSON catalog, looked up by model
+ * name (first brand match wins). Returns [] when the model is unknown.
+ */
+export function getVariantsByName(modelName: string): CatalogVariant[] {
+  return ensureVariantsByName().get(normalize(modelName)) ?? [];
+}
+
 export function searchProgressive(query: string): { brands: string[]; series: string[]; models: string[] } {
   const idx = getIndex();
   const q = normalize(query);

@@ -1,6 +1,7 @@
 import type { CatalogSearchResult } from '../../services/catalog-service';
 import type { DeviceCondition } from '../../services/price-memory';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { formatVariant, parseVariant } from '../../data/phone-variants';
 
 export type { CatalogSearchResult, DeviceCondition };
 
@@ -39,6 +40,12 @@ export function trackUsage(brand: string, model: string): void {
   localStorage.setItem('catalog_most_used', JSON.stringify(used.slice(0, 50)));
 }
 
+function canonicalVariantKey(variant: string): string {
+  const parsed = parseVariant(variant);
+  if (!parsed) return variant;
+  return formatVariant(parsed.ram, parsed.storage);
+}
+
 export function getStockForModel(modelId: string): { variant: string; stock: number }[] {
   try {
     const raw = localStorage.getItem('inventory_records_v1');
@@ -47,7 +54,7 @@ export function getStockForModel(modelId: string): { variant: string; stock: num
     const counts: Record<string, number> = {};
     for (const r of records) {
       if (r.modelId === modelId || r.modelName === modelId) {
-        const key = r.variant || r.ram ? `${r.ram || ''}/${r.storage || ''}` : 'default';
+        const key = canonicalVariantKey(r.variant || (r.ram || r.storage ? `${r.ram || ''}/${r.storage || ''}` : 'default'));
         counts[key] = (counts[key] || 0) + (r.quantity || 1);
       }
     }
