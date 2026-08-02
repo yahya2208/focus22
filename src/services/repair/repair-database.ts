@@ -46,13 +46,22 @@ function migrateFromV1(): void {
   }
 }
 
-// ── Supabase connection (with retry) ───────────────────────────
-
+// ── Supabase connection (with retry + exponential backoff) ──────
+//
+// AUDIT NOTE 2026-08-01:
+//   Previously the retry counter was capped at MAX_RETRY_COUNT=5 after which
+//   retries stopped FOREVER, even if the network came back (the only way to
+//   resume was a full page refresh or the user triggering a write → catch).
+//   To avoid silent forever-offline mode we now:
+//     1. Retry INDEFINITELY (no hard cap; we rely on backoff to stay gentle).
+//     2. Use EXPONENTIAL BACKOFF: 30s → 60s → 120s → ... → 10 min cap.
+//     3. The counter is reset to 0 on every successful connection, so fast
+//        retries happen again after transient failures that recovered quickly.
 let _supabaseAvailable: boolean | null = null;
 let _supabaseRetryTimer: ReturnType<typeof setTimeout> | null = null;
 let _supabaseRetryCount = 0;
-const MAX_RETRY_COUNT = 5;
-const RETRY_INTERVAL_MS = 30000;
+const RETRY_BASE_INTERVAL_MS = 30000;
+const RETRY_MAX_BACKOFF_MS = 10 * 60 * 1000; // 10 minutes – absolute ceiling
 
 function clearSupabaseCache(): void {
   _supabaseAvailable = null;
@@ -79,12 +88,13 @@ function isSupabaseAvailable(): boolean {
 function scheduleRetry(): void {
   if (_supabaseRetryTimer) return;
   _supabaseRetryCount++;
-  if (_supabaseRetryCount > MAX_RETRY_COUNT) return;
+  const expFactor = Math.pow(2, Math.max(0, _supabaseRetryCount - 1));
+  const nextDelayMs = Math.min(RETRY_BASE_INTERVAL_MS * expFactor, RETRY_MAX_BACKOFF_MS);
   _supabaseRetryTimer = setTimeout(() => {
     _supabaseRetryTimer = null;
     _supabaseAvailable = null;
     isSupabaseAvailable();
-  }, RETRY_INTERVAL_MS);
+  }, nextDelayMs);
 }
 
 export function forceRecheckConnection(): boolean {
@@ -123,6 +133,14 @@ export async function saveRepairRequest(request: RepairRequest): Promise<void> {
   const idx = all.findIndex(r => r.id === request.id);
   if (idx >= 0) all[idx] = request; else all.push(request);
   saveTable(REPAIR_TABLES.REPAIR_REQUESTS, all);
+}
+
+export async function getRepairCodeExists(code: string): Promise<boolean> {
+  if (isSupabaseAvailable()) {
+    try { return await getRepairDataService().getRepairCodeExists(code); } catch { clearSupabaseCache(); }
+  }
+  const all = loadTable<RepairRequest>(REPAIR_TABLES.REPAIR_REQUESTS);
+  return all.some(r => r.repairCode === code);
 }
 
 export async function deleteRepairRequest(id: string): Promise<void> {

@@ -6,13 +6,13 @@ import {
   getQuote, saveQuote, addTimelineEvent,
   saveCourierJob, getAllCourierJobs,
   addStatusHistory, addAuditLog,
+  getRepairCodeExists as checkRepairCodeExists,
 } from './repair-database';
 import {
   generateRepairCode,
   type RepairRequest, type RepairRequestStatus,
   type RepairQuote, type CourierJob, type CourierJobStatus,
 } from './repair-types';
-import { getRepairDataService } from '../../core/supabase/repair-data-service';
 
 function now(): string {
   return new Date().toISOString();
@@ -36,7 +36,7 @@ async function generateUniqueCode(): Promise<string> {
   for (let attempt = 0; attempt < 100; attempt++) {
     const code = generateRepairCode();
     try {
-      const exists = await getRepairDataService().getRepairCodeExists(code);
+      const exists = await checkRepairCodeExists(code);
       if (!exists) return code;
     } catch {
       return code;
@@ -414,10 +414,5 @@ export async function getRepairAnalytics() {
 }
 
 export async function getRepairCodeExists(code: string): Promise<boolean> {
-  try {
-    const svc = getRepairDataService();
-    return await svc.getRepairCodeExists(code);
-  } catch {
-    return false;
-  }
+  return checkRepairCodeExists(code);
 }
