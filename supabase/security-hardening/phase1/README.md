@@ -18,7 +18,7 @@
 | # | الملف | الغرض | LV | الحالة |
 |---|---|---|---|---|
 | 1 | `01-LV9-revoke-admin-rpc-execute.sql` | REVOKE EXECUTE عن `admin_promote_user` من anon/authenticated/PUBLIC | LV-9 | ✅ **مُغلق بالكامل** (2026-08-02) — ملتزم `d2c1ce7` |
-| 2 | `02-LV1-LV2-LV4-owner-read-policies.sql` | حصر قراءة users/sessions/analytics_events + **devices/calibrations/surveys** بالمِلكية | LV-1/2/4 + §III.0 4-6 | 📝 مسودة مكتملة (قرار 2026-08-02: ضمّ الثلاثة) — بانتظار مراجعة ثم Apply/Verify |
+| 2 | `02-LV1-LV2-LV4-owner-read-policies.sql` | حصر قراءة users/sessions/analytics_events + devices/calibrations/surveys: ملكية + قراءة كل مربوطة بالدور + تقييد جلسات الضيف | LV-1/2/4 + §III.0 4-6 | ✅ **مُغلق بالكامل** (2026-08-02) — Runtime evidence: A/B لا يقرؤان صفوف بعضهما (`[]`) |
 | 3 | `03-LV3-campaigns-schema-gap.md` | **Blocked by schema** — لا عمود ملكية فعّال (created_by NULL) | LV-3 | 📝 موثّق — يُحسم في Phase 2 |
 | 4 | `04-handle-new-user-force-guest.sql` | تجاهل دور العميل في `handle_new_user` → فرض `guest` دائماً (يقفل NR-1 P0) | NR-1 (P0) | ✅ **مُغلق بالكامل** (2026-08-02) — إثبات حي: signup بـ`role:"super_admin"` → `users.role='guest'` |
 | 5 | `05-bootstrap-super-admin-revoke-execute.sql` | REVOKE EXECUTE عن `bootstrap_super_admin` من anon/authenticated/PUBLIC | §III.0 | ✅ **مُغلق بالكامل** (2026-08-02) — probe: `42501 permission denied` |
@@ -154,6 +154,32 @@ where schemaname = 'public'
 - `bootstrap_super_admin` مرفوضة أصلاً بحارسها (يوجد مشرف) → REVOKE بلا أي مخاطرة وظيفية.
 
 بعد إرسال ناتج التصنيف نُثبّت القرار (REVOKE / استثناء موثّق) كبند مستقل قبل/مع تطبيق بند 2.
+
+## بند 2 (LV-1/LV-2/LV-4) — Baseline قبل + قرارات الحوكمة (2026-08-02)
+
+### 02-LV-owner-read-baseline-before (Evidence — لقطة pg_policies الحية)
+
+**Finding:** سياسات SELECT العريضة (`auth.role()='authenticated'` بلا قيد صف) **تلغي عزل الملكية** — لأن PostgreSQL يجمع السياسات بـ OR.
+
+| الجدول | السياسة العريضة | سياسات الملكية المصاحبة |
+|---|---|---|
+| users | `Authenticated read users` | `Bootstrap insert first user` (INSERT) · `Admins update user roles` (UPDATE) |
+| sessions | `Authenticated read sessions` | `Users manage own sessions` ALL: `auth.uid()=user_id OR user_id IS NULL` |
+| analytics_events | `Authenticated read analytics events` | `Anyone can insert analytics events` (INSERT، true) |
+| devices | `Authenticated read devices` | `Users manage own devices` ALL (owner) · `Authenticated insert devices` |
+| calibrations | `Authenticated read calibrations` | `Users manage own calibrations` ALL (owner) · `Authenticated insert calibrations` |
+| surveys | `Authenticated read surveys` | `Users manage own surveys` ALL (owner) · `Authenticated insert surveys` |
+
+**Risk:** كشف بيانات عابرة بين الحسابات authenticated (بريد/أدوار/قياسات علمية/أحداث/جلسات ضيف).
+
+### قرارات الحوكمة (قرار المستخدم — تعدّل نطاق البند 02)
+
+1. **إضافة قراءة كل مربوطة بالدور** (`researcher/admin/super_admin`) — الدافع: قراءات Research Console / Business Intelligence **عابرة للمستخدمين بتصميم** (`src/business-intelligence/api.ts`، `src/core/research/api-supabase.ts`)، وبوابة `permissions.ts` **UI فقط لا RLS**. التنفيذ عبر دالة مساعدة `is_research_role()` SECURITY DEFINER (نمط `has_super_admin`) لتفادي recursion في سياسة `users`. **هذا يُدخل في Phase 1 ما كان مؤجَّلاً لـ Phase 2 — موثّق هنا كقرار (مواءمة roadmap = بند معلّق).**
+2. **analytics_events:** ملكية + دور فقط — بلا قراءة عامة.
+3. **جلسات الضيف (`user_id IS NULL`):** لا يقرؤها أي authenticated عادي — عبر إعادة تعريف `Users manage own sessions` بلا شرط NULL. **أمان وظيفي مثبت:** كل إدراجات sessions في src تستخدم uid حقيقي (`session-repository.ts:110-115` يرمي خطأ إن لم يُصادق؛ لا `user_id:null/undefined`).
+
+### حالة البند 2
+- الملف `02-…` أُعيدت كتابته وفق القرارات الثلاثة — **بانتظار مراجعة المستخدم ثم Apply** (قبل → apply → بعد → probe → commit مستقل).
 
 ## خط الأساس (Baseline — قبل الإصلاح، من تقرير v3.6)
 
@@ -301,6 +327,24 @@ Proxy-Status: PostgREST; error=42501
 | Admin promotion | ✅ Backend/service_role only |
 | Role source of truth | ✅ Database enforced (`'guest'`) |
 
+## نتيجة البند 2 (LV-1/LV-2/LV-4) — قبل/بعد موثَّق (2026-08-02)
+
+**قبل:** 6 سياسات SELECT عريضة (`auth.role()='authenticated'` بلا قيد صف) على users/sessions/analytics_events/devices/calibrations/surveys → أي authenticated يقرأ كل صفوف الآخرين (OR يلغي الملكية). `Users manage own sessions` كانت تشمل `user_id IS NULL` (جلسات ضيف مقروءة للعموم).
+
+**التطبيق (قرارات المستخدم الثلاثة):**
+1. دالة مساعدة `is_research_role()` (SECURITY DEFINER STABLE، نمط `has_super_admin`) لمنح القراءة الكاملة لـ researcher/admin/super_admin — **بلا recursion** (تفادي استعلام ذاتي على users).
+2. 6 سياسات «Users read own …` + 6 سياسات «Researchers read all …` بدل العريضة.
+3. إعادة تعريف `Users manage own sessions` بلا `user_id IS NULL`.
+
+**بعد (pg_policies):** لا أي qual عريض متبقٍ؛ `sessions` بلا NULL؛ السياسات المصاحبة (INSERT/UPDATE/ALL) محفوظة.
+
+**Runtime evidence (اختبار A/B فعلي):**
+- A (guest) يقرأ `users` → صفّه فقط (صف B مخفي).
+- A يقرأ صف B تحديداً → `[]` · B يقرأ صف A → `[]` (قراءة عابرة محجوبة).
+- anon على الجداول الست → `[]`.
+
+**حالة البند 2:** ✅ **مُغلق رسمياً داخل Gate 1** (2026-08-02). ملاحظة حوكمة: توسعة نطاق البند بقراءات مربوطة بالدور (كانت مؤجلة لـ Phase 2) — موثّقة كقرار؛ **مواءمة الـ roadmap v2.2→v2.3 بندٌ معلّق**.
+
 ## التحقق (Verification — يُشغَّل بعد كل بند)
 
 1. **proacl:** `select proname, proacl from pg_proc where proname in ('admin_promote_user','bootstrap_super_admin','handle_new_user','has_super_admin','increment_qr_counter');` → ألا يعود anon/authenticated/PUBLIC ضمن الممنوح إدارياً.
@@ -352,3 +396,12 @@ Proxy-Status: PostgREST; error=42501
 | 2026-08-02 | **إغلاق البندين 4-5 (NR-1 + §III.0)** — دورة كاملة بالأدلة | close | سجل التنفيذ | ✅ |
 | 2026-08-02 | ترقية تقرير التدقيق إلى v3.7 (تصحيح DV-10 + تصنيف NR-1 مؤكد → مغلق) | document | دورة الإغلاق | ✅ |
 | 2026-08-02 | Commit خاص بالجولة (البندان 4-5 + v3.7) | commit | سياسة Branch/PR | ✅ `3d4982a` |
+| 2026-08-02 | بند 2: قرارات الحوكمة الثلاثة (دور-بوابة / analytics ملكية+دور / تقييد الضيف) | قرار المستخدم | سجل القرار | ✅ |
+| 2026-08-02 | بند 2: إعادة كتابة `02-…` وفق القرارات + توثيق Baseline قبل | write/document | سجل التنفيذ | ✅ |
+| 2026-08-02 | بند 2: Apply (6 ملكية + 6 دور + is_research_role + إعادة تعريف sessions) | apply | SQL Editor | ✅ |
+| 2026-08-02 | بند 2: After pg_policies — تطابق كامل (لا qual عريض، بلا NULL) | verify | SQL Editor | ✅ |
+| 2026-08-02 | بند 2: Runtime evidence (A/B cross-user probe + anon) | verify | PostgREST (bash curl) | ✅ محجوب فعلياً |
+| 2026-08-02 | بند 2: تنظيف حسابَي الاختبار | cleanup | SQL Editor | ✅ |
+| 2026-08-02 | **بند 2 Close** — إغلاق رسمي داخل Gate 1 | close | دورة الإغلاق | ✅ |
+| 2026-08-02 | Commit مستقل للبند 2 | commit | سياسة Branch/PR | ⏳ بانتظار تأكيد المستخدم |
+| 2026-08-02 | مواءمة الـ roadmap (v2.2→v2.3: توسعة نطاق البند 2 بقراءات الدور) | document | بند معلّق | ⏳ |
