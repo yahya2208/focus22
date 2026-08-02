@@ -38,7 +38,7 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
   const [targetDevice, setTargetDevice] = useState<InventoryRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const invRecords = InventoryService.getAll().filter(r => r.quantity > 0);
+  const invRecords = InventoryService.getExchangeableDevices();
   const inventory: InventoryRecord[] = (action === 'buy' || !searchQuery.trim())
     ? invRecords
     : invRecords.filter(r =>

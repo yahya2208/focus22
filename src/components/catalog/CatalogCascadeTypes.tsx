@@ -1,6 +1,7 @@
 import type { CatalogSearchResult } from '../../services/catalog-service';
 import type { DeviceCondition } from '../../services/price-memory';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { InventoryService } from '../../services/inventory-service';
 import { formatVariant, parseVariant } from '../../data/phone-variants';
 
 export type { CatalogSearchResult, DeviceCondition };
@@ -48,16 +49,28 @@ function canonicalVariantKey(variant: string): string {
 
 export function getStockForModel(modelId: string): { variant: string; stock: number }[] {
   try {
-    const raw = localStorage.getItem('inventory_records_v1');
-    if (!raw) return [];
-    const records = JSON.parse(raw);
+    const records = InventoryService.getAll();
     const counts: Record<string, number> = {};
-    for (const r of records) {
-      if (r.modelId === modelId || r.modelName === modelId) {
-        const key = canonicalVariantKey(r.variant || (r.ram || r.storage ? `${r.ram || ''}/${r.storage || ''}` : 'default'));
-        counts[key] = (counts[key] || 0) + (r.quantity || 1);
+
+    const addMatching = (targetId: string) => {
+      let matched = false;
+      for (const r of records) {
+        if (r.modelId.toLowerCase() === targetId.toLowerCase()) {
+          matched = true;
+          const key = canonicalVariantKey(r.variant || (r.ram || r.storage ? `${r.ram || ''}/${r.storage || ''}` : 'default'));
+          counts[key] = (counts[key] || 0) + r.quantity;
+        }
       }
+      return matched;
+    };
+
+    if (!addMatching(modelId)) {
+      const models = JSON.parse(localStorage.getItem('catalog_models_v1') || '[]') as { brandName: string; name: string; id: string }[];
+      const entry = models.find(m => m.id === modelId);
+      if (!entry) return [];
+      addMatching(`${entry.brandName} ${entry.name}`);
     }
+
     return Object.entries(counts).map(([variant, stock]) => ({ variant, stock }));
   } catch { return []; }
 }

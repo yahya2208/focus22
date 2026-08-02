@@ -441,6 +441,20 @@ export const InventoryService = {
     return loadAll();
   },
 
+  /**
+   * Single official source for devices that can actually be delivered
+   * (buy / exchange lists). Contract: in stock AND not archived AND not
+   * discontinued. Archived/discontinued/qty=0 records stay visible ONLY on the
+   * admin Inventory management page (via getAll()).
+   */
+  getExchangeableDevices(): InventoryRecord[] {
+    return loadAll().filter(r =>
+      r.quantity > 0 &&
+      r.status !== 'archived' &&
+      r.status !== 'discontinued'
+    );
+  },
+
   getLowStock(threshold = 3): InventoryRecord[] {
     return loadAll().filter(r => r.quantity > 0 && r.quantity <= threshold);
   },
