@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import { ThemeProvider } from '../../design-system/use-theme';
 import { Button } from '../../design-system/components/Button';
@@ -24,6 +24,10 @@ import { Section } from '../../design-system/layout/Section';
 function withTheme(ui: React.ReactElement) {
   return render(<ThemeProvider>{ui}</ThemeProvider>);
 }
+
+beforeEach(() => {
+  localStorage.removeItem('focus_theme');
+});
 
 describe('Design System — Component Snapshots', () => {
   describe('Button', () => {

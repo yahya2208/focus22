@@ -2,7 +2,7 @@
 
 exports[`Design System — Component Snapshots > Badge > all variants > badge-completed 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgba(16, 16, 28, 0.85); color: rgb(184, 242, 76); border: 1px solid rgba(184, 242, 76, 0.267); white-space: nowrap; user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgba(255, 255, 255, 0.92); color: rgb(22, 128, 60); border: 1px solid rgba(22, 128, 60, 0.267); white-space: nowrap; user-select: none;"
 >
   completed
 </span>
@@ -10,7 +10,7 @@ exports[`Design System — Component Snapshots > Badge > all variants > badge-co
 
 exports[`Design System — Component Snapshots > Badge > all variants > badge-error 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgb(255, 107, 122); color: rgb(10, 10, 18); white-space: nowrap; user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgb(200, 32, 32); color: rgb(244, 244, 248); white-space: nowrap; user-select: none;"
 >
   error
 </span>
@@ -18,7 +18,7 @@ exports[`Design System — Component Snapshots > Badge > all variants > badge-er
 
 exports[`Design System — Component Snapshots > Badge > all variants > badge-info 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgb(76, 196, 240); color: rgb(10, 10, 18); white-space: nowrap; user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgb(0, 104, 168); color: rgb(244, 244, 248); white-space: nowrap; user-select: none;"
 >
   info
 </span>
@@ -26,7 +26,7 @@ exports[`Design System — Component Snapshots > Badge > all variants > badge-in
 
 exports[`Design System — Component Snapshots > Badge > all variants > badge-neutral 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgba(16, 16, 28, 0.85); color: rgb(168, 168, 192); border: 1px solid rgb(24, 24, 48); white-space: nowrap; user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgba(255, 255, 255, 0.92); color: rgb(74, 74, 92); border: 1px solid rgb(212, 212, 220); white-space: nowrap; user-select: none;"
 >
   neutral
 </span>
@@ -34,7 +34,7 @@ exports[`Design System — Component Snapshots > Badge > all variants > badge-ne
 
 exports[`Design System — Component Snapshots > Badge > all variants > badge-pending 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgba(16, 16, 28, 0.85); color: rgb(255, 194, 68); border: 1px solid rgba(255, 194, 68, 0.267); white-space: nowrap; user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgba(255, 255, 255, 0.92); color: rgb(160, 112, 0); border: 1px solid rgba(160, 112, 0, 0.267); white-space: nowrap; user-select: none;"
 >
   pending
 </span>
@@ -42,7 +42,7 @@ exports[`Design System — Component Snapshots > Badge > all variants > badge-pe
 
 exports[`Design System — Component Snapshots > Badge > all variants > badge-processing 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgb(28, 28, 56); color: rgb(0, 228, 184); border: 1px solid rgba(0, 228, 184, 0.267); white-space: nowrap; user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgb(224, 224, 232); color: rgb(0, 136, 110); border: 1px solid rgba(0, 136, 110, 0.267); white-space: nowrap; user-select: none;"
 >
   processing
 </span>
@@ -50,7 +50,7 @@ exports[`Design System — Component Snapshots > Badge > all variants > badge-pr
 
 exports[`Design System — Component Snapshots > Badge > all variants > badge-running 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgb(28, 28, 56); color: rgb(0, 228, 184); border: 1px solid rgba(0, 228, 184, 0.267); white-space: nowrap; user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgb(224, 224, 232); color: rgb(0, 136, 110); border: 1px solid rgba(0, 136, 110, 0.267); white-space: nowrap; user-select: none;"
 >
   running
 </span>
@@ -58,7 +58,7 @@ exports[`Design System — Component Snapshots > Badge > all variants > badge-ru
 
 exports[`Design System — Component Snapshots > Badge > all variants > badge-success 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgb(184, 242, 76); color: rgb(10, 10, 18); white-space: nowrap; user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgb(22, 128, 60); color: rgb(244, 244, 248); white-space: nowrap; user-select: none;"
 >
   success
 </span>
@@ -66,7 +66,7 @@ exports[`Design System — Component Snapshots > Badge > all variants > badge-su
 
 exports[`Design System — Component Snapshots > Badge > all variants > badge-warning 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgb(255, 194, 68); color: rgb(10, 10, 18); white-space: nowrap; user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 0.6875rem; font-weight: 500; border-radius: 9999px; background: rgb(160, 112, 0); color: rgb(244, 244, 248); white-space: nowrap; user-select: none;"
 >
   warning
 </span>
@@ -75,7 +75,7 @@ exports[`Design System — Component Snapshots > Badge > all variants > badge-wa
 exports[`Design System — Component Snapshots > Button > all sizes > button-size-lg 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 48px; padding-inline: 20px; font-size: 0.875rem; font-weight: 600; font-family: inherit; border-radius: 16px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 228, 184); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 48px; padding-inline: 20px; font-size: 0.875rem; font-weight: 600; font-family: inherit; border-radius: 16px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 136, 110); color: rgb(244, 244, 248);"
 >
   <span>
     Size 
@@ -87,7 +87,7 @@ exports[`Design System — Component Snapshots > Button > all sizes > button-siz
 exports[`Design System — Component Snapshots > Button > all sizes > button-size-md 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 228, 184); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 136, 110); color: rgb(244, 244, 248);"
 >
   <span>
     Size 
@@ -99,7 +99,7 @@ exports[`Design System — Component Snapshots > Button > all sizes > button-siz
 exports[`Design System — Component Snapshots > Button > all sizes > button-size-sm 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 36px; padding-inline: 12px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 8px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 228, 184); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 36px; padding-inline: 12px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 8px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 136, 110); color: rgb(244, 244, 248);"
 >
   <span>
     Size 
@@ -111,7 +111,7 @@ exports[`Design System — Component Snapshots > Button > all sizes > button-siz
 exports[`Design System — Component Snapshots > Button > all sizes > button-size-xl 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 56px; padding-inline: 24px; font-size: 0.875rem; font-weight: 600; font-family: inherit; border-radius: 16px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 228, 184); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 56px; padding-inline: 24px; font-size: 0.875rem; font-weight: 600; font-family: inherit; border-radius: 16px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 136, 110); color: rgb(244, 244, 248);"
 >
   <span>
     Size 
@@ -123,7 +123,7 @@ exports[`Design System — Component Snapshots > Button > all sizes > button-siz
 exports[`Design System — Component Snapshots > Button > all sizes > button-size-xs 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 32px; padding-inline: 8px; font-size: 0.6875rem; font-weight: 600; font-family: inherit; border-radius: 8px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 228, 184); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 32px; padding-inline: 8px; font-size: 0.6875rem; font-weight: 600; font-family: inherit; border-radius: 8px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 136, 110); color: rgb(244, 244, 248);"
 >
   <span>
     Size 
@@ -135,7 +135,7 @@ exports[`Design System — Component Snapshots > Button > all sizes > button-siz
 exports[`Design System — Component Snapshots > Button > all variants > button-danger 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(255, 107, 122); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(200, 32, 32); color: rgb(244, 244, 248);"
 >
   <span>
     danger
@@ -146,7 +146,7 @@ exports[`Design System — Component Snapshots > Button > all variants > button-
 exports[`Design System — Component Snapshots > Button > all variants > button-ghost 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: transparent; color: rgb(168, 168, 192);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: transparent; color: rgb(74, 74, 92);"
 >
   <span>
     ghost
@@ -157,7 +157,7 @@ exports[`Design System — Component Snapshots > Button > all variants > button-
 exports[`Design System — Component Snapshots > Button > all variants > button-link 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: transparent; color: rgb(0, 228, 184);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: transparent; color: rgb(0, 136, 110);"
 >
   <span>
     link
@@ -168,7 +168,7 @@ exports[`Design System — Component Snapshots > Button > all variants > button-
 exports[`Design System — Component Snapshots > Button > all variants > button-outline 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: transparent; color: rgb(0, 228, 184); border: 1px solid rgba(0, 228, 184, 0.25);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: transparent; color: rgb(0, 136, 110); border: 1px solid rgba(0, 136, 110, 0.25);"
 >
   <span>
     outline
@@ -179,7 +179,7 @@ exports[`Design System — Component Snapshots > Button > all variants > button-
 exports[`Design System — Component Snapshots > Button > all variants > button-primary 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 228, 184); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 136, 110); color: rgb(244, 244, 248);"
 >
   <span>
     primary
@@ -190,7 +190,7 @@ exports[`Design System — Component Snapshots > Button > all variants > button-
 exports[`Design System — Component Snapshots > Button > all variants > button-secondary 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgba(16, 16, 28, 0.85); color: rgb(240, 240, 246); border: 1px solid rgb(24, 24, 48);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgba(255, 255, 255, 0.92); color: rgb(26, 26, 36); border: 1px solid rgb(212, 212, 220);"
 >
   <span>
     secondary
@@ -201,7 +201,7 @@ exports[`Design System — Component Snapshots > Button > all variants > button-
 exports[`Design System — Component Snapshots > Button > all variants > button-success 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(184, 242, 76); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(22, 128, 60); color: rgb(244, 244, 248);"
 >
   <span>
     success
@@ -212,7 +212,7 @@ exports[`Design System — Component Snapshots > Button > all variants > button-
 exports[`Design System — Component Snapshots > Button > all variants > button-warning 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(255, 194, 68); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(160, 112, 0); color: rgb(244, 244, 248);"
 >
   <span>
     warning
@@ -224,7 +224,7 @@ exports[`Design System — Component Snapshots > Button > disabled state 1`] = `
 <button
   aria-busy="false"
   disabled=""
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: not-allowed; opacity: 0.5; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 228, 184); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: not-allowed; opacity: 0.5; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 136, 110); color: rgb(244, 244, 248);"
 >
   <span>
     Disabled
@@ -235,7 +235,7 @@ exports[`Design System — Component Snapshots > Button > disabled state 1`] = `
 exports[`Design System — Component Snapshots > Button > full width 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); width: 100%; white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 228, 184); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); width: 100%; white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 136, 110); color: rgb(244, 244, 248);"
 >
   <span>
     Full Width
@@ -247,7 +247,7 @@ exports[`Design System — Component Snapshots > Button > loading state 1`] = `
 <button
   aria-busy="true"
   disabled=""
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: not-allowed; opacity: 0.5; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 228, 184); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: not-allowed; opacity: 0.5; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 136, 110); color: rgb(244, 244, 248);"
 >
   <span
     style="width: 0.8125rem; height: 0.8125rem; border: 2px solid currentcolor; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block;"
@@ -261,7 +261,7 @@ exports[`Design System — Component Snapshots > Button > loading state 1`] = `
 exports[`Design System — Component Snapshots > Button > primary variant 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 228, 184); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 136, 110); color: rgb(244, 244, 248);"
 >
   <span>
     Primary
@@ -272,7 +272,7 @@ exports[`Design System — Component Snapshots > Button > primary variant 1`] = 
 exports[`Design System — Component Snapshots > Button > with icon 1`] = `
 <button
   aria-busy="false"
-  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 228, 184); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding-inline: 16px; font-size: 0.8125rem; font-weight: 600; font-family: inherit; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; outline: none; position: relative; z-index: 0; background: rgb(0, 136, 110); color: rgb(244, 244, 248);"
 >
   <span
     style="display: inline-flex;"
@@ -287,7 +287,7 @@ exports[`Design System — Component Snapshots > Button > with icon 1`] = `
 
 exports[`Design System — Component Snapshots > Card > all variants > card-elevated 1`] = `
 <div
-  style="border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease; background: rgba(16, 16, 28, 0.85);"
+  style="border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease; background: rgba(255, 255, 255, 0.92);"
 >
   Card 
   elevated
@@ -296,7 +296,7 @@ exports[`Design System — Component Snapshots > Card > all variants > card-elev
 
 exports[`Design System — Component Snapshots > Card > all variants > card-glass 1`] = `
 <div
-  style="border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease; background: rgba(16, 16, 28, 0.85); border: 1px solid rgb(24, 24, 48);"
+  style="border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease; background: rgba(255, 255, 255, 0.92); border: 1px solid rgb(212, 212, 220);"
 >
   Card 
   glass
@@ -305,7 +305,7 @@ exports[`Design System — Component Snapshots > Card > all variants > card-glas
 
 exports[`Design System — Component Snapshots > Card > all variants > card-interactive 1`] = `
 <div
-  style="border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease; background: rgb(28, 28, 56); border: 1px solid rgb(24, 24, 48); cursor: pointer;"
+  style="border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease; background: rgb(224, 224, 232); border: 1px solid rgb(212, 212, 220); cursor: pointer;"
 >
   Card 
   interactive
@@ -314,7 +314,7 @@ exports[`Design System — Component Snapshots > Card > all variants > card-inte
 
 exports[`Design System — Component Snapshots > Card > all variants > card-outlined 1`] = `
 <div
-  style="border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease; background: transparent; border: 1px solid rgb(24, 24, 48);"
+  style="border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease; background: transparent; border: 1px solid rgb(212, 212, 220);"
 >
   Card 
   outlined
@@ -323,7 +323,7 @@ exports[`Design System — Component Snapshots > Card > all variants > card-outl
 
 exports[`Design System — Component Snapshots > Card > all variants > card-surface 1`] = `
 <div
-  style="border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease; background: rgba(16, 16, 28, 0.85); border: 1px solid rgb(24, 24, 48);"
+  style="border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease; background: rgba(255, 255, 255, 0.92); border: 1px solid rgb(212, 212, 220);"
 >
   Card 
   surface
@@ -332,7 +332,7 @@ exports[`Design System — Component Snapshots > Card > all variants > card-surf
 
 exports[`Design System — Component Snapshots > Card > hoverable 1`] = `
 <div
-  style="border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease; background: rgba(16, 16, 28, 0.85); border: 1px solid rgb(24, 24, 48);"
+  style="border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease; background: rgba(255, 255, 255, 0.92); border: 1px solid rgb(212, 212, 220);"
 >
   Hoverable
 </div>
@@ -340,7 +340,7 @@ exports[`Design System — Component Snapshots > Card > hoverable 1`] = `
 
 exports[`Design System — Component Snapshots > Chip > all variants > chip-clickable 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: rgba(16, 16, 28, 0.85); color: rgb(168, 168, 192); border: 1px solid rgb(24, 24, 48); cursor: pointer; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: rgba(255, 255, 255, 0.92); color: rgb(74, 74, 92); border: 1px solid rgb(212, 212, 220); cursor: pointer; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); user-select: none;"
 >
   clickable
 </span>
@@ -348,7 +348,7 @@ exports[`Design System — Component Snapshots > Chip > all variants > chip-clic
 
 exports[`Design System — Component Snapshots > Chip > all variants > chip-filter 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: rgba(16, 16, 28, 0.85); color: rgb(168, 168, 192); border: 1px solid rgb(24, 24, 48); cursor: pointer; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: rgba(255, 255, 255, 0.92); color: rgb(74, 74, 92); border: 1px solid rgb(212, 212, 220); cursor: pointer; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); user-select: none;"
 >
   filter
   <span
@@ -361,7 +361,7 @@ exports[`Design System — Component Snapshots > Chip > all variants > chip-filt
 
 exports[`Design System — Component Snapshots > Chip > all variants > chip-selectable 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: rgba(16, 16, 28, 0.85); color: rgb(168, 168, 192); border: 1px solid rgb(24, 24, 48); cursor: pointer; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: rgba(255, 255, 255, 0.92); color: rgb(74, 74, 92); border: 1px solid rgb(212, 212, 220); cursor: pointer; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); user-select: none;"
 >
   selectable
 </span>
@@ -369,7 +369,7 @@ exports[`Design System — Component Snapshots > Chip > all variants > chip-sele
 
 exports[`Design System — Component Snapshots > Chip > all variants > chip-status 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: rgba(16, 16, 28, 0.85); color: rgb(168, 168, 192); border: 1px solid rgb(24, 24, 48); cursor: default; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: rgba(255, 255, 255, 0.92); color: rgb(74, 74, 92); border: 1px solid rgb(212, 212, 220); cursor: default; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); user-select: none;"
 >
   status
 </span>
@@ -377,7 +377,7 @@ exports[`Design System — Component Snapshots > Chip > all variants > chip-stat
 
 exports[`Design System — Component Snapshots > Chip > all variants > chip-tag 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: rgba(16, 16, 28, 0.85); color: rgb(168, 168, 192); border: 1px solid rgb(24, 24, 48); cursor: default; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: rgba(255, 255, 255, 0.92); color: rgb(74, 74, 92); border: 1px solid rgb(212, 212, 220); cursor: default; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); user-select: none;"
 >
   tag
   <span
@@ -390,7 +390,7 @@ exports[`Design System — Component Snapshots > Chip > all variants > chip-tag 
 
 exports[`Design System — Component Snapshots > Chip > selected state 1`] = `
 <span
-  style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: rgba(0, 228, 184, 0.15); color: rgb(0, 228, 184); border: 1px solid rgba(0, 228, 184, 0.25); cursor: pointer; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); user-select: none;"
+  style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: rgba(0, 136, 110, 0.1); color: rgb(0, 136, 110); border: 1px solid rgba(0, 136, 110, 0.25); cursor: pointer; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); user-select: none;"
 >
   Selected
 </span>
@@ -406,12 +406,12 @@ exports[`Design System — Component Snapshots > EmptyState > with description a
     📦
   </div>
   <p
-    style="font-size: 1rem; font-weight: 700; color: rgb(240, 240, 246); margin: 0px;"
+    style="font-size: 1rem; font-weight: 700; color: rgb(26, 26, 36); margin: 0px;"
   >
     No items
   </p>
   <p
-    style="font-size: 0.875rem; color: rgb(104, 104, 160); margin: 0px; max-width: 280px; line-height: 1.5;"
+    style="font-size: 0.875rem; color: rgb(124, 124, 144); margin: 0px; max-width: 280px; line-height: 1.5;"
   >
     Try again later.
   </p>
@@ -435,7 +435,7 @@ exports[`Design System — Component Snapshots > EmptyState > with icon and titl
     🔍
   </div>
   <p
-    style="font-size: 1rem; font-weight: 700; color: rgb(240, 240, 246); margin: 0px;"
+    style="font-size: 1rem; font-weight: 700; color: rgb(26, 26, 36); margin: 0px;"
   >
     Nothing here
   </p>
@@ -444,7 +444,7 @@ exports[`Design System — Component Snapshots > EmptyState > with icon and titl
 
 exports[`Design System — Component Snapshots > Heading > all variants > heading-display 1`] = `
 <h1
-  style="font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif; font-size: 2rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif; font-size: 2rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: rgb(26, 26, 36); margin: 0px;"
 >
   Heading 
   display
@@ -453,7 +453,7 @@ exports[`Design System — Component Snapshots > Heading > all variants > headin
 
 exports[`Design System — Component Snapshots > Heading > all variants > heading-h1 1`] = `
 <h1
-  style="font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif; font-size: 1.375rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif; font-size: 1.375rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: rgb(26, 26, 36); margin: 0px;"
 >
   Heading 
   h1
@@ -462,7 +462,7 @@ exports[`Design System — Component Snapshots > Heading > all variants > headin
 
 exports[`Design System — Component Snapshots > Heading > all variants > heading-h2 1`] = `
 <h2
-  style="font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif; font-size: 1.125rem; font-weight: 600; line-height: 1.2; letter-spacing: 0; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif; font-size: 1.125rem; font-weight: 600; line-height: 1.2; letter-spacing: 0; color: rgb(26, 26, 36); margin: 0px;"
 >
   Heading 
   h2
@@ -471,7 +471,7 @@ exports[`Design System — Component Snapshots > Heading > all variants > headin
 
 exports[`Design System — Component Snapshots > Heading > all variants > heading-h3 1`] = `
 <h3
-  style="font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif; font-size: 1rem; font-weight: 600; line-height: 1.2; letter-spacing: 0; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif; font-size: 1rem; font-weight: 600; line-height: 1.2; letter-spacing: 0; color: rgb(26, 26, 36); margin: 0px;"
 >
   Heading 
   h3
@@ -481,7 +481,7 @@ exports[`Design System — Component Snapshots > Heading > all variants > headin
 exports[`Design System — Component Snapshots > IconButton > all sizes > iconbutton-size-lg 1`] = `
 <button
   aria-label="size-lg"
-  style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; font-size: 0.9375rem; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; background: transparent; color: rgb(168, 168, 192);"
+  style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; font-size: 0.9375rem; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; background: transparent; color: rgb(74, 74, 92);"
 >
   ★
 </button>
@@ -490,7 +490,7 @@ exports[`Design System — Component Snapshots > IconButton > all sizes > iconbu
 exports[`Design System — Component Snapshots > IconButton > all sizes > iconbutton-size-md 1`] = `
 <button
   aria-label="size-md"
-  style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 0.875rem; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; background: transparent; color: rgb(168, 168, 192);"
+  style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 0.875rem; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; background: transparent; color: rgb(74, 74, 92);"
 >
   ★
 </button>
@@ -499,7 +499,7 @@ exports[`Design System — Component Snapshots > IconButton > all sizes > iconbu
 exports[`Design System — Component Snapshots > IconButton > all sizes > iconbutton-size-sm 1`] = `
 <button
   aria-label="size-sm"
-  style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; font-size: 0.6875rem; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; background: transparent; color: rgb(168, 168, 192);"
+  style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; font-size: 0.6875rem; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; background: transparent; color: rgb(74, 74, 92);"
 >
   ★
 </button>
@@ -508,7 +508,7 @@ exports[`Design System — Component Snapshots > IconButton > all sizes > iconbu
 exports[`Design System — Component Snapshots > IconButton > all variants > iconbutton-ghost 1`] = `
 <button
   aria-label="ghost"
-  style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 0.875rem; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; background: transparent; color: rgb(168, 168, 192);"
+  style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 0.875rem; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; background: transparent; color: rgb(74, 74, 92);"
 >
   ★
 </button>
@@ -517,7 +517,7 @@ exports[`Design System — Component Snapshots > IconButton > all variants > ico
 exports[`Design System — Component Snapshots > IconButton > all variants > iconbutton-outline 1`] = `
 <button
   aria-label="outline"
-  style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 0.875rem; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; background: transparent; color: rgb(0, 228, 184); border: 1px solid rgba(0, 228, 184, 0.25);"
+  style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 0.875rem; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; background: transparent; color: rgb(0, 136, 110); border: 1px solid rgba(0, 136, 110, 0.25);"
 >
   ★
 </button>
@@ -526,7 +526,7 @@ exports[`Design System — Component Snapshots > IconButton > all variants > ico
 exports[`Design System — Component Snapshots > IconButton > all variants > iconbutton-solid 1`] = `
 <button
   aria-label="solid"
-  style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 0.875rem; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; background: rgb(0, 228, 184); color: rgb(10, 10, 18);"
+  style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 0.875rem; border-radius: 12px; cursor: pointer; opacity: 1; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; background: rgb(0, 136, 110); color: rgb(244, 244, 248);"
 >
   ★
 </button>
@@ -536,7 +536,7 @@ exports[`Design System — Component Snapshots > IconButton > disabled 1`] = `
 <button
   aria-label="disabled"
   disabled=""
-  style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 0.875rem; border-radius: 12px; cursor: not-allowed; opacity: 0.5; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; background: transparent; color: rgb(168, 168, 192);"
+  style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 0.875rem; border-radius: 12px; cursor: not-allowed; opacity: 0.5; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; background: transparent; color: rgb(74, 74, 92);"
 >
   ★
 </button>
@@ -545,14 +545,14 @@ exports[`Design System — Component Snapshots > IconButton > disabled 1`] = `
 exports[`Design System — Component Snapshots > Input > default 1`] = `
 <input
   placeholder="Enter text..."
-  style="width: 100%; padding: 8px 12px; font-size: 0.875rem; font-family: inherit; color: rgb(240, 240, 246); background: rgba(16, 16, 28, 0.85); border: 1px solid rgb(24, 24, 48); border-radius: 12px; outline: none; transition: border-color 150ms, box-shadow 150ms; box-sizing: border-box;"
+  style="width: 100%; padding: 8px 12px; font-size: 0.875rem; font-family: inherit; color: rgb(26, 26, 36); background: rgba(255, 255, 255, 0.92); border: 1px solid rgb(212, 212, 220); border-radius: 12px; outline: none; transition: border-color 150ms, box-shadow 150ms; box-sizing: border-box;"
 />
 `;
 
 exports[`Design System — Component Snapshots > Input > disabled 1`] = `
 <input
   disabled=""
-  style="width: 100%; padding: 8px 12px; font-size: 0.875rem; font-family: inherit; color: rgb(240, 240, 246); background: rgba(16, 16, 28, 0.85); border: 1px solid rgb(24, 24, 48); border-radius: 12px; outline: none; transition: border-color 150ms, box-shadow 150ms; box-sizing: border-box; opacity: 0.5; cursor: not-allowed;"
+  style="width: 100%; padding: 8px 12px; font-size: 0.875rem; font-family: inherit; color: rgb(26, 26, 36); background: rgba(255, 255, 255, 0.92); border: 1px solid rgb(212, 212, 220); border-radius: 12px; outline: none; transition: border-color 150ms, box-shadow 150ms; box-sizing: border-box; opacity: 0.5; cursor: not-allowed;"
   value="Disabled"
 />
 `;
@@ -560,14 +560,14 @@ exports[`Design System — Component Snapshots > Input > disabled 1`] = `
 exports[`Design System — Component Snapshots > Input > error state 1`] = `
 <input
   placeholder="Error"
-  style="width: 100%; padding: 8px 12px; font-size: 0.875rem; font-family: inherit; color: rgb(240, 240, 246); background: rgba(16, 16, 28, 0.85); border: 1px solid rgb(255, 107, 122); border-radius: 12px; outline: none; transition: border-color 150ms, box-shadow 150ms; box-sizing: border-box;"
+  style="width: 100%; padding: 8px 12px; font-size: 0.875rem; font-family: inherit; color: rgb(26, 26, 36); background: rgba(255, 255, 255, 0.92); border: 1px solid rgb(200, 32, 32); border-radius: 12px; outline: none; transition: border-color 150ms, box-shadow 150ms; box-sizing: border-box;"
 />
 `;
 
 exports[`Design System — Component Snapshots > Layout > Divider 1`] = `
 <div
   aria-hidden="true"
-  style="width: 100%; height: 1px; background-color: rgb(24, 24, 48); flex-shrink: 0;"
+  style="width: 100%; height: 1px; background-color: rgb(212, 212, 220); flex-shrink: 0;"
 />
 `;
 
@@ -589,7 +589,7 @@ exports[`Design System — Component Snapshots > Layout > Section 1`] = `
   style="margin-top: 20px;"
 >
   <h2
-    style="font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgb(104, 104, 160); margin-bottom: 8px; padding-left: 2px;"
+    style="font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgb(124, 124, 144); margin-bottom: 8px; padding-left: 2px;"
   >
     Test Section
   </h2>
@@ -617,7 +617,7 @@ exports[`Design System — Component Snapshots > Loader > all sizes > loader-lg 
   aria-busy="true"
   aria-label="Loading"
   role="status"
-  style="width: 36px; height: 36px; border: 3px solid rgba(0, 228, 184, 0.133); border-top-color: rgb(0, 228, 184); border-radius: 50%; animation: spin 0.6s linear infinite;"
+  style="width: 36px; height: 36px; border: 3px solid rgba(0, 136, 110, 0.133); border-top-color: rgb(0, 136, 110); border-radius: 50%; animation: spin 0.6s linear infinite;"
 />
 `;
 
@@ -626,7 +626,7 @@ exports[`Design System — Component Snapshots > Loader > all sizes > loader-md 
   aria-busy="true"
   aria-label="Loading"
   role="status"
-  style="width: 24px; height: 24px; border: 3px solid rgba(0, 228, 184, 0.133); border-top-color: rgb(0, 228, 184); border-radius: 50%; animation: spin 0.6s linear infinite;"
+  style="width: 24px; height: 24px; border: 3px solid rgba(0, 136, 110, 0.133); border-top-color: rgb(0, 136, 110); border-radius: 50%; animation: spin 0.6s linear infinite;"
 />
 `;
 
@@ -635,7 +635,7 @@ exports[`Design System — Component Snapshots > Loader > all sizes > loader-sm 
   aria-busy="true"
   aria-label="Loading"
   role="status"
-  style="width: 16px; height: 16px; border: 2px solid rgba(0, 228, 184, 0.133); border-top-color: rgb(0, 228, 184); border-radius: 50%; animation: spin 0.6s linear infinite;"
+  style="width: 16px; height: 16px; border: 2px solid rgba(0, 136, 110, 0.133); border-top-color: rgb(0, 136, 110); border-radius: 50%; animation: spin 0.6s linear infinite;"
 />
 `;
 
@@ -646,13 +646,13 @@ exports[`Design System — Component Snapshots > Modal > renders when open 1`] =
   aria-label="Test Modal"
   aria-modal="true"
   role="dialog"
-  style="position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.6); padding: 16px; animation: fadeIn 200ms;"
+  style="position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.3); padding: 16px; animation: fadeIn 200ms;"
 >
   <div
-    style="width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; background: rgba(16, 16, 28, 0.85); border-radius: 20px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); padding: 20px;"
+    style="width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; background: rgba(255, 255, 255, 0.92); border-radius: 20px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); padding: 20px;"
   >
     <h2
-      style="font-size: 1.125rem; font-weight: 700; color: rgb(240, 240, 246); margin: 0px 0px 12px;"
+      style="font-size: 1.125rem; font-weight: 700; color: rgb(26, 26, 36); margin: 0px 0px 12px;"
     >
       Test Modal
     </h2>
@@ -665,7 +665,7 @@ exports[`Design System — Component Snapshots > Modal > renders when open 1`] =
 
 exports[`Design System — Component Snapshots > Select > default 1`] = `
 <select
-  style="width: 100%; padding: 8px 12px; font-size: 0.875rem; font-family: inherit; color: rgb(240, 240, 246); background: rgba(16, 16, 28, 0.85); border: 1px solid rgb(24, 24, 48); border-radius: 12px; outline: none; transition: border-color 150ms, box-shadow 150ms; box-sizing: border-box; cursor: pointer;"
+  style="width: 100%; padding: 8px 12px; font-size: 0.875rem; font-family: inherit; color: rgb(26, 26, 36); background: rgba(255, 255, 255, 0.92); border: 1px solid rgb(212, 212, 220); border-radius: 12px; outline: none; transition: border-color 150ms, box-shadow 150ms; box-sizing: border-box; cursor: pointer;"
 >
   <option
     disabled=""
@@ -688,7 +688,7 @@ exports[`Design System — Component Snapshots > Select > default 1`] = `
 
 exports[`Design System — Component Snapshots > Select > error state 1`] = `
 <select
-  style="width: 100%; padding: 8px 12px; font-size: 0.875rem; font-family: inherit; color: rgb(240, 240, 246); background: rgba(16, 16, 28, 0.85); border: 1px solid rgb(255, 107, 122); border-radius: 12px; outline: none; transition: border-color 150ms, box-shadow 150ms; box-sizing: border-box; cursor: pointer;"
+  style="width: 100%; padding: 8px 12px; font-size: 0.875rem; font-family: inherit; color: rgb(26, 26, 36); background: rgba(255, 255, 255, 0.92); border: 1px solid rgb(200, 32, 32); border-radius: 12px; outline: none; transition: border-color 150ms, box-shadow 150ms; box-sizing: border-box; cursor: pointer;"
 >
   <option
     disabled=""
@@ -712,27 +712,27 @@ exports[`Design System — Component Snapshots > Select > error state 1`] = `
 exports[`Design System — Component Snapshots > Skeleton > all variants > skeleton-circle 1`] = `
 <div
   aria-hidden="true"
-  style="background: rgba(255, 255, 255, 0.07); animation: pulse 1.5s 200ms cubic-bezier(0.4, 0, 1, 1) infinite; width: 40px; height: 40px; border-radius: 50%;"
+  style="background: rgba(0, 0, 0, 0.06); animation: pulse 1.5s 200ms cubic-bezier(0.4, 0, 1, 1) infinite; width: 40px; height: 40px; border-radius: 50%;"
 />
 `;
 
 exports[`Design System — Component Snapshots > Skeleton > all variants > skeleton-rect 1`] = `
 <div
   aria-hidden="true"
-  style="background: rgba(255, 255, 255, 0.07); animation: pulse 1.5s 200ms cubic-bezier(0.4, 0, 1, 1) infinite; width: 100%; height: 80px; border-radius: 8px;"
+  style="background: rgba(0, 0, 0, 0.06); animation: pulse 1.5s 200ms cubic-bezier(0.4, 0, 1, 1) infinite; width: 100%; height: 80px; border-radius: 8px;"
 />
 `;
 
 exports[`Design System — Component Snapshots > Skeleton > all variants > skeleton-text 1`] = `
 <div
   aria-hidden="true"
-  style="background: rgba(255, 255, 255, 0.07); animation: pulse 1.5s 200ms cubic-bezier(0.4, 0, 1, 1) infinite; width: 100%; height: 14px; border-radius: 8px;"
+  style="background: rgba(0, 0, 0, 0.06); animation: pulse 1.5s 200ms cubic-bezier(0.4, 0, 1, 1) infinite; width: 100%; height: 14px; border-radius: 8px;"
 />
 `;
 
 exports[`Design System — Component Snapshots > Surface > all variants > surface-base 1`] = `
 <div
-  style="background: rgb(10, 10, 18); border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);"
+  style="background: rgb(244, 244, 248); border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);"
 >
   Surface 
   base
@@ -741,7 +741,7 @@ exports[`Design System — Component Snapshots > Surface > all variants > surfac
 
 exports[`Design System — Component Snapshots > Surface > all variants > surface-glass 1`] = `
 <div
-  style="background: rgba(255, 255, 255, 0.035); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);"
+  style="background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(0, 0, 0, 0.06); border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);"
 >
   Surface 
   glass
@@ -750,7 +750,7 @@ exports[`Design System — Component Snapshots > Surface > all variants > surfac
 
 exports[`Design System — Component Snapshots > Surface > all variants > surface-overlay 1`] = `
 <div
-  style="background: rgba(0, 0, 0, 0.6); border: 1px solid rgb(24, 24, 48); border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);"
+  style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgb(212, 212, 220); border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);"
 >
   Surface 
   overlay
@@ -759,7 +759,7 @@ exports[`Design System — Component Snapshots > Surface > all variants > surfac
 
 exports[`Design System — Component Snapshots > Surface > all variants > surface-raised 1`] = `
 <div
-  style="background: rgba(16, 16, 28, 0.85); border: 1px solid rgb(24, 24, 48); border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);"
+  style="background: rgba(255, 255, 255, 0.92); border: 1px solid rgb(212, 212, 220); border-radius: 16px; padding: 16px; transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);"
 >
   Surface 
   raised
@@ -768,7 +768,7 @@ exports[`Design System — Component Snapshots > Surface > all variants > surfac
 
 exports[`Design System — Component Snapshots > Text > all colors > text-color-accent 1`] = `
 <span
-  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(0, 228, 184); margin: 0px;"
+  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(0, 136, 110); margin: 0px;"
 >
   accent
 </span>
@@ -776,7 +776,7 @@ exports[`Design System — Component Snapshots > Text > all colors > text-color-
 
 exports[`Design System — Component Snapshots > Text > all colors > text-color-danger 1`] = `
 <span
-  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(255, 107, 122); margin: 0px;"
+  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(200, 32, 32); margin: 0px;"
 >
   danger
 </span>
@@ -784,7 +784,7 @@ exports[`Design System — Component Snapshots > Text > all colors > text-color-
 
 exports[`Design System — Component Snapshots > Text > all colors > text-color-info 1`] = `
 <span
-  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(76, 196, 240); margin: 0px;"
+  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(0, 104, 168); margin: 0px;"
 >
   info
 </span>
@@ -792,7 +792,7 @@ exports[`Design System — Component Snapshots > Text > all colors > text-color-
 
 exports[`Design System — Component Snapshots > Text > all colors > text-color-muted 1`] = `
 <span
-  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(104, 104, 160); margin: 0px;"
+  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(124, 124, 144); margin: 0px;"
 >
   muted
 </span>
@@ -800,7 +800,7 @@ exports[`Design System — Component Snapshots > Text > all colors > text-color-
 
 exports[`Design System — Component Snapshots > Text > all colors > text-color-primary 1`] = `
 <span
-  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(26, 26, 36); margin: 0px;"
 >
   primary
 </span>
@@ -808,7 +808,7 @@ exports[`Design System — Component Snapshots > Text > all colors > text-color-
 
 exports[`Design System — Component Snapshots > Text > all colors > text-color-secondary 1`] = `
 <span
-  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(168, 168, 192); margin: 0px;"
+  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(74, 74, 92); margin: 0px;"
 >
   secondary
 </span>
@@ -816,7 +816,7 @@ exports[`Design System — Component Snapshots > Text > all colors > text-color-
 
 exports[`Design System — Component Snapshots > Text > all colors > text-color-success 1`] = `
 <span
-  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(184, 242, 76); margin: 0px;"
+  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(22, 128, 60); margin: 0px;"
 >
   success
 </span>
@@ -824,7 +824,7 @@ exports[`Design System — Component Snapshots > Text > all colors > text-color-
 
 exports[`Design System — Component Snapshots > Text > all colors > text-color-warning 1`] = `
 <span
-  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(255, 194, 68); margin: 0px;"
+  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(160, 112, 0); margin: 0px;"
 >
   warning
 </span>
@@ -832,7 +832,7 @@ exports[`Design System — Component Snapshots > Text > all colors > text-color-
 
 exports[`Design System — Component Snapshots > Text > all variants > text-body 1`] = `
 <span
-  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-size: 0.875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(26, 26, 36); margin: 0px;"
 >
   body
 </span>
@@ -840,7 +840,7 @@ exports[`Design System — Component Snapshots > Text > all variants > text-body
 
 exports[`Design System — Component Snapshots > Text > all variants > text-bodySmall 1`] = `
 <span
-  style="font-size: 0.8125rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-size: 0.8125rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(26, 26, 36); margin: 0px;"
 >
   bodySmall
 </span>
@@ -848,7 +848,7 @@ exports[`Design System — Component Snapshots > Text > all variants > text-body
 
 exports[`Design System — Component Snapshots > Text > all variants > text-button 1`] = `
 <span
-  style="font-size: 0.8125rem; font-weight: 600; line-height: 1.5; letter-spacing: 0.05em; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-size: 0.8125rem; font-weight: 600; line-height: 1.5; letter-spacing: 0.05em; color: rgb(26, 26, 36); margin: 0px;"
 >
   button
 </span>
@@ -856,7 +856,7 @@ exports[`Design System — Component Snapshots > Text > all variants > text-butt
 
 exports[`Design System — Component Snapshots > Text > all variants > text-caption 1`] = `
 <span
-  style="font-size: 0.6875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-size: 0.6875rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(26, 26, 36); margin: 0px;"
 >
   caption
 </span>
@@ -864,7 +864,7 @@ exports[`Design System — Component Snapshots > Text > all variants > text-capt
 
 exports[`Design System — Component Snapshots > Text > all variants > text-display 1`] = `
 <span
-  style="font-size: 2rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-size: 2rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: rgb(26, 26, 36); margin: 0px;"
 >
   display
 </span>
@@ -872,7 +872,7 @@ exports[`Design System — Component Snapshots > Text > all variants > text-disp
 
 exports[`Design System — Component Snapshots > Text > all variants > text-h1 1`] = `
 <span
-  style="font-size: 1.375rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-size: 1.375rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: rgb(26, 26, 36); margin: 0px;"
 >
   h1
 </span>
@@ -880,7 +880,7 @@ exports[`Design System — Component Snapshots > Text > all variants > text-h1 1
 
 exports[`Design System — Component Snapshots > Text > all variants > text-h2 1`] = `
 <span
-  style="font-size: 1.125rem; font-weight: 600; line-height: 1.2; letter-spacing: 0; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-size: 1.125rem; font-weight: 600; line-height: 1.2; letter-spacing: 0; color: rgb(26, 26, 36); margin: 0px;"
 >
   h2
 </span>
@@ -888,7 +888,7 @@ exports[`Design System — Component Snapshots > Text > all variants > text-h2 1
 
 exports[`Design System — Component Snapshots > Text > all variants > text-h3 1`] = `
 <span
-  style="font-size: 1rem; font-weight: 600; line-height: 1.2; letter-spacing: 0; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-size: 1rem; font-weight: 600; line-height: 1.2; letter-spacing: 0; color: rgb(26, 26, 36); margin: 0px;"
 >
   h3
 </span>
@@ -896,7 +896,7 @@ exports[`Design System — Component Snapshots > Text > all variants > text-h3 1
 
 exports[`Design System — Component Snapshots > Text > all variants > text-label 1`] = `
 <span
-  style="font-size: 0.75rem; font-weight: 500; line-height: 1.5; letter-spacing: 0.05em; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-size: 0.75rem; font-weight: 500; line-height: 1.5; letter-spacing: 0.05em; color: rgb(26, 26, 36); margin: 0px;"
 >
   label
 </span>
@@ -904,7 +904,7 @@ exports[`Design System — Component Snapshots > Text > all variants > text-labe
 
 exports[`Design System — Component Snapshots > Text > all variants > text-mono 1`] = `
 <span
-  style="font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.8125rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.8125rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(26, 26, 36); margin: 0px;"
 >
   mono
 </span>
@@ -912,7 +912,7 @@ exports[`Design System — Component Snapshots > Text > all variants > text-mono
 
 exports[`Design System — Component Snapshots > Text > all variants > text-overline 1`] = `
 <span
-  style="font-size: 0.625rem; font-weight: 500; line-height: 1.5; letter-spacing: 0.1em; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-size: 0.625rem; font-weight: 500; line-height: 1.5; letter-spacing: 0.1em; color: rgb(26, 26, 36); margin: 0px;"
 >
   overline
 </span>
@@ -920,7 +920,7 @@ exports[`Design System — Component Snapshots > Text > all variants > text-over
 
 exports[`Design System — Component Snapshots > Text > all variants > text-stat 1`] = `
 <span
-  style="font-size: 1.125rem; font-weight: 700; line-height: 1.2; letter-spacing: 0; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-size: 1.125rem; font-weight: 700; line-height: 1.2; letter-spacing: 0; color: rgb(26, 26, 36); margin: 0px;"
 >
   stat
 </span>
@@ -928,7 +928,7 @@ exports[`Design System — Component Snapshots > Text > all variants > text-stat
 
 exports[`Design System — Component Snapshots > Text > all variants > text-subtitle 1`] = `
 <span
-  style="font-size: 0.8125rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-size: 0.8125rem; font-weight: 400; line-height: 1.5; letter-spacing: 0; color: rgb(26, 26, 36); margin: 0px;"
 >
   subtitle
 </span>
@@ -936,7 +936,7 @@ exports[`Design System — Component Snapshots > Text > all variants > text-subt
 
 exports[`Design System — Component Snapshots > Text > all variants > text-title 1`] = `
 <span
-  style="font-size: 0.9375rem; font-weight: 500; line-height: 1.5; letter-spacing: 0; color: rgb(240, 240, 246); margin: 0px;"
+  style="font-size: 0.9375rem; font-weight: 500; line-height: 1.5; letter-spacing: 0; color: rgb(26, 26, 36); margin: 0px;"
 >
   title
 </span>
@@ -945,10 +945,10 @@ exports[`Design System — Component Snapshots > Text > all variants > text-titl
 exports[`Design System — Component Snapshots > Toast > all types > toast-error 1`] = `
 <div
   role="alert"
-  style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(255, 107, 122, 0.1); border: 1px solid rgb(255, 107, 122); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); font-family: inherit; font-size: 0.875rem; color: rgb(240, 240, 246); z-index: 500; pointer-events: auto;"
+  style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(200, 32, 32, 0.08); border: 1px solid rgb(200, 32, 32); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); font-family: inherit; font-size: 0.875rem; color: rgb(26, 26, 36); z-index: 500; pointer-events: auto;"
 >
   <span
-    style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgb(255, 107, 122); color: rgb(10, 10, 18); font-size: 0.65rem; font-weight: 800; flex-shrink: 0;"
+    style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgb(200, 32, 32); color: rgb(244, 244, 248); font-size: 0.65rem; font-weight: 800; flex-shrink: 0;"
   >
     ✕
   </span>
@@ -963,10 +963,10 @@ exports[`Design System — Component Snapshots > Toast > all types > toast-error
 exports[`Design System — Component Snapshots > Toast > all types > toast-info 1`] = `
 <div
   role="alert"
-  style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(76, 196, 240, 0.1); border: 1px solid rgb(76, 196, 240); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); font-family: inherit; font-size: 0.875rem; color: rgb(240, 240, 246); z-index: 500; pointer-events: auto;"
+  style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(0, 104, 168, 0.08); border: 1px solid rgb(0, 104, 168); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); font-family: inherit; font-size: 0.875rem; color: rgb(26, 26, 36); z-index: 500; pointer-events: auto;"
 >
   <span
-    style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgb(76, 196, 240); color: rgb(10, 10, 18); font-size: 0.65rem; font-weight: 800; flex-shrink: 0;"
+    style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgb(0, 104, 168); color: rgb(244, 244, 248); font-size: 0.65rem; font-weight: 800; flex-shrink: 0;"
   >
     i
   </span>
@@ -981,10 +981,10 @@ exports[`Design System — Component Snapshots > Toast > all types > toast-info 
 exports[`Design System — Component Snapshots > Toast > all types > toast-success 1`] = `
 <div
   role="alert"
-  style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(184, 242, 76, 0.1); border: 1px solid rgb(184, 242, 76); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); font-family: inherit; font-size: 0.875rem; color: rgb(240, 240, 246); z-index: 500; pointer-events: auto;"
+  style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(22, 128, 60, 0.08); border: 1px solid rgb(22, 128, 60); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); font-family: inherit; font-size: 0.875rem; color: rgb(26, 26, 36); z-index: 500; pointer-events: auto;"
 >
   <span
-    style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgb(184, 242, 76); color: rgb(10, 10, 18); font-size: 0.65rem; font-weight: 800; flex-shrink: 0;"
+    style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgb(22, 128, 60); color: rgb(244, 244, 248); font-size: 0.65rem; font-weight: 800; flex-shrink: 0;"
   >
     ✓
   </span>
@@ -999,10 +999,10 @@ exports[`Design System — Component Snapshots > Toast > all types > toast-succe
 exports[`Design System — Component Snapshots > Toast > all types > toast-warning 1`] = `
 <div
   role="alert"
-  style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(255, 194, 68, 0.1); border: 1px solid rgb(255, 194, 68); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); font-family: inherit; font-size: 0.875rem; color: rgb(240, 240, 246); z-index: 500; pointer-events: auto;"
+  style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(160, 112, 0, 0.08); border: 1px solid rgb(160, 112, 0); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); font-family: inherit; font-size: 0.875rem; color: rgb(26, 26, 36); z-index: 500; pointer-events: auto;"
 >
   <span
-    style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgb(255, 194, 68); color: rgb(10, 10, 18); font-size: 0.65rem; font-weight: 800; flex-shrink: 0;"
+    style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgb(160, 112, 0); color: rgb(244, 244, 248); font-size: 0.65rem; font-weight: 800; flex-shrink: 0;"
   >
     !
   </span>
@@ -1017,10 +1017,10 @@ exports[`Design System — Component Snapshots > Toast > all types > toast-warni
 exports[`Design System — Component Snapshots > Toast > with dismiss 1`] = `
 <div
   role="alert"
-  style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(76, 196, 240, 0.1); border: 1px solid rgb(76, 196, 240); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); font-family: inherit; font-size: 0.875rem; color: rgb(240, 240, 246); z-index: 500; pointer-events: auto;"
+  style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(0, 104, 168, 0.08); border: 1px solid rgb(0, 104, 168); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); font-family: inherit; font-size: 0.875rem; color: rgb(26, 26, 36); z-index: 500; pointer-events: auto;"
 >
   <span
-    style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgb(76, 196, 240); color: rgb(10, 10, 18); font-size: 0.65rem; font-weight: 800; flex-shrink: 0;"
+    style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgb(0, 104, 168); color: rgb(244, 244, 248); font-size: 0.65rem; font-weight: 800; flex-shrink: 0;"
   >
     i
   </span>
@@ -1031,7 +1031,7 @@ exports[`Design System — Component Snapshots > Toast > with dismiss 1`] = `
   </span>
   <button
     aria-label="Dismiss"
-    style="background: none; color: rgb(104, 104, 160); cursor: pointer; font-size: 0.85rem; padding: 2px; font-family: inherit;"
+    style="background: none; color: rgb(124, 124, 144); cursor: pointer; font-size: 0.85rem; padding: 2px; font-family: inherit;"
   >
     ✕
   </button>
