@@ -128,5 +128,6 @@ Proxy-Status: PostgREST; error=42501
 | 2026-08-02 | LV-9 Step E — توثيق الفرق قبل/بعد (أعلاه) | document | سجل التنفيذ | ✅ |
 | 2026-08-02 | LV-9 Step F — Runtime Probe | verify | PostgREST (bash curl) | ✅ **42501 permission denied** = PASS |
 | 2026-08-02 | **LV-9 Close** — الإغلاق الرسمي داخل Gate 1 | close | دورة الإغلاق | ✅ |
-| 2026-08-02 | Commit + PR خاص بالبند 1 (LV-9) | commit | سياسة Branch/PR | ⏳ بانتظار أمر المستخدم |
-| 2026-08-02 | الانتقال إلى LV-1..LV-4 (القراءة العريضة) | next | ترتيب Phase 1 | ⏳ بعد Commit بند 1 |
+| 2026-08-02 | Commit خاص بالبند 1 (LV-9) | commit | سياسة Branch/PR | ✅ `d2c1ce7` |
+| 2026-08-02 | Push + PR للبند 1 (LV-9) | push | سياسة Branch/PR | ⏳ بانتظار قرار المستخدم |
+| 2026-08-02 | الانتقال إلى LV-1..LV-4 (القراءة العريضة) | next | ترتيب Phase 1 | ⏳ بعد Push/PR بند 1 |
