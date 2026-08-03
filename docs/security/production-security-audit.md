@@ -1,6 +1,6 @@
 # FOCUS Production Security Audit
 
-**الإصدار:** 3.8 · **التاريخ:** 2026-08-02 · **النوع:** Zero-Trust Security Review (P0)
+**الإصدار:** 3.9 · **التاريخ:** 2026-08-02 · **النوع:** Zero-Trust Security Review (P0)
 **النطاق:** `focus-production` (React 19 + Vite SPA → GitHub Pages، Backend: Supabase anon-key)
 **الحكم النهائي:** 🔴 **C — NOT READY**
 
@@ -11,7 +11,8 @@
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
 | 3.6 | 2026-08-02 | الإصدار الأول للتدقيق الكامل. |
-| **3.8** | **2026-08-02** | **LV-10 أُغلق بالأدلة الحية:** سياسة `Authenticated insert sessions` (INSERT، with_check `auth.role()='authenticated'`) **أُسقطت** — كانت تجعل إدراج الجلسات بـ OR يُلغي شرط الملكية في `Users manage own sessions`. إثبات قبل/بعد في Production (transaction + rollback): متقاطع INSERT (A→B) قبل الإسقاط → `rows_inserted=1 · inserted_user_id=<B>` (ثغرة مؤكدة عملياً)؛ بعد الإسقاط → `42501 new row violates row-level security policy`؛ إدراج الملكية (نفس A) → ناجح. FK سليم مفرد (`sessions_user_id_fkey` → `public.users(id)`) + 0 يتيمة + فهرس `idx_sessions_user_id` موجود — بلا تغيير. راجع `06-LV10-sessions-insert-ownership.sql`. |
+| **3.9** | **2026-08-02** | **LV-11 أُغلق بالأدلة الحية:** سياسة `Anyone can update qr scan counts` (UPDATE، roles=public، USING/WITH CHECK true) **أُسقطت**. إثبات قبل/بعد في Production (transaction + rollback، `set local role anon`): anon UPDATE لـ`scan_count` قبل الإسقاط → `anon_update_succeeded=true` (تلاعب مجهول مؤكد)؛ بعد الإسقاط → `false` (صف تشخيصي موحّد: anon · rls_on=true · bypass=false · update_policy_count=0). مسار العدّاد المشروع `increment_qr_counter` (SECURITY DEFINER + allowlist) سليم بعد الإسقاط. لا يتبقى سوى `Admins manage qr codes` (أدمن). راجع `07-LV11-qr-codes-remove-broad-update.sql`. |
+| 3.8 | 2026-08-02 | **LV-10 أُغلق بالأدلة الحية:** سياسة `Authenticated insert sessions` (INSERT، with_check `auth.role()='authenticated'`) **أُسقطت** — كانت تجعل إدراج الجلسات بـ OR يُلغي شرط الملكية في `Users manage own sessions`. إثبات قبل/بعد في Production (transaction + rollback): متقاطع INSERT (A→B) قبل الإسقاط → `rows_inserted=1 · inserted_user_id=<B>` (ثغرة مؤكدة عملياً)؛ بعد الإسقاط → `42501 new row violates row-level security policy`؛ إدراج الملكية (نفس A) → ناجح. FK سليم مفرد (`sessions_user_id_fkey` → `public.users(id)`) + 0 يتيمة + فهرس `idx_sessions_user_id` موجود — بلا تغيير. راجع `06-LV10-sessions-insert-ownership.sql`. |
 | 3.7 | 2026-08-02 | **تصحيح جوهري بالأدلة (round 2 من Gate 1):** (1) **DV-10 مُكذَّب** — `on_auth_user_created` **موجودة ومفعّلة** على `auth.users` (استعلام pg_trigger المباشر بـ `tgfoid`)؛ (2) **NR-1 أُعيد تصنيفه إلى مسار تنفيذ مؤكد** — دالة حية تثق بـ `raw_user_meta_data->>'role'` عبر SECURITY DEFINER + ربط trigger نشط؛ (3) **إصلاح Phase 1 مُطبَّق ومُغلَق**: `handle_new_user` يفرض الآن `role='guest'` دائماً (قرار C) — إثبات حي: signup بـ`role:"super_admin"` في metadata → HTTP 200 + `users.role='guest'`؛ (4) **REVOKE EXECUTE عن `bootstrap_super_admin`** من anon/authenticated/PUBLIC — probe حي: `42501 permission denied`؛ (5) `has_super_admin` = **Documented Exception** (RLS + شاشة الإعداد). راجع `supabase/security-hardening/phase1/` (بنود 4-5). |
 
 ---
@@ -32,7 +33,7 @@
 | LV-8 | 🟢 SQL Verified | Production | تنفيذ `handle_new_user` الحيّ **سيُدرج** `guest`/`is_anonymous=true` لو اشتغل (المستودع ينص `user`/false) — **مُصلَح 2026-08-02**: الدالة تفرض `role='guest'` ثابتاً + مرتبطة بـ trigger **مفعّلة** (لا DV-10) — انظر v3.7 |
 | LV-9 | 🟢 SQL Verified | Production (pg_proc + proacl + **PostgREST probe**) | RPC `admin_promote_user`: **استدعاء مُثبت عملياً** بجلسة مجهولة عبر `/rest/v1/rpc` (صفّ صفري، أثر صفر — P0001) + بلا فحص متصل + SECURITY DEFINER → رفع صلاحية (الترقية الفعلية لم تُنفَّذ) |
 | LV-10 | 🟢 SQL Verified → **✅ Closed (v3.8)** | Production (pg_policies + **transaction probe**) | `sessions` INSERT بـ`user_id` اعتباطي (with_check بلا فحص ملكية) → تزوير/تلويث نتائج أي مستخدم — **أُغلق 2026-08-02**: إسقاط `Authenticated insert sessions`؛ probe حي قبل `rows_inserted=1` (متقاطع) / بعد `42501` |
-| LV-11 | 🟢 SQL Verified | Production (pg_policies) | `qr_codes` UPDATE للعموم (USING/WITH CHECK true) → **Business Integrity Attack**: تزوير عدّادات/نجاح حملات/تقارير/ROI |
+| LV-11 | 🟢 SQL Verified → **✅ Closed (v3.9)** | Production (pg_policies + **transaction probe**) | `qr_codes` UPDATE للعموم (USING/WITH CHECK true) → **Business Integrity Attack**: تزوير عدّادات/نجاح حملات/تقارير/ROI — **أُغلق 2026-08-02**: إسقاط `Anyone can update qr scan counts`؛ probe حي: anon UPDATE قبل `true` / بعد `false` |
 | CV-1 | 🔴 **مسار تنفيذ مؤكد ثم مُغلَق** | Production (pg_trigger + pg_proc + **PostgREST signup test**) | `handle_new_user` مرتبطة بـ trigger **مفعّلة** (`on_auth_user_created` على `auth.users`) + تثق بـ `raw_user_meta_data->>'role'` عبر SECURITY DEFINER → **حقن role عند التسجيل مؤكد** (تصحيح v3.7 — كان «بلا مسار» خطأً بسبب DV-10). **أُغلق:** الدالة تفرض `role='guest'`؛ إثبات حي: signup بدور malicious → `users.role='guest'` |
 | CV-2 | 🟡 Code Verified | Repository | Bootstrap مفتوح (TOCTOU) |
 | CV-3 | 🟡 Code Verified | Repository | repair migrations PII مفتوحة **عند التطبيق** |
@@ -158,7 +159,7 @@ CSP · X-Frame-Options · Permissions-Policy · HSTS · Referrer-Policy · CORP 
 - **Entropy:** short_code 6×BASE62 بـ crypto ≈ **35.7 bit**؛ referral 8×31 حرف بـ `Math.random` ≈ **39.8 bit**.
 - **لا expiry/nonce/single-use/revocation** — إعادة استخدام لا نهائية.
 - **Forgery/Attribution Fraud:** params (campaign/school/event/company/location) بلا validation (`qr/campaign.ts:19-42`) → تزوير نسب الزيارات؛ referral code مقروء من `users` المفتوح (LV-1) → انتحال إحالات.
-- **Counters:** `increment_qr_counter` spam-able (بلا Rate Limit)؛ جسمه ✅ آمن (whitelist) لكن **LV-11** يجعل العدّادات قابلة للكتابة مباشرة عبر الجدول.
+- **Counters:** `increment_qr_counter` spam-able (بلا Rate Limit — يُحسم في Phase 2)؛ جسمه ✅ آمن (whitelist)؛ **الكتابة المباشرة عبر الجدول أُغلقت v3.9** (LV-11 — إسقاط `Anyone can update qr scan counts`).
 - **Consent ⚠️:** `consent.ts` **في الذاكرة فقط** (غير مثبت) — خطر تنظيمي لمنصة قياس (GDPR/18-05).
 
 ## II.6 Device Fingerprint (Phase G) — 🟠 CV-6
@@ -187,7 +188,7 @@ Clipboard UX آمن؛ لا service worker/manifest/IndexedDB؛ deeplinks تقر�
 | 5 | `surveys` — قراءة لأي مستخدم مصادق | `Authenticated read surveys`: بلا قيد صف | تسريب استجابات |
 | 6 | `calibrations` — قراءة لأي مستخدم مصادق | `Authenticated read calibrations`: بلا قيد صف | تسريب معايرة |
 | 7 | `analytics_events` — إدراج لأي شخص | `Anyone can insert analytics events`: `WITH CHECK true` (حتى بلا جلسة) | **Database DoS** + تلويث + حقن نتائج (LV-5) |
-| 8 | `qr_codes` — تحديث العدّادات لأي شخص | `Anyone can update qr scan counts`: `USING true / WITH CHECK true` | **Business Integrity Attack**: تزوير عدّادات/نجاح حملات/تقارير/ROI (LV-11) |
+| 8 | `qr_codes` — تحديث العدّادات لأي شخص | `Anyone can update qr scan counts`: `USING true / WITH CHECK true` | **Business Integrity Attack**: تزوير عدّادات/نجاح حملات/تقارير/ROI (LV-11) — **أُغلق v3.9** |
 | 9 | `handle_new_user` — `role` من `raw_user_meta_data` | `coalesce(raw_user_meta_data->>'role','guest')` (pg_proc) | **Production Verified Design** (CV-1) — بلا مسار تنفيذ في النشر الحالي |
 | 10 | دوال الإدارة منشورة بـ `EXECUTE` لـ PUBLIC/anon/authenticated | `proacl = {=X/postgres, anon=X, authenticated=X, service_role=X}` لـ `admin_promote_user` و`bootstrap_super_admin` | **عامل مضخّم**: الحماية الوحيدة هي المنطق الداخلي (LV-9) — وليست ثغرة مستقلة |
 | 11 | `admin_promote_user` **قابل للاستدعاء فعلياً** من جلسة مجهولة | probe 2026-08-02: جلسة مجهولة POST `/rest/v1/rpc/admin_promote_user` بصفّ صفري → نفّذت ورفعت `User not found.` (P0001، أثر صفر) | **LV-9 Critical — استدعاء مثبت، ترقية الفعلية لم تُنفَّذ** |
@@ -276,7 +277,7 @@ END; $function$;
 
 **LV-10 ✅ أُغلق (v3.8):** كانت `Authenticated insert sessions` بـ `WITH CHECK (auth.role()='authenticated')` لا تقيّد `user_id` → إدراج جلسة كاملة (بما فيها `scientific_results`) باسم أي مستخدم ضحية (DV-9)، وتحوّل سيناريو التزوير رقم 1 و5 في Part IV من "ممكن نظرياً" إلى "مثبت من الإنتاج". **الإغلاق (2026-08-02):** إثبات حي في Production (transaction+rollback) — متقاطع INSERT (A→B) قبل الإسقاط: `rows_inserted=1 · inserted_user_id=<B>` (ثغرة مؤكدة عملياً)؛ بعد إسقاط السياسة: `42501 new row violates row-level security policy`؛ ملكية (نفس A): ناجح. السياسة الوحيدة المتبقية القادرة على INSERT = `Users manage own sessions` (`WITH CHECK auth.uid()=user_id`). راجع `06-LV10-sessions-insert-ownership.sql`.
 
-**LV-11 🔴 Business Integrity Attack عبر `qr_codes` (مؤكد):** `Anyone can update qr scan counts` بـ `USING true / WITH CHECK true` → أي عميل (حتى بلا جلسة) ينفّذ `UPDATE qr_codes SET scan_count = 999999999 WHERE id = ...` مباشرة على الجدول — تزوير نجاح حملات، تقارير الإدارة، التحليلات، والـ ROI، ويتجاوز RPC `increment_qr_counter` الآمن تماماً (انظر III.2). (ميّزة التسويق مبنية على هذه العدّادات.)
+**LV-11 ✅ أُغلق (v3.9):** كانت `Anyone can update qr scan counts` بـ `USING true / WITH CHECK true` → أي عميل (حتى بلا جلسة) ينفّذ `UPDATE qr_codes SET scan_count = 999999999 WHERE id = ...` مباشرة على الجدول — تزوير نجاح حملات، تقارير الإدارة، التحليلات، والـ ROI، ويتجاوز RPC `increment_qr_counter` الآمن تماماً (انظر III.2). **الإغلاق (2026-08-02):** إثبات حي في Production (transaction+rollback، `set local role anon`) — anon UPDATE لـ`scan_count` قبل الإسقاط: `anon_update_succeeded=true` (تلاعب مجهول مؤكد عملياً)؛ بعد الإسقاط: `false` مع صف تشخيصي (`rls_on=true · bypass=false · update_policy_count=0`). RPC `increment_qr_counter` (SECURITY DEFINER + allowlist) سليم بعد الإسقاط. لا يتبقى سوى `Admins manage qr codes`. (ميزة التسويق مبنية على هذه العدّادات — مسارها الشرعي سليم.)
 
 **ملاحظة قراءة عابرة (أنماط «Authenticated read» في calibrations/devices/surveys):** `auth.role()='authenticated'` بلا قيد صف → قراءة كل `device_id`/المعايرة عبر المستخدمين (تسريب متوسط). INSERT مقيّد بـ authenticated فقط (لا ملكية).
 
@@ -286,7 +287,7 @@ END; $function$;
 |---|---|---|
 | `has_super_admin` | `SELECT exists (SELECT 1 FROM users WHERE role='super_admin')` · STABLE SECURITY DEFINER | ✅ سليم |
 | `handle_new_user` | **مُصلَح (v3.7):** `RETURNS trigger` يقرأ `NEW` — إدراج `role='guest'` **ثابتاً** (لا يقرأ role من metadata إطلاقاً) + `now()` للأعمدة الزمنية (timestamptz) · SECURITY DEFINER | ✅ **أُغلق NR-1**: مرتبطة بـ trigger مفعّلة (`on_auth_user_created`) + مصدر الحقيقة صار سيرفراً (guest دائماً). KEEP (دالة trigger-only بلا استدعاء عميل) |
-| `increment_qr_counter` | whitelist صارم لـ `p_column` ثم `UPDATE qr_codes SET <col>+1 WHERE campaign_id=...` | ✅ **لا SQL injection** (يحلّ UV-1)؛ لكنه قابل للسبام مباشرة (LV-11 يتجاوزه) |
+| `increment_qr_counter` | whitelist صارم لـ `p_column` ثم `UPDATE qr_codes SET <col>+1 WHERE campaign_id=...` | ✅ **لا SQL injection** (يحلّ UV-1)؛ السبام المباشر عبر الجدول أُغلق v3.9 (LV-11) — تبقى الحاجة لـ Rate Limit في Phase 2 |
 | `bootstrap_super_admin` | يرفض لو وُجد super_admin؛ يُرقّي `target_user_id` | 🟡 **Design Risk Confirmed** — محجوب الآن بوجود super_admin (أساس NR-2) |
 | `admin_promote_user` | **بلا فحص متصل** — يرقّي لأي `new_role` ما دام يوجد super_admin | 🔴 **LV-9** |
 | `lookup_campaign_by_short_code` | ✅ موجود حياً (P10)؛ parameterized + `SET search_path` (`00007`) | ✅ سليم |
@@ -391,7 +392,7 @@ SQLi ❌ · XSS ❌ · CSRF ❌ · JWT forgery ❌ · Session replay/fixation �
 | LV-4 | `analytics_events` (pg_policies) | 🟠 | ضيف يقرأ كل الأحداث | تسريب telemetry | `Authenticated read analytics events` بلا قيد صف | RLS قراءة | P0 | Open |
 | LV-5 | `analytics_events` INSERT (pg_policies) | 🔴 | **Database DoS + تلويث**: إدراج غير محدود | استنزاف تخزين/ملء بالـ events | `Anyone can insert analytics events`: `WITH CHECK true` حتى بلا جلسة (مثبت 201) — أي bot يرسل ملايين الأحداث | Rate Limit + INSERT بـ`auth.uid()` + حجم أقصى | P0 | Open |
 | LV-6 | `users` (pg_policies) | 🟡 | PATCH الدور محجوب (مقيد لا مفتوح) | عطل وظيفي | سياسة UPDATE الوحيدة `Admins update user roles` (أدمن فقط) — فالتحديث الذاتي 0 صف | إصلاح UPDATE الذاتي + `with check` يمنع role | P1 | Open |
-| LV-11 | `qr_codes` UPDATE (pg_policies) | 🔴 | **Business Integrity Attack**: تزوير نجاح حملات/تقارير/ROI | احتيال تسويقي/إداري | `Anyone can update qr scan counts`: USING/WITH CHECK true — `UPDATE qr_codes SET scan_count=999999999` مباشرة | حصر UPDATE بـ RPC + ملكية أدمن + لا كتابة مباشرة | P1 | Open |
+| LV-11 | `qr_codes` UPDATE (pg_policies + **probe**) | 🔴 | **Business Integrity Attack**: تزوير نجاح حملات/تقارير/ROI | احتيال تسويقي/إداري | `Anyone can update qr scan counts`: USING/WITH CHECK true — `UPDATE qr_codes SET scan_count=999999999` مباشرة | حصر UPDATE بـ RPC + ملكية أدمن + لا كتابة مباشرة | P1 | **Closed (v3.9)** — إسقاط السياسة؛ probe حي قبل `true` / بعد `false`؛ RPC سليم |
 | LV-7 | repair (pg_tables) | 🟠 | جداول repair غير موجودة | PII محلي + sync صامت | الجداول غائبة (404 + pg_tables مثبت) | قرار بعد إصلاح سياساتها | P1 | Open |
 | LV-8 | `handle_new_user` (pg_proc) | 🟡 | الافتراضي الحيّ `guest`/`is_anonymous=true` | دليل divergence | الجسم الحيّ يخالف `00002:43,44` (DV-8) | مزامنة migrations (الحية = المرجع) | P2 | **Closed (v3.7)** — أُعيدت كتابتها تفرض `guest` + `now()` |
 | NR-1 | `handle_new_user` + `on_auth_user_created` (pg_trigger + pg_proc + **signup test**) | 🔴 | **حقن دور عند التسجيل**: metadata role موثوقة عبر SECURITY DEFINER | استحواذ إداري كامل | trigger **مفعّلة** (تصحيح DV-10) + `coalesce(raw_user_meta_data->>'role','guest')` | فرض `role='guest'` + ترقية عبر مسار خدمي فقط | P0 | **Closed (v3.7)** — إثبات حي: signup بـ`role:"super_admin"` → `users.role='guest'` |
@@ -425,11 +426,11 @@ UV-3: إعدادات لوحة Supabase (تأكيد البريد، expiry، JWT) 
 
 ### 🔴 C — NOT READY
 
-**التبرير:** **LV-9 مُثبت قابليته للتنفيذ فعلياً** (جلسة مجهولة استدعت `admin_promote_user` عبر PostgREST ومرّت بفحص super_admin) = استحواذ كامل P0، فوق Criticals من pg_policies: قراءة كل users/القياسات (LV-1/LV-2)، **Database DoS** (LV-5)، **Business Integrity Attack** (LV-11)، وانعدام نزاهة القياس (Part IV: 0% تحقق سيرفر). (LV-10 أُغلق 2026-08-02 — إسقاط `Authenticated insert sessions`.) لا يمكن الدفاع عن الإطلاق أمام أي جهة خارجية أو متطلب 18-05/GDPR.
+**التبرير:** **LV-9 مُثبت قابليته للتنفيذ فعلياً** (جلسة مجهولة استدعت `admin_promote_user` عبر PostgREST ومرّت بفحص super_admin) = استحواذ كامل P0، فوق Criticals من pg_policies: قراءة كل users/القياسات (LV-1/LV-2)، **Database DoS** (LV-5)، وانعدام نزاهة القياس (Part IV: 0% تحقق سيرفر). (LV-10 وLV-11 أُغلقا 2026-08-02 — انظر v3.8/v3.9.) لا يمكن الدفاع عن الإطلاق أمام أي جهة خارجية أو متطلب 18-05/GDPR.
 
 **مشروط الوصول إلى B:**
 1. إغلاق **LV-9 فوراً**: إضافة فحص `auth.uid()` ∈ (admin) داخل `admin_promote_user` + allowlist أدوار + `REVOKE EXECUTE` من anon/authenticated، ثم إعادة probe (يجب أن تعود 403/404).
-2. تقييد **LV-5** (INSERT عبر `auth.uid()` + Rate Limit) و**LV-11** (لا كتابة مباشرة على qr_codes) وRLS العريضة (بند III.0 1-8).
+2. تقييد **LV-5** (INSERT عبر `auth.uid()` + Rate Limit) وRLS العريضة (بند III.0 1-8). (LV-11 مُغلق — v3.9.)
 3. تشغيل ملحق أ لتنظيف أثر الفحص (حسابا الضيف + صف الاختبار المحتمل في analytics_events).
 4. إعادة فحص حي بنفس بروتوكول Part III (يجب أن تعود P2–P7 محجوبة، وتُحذف سياسات «Authenticated read…» العريضة).
 5. إثبات staging لـ NR-2 (bootstrap TOCTOU) — **NR-1 أُغلق بالأدلة (v3.7)**: signup بـ`role:"super_admin"` → `users.role='guest'`، و`bootstrap_super_admin` → `42501`.
@@ -592,7 +593,7 @@ where id in ('5af72e8a-1390-406c-9170-f190532f2bd5','6d509eb1-43fd-4c40-a7f1-31a
 
 ### P1 — High
 
-**LV-11 — حماية عدادات QR.** يجب ألا يستطيع أي مستخدم تعديلها مباشرة. يفضل: RPC داخلية فقط · Service Role · أو Trigger يتحقق من المصدر.
+**LV-11 — حماية عدادات QR.** يجب ألا يستطيع أي مستخدم تعديلها مباشرة. يفضل: RPC داخلية فقط · Service Role · أو Trigger يتحقق من المصدر. ✅ **نُفِّذ 2026-08-02 (v3.9):** إسقاط `Anyone can update qr scan counts`؛ لا كتابة مباشرة إلا عبر `Admins manage qr codes`/RPC.
 
 **DV-7 — توحيد مخطط قاعدة البيانات مع العقد الرسمي.** يوجد اختلاف بين Production و Repository.
 

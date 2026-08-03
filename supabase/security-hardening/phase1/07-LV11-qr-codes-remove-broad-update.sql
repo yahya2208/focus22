@@ -1,0 +1,25 @@
+-- Type: Hardening (Phase 1 · LV-11 · item 7)
+-- Notes: Closes the Business Integrity Attack on qr_codes. Evidence (2026-08-02):
+--   (a) Broad UPDATE policy proven live: "Anyone can update qr scan counts"
+--       (UPDATE, roles={public}, USING true / WITH CHECK true) — even an anonymous
+--       caller can tamper scan_count/registration_count/etc. of any row.
+--   (b) Runtime proof (transaction + rollback, set local role anon):
+--       before drop -> anon UPDATE succeeded (anon_update_succeeded=true);
+--       after drop  -> anon UPDATE blocked (0 rows; diagnostic row:
+--       anon, rls_on=true, anon_bypass_rls=false, update_policy_count=0,
+--       row_security=on -> anon_update_succeeded=false).
+--   (c) Legitimate write path is unaffected: the app writes counters ONLY via
+--       public.increment_qr_counter (SECURITY DEFINER, plpgsql, column allowlist
+--       IF/ELSIF over scan_count/game_start_count/game_complete_count/
+--       registration_count) — src/core/qr/campaign.ts:198,203. It bypasses RLS,
+--       so it keeps working after this drop (verified: void return, no error).
+--   (d) Remaining UPDATE-capable policy: "Admins manage qr codes" (ALL, qual =
+--       EXISTS users.role IN ('admin','super_admin')) — legitimate admin surface.
+--   (e) Direct client writes data-service.ts createQRCode/updateQRCodeStats have
+--       NO callers in src/ (moribund paths) — no app flow depends on the broad
+--       policy.
+-- Reference: docs/security/remediation-roadmap.md (Phase 1, LV-11) +
+--            docs/security/production-security-audit.md (LV-11).
+-- Apply via Supabase SQL Editor (owner role) on Production. Idempotent.
+
+drop policy if exists "Anyone can update qr scan counts" on public.qr_codes;

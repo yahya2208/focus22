@@ -23,7 +23,7 @@
 | 4 | `04-handle-new-user-force-guest.sql` | تجاهل دور العميل في `handle_new_user` → فرض `guest` دائماً (يقفل NR-1 P0) | NR-1 (P0) | ✅ **مُغلق بالكامل** (2026-08-02) — إثبات حي: signup بـ`role:"super_admin"` → `users.role='guest'` |
 | 5 | `05-bootstrap-super-admin-revoke-execute.sql` | REVOKE EXECUTE عن `bootstrap_super_admin` من anon/authenticated/PUBLIC | §III.0 | ✅ **مُغلق بالكامل** (2026-08-02) — probe: `42501 permission denied` |
 | 6 | `06-LV10-sessions-insert-ownership.sql` | إسقاط `Authenticated insert sessions` (بلا فحص ملكية) → لا تُتبقى سوى `Users manage own sessions` (`WITH CHECK auth.uid()=user_id`) | LV-10 | ✅ **مُغلق بالكامل** (2026-08-02) — Probe حي: قبل `rows_inserted=1` (متقاطع ينجح) · بعد `42501 new row violates row-level security policy` |
-| 7 | `07-LV11-qr-codes-remove-broad-update.sql` (مقترح) | إزالة سياسة `Anyone can update qr scan counts` | LV-11 | ⏳ مسودة لم تُكتب |
+| 7 | `07-LV11-qr-codes-remove-broad-update.sql` | إسقاط `Anyone can update qr scan counts` (USING/WITH CHECK true) → لا يبقى سوى `Admins manage qr codes` (أدمن) + RPC الآمن | LV-11 | ✅ **مُغلق بالكامل** (2026-08-02) — Probe حي: anon UPDATE قبل `true` · بعد `false` (0 صفوف) |
 | 8 | `08-LV5-analytics-insert-ownership.sql` (مقترح) | قيد INSERT analytics_events بالمِلكية (Rate Limit = Phase 2) | LV-5 | ⏳ مسودة لم تُكتب |
 | 9 | (تحقق) | تشغيل proacl/pg_policies/Probe بعد كل بند | — | ⏳ يُشغَّل دورياً |
 
@@ -370,6 +370,25 @@ Proxy-Status: PostgREST; error=42501
 
 **ملاحظات الإغلاق:** جلسات الضيف (`user_id IS NULL`) لم تعد قابلة للإنشاء عبر RLS عميل — متسق مع بند 2/قرار 3 (و0 جلسة ضيف حالياً)؛ إن لزم مسار موثوق/خدمي متاح. **البند 6 (LV-10) مُغلق رسمياً داخل Gate 1.**
 
+## نتيجة البند 7 (LV-11) — قبل/بعد موثَّق (2026-08-02)
+
+**قبل:** `Anyone can update qr scan counts` — UPDATE، roles={public}، **USING true / WITH CHECK true** → أي عميل (حتى anon بلا جلسة) يعدّل `scan_count`/`registration_count`/... لأي صف مباشرة — **Business Integrity Attack**: تزوير نجاح حملات/تقارير/ROI، ويتجاوز RPC الآمن `increment_qr_counter`.
+
+**الأدلة (قبل):**
+- **Probe حي (transaction+rollback، `set local role anon`):** `update qr_codes set scan_count=999999999` → `anon_update_succeeded = true` — **تلاعب مجهول مؤكد عملياً**.
+- سياسات qr_codes (pg_policies): `Admins manage qr codes` (ALL، أدمن/super_admin فقط) · `Authenticated read qr codes` (SELECT) · العريضة (UPDATE).
+- المسار المشروع الوحيد المستخدم: `increment_qr_counter` (**SECURITY DEFINER** + allowlist أعمدة IF/ELSIF) — `campaign.ts:198,203`؛ الكتابة المباشرة (`createQRCode`/`updateQRCodeStats`) **بلا callers** في src.
+
+**التطبيق:** `drop policy if exists "Anyone can update qr scan counts" on public.qr_codes;`
+
+**بعد (أدلة حية):**
+- نفس probe المجهول → `anon_update_succeeded = false` — **محجوب** (0 صفوف).
+- صف تشخيصي موحّد يؤكد البيئة: `acting_role=anon · rls_on=true · anon_bypass_rls=false · update_policy_count=0 · row_security=on`.
+- RPC `increment_qr_counter` يعمل بعد الإسقاط (SECURITY DEFINER — void بلا خطأ) → عدّادات الحملات سليمة.
+- (ملاحظة منهجية: نتائج `true` وسيطة كانت **ترتيب تنفيذ** — الـ probe سبق اكتمال الإسقاط؛ الصف التشخيصي هو المرجع.)
+
+**ملاحظات الإغلاق:** لا سياسة UPDATE متبقية لغير الأدمن؛ `Admins manage qr codes` يغطي الإدارة. **البند 7 (LV-11) مُغلق رسمياً داخل Gate 1.**
+
 ## التحقق (Verification — يُشغَّل بعد كل بند)
 
 1. **proacl:** `select proname, proacl from pg_proc where proname in ('admin_promote_user','bootstrap_super_admin','handle_new_user','has_super_admin','increment_qr_counter');` → ألا يعود anon/authenticated/PUBLIC ضمن الممنوح إدارياً.
@@ -438,3 +457,10 @@ Proxy-Status: PostgREST; error=42501
 | 2026-08-02 | بند 6: Apply — `drop policy "Authenticated insert sessions"` | apply | SQL Editor | ✅ |
 | 2026-08-02 | بند 6: After probe — متقاطع → `42501 new row violates row-level security policy` · ملكية (نفس A) → يُرجع الصف | verify | SQL Editor | ✅ PASS |
 | 2026-08-02 | **بند 6 Close (LV-10)** — إغلاق رسمي داخل Gate 1 | close | دورة الإغلاق | ✅ |
+| 2026-08-02 | بند 7 (LV-11): أدلة كود — الكتابة الوحيدة المستخدمة = RPC `increment_qr_counter` (campaign.ts:198,203)؛ `updateQRCodeStats`/`createQRCode` بلا callers | verify | grep/read src | ✅ |
+| 2026-08-02 | بند 7: Snapshot — سياسات qr_codes + تعريف `increment_qr_counter` (**SECURITY DEFINER** + allowlist) | verify | pg_policies + pg_get_functiondef | ✅ |
+| 2026-08-02 | بند 7: **Probe حي (قبل)** — anon UPDATE `scan_count` → `anon_update_succeeded=true` | verify | SQL Editor | 🔴 ثغرة مؤكدة |
+| 2026-08-02 | بند 7: Apply — `drop policy "Anyone can update qr scan counts"` + تأكيد الغياب (pg_policies) | apply | SQL Editor | ✅ |
+| 2026-08-02 | بند 7: تحقق وسيط — بعد الإسقاط عاد probe `true` (شذوذ) → تشخيص RLS (مفعّلة، لا bypass، لا سياسة UPDATE) | verify | SQL Editor | ⚠️ ترتيب تنفيذ |
+| 2026-08-02 | بند 7: **Probe حي (بعد، صف تشخيصي موحّد)** — `anon_update_succeeded=false` + RPC يعمل بلا خطأ | verify | SQL Editor | ✅ PASS |
+| 2026-08-02 | **بند 7 Close (LV-11)** — إغلاق رسمي داخل Gate 1 | close | دورة الإغلاق | ✅ |
