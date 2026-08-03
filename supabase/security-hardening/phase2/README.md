@@ -13,7 +13,7 @@
 |---|---|---|---|---|
 | 2.1.1 | Authorization Inventory Consolidation — إنشاء `app_role()` (A5) + `is_admin()` (A6) دون تغيير سلوكي | `01-2.1.1-app-role-is-admin.sql` + `01-2.1.1-probes.sql` | لا تغيير في pg_policies؛ `is_admin()` = true فقط لـ admin/super_admin | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة حية أدناه |
 | 2.1.2 | استبدال كل `EXISTS role IN ('admin','super_admin')` بـ `public.is_admin()` | `02-2.1.2-is-admin-predicate-replace.sql` + `02-2.1.2-probes.sql` | `exists_pattern_count=0`؛ الكتابة الإدارية تعمل (A=1)، مرفوضة لـ B/anon | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة حية أدناه |
-| 2.1.3 | حارس دور داخلي في كل RPC إدارية | _قادم_ | غير admin → `42501` | ⏳ Pending |
+| 2.1.3 | حارس دور داخلي في كل RPC إدارية (`admin_promote_user` + `bootstrap_super_admin`) | `03-2.1.3-rpc-internal-guard.sql` + `03-2.1.3-probes.sql` | غير admin → `42501 Forbidden` حتى مع منح EXECUTE؛ الأدمن يمرّ | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة حية أدناه |
 | 2.1.4 | توحيد الواجهة (ROLE_CAPABILITY_MAP + نظام حراسة واحد) | _قادم_ | لا roleHierarchy مكرر | ⏳ Pending |
 | 2.1.5 | توثيق "ضيف" + مقارنات موحّدة | _قادم_ | لا مقارنة أد-هوك جديدة | ⏳ Pending |
 | 2.1.6 | إعادة Baseline Verification | _قادم_ | E1–E10 PASS | ⏳ Pending |
@@ -50,6 +50,24 @@
 
 **عقد القبول ADR:** A6 مثبّت (لا نمط `EXISTS role IN (...)` متبقٍّ في أي سياسة حية). **لا استثناء جديد.** ملاحظة: منح `EXECUTE … TO public` على `is_admin()` ضرورة تشغيلية للسياسات الثلاث (`TO public`) ويعكس سلوك `has_super_admin()` (معلوماتي فقط — anon → false).
 
+## نتيجة 2.1.3 — أدلة حية (2026-08-02، SQL Editor)
+
+| الاختبار | النتيجة | الحكم |
+|---|---|---|
+| **Before B1** — تعريف الدالتين الحيين | `admin_promote_user` بلا فحص متصل (LV-9) · `bootstrap_super_admin` حارس حالة-based فقط | ✓ |
+| **Before B2** — proacl | `{postgres, service_role}` فقط (حالة Phase 1) | ✓ |
+| **Before B3** — anon → `admin_promote_user` (منح مؤقت + rollback) | **نفّذت فعلياً** (ناتج فارغ = UPDATE داخل المعاملة؛ لا `42501`/`P0001`) — تأكيد حي أن LV-9 لا يحميه إلا REVOKE | ✅ دليل حاسم |
+| **Apply** — `CREATE OR REPLACE` الدالتين (حارس `is_admin()` + allowlist + `SET search_path`) | نجح | ✓ |
+| **After A1** — anon → `admin_promote_user` (منح مؤقت) | `42501 Forbidden` (line 4 at RAISE) | ✅ PASS |
+| **After A2** — user B → `admin_promote_user` (منح مؤقت) | `42501 Forbidden` (line 4 at RAISE) | ✅ PASS |
+| **After A3** — anon → `bootstrap_super_admin` (منح مؤقت) | `42501 Forbidden` (line 4 at RAISE) | ✅ PASS |
+| **After A4** — super_admin A يرقّي B إلى `admin` | نجح · `role=admin` | ✅ PASS |
+| **After A5** — super_admin A يرقّي B إلى `super_admin` | نجح · `role=super_admin` | ✅ PASS |
+| **After A6** — Regression (بدون claims ثم بمحاكاة أدمن) | `null·false·false·true` (سياق owner متوقع) → `super_admin·true·true·true` | ✅ PASS |
+| **After A7** — proacl بعد الاختبارات | `{postgres, service_role}` — لا تسرب من المنح المؤقتة | ✅ PASS |
+
+**عقد القبول ADR:** A4 مثبّت (الحارس الداخلي يعمل حتى مع وجود منح EXECUTE — defense-in-depth). **استثناء جديد واحد موثّق في ADR-001 (A4-x):** `bootstrap_super_admin` حارسها حالة-based (`has_super_admin()`)، بلا فحص هوية متصل — مستحيل بالتصميم (أول super_admin بلا سلف). الـ allowlist يمنع `new_role` خارج الأدوار الخمسة، ويمنع منح `super_admin` إلا لـ super_admin حالي (مصفوفة القبول §3).
+
 ## اكتشافات اللقطة (تغذي 2.1.2 و 2.4/2.5)
 1. **`campaigns` سياساتها حية:** `Admins manage campaigns` (نمط `EXISTS role IN (...)`) — هدف 2.1.2 · `Authenticated read campaigns` (قراءة عريضة — حالة LV-3 قائمة).
 2. **لا جداول `repair_*` ولا جداول العقد (`system_settings`/`audit_log`/`job_assignments`) في `public` حياً** — يؤكد DV-7؛ LV-7 يختصر إلى الـ migrations فقط.
@@ -61,3 +79,5 @@
 | 2026-08-02 | 2.1.1 | Commit مستقل | `01-2.1.1-…` files |
 | 2026-08-02 | 2.1.2 | Before → Apply → After في SQL Editor | جدول 2.1.2 أعلاه |
 | 2026-08-02 | 2.1.2 | Commit مستقل | `02-2.1.2-…` files |
+| 2026-08-02 | 2.1.3 | Before (B1–B3) → Apply → After (A1–A7) في SQL Editor | جدول 2.1.3 أعلاه |
+| 2026-08-02 | 2.1.3 | Commit مستقل + تحديث ADR-001 (A4-x) | `03-2.1.3-…` files |
