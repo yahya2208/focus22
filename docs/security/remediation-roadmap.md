@@ -1,6 +1,6 @@
 # FOCUS — خطة المعالجة الأمنية (Security Remediation Roadmap)
 
-**الإصدار:** 2.1 · **التاريخ:** 2026-08-02 · **مرجع الأدلة:** `docs/security/production-security-audit.md` (v3.6)
+**الإصدار:** 2.3 · **التاريخ:** 2026-08-02 · **مرجع الأدلة:** `docs/security/production-security-audit.md` (v4.0)
 
 > **حالة الوثيقة: Baseline مُجمَّد.** تُعتمد هذه الوثيقة كأساس ثابت للتنفيذ، **ولا تُعدَّل أثناء التنفيذ إلا بظهور أدلة جديدة تغيّر الواقع الأمني** (مثل نتيجة/بند جديد في التقرير). أي تعديل مقترح يُوثَّق في سجل التغييرات ويُعتمد صراحةً قبل تطبيقه — حتى لا تتحول الوثيقة إلى هدف متحرك (Moving Target).
 
@@ -11,7 +11,18 @@
 
 | Gate | Phase | العنوان | الأولوية | Risk Rating | Owner | الجهد المقدَّر | الحالة |
 |---|---|---|---|---|---|---|---|
-| G1 | 1 | Production Emergency Hardening | P0 | 🔴 Critical | Security + Backend Engineer (+ DBA) | 2 مهندسين · 8–12 ساعة | ⏳ Pending |
+| G1 | 1 | Production Emergency Hardening | P0 | 🔴 Critical | Security + Backend Engineer (+ DBA) | 2 مهندسين · 8–12 ساعة | ✅ **مكتمل — Baseline v4.0** (2026-08-02) |
+
+| بند Phase 1 | الحالة |
+|---|---|
+| **LV-9** | ✅ **مُغلق** (2026-08-02) — probe: `42501 permission denied` |
+| **LV-1 / LV-2 / LV-4** | ✅ **مُغلقة** (2026-08-02) — ملكية + دور-بوابة (`is_research_role()`)؛ توسعة النطاق بقراءات الدور = **قرار مُوثّق (v2.3)** |
+| **LV-3 (campaigns)** | ⛔ **Blocked by Schema** — لا عمود ملكية فعّال (`created_by` TEXT = NULL بالكامل) → يُحسم في Phase 2 (نموذج الملكية/التفويض) — موثّق `03-LV3-campaigns-schema-gap.md` |
+| **LV-10** | ✅ **مُغلق** (2026-08-02) — إسقاط `Authenticated insert sessions`؛ متقاطع → `42501` |
+| **LV-11** | ✅ **مُغلق** (2026-08-02) — إسقاط `Anyone can update qr scan counts`؛ anon → `false` |
+| **LV-5** | ✅ **مُغلق** (2026-08-02) — إسقاط `Anyone can insert analytics events` + `Authenticated users insert own analytics events`؛ anon/cross → `42501`، ملكية/NULL مسموحان |
+| **EXECUTE / SECURITY DEFINER** | ✅ **REVOKE** من anon/authenticated/PUBLIC عن `admin_promote_user` + `bootstrap_super_admin`؛ `handle_new_user`/`has_super_admin` = **Documented Exceptions** |
+| **Baseline Verification** | ✅ **PASS** (2026-08-02) — مصفوفة E1–E10 + عزل الملكية + تنظيف؛ **Baseline v4.0 مجمَّدة** |
 | G2 | 2 | Security Architecture Refactoring | P1 | 🟠 High | Security + Backend Engineer | 2–3 مهندسين · 2–4 أيام | ⏳ Pending |
 | G3 | 3 | Verification & Penetration Testing | P2 | 🟡 Medium | Security Engineer + QA | 1–2 مهندسين · 1–2 أيام | ⏳ Pending |
 | G4 | 4 | Long-Term Security Governance | P3 | 🟢 Low | Security Engineer (مملوك) | تأسيس 2–3 أيام + صيانة ربع سنوية | ⏳ Pending |
@@ -52,14 +63,16 @@
 - **PR مستقل لكل بند** (أو مجموعة تغييرات مترابطة) في Phase 1، مع تشغيل الاختبارات والتحقق **قبل** الدمج.
 - كل PR يمر بمعايير القبول الخاصة ببنده ويُوثَّق مرجعه من المعرّف (LV/DV/CV).
 
-### ترتيب التنفيذ داخل Phase 1 (معتمد)
-1. **LV-9** — حماية `admin_promote_user` وإزالة `EXECUTE` غير الضروري (أعلى أثر).
-2. **LV-1..LV-4** — إصلاح سياسات RLS للقراءة.
-3. **LV-10** — ربط `sessions.user_id` بجلسة المصادقة.
-4. **LV-11** — حماية تحديث `qr_codes`.
-5. **LV-5** — القيود (Rate Limit / Quota / Validation).
-6. **تشغيل التحقق الكامل** (Verification).
-7. **تثبيت Baseline الجديدة** (snapshot بعد الإصلاح).
+### ترتيب التنفيذ داخل Phase 1 (معتمد — **منفَّذ بالكامل 2026-08-02**)
+1. ✅ **LV-9** — حماية `admin_promote_user` وإزالة `EXECUTE` غير الضروري (أعلى أثر). → `01-…` · `d2c1ce7`
+2. ✅ **LV-1 / LV-2 / LV-4** — إصلاح سياسات RLS للقراءة (Owner Scope + **توسعة النطاق: قراءات دور-بوابة** `is_research_role()` — قرار مُوثّق هنا v2.3، كان مؤجّلاً لـ Phase 2). **LV-3 (campaigns)** — **Blocked by Schema** → `02-…` · `a6ffe6d` · `03-…` (موثّق)
+3. ✅ **LV-10** — ربط `sessions.user_id` بجلسة المصادقة. → `06-…` · `1bf0c08`
+4. ✅ **LV-11** — حماية تحديث `qr_codes`. → `07-…` · `d7aace0`
+5. ✅ **LV-5** — قيد INSERT بالمِلكية (`TO authenticated` + NULL/mلكية). **Rate Limit / Quota / Validation / Cleanup = Phase 2** (قرار: لا يؤجَّل إلا ما يعتمد على قرار معماري/منصة). → `08-…` · `2401c6b`
+6. ✅ **تشغيل التحقق الكامل** (Verification) — مصفوفة E1–E10 + عزل الملكية = **PASS**.
+7. ✅ **تثبيت Baseline الجديدة** (snapshot بعد الإصلاح) — **Baseline v4.0**.
+
+> **ملاحظات الإغلاق (v2.3):** (1) بنود 2-5 تُغطّي أيضاً NR-1 + §III.0 (فرض `guest` + REVOKE bootstrap) → `04-…`/`05-…` · `3d4982a`. (2) كل بند أُغلق بدورة Before → Apply → Diagnostic After (Methodological Note). (3) بند المِلكية/العزل = مكتمل؛ يبقى الحجم/الكمية (Rate Limit) في Phase 2.
 
 > المنطق: مسارات الاختراق الأعلى أثراً أولاً (privilege escalation → قراءة جماعية → نزاهة البيانات → مقاومة إساءة الاستخدام)، ثم التحقق، ثم تثبيت المرجع.
 
@@ -102,14 +115,15 @@
 التقرير أثبت عملياً: RPC إداري قابل للاستدعاء من جلسة مجهولة (`LV-9`) · قراءة جماعية على 4+ جداول (`LV-1..LV-4`) · `INSERT sessions` بلا ربط ملكية (`LV-10`) · إدراج غير محدود في `analytics_events` (`LV-5`) · `UPDATE qr_codes` مفتوح (`LV-11`) · منح `EXECUTE` لـ PUBLIC/anon/authenticated ودوال `SECURITY DEFINER` بلا حارس (بند III.0).
 
 ### النطاق
-- **يشمل:** RLS · RPC · EXECUTE · Authorization · الجداول الثمانية الحساسة (`users`/`sessions`/`campaigns`/`analytics_events`/`devices`/`calibrations`/`qr_codes`/`surveys`).
+- **يشمل:** RLS · RPC · EXECUTE · Authorization · الجداول الحساسة (`users`/`sessions`/`analytics_events`/`devices`/`calibrations`/`qr_codes`/`surveys`). `campaigns` — **pending ownership model (Phase 2)** (لا عمود ملكية فعّال؛ `created_by` TEXT = NULL بالكامل — دليل 2026-08-02).
 - **لا يشمل:** إعادة تصميم البنية الأمنية (Phase 2)، نزاهة القياس الشاملة (Phase 2)، تنظيف الـ migrations (Phase 2).
 
 ### العناصر المطلوب إصلاحها (مرتبة حسب الأولوية)
 | المعرّف | البند | القسم |
 |---|---|---|
 | LV-9 | استدعاء `admin_promote_user` من أي جلسة | 1.1 |
-| LV-1..LV-4 | قراءات عريضة بلا قيد صف | 1.2 |
+| LV-1 / LV-2 / LV-4 | قراءات عريضة بلا قيد صف (Owner Scope) | 1.2 |
+| LV-3 (campaigns) | قراءة عريضة — **Blocked by Schema** (لا عمود ملكية) | 1.2 |
 | LV-10 | INSERT `sessions` بـ `user_id` اعتباطي | 1.3 |
 | LV-5 | Database DoS عبر `analytics_events` | 1.4 |
 | LV-11 | UPDATE مباشر على `qr_codes` | 1.5 |
@@ -119,7 +133,7 @@
 1. **جرد:** إعادة تشغيل استعلامات `pg_proc` + `proacl` (الملحق ب) لتثبيت قائمة RPCs الحية ومنحها قبل التعديل (خط الأساس).
 2. **EXECUTE:** إزالة `EXECUTE` من غير المصرح لهم لكل دالة إدارية؛ استثناء واضح موثّق لأي دالة تحتاج `anon`.
 3. **Authorization:** إضافة تحقق صريح من صلاحية المتصل **داخل كل RPC إداري** عبر طبقة التفويض المعتمدة، وفق المبدأ: *Authorization must be based on the authenticated user's application role, not solely on EXECUTE privileges.* (متطلب، لا SQL ملزم — التفاصيل في Phase 2).
-4. **RLS:** استبدال قيود القراءة العريضة على الجداول الثمانية بسياسات ملكية/أدوار وفق النموذج المعتمد.
+4. **RLS:** استبدال قيود القراءة العريضة على الجداول ذات ملكية مؤكدة بسياسات Owner Scope؛ `campaigns` تُستثنى من Phase 1 (Blocked by Schema) حتى يُحسم نموذج الملكية في Phase 2.
 5. **sessions:** منع `INSERT` بـ `user_id` لا يخص المتصل — يُشتق المالك من جلسة المصادقة لا من قيمة العميل.
 6. **qr_codes:** حصر الكتابة في RPC داخلية/خدمة موثوقة/trigger يتحقق من المصدر.
 7. **analytics_events:** فرض Rate Limit + Quota + Validation + Cleanup Jobs.
@@ -127,10 +141,12 @@
 
 ### معايير القبول (Acceptance Criteria)
 - ✅ **لا توجد أي دالة إدارية قابلة للاستدعاء من `anon` أو `authenticated` دون تفويض.**
-- ✅ أي مستخدم لا يستطيع قراءة بيانات مستخدم آخر على كل الجداول الحساسة.
+- ✅ أي مستخدم لا يستطيع قراءة بيانات مستخدم آخر على كل الجداول الحساسة (الاستثناء الوحيد: أدوار البحث/الإدارة عبر `is_research_role()` — بتصميم).
 - ✅ `INSERT sessions` بـ `user_id` مستخدم آخر **يفشل**.
-- ✅ إرسال آلاف الأحداث إلى `analytics_events` **يُقيَّد** بالـ Rate Limit.
+- ✅ إرسال آلاف الأحداث إلى `analytics_events` **يُقيَّد** — مِلكية + مصادقة (anon محجوب تماماً؛ سبام المسجّلين بالكمية = Rate Limit في **Phase 2**).
 - ✅ `UPDATE qr_codes` مباشر من جلسة عميل **مرفوض**.
+
+> **حالة التحقق من معايير القبول (2026-08-02):** كل البنود أعلاه **محققة بالأدلة الحية** — راجع `III.1.8 Baseline Verification` في التقرير (v4.0).
 
 ### Definition of Done
 تعتبر المرحلة منتهية فقط عندما:
@@ -144,6 +160,8 @@
 - إعادة تشغيل `pg_class` · `pg_policies` · `pg_proc` · `proacl` · `pg_tables`.
 - إعادة Runtime Probe لـ `admin_promote_user` من anon → المتوقع **`403`/`42501`**، وليس `P0001`.
 - اختبارات العزل/DoS/QR (بروتوكول صفر-الأثر) — تُنفَّذ هنا كفحص سريع وتُوثَّق كاملة في Phase 3.
+
+> **النتيجة (2026-08-02):** ✅ **PASS** — مصفوفة E1–E10 (المرجع: `III.1.8` في التقرير v4.0 وقسم التحقق النهائي في `phase1/README.md`).
 
 ### المخرجات (Deliverables)
 - SQL جديد للسياسات والمنح + إزالة `EXECUTE` العمومية.
@@ -431,7 +449,8 @@ docs/security/
 | النتيجة (التقرير) | المرحلة | ملاحظة |
 |---|---|---|
 | LV-9 (admin_promote_user) | Phase 1.1 | أعلى أولوية إصلاح |
-| LV-1 / LV-2 / LV-3 / LV-4 (قراءات عريضة) | Phase 1.2 | |
+| LV-1 / LV-2 / LV-4 (قراءات عريضة — ملكية مؤكدة) | Phase 1.2 | Owner Scope |
+| LV-3 (campaigns قراءة عريضة) | Phase 1.2 ⛔ Blocked by Schema | يُحسم في Phase 2 (نموذج الملكية) |
 | LV-10 (sessions INSERT) | Phase 1.3 | نزاهة علمية |
 | LV-5 (analytics DoS) | Phase 1.4 | |
 | LV-11 (qr_codes UPDATE) | Phase 1.5 | Business Integrity |
@@ -461,5 +480,7 @@ docs/security/
 | 1.2 | 2026-08-02 | ملاحظة أسماء دوال التفويض الإرشادية · Regression Baseline في Phase 3 |
 | 2.0 | 2026-08-02 | الإضافات الإدارية: Success Metrics · Definition of Done · Exit Criteria · Rollback · Dependencies · Effort · Owner · Risk Rating · Security Principles · Dashboard |
 | **2.1** | **2026-08-02** | **نموذج التنفيذ (Gates G1–G4 · Branch/PR Policy · ترتيب Phase 1) — Baseline مُجمَّد** |
+| **2.2** | **2026-08-02** | **أدلة جديدة من التنفيذ: LV-3 (campaigns) = Blocked by Schema** (لا عمود ملكية فعّال؛ `created_by` TEXT = NULL بالكامل) → يُستبعد من Phase 1 ويُحسم في Phase 2 (نموذج الملكية/التفويض). Dashboard يعكس حالة كل بند من Phase 1. ملاحظة DV: `sessions.id` TEXT مقابل UUID للعلاقات. |
+| **2.3** | **2026-08-02** | **ختم Phase 1 (G1) — قرار مُوثّق (ظهور أدلة/اكتمال):** (1) توسعة نطاق البند 2 بقراءات دور-بوابة `is_research_role()` (كانت مؤجّلة لـ Phase 2) — تُنفَّذ الآن وتُجمَّد. (2) كل بنود Phase 1 القابلة للتنفيذ **مُغلقة بالأدلة الحية** (LV-9 · LV-1/2/4 · LV-10 · LV-11 · LV-5 · NR-1 · §III.0) — Commits `d2c1ce7`→`2401c6b`. (3) **Baseline Verification PASS** — مصفوفة E1–E10 + عزل الملكية + تنظيف؛ **Baseline v4.0 مجمَّدة** (التقرير v4.0). (4) LV-3 يبقى Blocked by Schema (غير ثغرة قابلة للتنفيذ). (5) Phase 2 مسار مفتوح: Rate Limit/Quota، طبقة التفويض، NR-2 staging، مزامنة migrations، بنود P1. |
 
 > **قاعدة التجميد:** أي تعديل مستقبلي يمر عبر هذا السجل، ولا يُنفَّذ إلا بظهور أدلة جديدة تغيّر الواقع الأمني أو بقرار اعتماد صريح.

@@ -25,7 +25,7 @@
 | 6 | `06-LV10-sessions-insert-ownership.sql` | إسقاط `Authenticated insert sessions` (بلا فحص ملكية) → لا تُتبقى سوى `Users manage own sessions` (`WITH CHECK auth.uid()=user_id`) | LV-10 | ✅ **مُغلق بالكامل** (2026-08-02) — Probe حي: قبل `rows_inserted=1` (متقاطع ينجح) · بعد `42501 new row violates row-level security policy` |
 | 7 | `07-LV11-qr-codes-remove-broad-update.sql` | إسقاط `Anyone can update qr scan counts` (USING/WITH CHECK true) → لا يبقى سوى `Admins manage qr codes` (أدمن) + RPC الآمن | LV-11 | ✅ **مُغلق بالكامل** (2026-08-02) — Probe حي: anon UPDATE قبل `true` · بعد `false` (0 صفوف) |
 | 8 | `08-LV5-analytics-insert-ownership.sql` | قيد INSERT analytics_events بالمِلكية: إسقاط `Anyone can insert analytics events` + `Authenticated users insert own analytics events` (`TO authenticated`، `WITH CHECK (user_id IS NULL OR user_id=auth.uid())`) — يبقي تليمتري NULL (Rate Limit = Phase 2) | LV-5 | ✅ **مُغلق بالكامل** (2026-08-02) — Probe حي (transaction+rollback): بعد الإسقاط anon `42501` · ملكية مسموح · NULL مسموح · عابر `42501`؛ أنفذ الإسقاط مرتين (الأولى لم تُسقط العريضة فعلياً — درس جرد pg_policies) |
-| 9 | (تحقق) | تشغيل proacl/pg_policies/Probe بعد كل بند | — | ⏳ يُشغَّل دورياً |
+| 9 | (تحقق) | تشغيل proacl/pg_policies/Probe بعد كل بند | — | ✅ **نُفِّذ — Baseline Verification PASS** (2026-08-02) — انظر قسم التحقق النهائي |
 
 > **Methodological Note (2026-08-02):** Every production policy change is accepted **only** after a complete *Before → Apply → Diagnostic After* cycle. Intermediate contradictory observations are treated as **inconclusive** until resolved with diagnostic evidence (e.g., LV-11: an `anon_update_succeeded=true` right after the DROP was resolved via a consolidated diagnostic row `anon · rls_on=true · bypass=false · update_policy_count=0` → `false`; the earlier value was a SQL Editor execution-order artifact, documented rather than ignored).
 
@@ -498,3 +498,23 @@ Proxy-Status: PostgREST; error=42501
 | 2026-08-02 | بند 8: **مصفوفة بعد نظيفة** — anon `42501` · ملكية مسموح · NULL مسموح · عابر `42501` | verify | SQL Editor | ✅ PASS |
 | 2026-08-02 | **بند 8 Close (LV-5)** — إغلاق رسمي داخل Gate 1 | close | دورة الإغلاق | ✅ |
 | 2026-08-02 | ترقية تقرير التدقيق إلى v4.0 (LV-5 Closed + درس جرد pg_policies) | document | دورة الإغلاق | ✅ |
+
+## التحقق النهائي الموحّد (Baseline Verification — 2026-08-02)
+
+**الختم بعد إغلاق كل البنود القابلة للتنفيذ — مصفوفة probes حية (SQL Editor):**
+
+| probe | النتيجة | الحكم |
+|---|---|---|
+| pg_policies / proacl / RLS | مطابقة للحالة المستهدفة | ✅ |
+| anon RPC إدارية (admin_promote_user / bootstrap_super_admin) | `42501 permission denied` | ✅ |
+| has_super_admin (anon) | `true` — حارس bootstrap سليم | ✅ |
+| A(super_admin)→B قراءة | `1` — دور-بوابة (بتصميم) | ✅ |
+| B(user)→A قراءة | `0` — عزل ملكية | ✅ |
+| anon قراءة users | `0` | ✅ |
+| sessions متقاطع (A→B) | `42501` | ✅ |
+| qr anon UPDATE | `0` صفوف | ✅ |
+| analytics anon INSERT | `42501` + `0` مُحفظ | ✅ |
+| analytics ملكية / عابر | مسموح / `42501` | ✅ |
+| تنظيف probes | `0` متبقٍ | ✅ |
+
+**الخاتمة:** **لا انحدار.** الحالة النهائية = **Baseline v4.0 (Security Baseline المجمّدة)**. الوحيد المتبقي ضمن النطاق: **LV-3 (Blocked by schema)** — موثّق في `03-LV3-campaigns-schema-gap.md`، يُحسم في Phase 2. المتبقي خارج النطاق (Phase 2): Rate Limit/Quota لـ analytics_events، طبقة التفويض/الحارس الداخلي، توسعة قراءة أدوار، NR-2 staging، مزامنة migrations، بنود P1 (ExportUtils، repair migrations، headers).

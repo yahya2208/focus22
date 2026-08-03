@@ -284,6 +284,30 @@ END; $function$;
 
 **ملاحظة قراءة عابرة (أنماط «Authenticated read» في calibrations/devices/surveys):** `auth.role()='authenticated'` بلا قيد صف → قراءة كل `device_id`/المعايرة عبر المستخدمين (تسريب متوسط). INSERT مقيّد بـ authenticated فقط (لا ملكية).
 
+### III.1.8 Baseline Verification — ختم Phase 1 (2026-08-02)
+
+**التحقق النهائي الموحّد بعد إغلاق كل البنود القابلة للتنفيذ — مصفوفة probes حية (SQL Editor، owner؛ كل probe داخل transaction+rollback إلا ما نُصّ على التزامه وتنظيفه):**
+
+| # | الجرد / probe | النتيجة الحية | الحكم |
+|---|---|---|---|
+| A | pg_policies (كل الجداول) | ملكية + دور-بوابة + bootstrap؛ لا `Anyone can insert analytics events`، لا `Authenticated insert sessions`، لا UPDATE عريض على qr_codes، لا `Authenticated read …` عريضة | ✅ |
+| B | proacl | `admin_promote_user`/`bootstrap_super_admin` = {postgres, service_role}؛ الاستثناءات الموثّقة (`handle_new_user`/`has_super_admin`/`increment_qr_counter`) محفوظة | ✅ |
+| C | pg_class RLS | كل الجداول `relrowsecurity=true` (FORCE=false طبيعي — موثّق) | ✅ |
+| E1 | anon → `admin_promote_user` | `42501 permission denied for function` | ✅ |
+| E2 | anon → `bootstrap_super_admin` | `42501` | ✅ |
+| E3 | anon → `has_super_admin` | `true` (حارس سياسة bootstrap — استثناء موثّق سليم) | ✅ |
+| E4 | A(super_admin) يقرأ صف B | `1` — **مسموح بتصميم** عبر `Researchers read all users` (is_research_role تشمل super_admin) — ليس تسريباً | ✅ |
+| E4b | B(user) يقرأ صف A | `0` — **عزل الملكية** للمستخدمين غير المتميزين | ✅ |
+| E5 | anon → قراءة users | `0` | ✅ |
+| E6 | A يُدرج sessions بـ user_id=B | `42501 new row violates row-level security policy` (LV-10) | ✅ |
+| E7 | anon → UPDATE qr_codes.scan_count | `0` صفوف (LV-11) | ✅ |
+| E8 | anon → INSERT analytics_events | `42501` + `0` صف مُحفظ (LV-5) | ✅ |
+| E9 | authenticated(مِلكية) → INSERT analytics_events | مسموح — حُفظ ثم نُظّف | ✅ |
+| E10 | authenticated(عابر B) → INSERT analytics_events | `42501` — لا يُحفظ | ✅ |
+| تنظيف | `verify_baseline_%` / `verify_anon2` | `0` متبقٍ | ✅ |
+
+**نتيجة الختم:** لا انحدار — كل الثغرات القابلة للتنفيذ في Phase 1 مُغلقة؛ الحالة النهائية (هذه المصفوفة) هي **Baseline v4.0** المجمّدة. الوحيد المتبقي ضمن النطاق: **LV-3 (Blocked by schema)** + بنود Phase 2 (Rate Limit، طبقة التفويض، NR-2 staging، مزامنة migrations، إلخ).
+
 ## III.2 RPC / Triggers / Functions — كما هي حية (pg_proc)
 
 | الاسم | الجسم الحيّ (ملخّص) | التقييم |
