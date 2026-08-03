@@ -1,6 +1,6 @@
 # Phase 1 — Production Emergency Hardening (Workspace)
 
-**المرجع:** `docs/security/remediation-roadmap.md` (Baseline v2.1 · Gate 1) · **الأدلة:** `docs/security/production-security-audit.md` (v3.6)
+**المرجع:** `docs/security/remediation-roadmap.md` (Baseline v2.1 · Gate 1) · **الأدلة:** `docs/security/production-security-audit.md` (v4.0)
 
 > **سياسة التنفيذ:** كل بند على PR مستقل، يُنفَّذ عبر SQL Editor بصلاحيات owner، وكل تغيير يسبقه/يتبعه توثيق قبل/بعد. **لا يُطبَّق على Production إلا بعد مراجعة.**
 >
@@ -24,7 +24,7 @@
 | 5 | `05-bootstrap-super-admin-revoke-execute.sql` | REVOKE EXECUTE عن `bootstrap_super_admin` من anon/authenticated/PUBLIC | §III.0 | ✅ **مُغلق بالكامل** (2026-08-02) — probe: `42501 permission denied` |
 | 6 | `06-LV10-sessions-insert-ownership.sql` | إسقاط `Authenticated insert sessions` (بلا فحص ملكية) → لا تُتبقى سوى `Users manage own sessions` (`WITH CHECK auth.uid()=user_id`) | LV-10 | ✅ **مُغلق بالكامل** (2026-08-02) — Probe حي: قبل `rows_inserted=1` (متقاطع ينجح) · بعد `42501 new row violates row-level security policy` |
 | 7 | `07-LV11-qr-codes-remove-broad-update.sql` | إسقاط `Anyone can update qr scan counts` (USING/WITH CHECK true) → لا يبقى سوى `Admins manage qr codes` (أدمن) + RPC الآمن | LV-11 | ✅ **مُغلق بالكامل** (2026-08-02) — Probe حي: anon UPDATE قبل `true` · بعد `false` (0 صفوف) |
-| 8 | `08-LV5-analytics-insert-ownership.sql` (مقترح) | قيد INSERT analytics_events بالمِلكية (Rate Limit = Phase 2) | LV-5 | ⏳ مسودة لم تُكتب |
+| 8 | `08-LV5-analytics-insert-ownership.sql` | قيد INSERT analytics_events بالمِلكية: إسقاط `Anyone can insert analytics events` + `Authenticated users insert own analytics events` (`TO authenticated`، `WITH CHECK (user_id IS NULL OR user_id=auth.uid())`) — يبقي تليمتري NULL (Rate Limit = Phase 2) | LV-5 | ✅ **مُغلق بالكامل** (2026-08-02) — Probe حي (transaction+rollback): بعد الإسقاط anon `42501` · ملكية مسموح · NULL مسموح · عابر `42501`؛ أنفذ الإسقاط مرتين (الأولى لم تُسقط العريضة فعلياً — درس جرد pg_policies) |
 | 9 | (تحقق) | تشغيل proacl/pg_policies/Probe بعد كل بند | — | ⏳ يُشغَّل دورياً |
 
 > **Methodological Note (2026-08-02):** Every production policy change is accepted **only** after a complete *Before → Apply → Diagnostic After* cycle. Intermediate contradictory observations are treated as **inconclusive** until resolved with diagnostic evidence (e.g., LV-11: an `anon_update_succeeded=true` right after the DROP was resolved via a consolidated diagnostic row `anon · rls_on=true · bypass=false · update_policy_count=0` → `false`; the earlier value was a SQL Editor execution-order artifact, documented rather than ignored).
@@ -391,6 +391,28 @@ Proxy-Status: PostgREST; error=42501
 
 **ملاحظات الإغلاق:** لا سياسة UPDATE متبقية لغير الأدمن؛ `Admins manage qr codes` يغطي الإدارة. **البند 7 (LV-11) مُغلق رسمياً داخل Gate 1.**
 
+## نتيجة البند 8 (LV-5) — قبل/بعد موثَّق (2026-08-02)
+
+**قبل:** `Anyone can insert analytics events` — INSERT، roles={public}، `WITH CHECK true` → أي عميل (حتى anon بلا جلسة) يُدرج أحداثاً بلا حدود (**Database DoS**) وبأي `user_id` (تلويث/حقن نتائج).
+
+**القرار (الخيار B):** بيانات حية 8863 حدثاً — **8420 بـ user_id NULL (~95%)**: تليمتري التطبيق يُدرج بلا user_id (مسار `src/core/telemetry/index.ts:122-134` → `user_id: event.userId ?? undefined`؛ لا callers لـ `setUserId` في الإنتاج) → فرض `user_id=auth.uid()` كان سيكسر ~95% من الإدراج. السياسة الجديدة تفرض `TO authenticated` + `WITH CHECK ((user_id IS NULL) OR (user_id = auth.uid()))` → يغلق anon-bot DoS، يمنع النسب العابر، ويبقي تليمتري NULL.
+
+**التطبيق:** `08-LV5-analytics-insert-ownership.sql` — `drop policy "Anyone can insert analytics events"` + `create policy "Authenticated users insert own analytics events"`.
+
+**أدلة (بعد):** مصفوفة 4 حالات في Production (transaction+rollback):
+| الحالة | الدور | user_id | النتيجة |
+|---|---|---|---|
+| anon | anon | null | `42501 new row violates row-level security policy` — مرفوض ✅ |
+| ملكية | authenticated (A) | a549a010-… | مسموح ✅ |
+| تليمتري NULL | authenticated (A) | null | مسموح ✅ |
+| عابر | authenticated (A) | 979e… (B) | `42501` — مرفوض ✅ |
+
+**درس منهجي (مسجَّل):** التطبيق الأول لم يُسقط العريضة فعلياً — جرد pg_policies أظهر الاثنتين معاً (OR يُبقي المسار مفتوحاً: عابر مسموح). أُعيد الإسقاط كجملة مستقلة ثم تحققت السياسات الثلاث فقط (`Authenticated users insert own analytics events` + سياساتا القراءة) واكتملت المصفوفة. **الخلاصة: الإغلاق لا يُعتمد بإنشاء السياسة الجديدة، بل بجرد pg_policies بعد التطبيق يؤكد غياب القديمة.**
+
+**ملاحظة وظيفية:** `flushInternal` في التليمتري تلتقط أخطاء الإدراج وتعيدها للقائمة (لا انهيار)؛ أي حدث pre-login (جلسة anon) لن يُحفظ — يُعالَج إن لزم في Phase 2 (مسار موثوق/بيئة). سبام المسجّلين بكمية = Rate Limit في Phase 2.
+
+**حالة البند:** ✅ **مُغلق رسمياً داخل Gate 1.**
+
 ## التحقق (Verification — يُشغَّل بعد كل بند)
 
 1. **proacl:** `select proname, proacl from pg_proc where proname in ('admin_promote_user','bootstrap_super_admin','handle_new_user','has_super_admin','increment_qr_counter');` → ألا يعود anon/authenticated/PUBLIC ضمن الممنوح إدارياً.
@@ -466,3 +488,13 @@ Proxy-Status: PostgREST; error=42501
 | 2026-08-02 | بند 7: تحقق وسيط — بعد الإسقاط عاد probe `true` (شذوذ) → تشخيص RLS (مفعّلة، لا bypass، لا سياسة UPDATE) | verify | SQL Editor | ⚠️ ترتيب تنفيذ |
 | 2026-08-02 | بند 7: **Probe حي (بعد، صف تشخيصي موحّد)** — `anon_update_succeeded=false` + RPC يعمل بلا خطأ | verify | SQL Editor | ✅ PASS |
 | 2026-08-02 | **بند 7 Close (LV-11)** — إغلاق رسمي داخل Gate 1 | close | دورة الإغلاق | ✅ |
+| 2026-08-02 | بند 8 (LV-5): Snapshot — سياسة `Anyone can insert analytics events` (roles=public، with_check true) + بيانات 8863 حدثاً (8420 NULL user_id ≈ 95%) | verify | pg_policies + count | ✅ |
+| 2026-08-02 | بند 8: أدلة كود — `telemetry/index.ts:122-134` `user_id: event.userId ?? undefined`؛ لا callers لـ `setUserId`؛ `referral.ts` recordScan/recordConversion بلا callers | verify | grep/read src | ✅ |
+| 2026-08-02 | بند 8: قرار الخيار B (TO authenticated + NULL/mلكية) — تأكيد المستخدم | decision | سجل القرار | ✅ |
+| 2026-08-02 | بند 8: كتابة `08-LV5-analytics-insert-ownership.sql` (drop + create) | write | أدلة (a-e) | ✅ جاهز |
+| 2026-08-02 | بند 8: **شذوذ وسيط** — حالة العابر عادت مسموحة + نواتج مُسمّاة غير حاسمة → تشخيص موحّد | verify | SQL Editor | ⚠️ غير حاسم |
+| 2026-08-02 | بند 8: **جرد pg_policies كشف التطبيق الأول ناقصاً** — العريضة ما زالت حية (الاثنتان معاً) → OR يُبقي المسار مفتوحاً | verify | pg_policies | 🔴 غير مُسقَط |
+| 2026-08-02 | بند 8: **إعادة الإسقاط كجملة مستقلة** + جرد: السياسات الثلاث فقط (لا `Anyone can insert`) | apply | SQL Editor | ✅ |
+| 2026-08-02 | بند 8: **مصفوفة بعد نظيفة** — anon `42501` · ملكية مسموح · NULL مسموح · عابر `42501` | verify | SQL Editor | ✅ PASS |
+| 2026-08-02 | **بند 8 Close (LV-5)** — إغلاق رسمي داخل Gate 1 | close | دورة الإغلاق | ✅ |
+| 2026-08-02 | ترقية تقرير التدقيق إلى v4.0 (LV-5 Closed + درس جرد pg_policies) | document | دورة الإغلاق | ✅ |

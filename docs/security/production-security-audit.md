@@ -1,6 +1,6 @@
 # FOCUS Production Security Audit
 
-**الإصدار:** 3.9 · **التاريخ:** 2026-08-02 · **النوع:** Zero-Trust Security Review (P0)
+**الإصدار:** 4.0 · **التاريخ:** 2026-08-02 · **النوع:** Zero-Trust Security Review (P0)
 **النطاق:** `focus-production` (React 19 + Vite SPA → GitHub Pages، Backend: Supabase anon-key)
 **الحكم النهائي:** 🔴 **C — NOT READY**
 
@@ -11,6 +11,7 @@
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
 | 3.6 | 2026-08-02 | الإصدار الأول للتدقيق الكامل. |
+| **4.0** | **2026-08-02** | **LV-5 أُغلق بالأدلة الحية:** سياسة `Anyone can insert analytics events` (INSERT، roles=public، `WITH CHECK true` — حتى بلا جلسة) **أُسقطت** وحلّت محلها `Authenticated users insert own analytics events` (`TO authenticated`، `WITH CHECK ((user_id IS NULL) OR (user_id = auth.uid()))`). القرار (الخيار B): يُبقي تليمتري NULL (8420/8863 حدثاً بلا user_id — ~95%، مؤكدة من البيانات الحية)، يغلق anon-bot DoS، ويمنع النسب العابر. إثبات قبل/بعد في Production (transaction + rollback): قبل الإسقاط anon INSERT ناجح (مع `Anyone can insert` الحية)؛ بعد الإسقاط مصفوفة نظيفة — anon `42501` · ملكية مسموح · NULL مسموح · عابر `42501`. درس منهجي: تحقق التطبيق بجرد pg_policies — التطبيق الأول لم يُسقط العريضة (ظهرت الاثنتان معاً)، فأُعيد الإسقاط كجملة مستقلة ثم اكتملت الدورة. راجع `08-LV5-analytics-insert-ownership.sql`. |
 | **3.9** | **2026-08-02** | **LV-11 أُغلق بالأدلة الحية:** سياسة `Anyone can update qr scan counts` (UPDATE، roles=public، USING/WITH CHECK true) **أُسقطت**. إثبات قبل/بعد في Production (transaction + rollback، `set local role anon`): anon UPDATE لـ`scan_count` قبل الإسقاط → `anon_update_succeeded=true` (تلاعب مجهول مؤكد)؛ بعد الإسقاط → `false` (صف تشخيصي موحّد: anon · rls_on=true · bypass=false · update_policy_count=0). مسار العدّاد المشروع `increment_qr_counter` (SECURITY DEFINER + allowlist) سليم بعد الإسقاط. لا يتبقى سوى `Admins manage qr codes` (أدمن). راجع `07-LV11-qr-codes-remove-broad-update.sql`. |
 | 3.8 | 2026-08-02 | **LV-10 أُغلق بالأدلة الحية:** سياسة `Authenticated insert sessions` (INSERT، with_check `auth.role()='authenticated'`) **أُسقطت** — كانت تجعل إدراج الجلسات بـ OR يُلغي شرط الملكية في `Users manage own sessions`. إثبات قبل/بعد في Production (transaction + rollback): متقاطع INSERT (A→B) قبل الإسقاط → `rows_inserted=1 · inserted_user_id=<B>` (ثغرة مؤكدة عملياً)؛ بعد الإسقاط → `42501 new row violates row-level security policy`؛ إدراج الملكية (نفس A) → ناجح. FK سليم مفرد (`sessions_user_id_fkey` → `public.users(id)`) + 0 يتيمة + فهرس `idx_sessions_user_id` موجود — بلا تغيير. راجع `06-LV10-sessions-insert-ownership.sql`. |
 | 3.7 | 2026-08-02 | **تصحيح جوهري بالأدلة (round 2 من Gate 1):** (1) **DV-10 مُكذَّب** — `on_auth_user_created` **موجودة ومفعّلة** على `auth.users` (استعلام pg_trigger المباشر بـ `tgfoid`)؛ (2) **NR-1 أُعيد تصنيفه إلى مسار تنفيذ مؤكد** — دالة حية تثق بـ `raw_user_meta_data->>'role'` عبر SECURITY DEFINER + ربط trigger نشط؛ (3) **إصلاح Phase 1 مُطبَّق ومُغلَق**: `handle_new_user` يفرض الآن `role='guest'` دائماً (قرار C) — إثبات حي: signup بـ`role:"super_admin"` في metadata → HTTP 200 + `users.role='guest'`؛ (4) **REVOKE EXECUTE عن `bootstrap_super_admin`** من anon/authenticated/PUBLIC — probe حي: `42501 permission denied`؛ (5) `has_super_admin` = **Documented Exception** (RLS + شاشة الإعداد). راجع `supabase/security-hardening/phase1/` (بنود 4-5). |
@@ -27,7 +28,7 @@
 | LV-2 | 🟢 SQL Verified | Production | ضيف يقرأ كل `sessions` (قياسات علمية) — `Authenticated read sessions` بلا قيد صف |
 | LV-3 | 🟢 SQL Verified | Production | ضيف يقرأ كل `campaigns` — `Authenticated read campaigns` بلا قيد صف |
 | LV-4 | 🟢 SQL Verified | Production | ضيف يقرأ كل `analytics_events` — `Authenticated read analytics events` بلا قيد صف |
-| LV-5 | 🟢 SQL Verified | Production | ضيف **يُدرج** أحداثاً في `analytics_events` (with_check true)؛ الحذف محجوب (لا سياسة DELETE)؛ **Database DoS**: إدراج غير محدود من أي bot |
+| LV-5 | 🟢 SQL Verified → **✅ Closed (v4.0)** | Production (pg_policies + **transaction probe**) | ضيف **يُدرج** أحداثاً في `analytics_events` (with_check true)؛ الحذف محجوب (لا سياسة DELETE)؛ **Database DoS**: إدراج غير محدود من أي bot — **أُغلق 2026-08-02**: إسقاط `Anyone can insert analytics events` + سياسة `Authenticated users insert own analytics events`؛ probe حي: anon/cross `42501`، ملكية/NULL مسموحان |
 | LV-6 | 🟢 SQL Verified | Production | PATCH الدور الذاتي **محجوب** — سياسة UPDATE الوحيدة حصرية للأدمن |
 | LV-7 | 🟢 SQL Verified | Production | جداول repair **غير موجودة** في Supabase الحيّ (404) |
 | LV-8 | 🟢 SQL Verified | Production | تنفيذ `handle_new_user` الحيّ **سيُدرج** `guest`/`is_anonymous=true` لو اشتغل (المستودع ينص `user`/false) — **مُصلَح 2026-08-02**: الدالة تفرض `role='guest'` ثابتاً + مرتبطة بـ trigger **مفعّلة** (لا DV-10) — انظر v3.7 |
@@ -99,7 +100,7 @@ CSP · X-Frame-Options · Permissions-Policy · HSTS · Referrer-Policy · CORP 
 ## I.4 DoS منطقي (Phase D) — 🟠
 
 - استعلامات كاملة بلا pagination: `getAllRepairRequests` (`repair-data-service.ts:94-98`)، قراءة BI للـ users كاملة (`api.ts:40,199`)، `getAllProfiles` (`referral.ts:200-215`).
-- كتابة لا محدودة في `analytics_events` (مثبت حياً LV-5) + spam لحسّادات QR (`campaign.ts:198,203`).
+- كتابة لا محدودة في `analytics_events` (مثبت حياً LV-5 — **أُغلق v4.0**: الإدراج مقيّد بمصادقة ومِلكية؛ يبقى سبام المسجّلين بكمية لـ Phase 2) + spam لحسّادات QR (`campaign.ts:198,203`؛ الكتابة المباشرة عبر الجدول أُغلقت v3.9).
 - صور base64 بلا حد حجم؛ localStorage بلا حصص. لا Rate Limit/Throttle على auth/QR/search/campaigns (فقط حدود منصة).
 
 ## I.5 Cryptography (Phase C) — 🟡
@@ -187,7 +188,7 @@ Clipboard UX آمن؛ لا service worker/manifest/IndexedDB؛ deeplinks تقر�
 | 4 | `devices` — قراءة لأي مستخدم مصادق | `Authenticated read devices`: بلا قيد صف | تسريب device_id عبر المستخدمين |
 | 5 | `surveys` — قراءة لأي مستخدم مصادق | `Authenticated read surveys`: بلا قيد صف | تسريب استجابات |
 | 6 | `calibrations` — قراءة لأي مستخدم مصادق | `Authenticated read calibrations`: بلا قيد صف | تسريب معايرة |
-| 7 | `analytics_events` — إدراج لأي شخص | `Anyone can insert analytics events`: `WITH CHECK true` (حتى بلا جلسة) | **Database DoS** + تلويث + حقن نتائج (LV-5) |
+| 7 | `analytics_events` — إدراج لأي شخص | `Anyone can insert analytics events`: `WITH CHECK true` (حتى بلا جلسة) | **Database DoS** + تلويث + حقن نتائج (LV-5) — **أُغلق v4.0** |
 | 8 | `qr_codes` — تحديث العدّادات لأي شخص | `Anyone can update qr scan counts`: `USING true / WITH CHECK true` | **Business Integrity Attack**: تزوير عدّادات/نجاح حملات/تقارير/ROI (LV-11) — **أُغلق v3.9** |
 | 9 | `handle_new_user` — `role` من `raw_user_meta_data` | `coalesce(raw_user_meta_data->>'role','guest')` (pg_proc) | **Production Verified Design** (CV-1) — بلا مسار تنفيذ في النشر الحالي |
 | 10 | دوال الإدارة منشورة بـ `EXECUTE` لـ PUBLIC/anon/authenticated | `proacl = {=X/postgres, anon=X, authenticated=X, service_role=X}` لـ `admin_promote_user` و`bootstrap_super_admin` | **عامل مضخّم**: الحماية الوحيدة هي المنطق الداخلي (LV-9) — وليست ثغرة مستقلة |
@@ -236,8 +237,8 @@ Divergence — (الاختلاف المؤكد)
 ### III.1.4 `analytics_events`
 
 - **Live Database (pg_policies):**
-  - `Anyone can insert analytics events` — INSERT، `WITH CHECK true` → **أي عميل ولو بمفتاح anon بدون جلسة** يُدرج أحداثاً (LV-5؛ نُظّف صف الاختبار).
-  - `Authenticated read analytics events` — SELECT، `USING (auth.role()='authenticated')` بلا قيد صف → قراءة كل الأحداث (LV-4، DV-9).
+  - `Anyone can insert analytics events` — INSERT، `WITH CHECK true` → **أي عميل ولو بمفتاح anon بدون جلسة** يُدرج أحداثاً (LV-5؛ نُظّف صف الاختبار). **أُسقطت 2026-08-02 (v4.0)** وحلّت محلها `Authenticated users insert own analytics events` (`TO authenticated`، `WITH CHECK ((user_id IS NULL) OR (user_id = auth.uid()))`) — راجع `08-LV5-analytics-insert-ownership.sql`.
+  - `Authenticated read analytics events` — SELECT، `USING (auth.role()='authenticated')` بلا قيد صف → قراءة كل الأحداث (LV-4، DV-9؛ أُغلقت v3.8 بقرارات البند 2: ملكية + دور).
   - **لا DELETE policy** → طلب الحذف التجريبي الذي أعاد 204 **حذف 0 صفاً صامتاً**؛ أي صف اختبار ما زال موجوداً يحتاج تنظيفاً بصلاحيات owner (الملحق أ).
 - **Repository:** لا سياسات (DV-3).
 - **Divergence:** DV-3 + DV-9 — السياسة الحية «Anyone can insert» لا وجود لها في repo.
@@ -278,6 +279,8 @@ END; $function$;
 **LV-10 ✅ أُغلق (v3.8):** كانت `Authenticated insert sessions` بـ `WITH CHECK (auth.role()='authenticated')` لا تقيّد `user_id` → إدراج جلسة كاملة (بما فيها `scientific_results`) باسم أي مستخدم ضحية (DV-9)، وتحوّل سيناريو التزوير رقم 1 و5 في Part IV من "ممكن نظرياً" إلى "مثبت من الإنتاج". **الإغلاق (2026-08-02):** إثبات حي في Production (transaction+rollback) — متقاطع INSERT (A→B) قبل الإسقاط: `rows_inserted=1 · inserted_user_id=<B>` (ثغرة مؤكدة عملياً)؛ بعد إسقاط السياسة: `42501 new row violates row-level security policy`؛ ملكية (نفس A): ناجح. السياسة الوحيدة المتبقية القادرة على INSERT = `Users manage own sessions` (`WITH CHECK auth.uid()=user_id`). راجع `06-LV10-sessions-insert-ownership.sql`.
 
 **LV-11 ✅ أُغلق (v3.9):** كانت `Anyone can update qr scan counts` بـ `USING true / WITH CHECK true` → أي عميل (حتى بلا جلسة) ينفّذ `UPDATE qr_codes SET scan_count = 999999999 WHERE id = ...` مباشرة على الجدول — تزوير نجاح حملات، تقارير الإدارة، التحليلات، والـ ROI، ويتجاوز RPC `increment_qr_counter` الآمن تماماً (انظر III.2). **الإغلاق (2026-08-02):** إثبات حي في Production (transaction+rollback، `set local role anon`) — anon UPDATE لـ`scan_count` قبل الإسقاط: `anon_update_succeeded=true` (تلاعب مجهول مؤكد عملياً)؛ بعد الإسقاط: `false` مع صف تشخيصي (`rls_on=true · bypass=false · update_policy_count=0`). RPC `increment_qr_counter` (SECURITY DEFINER + allowlist) سليم بعد الإسقاط. لا يتبقى سوى `Admins manage qr codes`. (ميزة التسويق مبنية على هذه العدّادات — مسارها الشرعي سليم.)
+
+**LV-5 ✅ أُغلق (v4.0):** كانت `Anyone can insert analytics events` بـ `WITH CHECK true` (roles=public — حتى بلا جلسة) → أي bot يُدرج أحداثاً بلا حدود (**Database DoS**) وبأي `user_id` (تلويث/حقن نتائج). **القرار (الخيار B — 2026-08-02):** بيانات حية 8863 حدثاً، **8420 بـ user_id NULL (~95%)** — تليمتري التطبيق يُدرج بلا user_id (مسار `src/core/telemetry/index.ts` → `user_id: event.userId ?? undefined`؛ لا callers لـ `setUserId` في الإنتاج) → فرض `user_id=auth.uid()` صرامةً كان سيكسر ~95% من الإدراج. السياسة الجديدة: `Authenticated users insert own analytics events` — `TO authenticated` + `WITH CHECK ((user_id IS NULL) OR (user_id = auth.uid()))` → يغلق anon-bot DoS (يتطلب حساباً)، يمنع النسب العابر، ويبقي تليمتري NULL. **الإغلاق (2026-08-02):** إثبات حي قبل/بعد (transaction+rollback): قبل الإسقاط anon INSERT ناجح (عبر العريضة الحية)؛ بعد الإسقاط مصفوفة 4 حالات — anon `42501 new row violates row-level security policy` · ملكية (نفس A) مسموح · NULL (تليمتري) مسموح · عابر (user_id=B) `42501`. **درس منهجي:** التطبيق الأول لم يُسقط العريضة فعلياً (جرد pg_policies أظهر الاثنتين معاً → OR يُبقي المسار مفتوحاً)، فأُعيد الإسقاط كجملة مستقلة ثم تحققت السياسات الثلاث فقط — الإغلاق لا يُعتمد إلا بجرد pg_policies بعد التطبيق، لا بنجاح CREATE وحده. راجع `08-LV5-analytics-insert-ownership.sql`. ملاحظة وظيفية: أي حدث تليمتري قبل تسجيل الدخول (جلسة anon) سيُرفض الآن — `flushInternal` تلتقط الخطأ وتعيد الإدراج في قائمة الانتظار (لا انهيار)، والأحداث pre-login لا تُحفظ؛ إن وُجدت حاجة لها تُعالَج في Phase 2 (مسار موثوق).
 
 **ملاحظة قراءة عابرة (أنماط «Authenticated read» في calibrations/devices/surveys):** `auth.role()='authenticated'` بلا قيد صف → قراءة كل `device_id`/المعايرة عبر المستخدمين (تسريب متوسط). INSERT مقيّد بـ authenticated فقط (لا ملكية).
 
@@ -339,7 +342,7 @@ END; $function$;
 ## IV.2 سيناريوهات التزوير
 
 1. **حقن نتيجة مباشرة (مُثبت LV-10 → أُغلق v3.8):** `POST /rest/v1/sessions` بجلسة كاملة `{user_id:<ضحية>, scientific_results:{focus_score:99,grade:"A"}}` — سياسة INSERT الحية بلا قيد ملكية؛ أو `PATCH /rest/v1/sessions?id=eq.<uuid>` (LV-2 + لا immutability). **الإغلاق 2026-08-02:** إسقاط `Authenticated insert sessions` — المتقاطع الآن `42501`.
-2. **حدث مزور (مثبت LV-5):** `POST analytics_events` بـ `event_data:{focusScore:99,grade:"A"}` — with_check true.
+2. **حدث مزور (LV-5 — أُغلق v4.0):** كان `POST analytics_events` بـ `event_data:{focusScore:99,grade:"A"}` — with_check true (مُسقط الآن؛ anon/cross `42501`).
 3. **تضخيم المعايرة:** تعديل `localStorage["focus_calibration_profile"]` إلى `{displayLagMs:300,inputLagMs:100,confidence:1}` → -400ms لكل RT؛ والمعايرة غير مفروضة (`GameScreen.tsx:193-196`).
 4. **DevTools monkeypatch:** `completeSession(id, {correctedRts:Array(7).fill(140),...})` ثم "حفظ وخروج" — ينفَّذ المسار كاملاً.
 5. **إعادة إرسال/استبدال جلسة:** upsert بنفس `session_id` بعد نتيجة سيئة يعيد الكتابة صامتاً.
@@ -367,7 +370,7 @@ END; $function$;
 | الهجوم | النتيجة |
 |---|---|
 | IDOR: قراءة كل users/sessions/campaigns/analytics بضيف | **نجح** (LV-1..LV-4) 🔴 |
-| Unguarded Write: INSERT+DELETE analytics_events | **نجح** (LV-5) 🔴 |
+| Unguarded Write: INSERT+DELETE analytics_events | **نجح قبل الإصلاح** (LV-5، **أُغلق v4.0**) 🔴 |
 | حقن نتيجة/حدث علمي | **ممكن** (LV-5 + Part IV) 🔴 |
 | **Tried & Blocked:** PATCH دور ذاتي | **فشل** (LV-6) |
 
@@ -390,7 +393,7 @@ SQLi ❌ · XSS ❌ · CSRF ❌ · JWT forgery ❌ · Session replay/fixation �
 | LV-10 | `sessions` INSERT (pg_policies + **probe**) | 🔴 | إدراج جلسة/نتائج زائفة بأي `user_id` | تزوير علمي مؤكد (Part IV) | `Authenticated insert sessions`: with_check بلا فحص ملكية | `user_id=auth.uid()` + CHECK معقولية | P0 | **Closed (v3.8)** — إسقاط السياسة؛ probe حي قبل `rows_inserted=1` (متقاطع) / بعد `42501`؛ ملكية ناجحة |
 | LV-3 | `campaigns` (pg_policies) | 🟠 | ضيف يقرأ كل الحملات | كشف تجاري | `Authenticated read campaigns` بلا قيد صف | RLS + إخفاء أعمدة | P0 | Open |
 | LV-4 | `analytics_events` (pg_policies) | 🟠 | ضيف يقرأ كل الأحداث | تسريب telemetry | `Authenticated read analytics events` بلا قيد صف | RLS قراءة | P0 | Open |
-| LV-5 | `analytics_events` INSERT (pg_policies) | 🔴 | **Database DoS + تلويث**: إدراج غير محدود | استنزاف تخزين/ملء بالـ events | `Anyone can insert analytics events`: `WITH CHECK true` حتى بلا جلسة (مثبت 201) — أي bot يرسل ملايين الأحداث | Rate Limit + INSERT بـ`auth.uid()` + حجم أقصى | P0 | Open |
+| LV-5 | `analytics_events` INSERT (pg_policies + **transaction probe**) | 🔴 | **Database DoS + تلويث**: إدراج غير محدود | استنزاف تخزين/ملء بالـ events | `Anyone can insert analytics events`: `WITH CHECK true` حتى بلا جلسة — أي bot يرسل ملايين الأحداث | INSERT موثّق (`auth.uid()`/NULL) + Rate Limit في Phase 2 | P0 | **Closed (v4.0)** — إسقاط العريضة + `Authenticated users insert own analytics events`؛ probe حي: anon/cross `42501`، ملكية/NULL مسموحان |
 | LV-6 | `users` (pg_policies) | 🟡 | PATCH الدور محجوب (مقيد لا مفتوح) | عطل وظيفي | سياسة UPDATE الوحيدة `Admins update user roles` (أدمن فقط) — فالتحديث الذاتي 0 صف | إصلاح UPDATE الذاتي + `with check` يمنع role | P1 | Open |
 | LV-11 | `qr_codes` UPDATE (pg_policies + **probe**) | 🔴 | **Business Integrity Attack**: تزوير نجاح حملات/تقارير/ROI | احتيال تسويقي/إداري | `Anyone can update qr scan counts`: USING/WITH CHECK true — `UPDATE qr_codes SET scan_count=999999999` مباشرة | حصر UPDATE بـ RPC + ملكية أدمن + لا كتابة مباشرة | P1 | **Closed (v3.9)** — إسقاط السياسة؛ probe حي قبل `true` / بعد `false`؛ RPC سليم |
 | LV-7 | repair (pg_tables) | 🟠 | جداول repair غير موجودة | PII محلي + sync صامت | الجداول غائبة (404 + pg_tables مثبت) | قرار بعد إصلاح سياساتها | P1 | Open |
@@ -426,11 +429,11 @@ UV-3: إعدادات لوحة Supabase (تأكيد البريد، expiry، JWT) 
 
 ### 🔴 C — NOT READY
 
-**التبرير:** **LV-9 مُثبت قابليته للتنفيذ فعلياً** (جلسة مجهولة استدعت `admin_promote_user` عبر PostgREST ومرّت بفحص super_admin) = استحواذ كامل P0، فوق Criticals من pg_policies: قراءة كل users/القياسات (LV-1/LV-2)، **Database DoS** (LV-5)، وانعدام نزاهة القياس (Part IV: 0% تحقق سيرفر). (LV-10 وLV-11 أُغلقا 2026-08-02 — انظر v3.8/v3.9.) لا يمكن الدفاع عن الإطلاق أمام أي جهة خارجية أو متطلب 18-05/GDPR.
+**التبرير:** **LV-9 مُثبت قابليته للتنفيذ فعلياً** (جلسة مجهولة استدعت `admin_promote_user` عبر PostgREST ومرّت بفحص super_admin) = استحواذ كامل P0، فوق Criticals من pg_policies: قراءة كل users/القياسات (LV-1/LV-2)، **Database DoS** (LV-5)، وانعدام نزاهة القياس (Part IV: 0% تحقق سيرفر). (LV-10 وLV-11 وLV-5 أُغلقوا 2026-08-02 — انظر v3.8/v3.9/v4.0.) لا يمكن الدفاع عن الإطلاق أمام أي جهة خارجية أو متطلب 18-05/GDPR.
 
 **مشروط الوصول إلى B:**
 1. إغلاق **LV-9 فوراً**: إضافة فحص `auth.uid()` ∈ (admin) داخل `admin_promote_user` + allowlist أدوار + `REVOKE EXECUTE` من anon/authenticated، ثم إعادة probe (يجب أن تعود 403/404).
-2. تقييد **LV-5** (INSERT عبر `auth.uid()` + Rate Limit) وRLS العريضة (بند III.0 1-8). (LV-11 مُغلق — v3.9.)
+2. تقييد **LV-5** (INSERT عبر `auth.uid()` + Rate Limit) وRLS العريضة (بند III.0 1-8). (**LV-5 مُغلق — v4.0**: مِلكية/NULL معمول بها؛ يبقى Rate Limit لسبام المسجّلين في Phase 2. LV-11 مُغلق — v3.9.)
 3. تشغيل ملحق أ لتنظيف أثر الفحص (حسابا الضيف + صف الاختبار المحتمل في analytics_events).
 4. إعادة فحص حي بنفس بروتوكول Part III (يجب أن تعود P2–P7 محجوبة، وتُحذف سياسات «Authenticated read…» العريضة).
 5. إثبات staging لـ NR-2 (bootstrap TOCTOU) — **NR-1 أُغلق بالأدلة (v3.7)**: signup بـ`role:"super_admin"` → `users.role='guest'`، و`bootstrap_super_admin` → `42501`.
@@ -589,7 +592,7 @@ where id in ('5af72e8a-1390-406c-9170-f190532f2bd5','6d509eb1-43fd-4c40-a7f1-31a
 **LV-1 —** إغلاق سياسات القراءة العامة على الجداول الحساسة.
 **LV-2 —** مراجعة جميع `SECURITY DEFINER` Functions وإضافة تحقق صريح من الصلاحيات.
 **LV-10 —** إضافة تحقق ملكية داخل INSERT الخاصة بـ `sessions` بحيث لا يقبل `user_id` لا يخص المستخدم الحالي. ✅ **نُفِّذ 2026-08-02 (v3.8):** إسقاط `Authenticated insert sessions`؛ المتقاطع الآن `42501`.
-**LV-5 —** منع Database DoS على `analytics_events` عبر: Rate Limiting · Quotas · Validation · Cleanup Jobs.
+**LV-5 —** منع Database DoS على `analytics_events` عبر: Rate Limiting · Quotas · Validation · Cleanup Jobs. ✅ **نُفِّذ 2026-08-02 (v4.0) — شطر المِلكية:** إسقاط `Anyone can insert analytics events` + سياسة `Authenticated users insert own analytics events` (`TO authenticated`، `WITH CHECK (user_id IS NULL OR user_id=auth.uid())`). **يبقى لـ Phase 2:** Rate Limiting · Quotas · حجم أقصى للحدث · Cleanup Jobs (سبام المسجّلين بكمية).
 
 ### P1 — High
 
