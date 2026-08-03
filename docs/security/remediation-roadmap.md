@@ -1,0 +1,486 @@
+# FOCUS — خطة المعالجة الأمنية (Security Remediation Roadmap)
+
+**الإصدار:** 2.3 · **التاريخ:** 2026-08-02 · **مرجع الأدلة:** `docs/security/production-security-audit.md` (v4.0)
+
+> **حالة الوثيقة: Baseline مُجمَّد.** تُعتمد هذه الوثيقة كأساس ثابت للتنفيذ، **ولا تُعدَّل أثناء التنفيذ إلا بظهور أدلة جديدة تغيّر الواقع الأمني** (مثل نتيجة/بند جديد في التقرير). أي تعديل مقترح يُوثَّق في سجل التغييرات ويُعتمد صراحةً قبل تطبيقه — حتى لا تتحول الوثيقة إلى هدف متحرك (Moving Target).
+
+> **توزيع الوثائق:** `production-security-audit.md` يجيب على **«ماذا وجدنا؟ وما الدليل؟»**، وهذه الوثيقة تجيب على **«كيف نصلحه؟ وبأي ترتيب؟ وكيف نثبت أنه صُلح؟ وكيف ندير التنفيذ؟»**.
+> التسلسل المعتمد: **تدقيق (v3.6) → خطة معالجة (هذه الوثيقة) → إعادة تدقيق (Production Security Audit v4)**.
+
+## لوحة التنفيذ (Implementation Dashboard)
+
+| Gate | Phase | العنوان | الأولوية | Risk Rating | Owner | الجهد المقدَّر | الحالة |
+|---|---|---|---|---|---|---|---|
+| G1 | 1 | Production Emergency Hardening | P0 | 🔴 Critical | Security + Backend Engineer (+ DBA) | 2 مهندسين · 8–12 ساعة | ✅ **مكتمل — Baseline v4.0** (2026-08-02) |
+
+| بند Phase 1 | الحالة |
+|---|---|
+| **LV-9** | ✅ **مُغلق** (2026-08-02) — probe: `42501 permission denied` |
+| **LV-1 / LV-2 / LV-4** | ✅ **مُغلقة** (2026-08-02) — ملكية + دور-بوابة (`is_research_role()`)؛ توسعة النطاق بقراءات الدور = **قرار مُوثّق (v2.3)** |
+| **LV-3 (campaigns)** | ⛔ **Blocked by Schema** — لا عمود ملكية فعّال (`created_by` TEXT = NULL بالكامل) → يُحسم في Phase 2 (نموذج الملكية/التفويض) — موثّق `03-LV3-campaigns-schema-gap.md` |
+| **LV-10** | ✅ **مُغلق** (2026-08-02) — إسقاط `Authenticated insert sessions`؛ متقاطع → `42501` |
+| **LV-11** | ✅ **مُغلق** (2026-08-02) — إسقاط `Anyone can update qr scan counts`؛ anon → `false` |
+| **LV-5** | ✅ **مُغلق** (2026-08-02) — إسقاط `Anyone can insert analytics events` + `Authenticated users insert own analytics events`؛ anon/cross → `42501`، ملكية/NULL مسموحان |
+| **EXECUTE / SECURITY DEFINER** | ✅ **REVOKE** من anon/authenticated/PUBLIC عن `admin_promote_user` + `bootstrap_super_admin`؛ `handle_new_user`/`has_super_admin` = **Documented Exceptions** |
+| **Baseline Verification** | ✅ **PASS** (2026-08-02) — مصفوفة E1–E10 + عزل الملكية + تنظيف؛ **Baseline v4.0 مجمَّدة** |
+| G2 | 2 | Security Architecture Refactoring | P1 | 🟠 High | Security + Backend Engineer | 2–3 مهندسين · 2–4 أيام | ⏳ Pending |
+| G3 | 3 | Verification & Penetration Testing | P2 | 🟡 Medium | Security Engineer + QA | 1–2 مهندسين · 1–2 أيام | ⏳ Pending |
+| G4 | 4 | Long-Term Security Governance | P3 | 🟢 Low | Security Engineer (مملوك) | تأسيس 2–3 أيام + صيانة ربع سنوية | ⏳ Pending |
+
+## Security Principles (مبادئ أمنية حاكمة)
+
+1. **Least Privilege** — أصغر صلاحية تنجز المهمة؛ لا `EXECUTE` إلا لما يلزم.
+2. **Defense in Depth** — طبقات متعددة (GRANT + RLS + تحقق داخل الدالة)، لا اعتماد على طبقة واحدة.
+3. **Fail Secure** — عند الخطأ يُرفض الوصول لا يُسمح به.
+4. **Default Deny** — كل ما لم يُصرَّح به صراحةً ممنوع.
+5. **Separation of Duties** — الفصل بين من يُنفّذ (Developer) ومن يتحقق (Security/QA) ومن يوافق (Reviewer).
+6. **Single Source of Truth** — التفويض في مكان مركزي واحد (Authorization Layer) لا منطق مبعثر.
+7. **Evidence over Interpretation** — لا يُقبل إصلاح دون تحقق موثّق؛ كل مرحلة تنتهي بأدلة لا ادعاءات.
+
+## مبادئ عامة
+
+1. **الامتياز عبر طبقة التفويض المعتمدة في المشروع** — حسب نموذج التفويض المختار في Phase 2، وليس عبر `EXECUTE` وحده.
+2. **لا أمثلة SQL ملزمة بنموذج هنا** (لا `current_role` ولا جدول بعينه). تُكتب متطلبات وقيود؛ التفاصيل تُعتمد في Phase 2. أي كود يُكتب في Phase 1 يلتزم بهذا المبدأ أيضاً.
+3. **لكل مرحلة معايير قبول صريحة وخطوات تحقق** — تُثبت الاكتمال، لا التنفيذ فقط.
+4. **كل اختبار على Production صفر-الأثر** بنفس بروتوكول الـ Zero-Impact Probe الأصلي؛ ما لا يمكن تنفيذه صفر-الأثر يُنقل إلى Staging (مثل `NR-2`).
+5. **Done = Verified** — لا تُعتبر أي مرحلة مكتملة إلا بمعايير القبول والتحقق والمخرجات والـ Definition of Done معاً.
+
+## نموذج التنفيذ (Execution Model)
+
+### بوابات التقدم (Gates) — لا قفز بين المراحل
+
+| Gate | عند اكتمال | شرط فتح التالي |
+|---|---|---|
+| **Gate 1** | Phase 1 | جميع خطوات Verification الخاصة بـ Phase 1 تُشغَّل وكل Acceptance Criteria تنجح → **تُغلق** |
+| **Gate 2** | Phase 2 | استقرار Production + **مراجعة معمارية داخلية تعتمد Security Architecture v1** — لا يبدأ التنفيذ البرمجي قبل الاعتماد |
+| **Gate 3** | Phase 3 | **إعادة تنفيذ التدقيق بالكامل** (كل الاستعلامات + Runtime Probes + مقارنة بخط الأساس) وإصدار v4 |
+| **Gate 4** | Phase 4 | اعتماد **v4** قبل تأسيس الحوكمة — لا يُسبَق |
+
+> لا تبدأ أي مرحلة قبل إغلاق البوابة السابقة؛ أي ثغرة تُكتشف أثناء التنفيذ تُسجَّل ولا توقف المرحلة الحالية إلا إذا كانت ضمن نطاقها.
+
+### سياسة الفرع والدمج (Branch / PR Policy)
+- **فرع مستقل لكل مرحلة:** أول Commit يكون على فرع مخصص مثل `security/remediation-phase1` — **لا عمل مباشر على الفرع الرئيسي**.
+- **PR مستقل لكل بند** (أو مجموعة تغييرات مترابطة) في Phase 1، مع تشغيل الاختبارات والتحقق **قبل** الدمج.
+- كل PR يمر بمعايير القبول الخاصة ببنده ويُوثَّق مرجعه من المعرّف (LV/DV/CV).
+
+### ترتيب التنفيذ داخل Phase 1 (معتمد — **منفَّذ بالكامل 2026-08-02**)
+1. ✅ **LV-9** — حماية `admin_promote_user` وإزالة `EXECUTE` غير الضروري (أعلى أثر). → `01-…` · `d2c1ce7`
+2. ✅ **LV-1 / LV-2 / LV-4** — إصلاح سياسات RLS للقراءة (Owner Scope + **توسعة النطاق: قراءات دور-بوابة** `is_research_role()` — قرار مُوثّق هنا v2.3، كان مؤجّلاً لـ Phase 2). **LV-3 (campaigns)** — **Blocked by Schema** → `02-…` · `a6ffe6d` · `03-…` (موثّق)
+3. ✅ **LV-10** — ربط `sessions.user_id` بجلسة المصادقة. → `06-…` · `1bf0c08`
+4. ✅ **LV-11** — حماية تحديث `qr_codes`. → `07-…` · `d7aace0`
+5. ✅ **LV-5** — قيد INSERT بالمِلكية (`TO authenticated` + NULL/mلكية). **Rate Limit / Quota / Validation / Cleanup = Phase 2** (قرار: لا يؤجَّل إلا ما يعتمد على قرار معماري/منصة). → `08-…` · `2401c6b`
+6. ✅ **تشغيل التحقق الكامل** (Verification) — مصفوفة E1–E10 + عزل الملكية = **PASS**.
+7. ✅ **تثبيت Baseline الجديدة** (snapshot بعد الإصلاح) — **Baseline v4.0**.
+
+> **ملاحظات الإغلاق (v2.3):** (1) بنود 2-5 تُغطّي أيضاً NR-1 + §III.0 (فرض `guest` + REVOKE bootstrap) → `04-…`/`05-…` · `3d4982a`. (2) كل بند أُغلق بدورة Before → Apply → Diagnostic After (Methodological Note). (3) بند المِلكية/العزل = مكتمل؛ يبقى الحجم/الكمية (Rate Limit) في Phase 2.
+
+> المنطق: مسارات الاختراق الأعلى أثراً أولاً (privilege escalation → قراءة جماعية → نزاهة البيانات → مقاومة إساءة الاستخدام)، ثم التحقق، ثم تثبيت المرجع.
+
+## الهيكل الموحد لكل مرحلة
+
+| الكتلة | الوصف |
+|---|---|
+| الهدف | المخرَج النهائي من المرحلة |
+| Success Metrics | كيف نعرف أن المرحلة **نجحت** |
+| الخلفية | لماذا الآن؟ (المرجع من التقرير) |
+| النطاق | ما يُشمَل/ما يُستبعَد صراحةً |
+| العناصر | ما يُصلَح (مرتبة حسب LV/DV/CV) |
+| خطوات التنفيذ | تسلسل قابل للتنفيذ |
+| معايير القبول (Acceptance Criteria) | شرط **مقيس** يعتبر به الاكتمال |
+| Definition of Done | اكتمال المرحلة **بالكامل** (بما فيها الإدارة) |
+| التحقق (Verification) | كيف يُثبَت الإنجاز (استعلامات/اختبارات) |
+| المخرجات (Deliverables) | ما تُسلِّمه المرحلة |
+| Exit Criteria | شروط الخروج من المرحلة |
+| المخاطر | أخطار التنفيذ وضوابطها |
+| Rollback Strategy | خطة التراجع عند أي انحدار إنتاجي |
+| Dependencies (تقنية) | ما تتطلبه المرحلة (صلاحيات/أدوات/بيئة) |
+| Estimated Effort | الجهد والتخطيط |
+| Owner | المسؤول عن التنفيذ والقرار |
+
+---
+
+## Phase 1 — Production Emergency Hardening (P0)
+
+**Owner:** Security Engineer + Backend Engineer (مع وصول DBA) · **Risk Rating:** 🔴 Critical · **Estimated Effort:** 2 مهندسين · 8–12 ساعة (1–2 يوم)
+
+### الهدف
+إزالة جميع مسارات الاختراق المثبتة في Production دون تغيير بنية النظام.
+
+### Success Metrics
+- جميع بنود P0 (LV-9، LV-1..LV-4، LV-10، LV-5، LV-11 + منح EXECUTE) مغلقة.
+- لا توجد RPC إدارية قابلة للاستدعاء من `anon`/`authenticated` دون تفويض (probe → `403`/`42501`).
+- جميع اختبارات Phase 1 السريعة (عزل/DoS/QR) ناجحة.
+
+### الخلفية (لماذا؟)
+التقرير أثبت عملياً: RPC إداري قابل للاستدعاء من جلسة مجهولة (`LV-9`) · قراءة جماعية على 4+ جداول (`LV-1..LV-4`) · `INSERT sessions` بلا ربط ملكية (`LV-10`) · إدراج غير محدود في `analytics_events` (`LV-5`) · `UPDATE qr_codes` مفتوح (`LV-11`) · منح `EXECUTE` لـ PUBLIC/anon/authenticated ودوال `SECURITY DEFINER` بلا حارس (بند III.0).
+
+### النطاق
+- **يشمل:** RLS · RPC · EXECUTE · Authorization · الجداول الحساسة (`users`/`sessions`/`analytics_events`/`devices`/`calibrations`/`qr_codes`/`surveys`). `campaigns` — **pending ownership model (Phase 2)** (لا عمود ملكية فعّال؛ `created_by` TEXT = NULL بالكامل — دليل 2026-08-02).
+- **لا يشمل:** إعادة تصميم البنية الأمنية (Phase 2)، نزاهة القياس الشاملة (Phase 2)، تنظيف الـ migrations (Phase 2).
+
+### العناصر المطلوب إصلاحها (مرتبة حسب الأولوية)
+| المعرّف | البند | القسم |
+|---|---|---|
+| LV-9 | استدعاء `admin_promote_user` من أي جلسة | 1.1 |
+| LV-1 / LV-2 / LV-4 | قراءات عريضة بلا قيد صف (Owner Scope) | 1.2 |
+| LV-3 (campaigns) | قراءة عريضة — **Blocked by Schema** (لا عمود ملكية) | 1.2 |
+| LV-10 | INSERT `sessions` بـ `user_id` اعتباطي | 1.3 |
+| LV-5 | Database DoS عبر `analytics_events` | 1.4 |
+| LV-11 | UPDATE مباشر على `qr_codes` | 1.5 |
+| EXECUTE PUBLIC / SECURITY DEFINER | منح/تصميم يضخّم الكل | 1.1 |
+
+### خطوات التنفيذ
+1. **جرد:** إعادة تشغيل استعلامات `pg_proc` + `proacl` (الملحق ب) لتثبيت قائمة RPCs الحية ومنحها قبل التعديل (خط الأساس).
+2. **EXECUTE:** إزالة `EXECUTE` من غير المصرح لهم لكل دالة إدارية؛ استثناء واضح موثّق لأي دالة تحتاج `anon`.
+3. **Authorization:** إضافة تحقق صريح من صلاحية المتصل **داخل كل RPC إداري** عبر طبقة التفويض المعتمدة، وفق المبدأ: *Authorization must be based on the authenticated user's application role, not solely on EXECUTE privileges.* (متطلب، لا SQL ملزم — التفاصيل في Phase 2).
+4. **RLS:** استبدال قيود القراءة العريضة على الجداول ذات ملكية مؤكدة بسياسات Owner Scope؛ `campaigns` تُستثنى من Phase 1 (Blocked by Schema) حتى يُحسم نموذج الملكية في Phase 2.
+5. **sessions:** منع `INSERT` بـ `user_id` لا يخص المتصل — يُشتق المالك من جلسة المصادقة لا من قيمة العميل.
+6. **qr_codes:** حصر الكتابة في RPC داخلية/خدمة موثوقة/trigger يتحقق من المصدر.
+7. **analytics_events:** فرض Rate Limit + Quota + Validation + Cleanup Jobs.
+8. **مقارنة وتثبيت:** تسجيل مخرجات استعلامات الملحق ب **بعد** الإصلاح مقابل خط الأساس، وتثبيت الـ Baseline الجديدة (snapshot).
+
+### معايير القبول (Acceptance Criteria)
+- ✅ **لا توجد أي دالة إدارية قابلة للاستدعاء من `anon` أو `authenticated` دون تفويض.**
+- ✅ أي مستخدم لا يستطيع قراءة بيانات مستخدم آخر على كل الجداول الحساسة (الاستثناء الوحيد: أدوار البحث/الإدارة عبر `is_research_role()` — بتصميم).
+- ✅ `INSERT sessions` بـ `user_id` مستخدم آخر **يفشل**.
+- ✅ إرسال آلاف الأحداث إلى `analytics_events` **يُقيَّد** — مِلكية + مصادقة (anon محجوب تماماً؛ سبام المسجّلين بالكمية = Rate Limit في **Phase 2**).
+- ✅ `UPDATE qr_codes` مباشر من جلسة عميل **مرفوض**.
+
+> **حالة التحقق من معايير القبول (2026-08-02):** كل البنود أعلاه **محققة بالأدلة الحية** — راجع `III.1.8 Baseline Verification` في التقرير (v4.0).
+
+### Definition of Done
+تعتبر المرحلة منتهية فقط عندما:
+- ✅ معايير القبول أعلاه محققة.
+- ✅ التحقق (أدناه) مكتمل وناجح.
+- ✅ الأدلة مؤرشفة (snapshot قبل/بعد + مخرجات الاستعلامات).
+- ✅ مراجعة الكود (Code Review) من طرف ثانٍ.
+- ✅ النشر على Production مكتمل ومُوثَّق.
+
+### التحقق (Verification)
+- إعادة تشغيل `pg_class` · `pg_policies` · `pg_proc` · `proacl` · `pg_tables`.
+- إعادة Runtime Probe لـ `admin_promote_user` من anon → المتوقع **`403`/`42501`**، وليس `P0001`.
+- اختبارات العزل/DoS/QR (بروتوكول صفر-الأثر) — تُنفَّذ هنا كفحص سريع وتُوثَّق كاملة في Phase 3.
+
+> **النتيجة (2026-08-02):** ✅ **PASS** — مصفوفة E1–E10 (المرجع: `III.1.8` في التقرير v4.0 وقسم التحقق النهائي في `phase1/README.md`).
+
+### المخرجات (Deliverables)
+- SQL جديد للسياسات والمنح + إزالة `EXECUTE` العمومية.
+- تقرير مقارنة **قبل/بعد** (مخرجات الملحق ب).
+- تحديث التقرير بتسمية `v3.x` تعكس خط الأساس المُصلَح إن لزم.
+
+### Exit Criteria
+- لا توجد نتائج Critical متبقية ضمن نطاق Phase 1.
+- كل التحقق مرّ بنجاح.
+- خط الأساس المُصلَح موثّق في التقرير.
+
+### المخاطر
+- **تحقق زائف:** كتابة حارس من نموذج غير معتمد → ضابطه: الالتزام بطبقة التفويض المعتمدة وتأجيل SQL التفصيلي إلى Phase 2.
+- **كسر وظيفي** (UPDATE الذاتي العطوب `LV-6`، تدفق القياس): ضابطه: اختبار رجوع سريع لكل تدفق متأثر قبل اعتبار المرحلة منتهية.
+- **توسّع النطاق** نحو إعادة تصميم: ضابطه: "النطاق/لا يشمل" أعلاه.
+
+### Rollback Strategy
+إن رُصد أي انحدار إنتاجي:
+1. **Stop deployment** — إيقاف النشر فوراً.
+2. **Restore previous policies** — استعادة السياسات السابقة من snapshot.
+3. **Restore previous function definitions** — استعادة تعريفات الدوال السابقة.
+4. **Verify application health** — التحقق من سلامة التطبيق.
+5. **Re-run Phase 1 verification** — إعادة تحقق Phase 1 قبل أي إعادة نشر.
+
+### Dependencies (تقنية)
+- **Requires:** وصول DBA (صلاحيات owner) · Supabase SQL Editor · Service Role key (للتحقق الآمن/القراءة) · Production Snapshot قبل/بعد.
+
+### الاعتماد على مراحل أخرى
+- لا يتطلب Phase 2 (يمضي بحارس عام + طبقة التفويض الناشئة).
+- تُثبَّت النتائج نهائياً في Phase 3.
+
+---
+
+## Phase 2 — Security Architecture Refactoring
+
+**Owner:** Security Engineer + Backend Engineer · **Risk Rating:** 🟠 High · **Estimated Effort:** 2–3 مهندسين · 2–4 أيام
+
+### الهدف
+إعادة بناء الطبقة الأمنية لتكون موحدة وقابلة للصيانة، وليس مجرد إصلاح ثغرات.
+
+### Success Metrics
+- كل RPC إداري وكل سياسة RLS تستخدم طبقة التفويض المركزية.
+- لا توجد دالة `SECURITY DEFINER` بلا قرار موثّق يبررها.
+- وثيقة سياسة الأدوار معتمدة والفرق يلتزم بها.
+- جرد الـ legacy نظيف والمخطط متوافق مع المرجع المعتمد.
+
+### الخلفية (لماذا؟)
+الثغرات نشأت من منطق تفويض مبعثر بلا طبقة موحدة (`LV-9`) · دوال `SECURITY DEFINER` بلا مراجعة منهجية · `handle_new_user` غير مربوط بأي trigger (`LV-8`/`DV-10`) · انحراف الحقيقة الحية عن الـ migrations (`DV-7`/`DV-8`/`DV-9`) · bootstrap TOCTOU (`CV-2`) · نزاهة قياس تعتمد كلياً على العميل (Part IV).
+
+### النطاق
+- **يشمل:** Functions · Authorization Layer · توحيد JWT · سياسة الأدوار · إزالة legacy · مزامنة الحقيقة · أساس نزاهة القياس.
+- **لا يشمل:** أي تغيير سلوكي جديد للقياس خارج ما يسمح به الأساس (يُقيَّم في Phase 3).
+
+### العناصر المطلوب إصلاحها
+| المعرّف | البند |
+|---|---|
+| LV-6 | UPDATE الذاتي العطوب (وظيفي) |
+| LV-7 | قرار جداول repair الغائبة |
+| LV-8 / DV-10 | `handle_new_user` غير مربوط — ربط آمن أو إزالة |
+| CV-2 | bootstrap TOCTOU (NR-2) بحارس atomic |
+| DV-7 / DV-8 / DV-9 | مزامنة المخطط والـ migrations |
+| Part IV | تحقق/توقيع نتائج القياس على السيرفر |
+
+### خطوات التنفيذ
+1. **مراجعة Functions:** لكل دالة، تحديد هل تحتاج فعلاً `SECURITY DEFINER`؛ إن لم تحتج → `SECURITY INVOKER`.
+2. **بناء Authorization Layer:** دوال مركزية تُنفّذ نموذج التفويض المعتمد، تُستخدم في كل RPC وكل سياسة RLS. وفق المبدأ: *Replace ad hoc authorization logic with centralized helper functions that implement the project's chosen authorization model.*
+   > **ملاحظة:** الأسماء إرشادية فقط (**illustrative helper names**) — التنفيذ النهائي قد يختلف؛ المعيار هو مركزية التفويض لا أسماء دوال بعينها.
+3. **توحيد JWT Validation:** نقطة تحقق واحدة لـ `auth.uid()`/claims بدل تكرارها.
+4. **توثيق الأدوار:** وثيقة رسمية للفصل بين أدوار PostgreSQL/Supabase (`anon`/`authenticated`/`service_role`) وأدوار التطبيق (`guest`/`participant`/`researcher`/`admin`/`super_admin`) مع صلاحيات كل دور.
+5. **تنظيف legacy:** إزالة دوال/سياسات/فهارس/triggers قديمة غير مستخدمة.
+6. **مزامنة الحقيقة:** حسم `DV-7` (جداول العقد `00009`) و`DV-8`/`DV-9`/`DV-10` — اعتماد `00008a` كمرجع إعادة بناء أو تحديث الـ migrations.
+7. **P1 backlog:** ExportUtils · repair migrations · headers عبر CDN.
+
+### معايير القبول (Acceptance Criteria)
+- ✅ كل RPC إداري وكل سياسة RLS تستخدم طبقة التفويض المركزية (لا منطق مبعثر).
+- ✅ لا توجد دالة بلا مراجعة `SECURITY DEFINER`/`INVOKER` موثّقة القرار.
+- ✅ وثيقة سياسة الأدوار معتمدة والفرق يلتزم بها.
+- ✅ فحص جرد لا يجد legacy غير مستخدم، والمخطط متوافق مع المرجع المعتمد.
+
+### Definition of Done
+تعتبر المرحلة منتهية فقط عندما:
+- ✅ معايير القبول محققة.
+- ✅ التحقق مكتمل (جرد + مراجعة طرف ثانٍ + بيئة معزولة).
+- ✅ الأدلة مؤرشفة (قرارات الدوال + الـ migrations المزامَنة).
+- ✅ Code Review مكتمل.
+- ✅ النشر على **Staging** مكتمل قبل أي تفكير في Production.
+
+### التحقق (Verification)
+- جرد `pg_proc`/`proacl` بعد التنظيف ومقارنة القرار لكل دالة.
+- مراجعة Security Architecture v1 من طرف ثانٍ.
+- فحص الـ migrations المزامَنة في بيئة معزولة قبل أي تطبيق.
+
+### المخرجات (Deliverables)
+- **Security Architecture v1** + وثيقة سياسة الأدوار + قائمة وظائف الطبقة المركزية.
+
+### Exit Criteria
+- لا توجد نتائج High متبقية ضمن نطاق Phase 2.
+- Security Architecture v1 معتمدة (Approved) من طرف ثانٍ.
+- الـ migrations المزامَنة معتمدة على Staging.
+
+### المخاطر
+- **تعارض الحقيقة الحية مع migrations** عند المزامنة: ضابطه: تطبيق على نسخة معزولة أولاً.
+- **كسر متوافقية** أثناء إعادة البناء: ضابطه: اختبار رجوع كامل (Phase 3 هو المرجع).
+
+### Rollback Strategy
+- تغييرات Phase 2 تُطبَّق على Staging أولاً؛ التراجع يتم عبر **reference migrations** (عكس الـ migration المطبَّق)، لا بالحذف اليدوي.
+- إن ظهر انحدار في Staging: وقف، عكس الـ migration، إعادة فحص سلامة، ثم تكرار.
+
+### Dependencies (تقنية)
+- **Requires:** وصول DBA · بيئة Staging كاملة · Code Review · CI جرد (pg_proc/proacl) · لقطة Schema/مخططات قبل التنظيف.
+
+### الاعتماد على مراحل أخرى
+- يحتاج Phase 1 (بيئة خالية من الاختراق المثبت قبل إعادة البناء).
+- يجهّز القاعدة التي تُختبر في Phase 3.
+
+---
+
+## Phase 3 — Verification & Penetration Testing
+
+**Owner:** Security Engineer + QA · **Risk Rating:** 🟡 Medium · **Estimated Effort:** 1–2 مهندسين · 1–2 أيام
+
+### الهدف
+إثبات نجاح الإصلاحات بالأدلة وإصدار تقرير تدقيق جديد (v4).
+
+### Success Metrics
+- كل اختبار يعود بالنتيجة المتوقعة **موثّقة** (أداة/تاريخ/إخراج).
+- مقارنة الملحق ب قبل/بعد تُظهر زوال الأنماط العريضة (`Authenticated read …`، `Anyone can …`).
+- v4 صدر وأعاد تصنيف كل بند.
+
+### الخلفية (لماذا؟)
+بدون إثبات لا يمكن اعتماد الإصلاح. التقرير الحالي (v3.6) سجّل الأدلة **قبل** الإصلاح؛ هذه المرحلة تُثبت **بعد**، ثم تُصدر تقريراً جديداً يُعيد تصنيف كل بند.
+
+### النطاق
+- **يشمل:** إعادة كل استعلامات الملحق ب · إعادة الـ Runtime Probe · اختبارات سلوكية (عزل، sessions، DoS، QR) · إثبات `NR-2` على Staging.
+- **لا يشمل:** إصلاحات جديدة — أي ثغرة تُكتشف تُسجَّل وتُعالج في دورة لاحقة (v4 يوثقها).
+
+### العناصر المطلوب إصلاحها (إعادة تصنيف)
+كل بند LV/CV/DV المُصلَح في Phase 1/2 — يُعاد تصنيفه في v4 بحسب حالة التحقق الفعلية.
+
+### خطوات التنفيذ
+0. **Regression Baseline (أساس المقارنة):** قبل أي اختبار، احفظ لقطات (snapshots): مخطط `schema` · سياسات `policies` · تعريفات `functions` · منح `proacl` — من نسخة معزولة/لقطة وليس من Production مباشرة، لتبقى إعادة التدقيق بعد سنة ممكنة دون الاعتماد على بيانات متغيرة.
+1. **إعادة استعلامات الملحق ب:** `pg_class` · `pg_policies` · `pg_proc` · `proacl` · `pg_tables` — مقارنة خط الأساس (قبل) بالحالي (بعد).
+2. **إعادة Probe:** `POST /rpc/admin_promote_user` من anon → المتوقع **`403`/`42501`** وليس `P0001` (صفّ صفري، صفر-الأثر).
+3. **اختبار RLS:** مستخدم A لا يرى بيانات مستخدم B على كل الجداول الحساسة.
+4. **اختبار Sessions:** `INSERT` بـ `user_id` مستخدم آخر → **يفشل**.
+5. **اختبار DoS:** آلاف الأحداث → **Rate Limit** يعمل.
+6. **اختبار QR:** `UPDATE qr_codes` مباشر → **مرفوض**.
+7. **Staging:** إثبات `NR-2` (bootstrap TOCTOU) — لا يُنفَّذ على Production.
+
+### معايير القبول (Acceptance Criteria)
+- ✅ كل اختبار يعود بالنتيجة المتوقعة أعلاه **موثّقة** (أداة/تاريخ/إخراج).
+- ✅ مقارنة الملحق ب تُظهر زوال الأنماط العريضة.
+- ✅ v4 يعيد تصنيف كل بند: المُصلَح → مغلق بالتحقق، والمتبقي → مفتوح بأولويته.
+
+### Definition of Done
+تعتبر المرحلة منتهية فقط عندما:
+- ✅ معايير القبول محققة.
+- ✅ التحقق مكتمل وكل اختبار موثّق.
+- ✅ الأدلة مؤرشفة (سجلات الاختبار + الـ baseline).
+- ✅ v4 مراجَع من طرف ثانٍ.
+- ✅ v4 موزَّع ومعتمد كمرجع.
+
+### التحقق (Verification)
+- مقارنة مخرجات الملحق ب قبل/بعد في جدول واحد، **على أساس الـ Regression Baseline** (لقطات schema/policies/functions/proacl المحفوظة في الخطوة 0).
+- كل اختبار سلوكي موثّق بنفس معايير توثيق الـ probe الأصلي (صفر-الأثر، بلا تغيير بيانات حقيقية).
+- مراجعة v4 من طرف ثانٍ قبل اعتباره مرجعاً.
+
+### المخرجات (Deliverables)
+- **Production Security Audit v4** مع إعادة تصنيف كاملة.
+
+### Exit Criteria
+- لا توجد Critical findings متبقية.
+- كل التحقق مرّ بنجاح.
+- التقرير محدَّث إلى v4 ومعتمد.
+
+### المخاطر
+- **اختبارات بأثر فعلي** على Production: ضابطه: بروتوكول صفر-الأثر إلزامي؛ أي اختبار قد يغيّر بيانات يُنقل لـ Staging.
+- **تغير البيانات بين جولتي قبل/بعد** يُشوّه المقارنة: ضابطه: توثيق لقطات للسياسات/المنح لا تعتمد على بيانات متغيرة.
+
+### Rollback Strategy
+- هذه المرحلة **قراءة-فقط** على Production (لا تغييرات) → التراجع التقليدي غير مطلوب.
+- إن تغيّرت بيانات لا إرادياً (خطأ بروتوكول): إيقاف الاختبارات، استعادة من آخر snapshot، إعادة التحقق.
+
+### Dependencies (تقنية)
+- **Requires:** Production Snapshot (baseline) · أدوات Probe آمنة (صفر-الأثر) · Staging لـ `NR-2` · حق وصول قراءة فقط.
+
+### الاعتماد على مراحل أخرى
+- يحتاج Phase 1 (الإصلاح) وPhase 2 (طبقة التفويض ليُختبر عليها).
+
+---
+
+## Phase 4 — Long-Term Security Governance
+
+**Owner:** Security Engineer (مملوك) + DevRel/Backend · **Risk Rating:** 🟢 Low · **Estimated Effort:** تأسيس 2–3 أيام + صيانة ربع سنوية (مستمر)
+
+### الهدف
+منع عودة نفس الفئات من الثغرات — الأمن جزء من دورة التطوير وليس مراجعة لاحقة.
+
+### Success Metrics
+- كل migration جديدة تمر عبر القائمة قبل الدمج (مسجَّل في الـ PR).
+- الـ CI يفشل على حالة سلبية صناعية ويمرّ على الإيجابية.
+- سويت اختبارات الأدوار يعمل في الـ CI ويُمنع دمجه فاشلاً.
+- المجلد `docs/security/` مكتمل وكل وثيقة لها غرض صريح.
+
+### الخلفية (لماذا؟)
+الثغرات نشأت جزئياً لغياب معايير كتابة ومراجعة واختبارات دائمة؛ هذه المرحلة تُحوّل التعلم إلى حوكمة.
+
+### النطاق
+- **يشمل:** معايير الكتابة · قائمة مراجعة SQL · CI Security Gate · Regression Tests · توثيق دائم.
+- **لا يشمل:** إصلاحات Production (تلك في Phase 1/2 ودورات v4 التالية).
+
+### العناصر (بنود حوكمة — بلا معرّفات LV/DV)
+| البند | القسم |
+|---|---|
+| Security Coding Standard | 4.1 |
+| SQL Review Checklist | 4.2 |
+| CI Security Gate | 4.3 |
+| Security Regression Tests | 4.4 |
+| Security Documentation | 4.5 |
+
+### خطوات التنفيذ
+1. **Security Coding Standard:** وثيقة رسمية تغطي `SECURITY DEFINER` · RLS · RPC · JWT · Grants · نمط طبقة التفويض.
+2. **SQL Review Checklist:** قائمة إلزامية لأي migration جديدة: هل يوجد `USING(true)` · `WITH CHECK(true)` · `PUBLIC EXECUTE` · `SECURITY DEFINER` بلا تحقق · `FORCE RLS` · trigger · `ON CONFLICT` · استخدام `auth.uid()`.
+3. **CI Security Gate:** فحص تلقائي يفشل الـ CI عند `SECURITY DEFINER` بلا تحقق صلاحية أو `EXECUTE` للعموم.
+4. **Security Regression Tests:** اختبارات دائمة للأدوار: Admin RPC · Anon · Authenticated · Researcher · Guest · Service Role.
+5. **Security Documentation:** إتمام هيكل المجلد أدناه.
+
+### معايير القبول (Acceptance Criteria)
+- ✅ كل migration جديدة تمر عبر القائمة قبل الدمج (مسجَّل في الـ PR).
+- ✅ الـ CI يفشل على حالة سلبية صناعية (`SECURITY DEFINER` بلا تحقق / `EXECUTE PUBLIC`) ويمرّ على الحالة الإيجابية.
+- ✅ سويت اختبارات الأدوار يعمل في الـ CI ويُمنع دمجه فاشلاً.
+- ✅ المجلد `docs/security/` مكتمل وكل وثيقة لها غرض صريح.
+
+### Definition of Done
+تعتبر المرحلة منتهية (تأسيساً) فقط عندما:
+- ✅ معايير القبول محققة.
+- ✅ التحقق مكتمل (اختبار إيجابي/سلبي للـ CI + تشغيل السويت).
+- ✅ الأدلة مؤرشفة (نتائج CI في السجل).
+- ✅ Code Review للـ gate والسويت.
+- ✅ المُراجعة الربع سنوية مجدولة في تقويم الفريق.
+
+### التحقق (Verification)
+- اختبار إيجابي/سلبي للـ CI Gate.
+- تشغيل سويت الاختبارات في CI وتوثيق النتائج.
+- مراجعة ربع سنوية لقائمة الفحص وتحديثها عند تغيّر النموذج (مثلاً انتقال الأدوار إلى JWT).
+
+### المخرجات (Deliverables)
+```
+docs/security/
+├── production-security-audit.md     ← ماذا وجدنا؟ (الأدلة)
+├── remediation-roadmap.md           ← كيف نصلحه؟ (هذه الوثيقة)
+├── security-baseline.md
+├── security-architecture.md
+├── rpc-guidelines.md
+├── rls-guidelines.md
+├── penetration-testing.md
+├── incident-response.md
+├── hardening-checklist.md
+└── verification-playbook.md
+```
+
+### Exit Criteria
+- لا توجد بنود تأسيسية متبقية ضمن النطاق.
+- الـ gate والاختبارات تعمل في CI ومجدولة الصيانة.
+- (المرحلة مستمرة بطبيعتها — «الخروج» هنا يعني اكتمال التأسيس لا إنهاء الحوكمة.)
+
+### المخاطر
+- **إهمال الصيانة:** القائمة/الاختبارات تتحجر بمرور الزمن → ضابطه: مراجعة دورية مربوطة بتغييرات النموذج.
+- **تصدع مع تغيّر Supabase/Postgres:** ضابطه: تحديث الوثائق ضمن أي ترقية منصة.
+
+### Rollback Strategy
+- تعطيل مؤقت للـ CI Gate **بموافقة موثّقة وسجل** إذا تسبّب بتعطيل خاطئ للبناء؛ تُصلح القاعدة/الاختبار ثم يُعاد التمكين.
+- التراجع عن أي قاعدة تجاوزية (False Positive) عبر تحديث القائمة/الاختبار لا عبر إزالة الحماية.
+
+### Dependencies (تقنية)
+- **Requires:** وصول CI/CD pipeline · وصول المستودع (PR/review) · قرارات Phase 2 (النموذج المعتمد) · حساب اختبارات أدوار (Staging/CI).
+
+### الاعتماد على مراحل أخرى
+- يحتاج Phase 2 (المعايير) وPhase 3 (سويت الاختبارات المبني على التحقق).
+
+---
+
+## خريطة الربط بين النتائج والمراحل
+
+| النتيجة (التقرير) | المرحلة | ملاحظة |
+|---|---|---|
+| LV-9 (admin_promote_user) | Phase 1.1 | أعلى أولوية إصلاح |
+| LV-1 / LV-2 / LV-4 (قراءات عريضة — ملكية مؤكدة) | Phase 1.2 | Owner Scope |
+| LV-3 (campaigns قراءة عريضة) | Phase 1.2 ⛔ Blocked by Schema | يُحسم في Phase 2 (نموذج الملكية) |
+| LV-10 (sessions INSERT) | Phase 1.3 | نزاهة علمية |
+| LV-5 (analytics DoS) | Phase 1.4 | |
+| LV-11 (qr_codes UPDATE) | Phase 1.5 | Business Integrity |
+| EXECUTE PUBLIC / SECURITY DEFINER | Phase 1.1 + Phase 2.1 | تضخيم → طبقة تفويض |
+| LV-6 (UPDATE ذاتي عطوب) | Phase 2 | وظيفي |
+| LV-7 (جداول repair) | Phase 2 | قرار تصميمي |
+| LV-8 / DV-10 (handle_new_user غير مربوط) | Phase 2.1 | لا سلوك نشط حالياً |
+| DV-7 / DV-8 / DV-9 | Phase 2.5 | مزامنة الحقيقة |
+| CV-2 (bootstrap TOCTOU) | Phase 1/2 + Phase 3 (Staging) | NR-2 |
+| Part IV (نزاهة القياس) | Phase 2 | تحقق/توقيع سيرفر |
+| NR-1 (حقن role) | — | **مُحسم: لا مسار تنفيذ** — تحذير دائم: لا يُعاد ربط دالة تقرأ `role` من metadata |
+
+## الخلاصة
+
+بعد إكمال المراحل الأربع ينتقل المشروع من «إصلاح ثغرات موجودة» إلى «برنامج أمني متكامل»: **Phase 1** تغلق المخاطر الحرجة، **Phase 2** تعيد بناء البنية، **Phase 3** تثبت النجاح بالأدلة وتصدر v4، **Phase 4** تحوّل الأمن إلى حوكمة دائمة مدمجة في دورة التطوير.
+
+**القاعدة الحاكمة:** كل مرحلة لا تُعتبر مكتملة إلا بتحقق **معايير القبول + التحقق + Definition of Done + Exit Criteria** معاً — فـ **Done = Verified**، لا **Done = Code Written**.
+
+---
+
+## سجل التغييرات (Change Log)
+
+| الإصدار | التاريخ | الوصف |
+|---|---|---|
+| 1.0 | 2026-08-02 | إطلاق الخطة (4 مراحل) |
+| 1.1 | 2026-08-02 | هيكل موحد لكل مرحلة (الهدف/الخلفية/النطاق/العناصر/الخطوات/القبول/التحقق/المخرجات/المخاطر/الاعتماد) |
+| 1.2 | 2026-08-02 | ملاحظة أسماء دوال التفويض الإرشادية · Regression Baseline في Phase 3 |
+| 2.0 | 2026-08-02 | الإضافات الإدارية: Success Metrics · Definition of Done · Exit Criteria · Rollback · Dependencies · Effort · Owner · Risk Rating · Security Principles · Dashboard |
+| **2.1** | **2026-08-02** | **نموذج التنفيذ (Gates G1–G4 · Branch/PR Policy · ترتيب Phase 1) — Baseline مُجمَّد** |
+| **2.2** | **2026-08-02** | **أدلة جديدة من التنفيذ: LV-3 (campaigns) = Blocked by Schema** (لا عمود ملكية فعّال؛ `created_by` TEXT = NULL بالكامل) → يُستبعد من Phase 1 ويُحسم في Phase 2 (نموذج الملكية/التفويض). Dashboard يعكس حالة كل بند من Phase 1. ملاحظة DV: `sessions.id` TEXT مقابل UUID للعلاقات. |
+| **2.3** | **2026-08-02** | **ختم Phase 1 (G1) — قرار مُوثّق (ظهور أدلة/اكتمال):** (1) توسعة نطاق البند 2 بقراءات دور-بوابة `is_research_role()` (كانت مؤجّلة لـ Phase 2) — تُنفَّذ الآن وتُجمَّد. (2) كل بنود Phase 1 القابلة للتنفيذ **مُغلقة بالأدلة الحية** (LV-9 · LV-1/2/4 · LV-10 · LV-11 · LV-5 · NR-1 · §III.0) — Commits `d2c1ce7`→`2401c6b`. (3) **Baseline Verification PASS** — مصفوفة E1–E10 + عزل الملكية + تنظيف؛ **Baseline v4.0 مجمَّدة** (التقرير v4.0). (4) LV-3 يبقى Blocked by Schema (غير ثغرة قابلة للتنفيذ). (5) Phase 2 مسار مفتوح: Rate Limit/Quota، طبقة التفويض، NR-2 staging، مزامنة migrations، بنود P1. |
+
+> **قاعدة التجميد:** أي تعديل مستقبلي يمر عبر هذا السجل، ولا يُنفَّذ إلا بظهور أدلة جديدة تغيّر الواقع الأمني أو بقرار اعتماد صريح.
