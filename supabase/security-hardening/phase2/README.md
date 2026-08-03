@@ -1,0 +1,47 @@
+# Phase 2 — Authorization Layer (Workspace)
+
+**المرجع:** `docs/security/phase2/` — Inventory (`00`) · Duplication (`01`) · Design (`02`) · Execution Plan (`03`) · **ADR-001** (مرجع معماري — لا يتغير أثناء التنفيذ إلا بتحديثه صراحةً)
+**الأساس:** Baseline v4.0 (بعد Merge PR #1 = `6e84aa5`) · **الفرع:** `security/remediation-phase2`
+
+> **قاعدة التنفيذ:** كل مهمة منفصلة بفرع/commit مستقل، بدورة Phase 1: Snapshot → Before Probe → Apply → After Probe → Baseline → Docs → Commit. **لا يُغلق أي بند إلا بأدلة حية.**
+>
+> **عقد القبول (ADR Acceptance Contract):** كل مهمة تنتهي بالإجابة على سؤالين: (1) هل يحقق التنفيذ **A1–A8** بالكامل؟ (2) هل أُضيف استثناء جديد؟ إن نعم → يُحدَّث ADR-001 صراحةً. الاستثناءات المعتمدة فقط: `handle_new_user` · `has_super_admin` · `increment_qr_counter` · `lookup_*`.
+
+## مانيفست التنفيذ (Tasks — بالترتيب)
+
+| # | المهمة | الملف | معيار القبول | الحالة |
+|---|---|---|---|---|
+| 2.1.1 | Authorization Inventory Consolidation — إنشاء `app_role()` (A5) + `is_admin()` (A6) دون تغيير سلوكي | `01-2.1.1-app-role-is-admin.sql` + `01-2.1.1-probes.sql` | لا تغيير في pg_policies؛ `is_admin()` = true فقط لـ admin/super_admin | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة حية أدناه |
+| 2.1.2 | استبدال كل `EXISTS role IN ('admin','super_admin')` بـ `public.is_admin()` | _قادم_ | 0 ظهور للنمط في سياسات حية | ⏳ Pending |
+| 2.1.3 | حارس دور داخلي في كل RPC إدارية | _قادم_ | غير admin → `42501` | ⏳ Pending |
+| 2.1.4 | توحيد الواجهة (ROLE_CAPABILITY_MAP + نظام حراسة واحد) | _قادم_ | لا roleHierarchy مكرر | ⏳ Pending |
+| 2.1.5 | توثيق "ضيف" + مقارنات موحّدة | _قادم_ | لا مقارنة أد-هوك جديدة | ⏳ Pending |
+| 2.1.6 | إعادة Baseline Verification | _قادم_ | E1–E10 PASS | ⏳ Pending |
+
+## نتيجة 2.1.1 — أدلة حية (2026-08-02، SQL Editor)
+
+| الاختبار | النتيجة | الحكم |
+|---|---|---|
+| **Before 1a** — `app_role`/`is_admin` غير موجودتين | — (لم تُعرض صراحةً) | ✓ (ثُبت بالـ After 3a) |
+| **Before 1c** — خط الأساس: `is_research_role()`/`has_super_admin()` بحساب A | `true` / `true` | ✓ |
+| **Before 1b** — لقطة pg_policies (25 سياسة) | مرجع المقارنة | ✓ |
+| **Apply** — إنشاء الدالتين + REVOKE/Grant (authenticated فقط) | نجح | ✓ |
+| **After 3a** — وجود الدالتين | `app_role()` / `is_admin()` | ✅ PASS |
+| **After 3b** — حساب A (super_admin) | `role_a=super_admin` · `is_admin_a=true` | ✅ PASS |
+| **After 3c** — حساب B (user) | `role_b=user` · `is_admin_b=false` | ✅ PASS |
+| **After 3d** — anon | `false` (بدل `42501` — بسبب غياب JWT في SQL Editor؛ **المتغير الحاسم: لن تكون `true` أبداً**) | ✅ PASS |
+| **After 3e** — عدم انحدار | `is_research_role_a=true` · `has_super_admin_a=true` · `is_research_role_b=false` | ✅ PASS |
+| **After 3f** — مقارنة السياسات | مطابقة 100% لـ Before (فرق فارغ) | ✅ PASS |
+
+**عقد القبول ADR:** تحقيق A5 (app_role مصدر وحيد) + A6 (is_admin مسند الأدمن الوحيد) + A4 (search_path مثبّت) — **لا استثناء جديد**.
+**ملاحظة توثيقية:** توقع `anon → 42501` عدّلناه إلى **«`false` أو `42501`؛ المهم ألا تكون `true`»** — ليتوافق مع سياق تنفيذ SQL Editor (بلا JWT) ويكون قابلاً لإعادة الإنتاج على أي Supabase.
+
+## اكتشافات اللقطة (تغذي 2.1.2 و 2.4/2.5)
+1. **`campaigns` سياساتها حية:** `Admins manage campaigns` (نمط `EXISTS role IN (...)`) — هدف 2.1.2 · `Authenticated read campaigns` (قراءة عريضة — حالة LV-3 قائمة).
+2. **لا جداول `repair_*` ولا جداول العقد (`system_settings`/`audit_log`/`job_assignments`) في `public` حياً** — يؤكد DV-7؛ LV-7 يختصر إلى الـ migrations فقط.
+
+## سجل التنفيذ (Execution Log)
+| التاريخ | المهمة | الإجراء | الدليل/المرجع |
+|---|---|---|---|
+| 2026-08-02 | 2.1.1 | Before → Apply → After في SQL Editor | الجدول أعلاه |
+| 2026-08-02 | 2.1.1 | Commit مستقل | `01-2.1.1-…` files + هذا الملف |
