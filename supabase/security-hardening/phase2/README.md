@@ -15,7 +15,7 @@
 | 2.1.2 | استبدال كل `EXISTS role IN ('admin','super_admin')` بـ `public.is_admin()` | `02-2.1.2-is-admin-predicate-replace.sql` + `02-2.1.2-probes.sql` | `exists_pattern_count=0`؛ الكتابة الإدارية تعمل (A=1)، مرفوضة لـ B/anon | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة حية أدناه |
 | 2.1.3 | حارس دور داخلي في كل RPC إدارية (`admin_promote_user` + `bootstrap_super_admin`) | `03-2.1.3-rpc-internal-guard.sql` + `03-2.1.3-probes.sql` | غير admin → `42501 Forbidden` حتى مع منح EXECUTE؛ الأدمن يمرّ | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة حية أدناه |
 | 2.1.4 | توحيد الواجهة: `ROLE_CAPABILITY_MAP` صريح + نظام حراسة واحد (`guard.can`) | `src/core/research/permissions.ts` + `ProtectedRoute.tsx` + `App.tsx` + `HomeMenu.tsx` + `ResearchConsole.tsx` + `RepairHomeScreen.tsx` | لا `roleHierarchy`/`requiredRole`؛ كل المسارات المحمية عبر `guard.can` | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة أدناه |
-| 2.1.5 | توثيق "ضيف" + مقارنات موحّدة | _قادم_ | لا مقارنة أد-هوك جديدة | ⏳ Pending |
+| 2.1.5 | توثيق مفهوم "ضيف" (anon/guest/none) + مقارنات موحّدة | `docs/security/phase2/glossary.md` | لا مقارنة أد-هوك جديدة في `src` | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة أدناه |
 | 2.1.6 | إعادة Baseline Verification | _قادم_ | E1–E10 PASS | ⏳ Pending |
 
 ## نتيجة 2.1.1 — أدلة حية (2026-08-02، SQL Editor)
@@ -85,6 +85,18 @@
 
 **عقد القبول ADR:** A7 مثبّت — مصفوفة واحدة (`ROLE_PERMISSIONS` + `ROLE_CAPABILITY_MAP`)، `ProtectedRoute` بنظام حراسة واحد عبر `guard.can`، لا `roleHierarchy` مكرر. **لا استثناء جديد.**
 **ملاحظة سلوكية:** حراسة المسارات تغيّرت دلالياً من «دور App هرمي» إلى «قدرة Research» — التكافؤ محفوظ (researcher→analyst، admin→research_admin) والمسارات أصبحت جميعها عبر `guard.can`.
+
+## نتيجة 2.1.5 — أدلة حية (2026-08-02، grep + توثيق)
+
+| الاختبار | النتيجة | الحكم |
+|---|---|---|
+| **`glossary.md`** — توثيق anon/guest/none بالطبقات الثلاث + جدول تحويل | وُضع في `docs/security/phase2/glossary.md` (§1–§3) | ✅ |
+| **grep `requiredRole`/`roleHierarchy`/`RESEARCH_ROLE_MAP`** | `0` استخدام — المرجع الوحيد تعليق يشرح إزالتها | ✅ |
+| **مقارنات أد-هوك في `src`** | آخرها `SettingsScreen.isResearcher` → `guard.can(researchRole,'scientific','read')` (حُذفت) | ✅ |
+| **الاستثناء المشروع** (تصنيف بيانات، ليس صلاحية) | عدّ guest/registered في `api-supabase.ts`/`business-intelligence/api.ts` + `userType` في `live-sessions.ts` — موثّق في glossary §4 | ✅ |
+| **typecheck / lint** (الملفات المعدّلة) | `tsc --noEmit` = 0 أخطاء · eslint = 0 أخطاء · 21/21 اختبارات PASS | ✅ |
+
+**عقد القبول ADR:** A7 مثبّت — لا منطق أدوار مكرر في React، كل قرار صلاحية عبر `guard.can`؛ A1/A3/A5 مرجعان في glossary. **لا استثناء جديد.**
 
 ## اكتشافات اللقطة (تغذي 2.1.2 و 2.4/2.5)
 1. **`campaigns` سياساتها حية:** `Admins manage campaigns` (نمط `EXISTS role IN (...)`) — هدف 2.1.2 · `Authenticated read campaigns` (قراءة عريضة — حالة LV-3 قائمة).
