@@ -3,6 +3,7 @@ import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors, THEME_IDS } from '../../hooks/useThemeColors';
 import { useAuth } from '../../core/auth/AuthProvider';
+import { permissionGuard } from '../../core/research/permissions';
 import { useSettings } from '../../hooks/useSettings';
 import type { TranslationKey } from '../../i18n';
 
@@ -17,7 +18,7 @@ export const HomeMenu = memo(function HomeMenu({ open, onClose }: HomeMenuProps)
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const colors = useThemeColors();
-  const { state, service } = useAuth();
+  const { state, service, researchRole } = useAuth();
   const { settings, update: updateSettings } = useSettings();
 
   if (!open) return null;
@@ -25,8 +26,7 @@ export const HomeMenu = memo(function HomeMenu({ open, onClose }: HomeMenuProps)
   const isAuthenticated = state.status === 'authenticated';
   const isLoading = state.status === 'loading';
   const isGuest = !isAuthenticated && !isLoading;
-  const role = state.user?.role;
-  const isAdmin = role === 'super_admin' || role === 'admin' || role === 'researcher';
+  const canManage = permissionGuard.can(researchRole, 'scientific', 'read');
 
   const navigate = (screen: 'login' | 'settings' | 'research') => {
     onClose();
@@ -93,13 +93,13 @@ export const HomeMenu = memo(function HomeMenu({ open, onClose }: HomeMenuProps)
         </button>
       )}
 
-      {isAdmin && (
+      {canManage && (
         <button onClick={() => navigate('settings')} style={btn()} onMouseEnter={hover} onMouseLeave={leave}>
           {t('home.settings')}
         </button>
       )}
 
-      {isAdmin && (
+      {canManage && (
         <button onClick={() => navigate('research')} style={btn()} onMouseEnter={hover} onMouseLeave={leave}>
           {t('home.researchConsole')}
         </button>

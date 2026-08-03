@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useAuth } from '../../core/auth/AuthProvider';
+import { permissionGuard } from '../../core/research/permissions';
 import { Screen, Stack, Grid } from '../../design-system/layout';
 import { Card } from '../../design-system/components/Card';
 import { Button } from '../../design-system/components/Button';
@@ -25,9 +26,9 @@ const MENU_LABELS: Record<string, string> = {
 
 export const RepairHomeScreen = memo(function RepairHomeScreen() {
   const dispatch = useAppDispatch();
-  const { state } = useAuth();
+  const { researchRole } = useAuth();
 
-  const isAdmin = state.user?.role === 'admin' || state.user?.role === 'super_admin' || state.user?.role === 'researcher';
+  const canManage = permissionGuard.can(researchRole, 'campaigns', 'read');
 
   return (
     <Screen ariaLabel="Repair services" bottomPad="6rem">
@@ -43,7 +44,7 @@ export const RepairHomeScreen = memo(function RepairHomeScreen() {
         </Card>
 
         <Grid columns={2} gap="md">
-          {REPAIR_MENU_ITEMS.filter(item => !item.requiresAuth || isAdmin).map((item) => (
+          {REPAIR_MENU_ITEMS.filter(item => !item.requiresAuth || canManage).map((item) => (
             <Card
               key={item.key}
               variant="glass"

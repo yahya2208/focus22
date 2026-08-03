@@ -1,7 +1,32 @@
 import { describe, it, expect } from 'vitest';
-import { createPermissionGuard } from '../../core/research/permissions';
+import {
+  createPermissionGuard,
+  permissionGuard,
+  mapToResearchRole,
+  ROLE_CAPABILITY_MAP,
+} from '../../core/research/permissions';
 
 const guard = createPermissionGuard();
+
+describe('ROLE_CAPABILITY_MAP (App -> Research, ADR-001 A7)', () => {
+  it('maps every app role to its research capability', () => {
+    expect(ROLE_CAPABILITY_MAP).toEqual({
+      super_admin: 'super_admin',
+      admin: 'research_admin',
+      researcher: 'analyst',
+      user: 'viewer',
+      guest: 'none',
+    });
+  });
+
+  it('mapToResearchRole delegates to the map', () => {
+    expect(mapToResearchRole('super_admin')).toBe('super_admin');
+    expect(mapToResearchRole('admin')).toBe('research_admin');
+    expect(mapToResearchRole('researcher')).toBe('analyst');
+    expect(mapToResearchRole('user')).toBe('viewer');
+    expect(mapToResearchRole('guest')).toBe('none');
+  });
+});
 
 describe('PermissionGuard', () => {
   describe('super_admin', () => {
@@ -108,6 +133,21 @@ describe('PermissionGuard', () => {
       expect(guard.can('unknown_role' as never, 'sessions', 'read')).toBe(false);
       expect(guard.getPermissions('unknown_role' as never)).toEqual([]);
       expect(guard.getAccessibleResources('unknown_role' as never)).toEqual([]);
+    });
+
+    it('none role has no permissions', () => {
+      expect(guard.can('none', 'overview', 'read')).toBe(false);
+      expect(guard.can('none', 'sessions', 'read')).toBe(false);
+      expect(guard.getPermissions('none')).toEqual([]);
+      expect(guard.getAccessibleResources('none')).toEqual([]);
+    });
+  });
+
+  describe('singleton guard parity', () => {
+    it('permissionGuard behaves like createPermissionGuard()', () => {
+      expect(permissionGuard.can('super_admin', 'anything', 'delete')).toBe(true);
+      expect(permissionGuard.can('viewer', 'campaigns', 'read')).toBe(false);
+      expect(permissionGuard.getAccessibleResources('research_admin')).toContain('campaigns');
     });
   });
 });

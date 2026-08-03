@@ -14,7 +14,7 @@
 | 2.1.1 | Authorization Inventory Consolidation — إنشاء `app_role()` (A5) + `is_admin()` (A6) دون تغيير سلوكي | `01-2.1.1-app-role-is-admin.sql` + `01-2.1.1-probes.sql` | لا تغيير في pg_policies؛ `is_admin()` = true فقط لـ admin/super_admin | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة حية أدناه |
 | 2.1.2 | استبدال كل `EXISTS role IN ('admin','super_admin')` بـ `public.is_admin()` | `02-2.1.2-is-admin-predicate-replace.sql` + `02-2.1.2-probes.sql` | `exists_pattern_count=0`؛ الكتابة الإدارية تعمل (A=1)، مرفوضة لـ B/anon | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة حية أدناه |
 | 2.1.3 | حارس دور داخلي في كل RPC إدارية (`admin_promote_user` + `bootstrap_super_admin`) | `03-2.1.3-rpc-internal-guard.sql` + `03-2.1.3-probes.sql` | غير admin → `42501 Forbidden` حتى مع منح EXECUTE؛ الأدمن يمرّ | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة حية أدناه |
-| 2.1.4 | توحيد الواجهة (ROLE_CAPABILITY_MAP + نظام حراسة واحد) | _قادم_ | لا roleHierarchy مكرر | ⏳ Pending |
+| 2.1.4 | توحيد الواجهة: `ROLE_CAPABILITY_MAP` صريح + نظام حراسة واحد (`guard.can`) | `src/core/research/permissions.ts` + `ProtectedRoute.tsx` + `App.tsx` + `HomeMenu.tsx` + `ResearchConsole.tsx` + `RepairHomeScreen.tsx` | لا `roleHierarchy`/`requiredRole`؛ كل المسارات المحمية عبر `guard.can` | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة أدناه |
 | 2.1.5 | توثيق "ضيف" + مقارنات موحّدة | _قادم_ | لا مقارنة أد-هوك جديدة | ⏳ Pending |
 | 2.1.6 | إعادة Baseline Verification | _قادم_ | E1–E10 PASS | ⏳ Pending |
 
@@ -67,6 +67,24 @@
 | **After A7** — proacl بعد الاختبارات | `{postgres, service_role}` — لا تسرب من المنح المؤقتة | ✅ PASS |
 
 **عقد القبول ADR:** A4 مثبّت (الحارس الداخلي يعمل حتى مع وجود منح EXECUTE — defense-in-depth). **استثناء جديد واحد موثّق في ADR-001 (A4-x):** `bootstrap_super_admin` حارسها حالة-based (`has_super_admin()`)، بلا فحص هوية متصل — مستحيل بالتصميم (أول super_admin بلا سلف). الـ allowlist يمنع `new_role` خارج الأدوار الخمسة، ويمنع منح `super_admin` إلا لـ super_admin حالي (مصفوفة القبول §3).
+
+## نتيجة 2.1.4 — أدلة حية (2026-08-02، وحدة + فحص ثابت)
+
+| الاختبار | النتيجة | الحكم |
+|---|---|---|
+| **ROLE_CAPABILITY_MAP** — خريطة صريحة App→Research (تحل محل `mapToResearchRole` الضمني) | super_admin→super_admin · admin→research_admin · researcher→analyst · user→viewer · guest→none | ✅ |
+| **`mapToResearchRole`** — تفويض مباشر للخريطة | 5/5 مطابقة | ✅ |
+| **`ProtectedRoute.requiredRole` الهرمي + `roleHierarchy` + `RESEARCH_ROLE_MAP`** | **حُذفت** — لم يبقَ أي `roleHierarchy`/`requiredRole` في المصدر | ✅ |
+| **كل المسارات المحمية عبر `guard.can`** | research/BI → `scientific` read · repair-admin/courier/history/personnel/diagnostics → `campaigns` read | ✅ |
+| **`HomeMenu.isAdmin` الأد-هوك** → `guard.can(researchRole, 'scientific', 'read')` | حُذف `role === ...` المكرر | ✅ |
+| **`RepairHomeScreen.isAdmin`** → `guard.can(researchRole, 'campaigns', 'read')` | حُذف المكرر | ✅ |
+| **`ResearchConsole.RESEARCH_ROLE_MAP` المكرر** | حُذف — يستخدم `permissionGuard` مباشرة | ✅ |
+| **`guard.can('none', …)`** — دور ضيف/بلا حساب | `false` في كل الموارد (اختبار وحدة) | ✅ |
+| **اختبارات وحدة** `permissions.test.ts` | 21/21 PASS (شملت اختبارات الخريطة و`none` والـ singleton) | ✅ |
+| **typecheck / lint** (الملفات المعدّلة) | `tsc --noEmit` = 0 أخطاء · eslint = 0 أخطاء في الملفات المعدّلة | ✅ |
+
+**عقد القبول ADR:** A7 مثبّت — مصفوفة واحدة (`ROLE_PERMISSIONS` + `ROLE_CAPABILITY_MAP`)، `ProtectedRoute` بنظام حراسة واحد عبر `guard.can`، لا `roleHierarchy` مكرر. **لا استثناء جديد.**
+**ملاحظة سلوكية:** حراسة المسارات تغيّرت دلالياً من «دور App هرمي» إلى «قدرة Research» — التكافؤ محفوظ (researcher→analyst، admin→research_admin) والمسارات أصبحت جميعها عبر `guard.can`.
 
 ## اكتشافات اللقطة (تغذي 2.1.2 و 2.4/2.5)
 1. **`campaigns` سياساتها حية:** `Admins manage campaigns` (نمط `EXISTS role IN (...)`) — هدف 2.1.2 · `Authenticated read campaigns` (قراءة عريضة — حالة LV-3 قائمة).
