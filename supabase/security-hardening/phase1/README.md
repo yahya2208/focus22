@@ -27,6 +27,8 @@
 | 8 | `08-LV5-analytics-insert-ownership.sql` (مقترح) | قيد INSERT analytics_events بالمِلكية (Rate Limit = Phase 2) | LV-5 | ⏳ مسودة لم تُكتب |
 | 9 | (تحقق) | تشغيل proacl/pg_policies/Probe بعد كل بند | — | ⏳ يُشغَّل دورياً |
 
+> **Methodological Note (2026-08-02):** Every production policy change is accepted **only** after a complete *Before → Apply → Diagnostic After* cycle. Intermediate contradictory observations are treated as **inconclusive** until resolved with diagnostic evidence (e.g., LV-11: an `anon_update_succeeded=true` right after the DROP was resolved via a consolidated diagnostic row `anon · rls_on=true · bypass=false · update_policy_count=0` → `false`; the earlier value was a SQL Editor execution-order artifact, documented rather than ignored).
+
 ## مراجعة الدوال الإدارية — أول بند في مراجعة بند 2 (لا تغيير الآن)
 
 > قرار المستخدم 2026-08-02: لا نغيّر `bootstrap_super_admin` / `has_super_admin` / `handle_new_user` الآن، لكن نراجع وظيفة كل دالة أولاً لتصنيفها (Trigger-only / RLS-only / RPC-callable) قبل أي قرار منح مستقبلي. ما زالت جميعها تمنح EXECUTE لـ anon/authenticated/PUBLIC (ثابت من Step B).
