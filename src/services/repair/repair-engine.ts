@@ -1,5 +1,6 @@
 import { getGlobalTelemetry } from '../../core/telemetry';
 import { EventTypes } from '../../core/analytics/events';
+import type { AnalyticsEventType } from '../../core/analytics/events';
 import {
   getAllRepairRequests as loadRequests,
   getRepairRequest, saveRepairRequest,
@@ -303,7 +304,7 @@ export async function updateCourierJobStatus(jobId: string, status: CourierJobSt
     'Returned': EventTypes.COURIER_RETURNED,
   };
   const eventName = statusToEvent[status] as string | undefined;
-  if (eventName) getGlobalTelemetry().track(eventName as any, { repair_id: job.repairId, job_id: jobId });
+  if (eventName) getGlobalTelemetry().track(eventName as AnalyticsEventType, { repair_id: job.repairId, job_id: jobId });
 
   const request = await getRepairRequest(job.repairId);
   if (request && status === 'Collected') await updateStatus(request, 'Received');
@@ -360,7 +361,7 @@ async function updateStatus(request: RepairRequest, status: RepairRequestStatus)
     'Delivered': EventTypes.CUSTOMER_RECEIVED,
   };
   const eventName = statusToEvent[status] as string | undefined;
-  if (eventName) getGlobalTelemetry().track(eventName as any, { repair_id: request.id, repair_code: request.repairCode });
+  if (eventName) getGlobalTelemetry().track(eventName as AnalyticsEventType, { repair_id: request.id, repair_code: request.repairCode });
 }
 
 // ── Analytics ────────────────────────────────────────────────

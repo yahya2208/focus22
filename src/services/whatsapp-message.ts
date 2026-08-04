@@ -5,6 +5,7 @@ import {
 } from './whatsapp-service';
 import { getGlobalTelemetry } from '../core/telemetry';
 import { EventTypes } from '../core/analytics/events';
+import type { AnalyticsEventType } from '../core/analytics/events';
 
 export type CustomerAction = 'buy' | 'sell' | 'exchange';
 export type WhatsAppAction = 'buy' | 'sell' | 'exchange' | 'inquiry' | 'stock_check' | 'price_check';
@@ -146,7 +147,7 @@ export function generateMessage(
 
 export function openWhatsAppWithMessage(phone: string, message: string, analyticsEvent?: string): void {
   if (analyticsEvent) {
-    getGlobalTelemetry().track(analyticsEvent as any, { phone: formatPhone(phone), has_message: true });
+    getGlobalTelemetry().track(analyticsEvent as AnalyticsEventType, { phone: formatPhone(phone), has_message: true });
   }
   openCustomMessage(phone, message);
 }

@@ -1,5 +1,5 @@
 import { getAllRepairRequests, getAllQuotes, getAllTimelineEvents, getAllCourierJobs } from './repair-database';
-import type { RepairBI } from './repair-types';
+import type { RepairBI, RepairIssue } from './repair-types';
 
 export async function getRepairBIData(): Promise<RepairBI> {
   const [requests, quotes, timeline, courierJobs] = await Promise.all([
@@ -41,7 +41,7 @@ export async function getRepairBIData(): Promise<RepairBI> {
     issueCounts[r.issue] = (issueCounts[r.issue] || 0) + 1;
   });
   const topIssues = Object.entries(issueCounts)
-    .map(([issue, count]) => ({ issue, count } as { issue: any; count: number }))
+    .map(([issue, count]) => ({ issue, count } as { issue: RepairIssue; count: number }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
