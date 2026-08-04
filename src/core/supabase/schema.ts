@@ -104,6 +104,117 @@ export interface DatabaseSurvey {
   readonly created_at: string;
 }
 
+export interface DatabaseRepairRequestRow {
+  readonly id: string;
+  readonly repair_code: string;
+  readonly customer_name: string;
+  readonly customer_phone: string;
+  readonly brand_name: string;
+  readonly model_name: string;
+  readonly condition: string;
+  readonly issue: string;
+  readonly description: string;
+  readonly device_working: string | null;
+  readonly lock_screen: string | null;
+  readonly previously_repaired: string | null;
+  readonly latitude: number | null;
+  readonly longitude: number | null;
+  readonly location_accuracy: number | null;
+  readonly google_maps_link: string | null;
+  readonly photo_paths: unknown;
+  readonly status: string;
+  readonly admin_notes: string;
+  readonly created_at: string;
+  readonly updated_at: string;
+  readonly customer_id: string | null;
+  readonly assigned_courier_id: string | null;
+  readonly assigned_technician_id: string | null;
+}
+
+export interface DatabaseRepairQuoteRow {
+  readonly id: string;
+  readonly repair_id: string;
+  readonly estimated_price: number | null;
+  readonly estimated_days: number | null;
+  readonly admin_notes: string;
+  readonly recommended_action: string | null;
+  readonly recommendation_reason: string | null;
+  readonly sent_at: string | null;
+  readonly approved_at: string | null;
+  readonly rejected_at: string | null;
+  readonly created_at: string;
+}
+
+export interface DatabaseRepairTimelineRow {
+  readonly id: string;
+  readonly repair_id: string;
+  readonly status: string;
+  readonly note: string;
+  readonly created_at: string;
+  readonly actor: string;
+}
+
+export interface DatabaseRepairCourierJobRow {
+  readonly id: string;
+  readonly repair_id: string;
+  readonly courier_id: string;
+  readonly courier_name: string;
+  readonly customer_name: string;
+  readonly customer_phone: string;
+  readonly customer_address: string | null;
+  readonly latitude: number | null;
+  readonly longitude: number | null;
+  readonly google_maps_link: string | null;
+  readonly distance: number | null;
+  readonly status: string;
+  readonly notes: string;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface DatabaseRepairNotificationRow {
+  readonly id: string;
+  readonly repair_id: string;
+  readonly type: string;
+  readonly recipient: string;
+  readonly title: string;
+  readonly message: string;
+  readonly sent_at: string;
+  readonly read_at: string | null;
+}
+
+export interface DatabaseRepairPhotoRow {
+  readonly id: string;
+  readonly repair_id: string;
+  readonly path: string;
+  readonly uploaded_at: string;
+}
+
+export interface DatabaseRepairStatusHistoryRow {
+  readonly id: string;
+  readonly repair_id: string;
+  readonly from_status: string | null;
+  readonly to_status: string;
+  readonly changed_by: string;
+  readonly changed_by_id: string | null;
+  readonly note: string;
+  readonly ip_address: string | null;
+  readonly device_info: string | null;
+  readonly created_at: string;
+}
+
+export interface DatabaseRepairAuditLogRow {
+  readonly id: string;
+  readonly repair_id: string | null;
+  readonly action: string;
+  readonly details: string;
+  readonly performed_by: string;
+  readonly performed_by_id: string | null;
+  readonly ip_address: string | null;
+  readonly user_agent: string | null;
+  readonly created_at: string;
+}
+
 export interface Database {
   readonly users: {
     readonly Row: DatabaseUser;
@@ -129,5 +240,29 @@ export interface Database {
     readonly Row: DatabaseSurvey;
     readonly Insert: Omit<DatabaseSurvey, 'id' | 'created_at'>;
     readonly Update: Partial<Omit<DatabaseSurvey, 'id' | 'created_at'>>;
+  };
+  readonly repair_requests: {
+    readonly Row: DatabaseRepairRequestRow;
+  };
+  readonly repair_quotes: {
+    readonly Row: DatabaseRepairQuoteRow;
+  };
+  readonly repair_timeline: {
+    readonly Row: DatabaseRepairTimelineRow;
+  };
+  readonly repair_courier_jobs: {
+    readonly Row: DatabaseRepairCourierJobRow;
+  };
+  readonly repair_notifications: {
+    readonly Row: DatabaseRepairNotificationRow;
+  };
+  readonly repair_photos: {
+    readonly Row: DatabaseRepairPhotoRow;
+  };
+  readonly repair_status_history: {
+    readonly Row: DatabaseRepairStatusHistoryRow;
+  };
+  readonly repair_audit_log: {
+    readonly Row: DatabaseRepairAuditLogRow;
   };
 }

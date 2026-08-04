@@ -1,5 +1,6 @@
 import { getSupabaseClient } from './client';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from './schema';
 import type {
   RepairRequest, RepairQuote, RepairTimelineEvent,
   CourierJob, RepairNotification, RepairPhoto,
@@ -13,20 +14,20 @@ const courierFields = 'id,repair_id,courier_id,courier_name,customer_name,custom
 const notifFields = 'id,repair_id,type,recipient,title,message,sent_at,read_at';
 const photoFields = 'id,repair_id,path,uploaded_at';
 
-function mapRepairRequest(row: any): RepairRequest {
+function mapRepairRequest(row: Database['repair_requests']['Row']): RepairRequest {
   return {
     id: row.id, repairCode: row.repair_code,
     customerName: row.customer_name, customerPhone: row.customer_phone,
     brandName: row.brand_name, modelName: row.model_name,
     condition: row.condition ?? 'New',
-    issue: row.issue, description: row.description ?? '',
+    issue: row.issue as RepairRequest['issue'], description: row.description ?? '',
     deviceWorking: row.device_working, lockScreen: row.lock_screen,
     previouslyRepaired: row.previously_repaired,
     latitude: row.latitude, longitude: row.longitude,
     locationAccuracy: row.location_accuracy,
     googleMapsLink: row.google_maps_link,
     photoPaths: Array.isArray(row.photo_paths) ? row.photo_paths : [],
-    status: row.status, adminNotes: row.admin_notes ?? '',
+    status: row.status as RepairRequest['status'], adminNotes: row.admin_notes ?? '',
     createdAt: row.created_at, updatedAt: row.updated_at,
     customerId: row.customer_id,
     assignedCourierId: row.assigned_courier_id,
@@ -34,27 +35,27 @@ function mapRepairRequest(row: any): RepairRequest {
   };
 }
 
-function mapQuote(row: any): RepairQuote {
+function mapQuote(row: Database['repair_quotes']['Row']): RepairQuote {
   return {
     id: row.id, repairId: row.repair_id,
     estimatedPrice: row.estimated_price, estimatedDays: row.estimated_days,
     adminNotes: row.admin_notes ?? '',
-    recommendedAction: row.recommended_action,
+    recommendedAction: row.recommended_action as RepairQuote['recommendedAction'],
     recommendationReason: row.recommendation_reason,
     sentAt: row.sent_at, approvedAt: row.approved_at,
     rejectedAt: row.rejected_at, createdAt: row.created_at,
   };
 }
 
-function mapTimelineEvent(row: any): RepairTimelineEvent {
+function mapTimelineEvent(row: Database['repair_timeline']['Row']): RepairTimelineEvent {
   return {
     id: row.id, repairId: row.repair_id,
-    status: row.status, note: row.note ?? '',
-    createdAt: row.created_at, actor: row.actor,
+    status: row.status as RepairTimelineEvent['status'], note: row.note ?? '',
+    createdAt: row.created_at, actor: row.actor as RepairTimelineEvent['actor'],
   };
 }
 
-function mapCourierJob(row: any): CourierJob {
+function mapCourierJob(row: Database['repair_courier_jobs']['Row']): CourierJob {
   return {
     id: row.id, repairId: row.repair_id,
     courierId: row.courier_id, courierName: row.courier_name,
@@ -62,22 +63,22 @@ function mapCourierJob(row: any): CourierJob {
     customerAddress: row.customer_address,
     latitude: row.latitude, longitude: row.longitude,
     googleMapsLink: row.google_maps_link,
-    distance: row.distance, status: row.status,
+    distance: row.distance, status: row.status as CourierJob['status'],
     notes: row.notes ?? '',
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
 
-function mapNotification(row: any): RepairNotification {
+function mapNotification(row: Database['repair_notifications']['Row']): RepairNotification {
   return {
     id: row.id, repairId: row.repair_id,
-    type: row.type, recipient: row.recipient,
+    type: row.type as RepairNotification['type'], recipient: row.recipient as RepairNotification['recipient'],
     title: row.title, message: row.message,
     sentAt: row.sent_at, readAt: row.read_at,
   };
 }
 
-function mapPhoto(row: any): RepairPhoto {
+function mapPhoto(row: Database['repair_photos']['Row']): RepairPhoto {
   return {
     id: row.id, repairId: row.repair_id,
     path: row.path, uploadedAt: row.uploaded_at,
@@ -295,7 +296,7 @@ export class RepairDataService {
       .eq('repair_id', repairId)
       .order('created_at', { ascending: true });
     if (error) throw error;
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r: Database['repair_status_history']['Row']) => ({
       id: r.id, repairId: r.repair_id,
       fromStatus: r.from_status, toStatus: r.to_status,
       changedBy: r.changed_by, changedById: r.changed_by_id,
@@ -321,7 +322,7 @@ export class RepairDataService {
     if (repairId) query = query.eq('repair_id', repairId);
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r: Database['repair_audit_log']['Row']) => ({
       id: r.id, repairId: r.repair_id,
       action: r.action, details: r.details,
       performedBy: r.performed_by, performedById: r.performed_by_id,
@@ -345,8 +346,8 @@ export class RepairDataService {
         } catch { result[table] = false; }
       }
       return { connected: true, tables: result };
-    } catch (e: any) {
-      return { connected: false, tables: result, error: e?.message || 'Unknown error' };
+    } catch (e) {
+      return { connected: false, tables: result, error: (e as Error)?.message || 'Unknown error' };
     }
   }
 }

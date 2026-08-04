@@ -6,6 +6,7 @@ import {
   type Courier, type Technician,
   type DashboardData, type SearchFilter,
   type SyncResult,
+  type RepairAuditEntry,
 } from './repair-types';
 import {
   getAllRepairRequests, getRepairRequest, saveRepairRequest,
@@ -176,7 +177,7 @@ class RepairRepository {
     if (!request) return null;
     const quote: RepairQuote = {
       id: uid(), repairId, estimatedPrice, estimatedDays, adminNotes,
-      recommendedAction: (recommendedAction as any) ?? null,
+      recommendedAction: (recommendedAction ?? null) as RepairQuote['recommendedAction'],
       recommendationReason: null, sentAt: now(), approvedAt: null, rejectedAt: null, createdAt: now(),
     };
     await saveQuote(quote);
@@ -295,7 +296,7 @@ class RepairRepository {
   // AUDIT LOG
   // ═══════════════════════════════════════════════════════════════
 
-  async getLogs(repairId?: string): Promise<any[]> { return getAuditLog(repairId); }
+  async getLogs(repairId?: string): Promise<RepairAuditEntry[]> { return getAuditLog(repairId); }
 
   // ═══════════════════════════════════════════════════════════════
   // DASHBOARD
