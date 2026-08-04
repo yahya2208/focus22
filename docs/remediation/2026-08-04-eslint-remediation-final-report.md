@@ -256,11 +256,11 @@ FAIL src/__tests__/research-console/live-contract-runtime.test.tsx >
 
 ---
 
-## 13. لقطة الفرع (Git Snapshot — التُقطت 2026-08-04)
+## 13. لقطة الفرع (Git Snapshot — التُقطت 2026-08-04، بعد التنظيف)
 
 ```
 $ git rev-parse HEAD
-30309617c7d035bbcb0aac20f1339d9a16aad6e3
+474aa88aaa96dfa2de609f7561ff9d8362099480
 
 $ git branch
   fix/golden-audit-tscheck
@@ -270,7 +270,8 @@ $ git branch
 $ git status
 (نظيف — لا تغييرات معلّقة)
 
-$ git log --oneline -10
+$ git log --oneline -11
+474aa88 chore(remediation): untrack temp artifacts and finalize review feedback in report
 3030961 docs(remediation): add final ESLint remediation report for review
 ab01318 Merge branch 'fix/golden-audit-tscheck' into security/remediation-phase2
 4f087c4 chore(lint): type remaining anys across design-system, BI, repair, stickers
@@ -282,6 +283,8 @@ bbd1948 chore(lint): type repair Supabase layer with Database-derived row types
 5db24b1 chore(lint): safe mechanical fixes - prefer-const, no-empty, no-unused-vars
 a015f8d Security remediation phase 2 - latest changes
 ```
+
+> **التأكيد:** `212121.txt` و`supabase/.temp/cli-latest` لم يعودا معروفين لـ git (`ls-files --error-unmatch` يرجع خطأ "did not match")، والفرع نظيف.
 
 ---
 
