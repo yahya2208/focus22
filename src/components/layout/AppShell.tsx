@@ -1,6 +1,7 @@
 import { memo, type ReactNode } from 'react';
 import { useAppState } from '../../store/navigation';
 import { AppHeader } from './AppHeader';
+import { InstallPrompt } from '../pwa/InstallPrompt';
 import type { ScreenName } from '../../store/navigation';
 
 const fullscreenScreens: ScreenName[] = ['calibration', 'countdown', 'game'];
@@ -25,6 +26,7 @@ export const AppShell = memo(function AppShell({ children }: { children: ReactNo
     <>
       <AppHeader />
       {children}
+      <InstallPrompt />
     </>
   );
 });

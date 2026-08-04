@@ -1138,6 +1138,12 @@ const en = {
   'repair.technicians': 'Technicians',
   'repair.vehicle': 'Vehicle',
   'repair.whatsapp': 'WhatsApp',
+
+  // PWA Install Prompt
+  'pwa.installTitle': 'Install FOCUS',
+  'pwa.installBody': 'Add FOCUS to your home screen for a full-screen experience.',
+  'pwa.installAction': 'Install',
+  'pwa.dismiss': 'Not now',
 } as const;
 
 export default en;

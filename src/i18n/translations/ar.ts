@@ -1118,6 +1118,12 @@ const ar: Record<TranslationKey, string> = {
   'repair.technicians': 'الفنيين',
   'repair.vehicle': 'وسيلة النقل',
   'repair.whatsapp': 'واتساب',
+
+  // PWA Install Prompt
+  'pwa.installTitle': 'تثبيت FOCUS',
+  'pwa.installBody': 'أضِف FOCUS إلى شاشتك الرئيسية لتجربة ملء الشاشة.',
+  'pwa.installAction': 'تثبيت',
+  'pwa.dismiss': 'ليس الآن',
 };
 
 export default ar;
