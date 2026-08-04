@@ -7,6 +7,8 @@
 >
 > **عقد القبول (ADR Acceptance Contract):** كل مهمة تنتهي بالإجابة على سؤالين: (1) هل يحقق التنفيذ **A1–A8** بالكامل؟ (2) هل أُضيف استثناء جديد؟ إن نعم → يُحدَّث ADR-001 صراحةً. الاستثناءات المعتمدة فقط: `handle_new_user` · `has_super_admin` · `increment_qr_counter` · `lookup_*`.
 
+> ✅ **INCIDENT CLOSED (2026-08-03):** حادثة `04-2.1.6` **مُغلقة بالكامل** — RCA (H1) · E1–E10 attestation (`08-…-readonly.sql`) · scan_count بقرار إداري · **CR-001 ✅ + CR-002 ✅** (PASS) · لا بقايا تشغيلية · **Freeze مرفوع**. **لا يُعاد تشغيل `04-2.1.6`**. المشروع انتقل رسمياً إلى **Production Hardening (Phase C)** — راجع `docs/security/phase-c/README.md` · incident report.
+
 ## مانيفست التنفيذ (Tasks — بالترتيب)
 
 | # | المهمة | الملف | معيار القبول | الحالة |
@@ -16,7 +18,7 @@
 | 2.1.3 | حارس دور داخلي في كل RPC إدارية (`admin_promote_user` + `bootstrap_super_admin`) | `03-2.1.3-rpc-internal-guard.sql` + `03-2.1.3-probes.sql` | غير admin → `42501 Forbidden` حتى مع منح EXECUTE؛ الأدمن يمرّ | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة حية أدناه |
 | 2.1.4 | توحيد الواجهة: `ROLE_CAPABILITY_MAP` صريح + نظام حراسة واحد (`guard.can`) | `src/core/research/permissions.ts` + `ProtectedRoute.tsx` + `App.tsx` + `HomeMenu.tsx` + `ResearchConsole.tsx` + `RepairHomeScreen.tsx` | لا `roleHierarchy`/`requiredRole`؛ كل المسارات المحمية عبر `guard.can` | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة أدناه |
 | 2.1.5 | توثيق مفهوم "ضيف" (anon/guest/none) + مقارنات موحّدة | `docs/security/phase2/glossary.md` | لا مقارنة أد-هوك جديدة في `src` | ✅ **مُغلق بالكامل** (2026-08-02) — أدلة أدناه |
-| 2.1.6 | إعادة Baseline Verification | _قادم_ | E1–E10 PASS | ⏳ Pending |
+| 2.1.6 | إعادة Baseline Verification (E1–E10) بعد تغييرات Phase 2 | `08-2.1.6-baseline-reverify-readonly.sql` | E1–E10 PASS + لا انحدار بعد 2.1.1–2.1.5 | ✅ **مُغلق بالكامل** (2026-08-03): E1–E10 attestation ✅ (`08`) · CR-001 ✅ + CR-002 ✅ · scan_count بقرار · لا بقايا |
 
 ## نتيجة 2.1.1 — أدلة حية (2026-08-02، SQL Editor)
 
@@ -111,3 +113,10 @@
 | 2026-08-02 | 2.1.2 | Commit مستقل | `02-2.1.2-…` files |
 | 2026-08-02 | 2.1.3 | Before (B1–B3) → Apply → After (A1–A7) في SQL Editor | جدول 2.1.3 أعلاه |
 | 2026-08-02 | 2.1.3 | Commit مستقل + تحديث ADR-001 (A4-x) | `03-2.1.3-…` files |
+| 2026-08-03 | 2.1.6 | تشغيل النسخة select-based من 04 → **حادث Production** (D1/D2/D3) | `docs/security/incidents/2026-08-03-baseline-reverify-incident.md` |
+| 2026-08-03 | 2.1.6 | RCA v1 فشل (`42501` على tmp_rca) · RCA v2 سُحب بالمراجعة | سجل المحادثة + incident report |
+| 2026-08-03 | 2.1.6 | **إعلان Incident + Freeze** · تثبيت D1–D4 · تجهيز Phase B (جمع الأدلة) | incident report · `06-2.1.6-incident-evidence-collect.sql` |
+| 2026-08-03 | 2.1.6 | **RCA مكتمل (H1)** · **E1–E10 attestation مكتمل** (`08`: Q1–Q6) | incident report §3.1 · `08-2.1.6-…-readonly.sql` |
+| 2026-08-03 | 2.1.6 | **قرار إغلاق scan_count (D2)** — لا PITR، بيانات تجريبية، لا مزيد من الاسترجاع | incident report §2.1 (INC-2026-08-03-D2-close) |
+| 2026-08-03 | 2.1.6 | **إصدار سياسة إدارة التغيير** + CR-001 (B→user) + CR-002 (بقايا analytics) بانتظار الموافقة | `docs/security/operations/change-management.md` · `CR-001` · `CR-002` |
+| 2026-08-03 | 2.1.6 | **اعتماد + تنفيذ CR-001/CR-002** (`09-2.1.6-cr-001-cr-002-execute.sql` — شبكة أدلة واحدة) · **إغلاقهما رسمياً** (PASS) · **إغلاق الحادث + رفع Freeze** → **Production Hardening (Phase C)** | CR-001 · CR-002 · `docs/security/phase-c/README.md` |
