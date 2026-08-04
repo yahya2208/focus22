@@ -1118,6 +1118,12 @@ const tr: Record<TranslationKey, string> = {
   'repair.technicians': 'Teknisyenler',
   'repair.vehicle': 'Araç',
   'repair.whatsapp': 'WhatsApp',
+
+  // PWA Install Prompt
+  'pwa.installTitle': 'FOCUS\'u Yükle',
+  'pwa.installBody': 'Tam ekran deneyimi için FOCUS\'u ana ekranınıza ekleyin.',
+  'pwa.installAction': 'Yükle',
+  'pwa.dismiss': 'Şimdi değil',
 };
 
 export default tr;

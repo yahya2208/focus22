@@ -430,6 +430,12 @@ const fr: Record<string, string> = {
   'showroom.subtitle': 'Téléphones certifiés disponibles maintenant',
   'showroom.empty': 'Aucun appareil en stock pour le moment',
   'showroom.back': '← Retour à l\'accueil',
+
+  // PWA Install Prompt
+  'pwa.installTitle': 'Installer FOCUS',
+  'pwa.installBody': 'Ajoutez FOCUS à votre écran d\'accueil pour une expérience plein écran.',
+  'pwa.installAction': 'Installer',
+  'pwa.dismiss': 'Plus tard',
 };
 
 export default fr;

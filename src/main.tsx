@@ -11,6 +11,17 @@ window.addEventListener('unhandledrejection', (event) => {
   devError('[FOCUS UNHANDLED REJECTION]', event.reason);
 });
 
+// PWA: register the service worker in production builds only.
+// Guarded: SW support check + build-mode check; failures are non-fatal.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    const swUrl = `${import.meta.env.BASE_URL}sw.js`;
+    navigator.serviceWorker.register(swUrl).catch((err) => {
+      devError('[PWA] Service worker registration failed', err);
+    });
+  });
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
