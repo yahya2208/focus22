@@ -41,15 +41,15 @@ export const PriceMemoryCard = memo(function PriceMemoryCard() {
   ), [histories]);
 
   const summaryCards = [
-    { label: t('research.priceMemory.title' as any), value: totalModels, color: colors.accent },
-    { label: t('research.priceMemory.records' as any), value: totalRecords, color: colors.accent },
-    { label: t('research.priceMemory.trend' as any), value: modelsWithTrend, color: colors.success },
-    { label: t('research.priceMemory.average' as any), value: formatPrice(avgPrice), color: colors.text },
+    { label: t('research.priceMemory.title'), value: totalModels, color: colors.accent },
+    { label: t('research.priceMemory.records'), value: totalRecords, color: colors.accent },
+    { label: t('research.priceMemory.trend'), value: modelsWithTrend, color: colors.success },
+    { label: t('research.priceMemory.average'), value: formatPrice(avgPrice), color: colors.text },
   ];
 
   return (
     <div>
-      <DashboardHeader title={t('research.priceMemory.title' as any)} subtitle="Price history across tracked phone models" />
+      <DashboardHeader title={t('research.priceMemory.title')} subtitle="Price history across tracked phone models" />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
         {summaryCards.map(card => (
@@ -59,20 +59,20 @@ export const PriceMemoryCard = memo(function PriceMemoryCard() {
 
       {sorted.length === 0 ? (
         <p style={{ color: colors.textMuted, textAlign: 'center', padding: '2rem' }}>
-          {t('research.priceMemory.noData' as any)}
+          {t('research.priceMemory.noData')}
         </p>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${colors.border}`, color: colors.textMuted }}>
-                <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.priceMemory.title' as any)}</th>
-                <th style={{ padding: '0.5rem', textAlign: 'right' }}>{t('research.priceMemory.currentPrice' as any)}</th>
-                <th style={{ padding: '0.5rem', textAlign: 'right' }}>{t('research.priceMemory.lowest' as any)}</th>
-                <th style={{ padding: '0.5rem', textAlign: 'right' }}>{t('research.priceMemory.highest' as any)}</th>
-                <th style={{ padding: '0.5rem', textAlign: 'right' }}>{t('research.priceMemory.average' as any)}</th>
-                <th style={{ padding: '0.5rem', textAlign: 'center' }}>{t('research.priceMemory.trend' as any)}</th>
-                <th style={{ padding: '0.5rem', textAlign: 'right' }}>{t('research.priceMemory.lastUpdated' as any)}</th>
+                <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.priceMemory.title')}</th>
+                <th style={{ padding: '0.5rem', textAlign: 'right' }}>{t('research.priceMemory.currentPrice')}</th>
+                <th style={{ padding: '0.5rem', textAlign: 'right' }}>{t('research.priceMemory.lowest')}</th>
+                <th style={{ padding: '0.5rem', textAlign: 'right' }}>{t('research.priceMemory.highest')}</th>
+                <th style={{ padding: '0.5rem', textAlign: 'right' }}>{t('research.priceMemory.average')}</th>
+                <th style={{ padding: '0.5rem', textAlign: 'center' }}>{t('research.priceMemory.trend')}</th>
+                <th style={{ padding: '0.5rem', textAlign: 'right' }}>{t('research.priceMemory.lastUpdated')}</th>
               </tr>
             </thead>
             <tbody>

@@ -133,24 +133,24 @@ export function LiveDashboard() {
         const events: RecentEvent[] = [];
 
         for (const s of completedRes.data ?? []) {
-          const dev = (s as any)._devices as Record<string, unknown> ?? {};
-          const results = (s as any).scientific_results as Record<string, unknown> ?? {};
-          const measurements = (s as any).measurements as Record<string, unknown> ?? {};
+          const dev = s._devices as unknown as Record<string, unknown> ?? {};
+          const results = s.scientific_results as Record<string, unknown> ?? {};
+          const measurements = s.measurements as Record<string, unknown> ?? {};
           const corr = (measurements.corrected_rts as number[]) ?? [];
           const avgRt = corr.length > 0 ? corr.reduce((a: number, b: number) => a + b, 0) / corr.length : null;
           events.push({
             id: s.id, type: 'finished',
-            userName: (s as any).user_id?.slice(0, 8) ?? 'User',
+            userName: s.user_id?.slice(0, 8) ?? 'User',
             deviceName: `${dev.browser ?? ''} / ${dev.os ?? ''}`.trim() || '-',
-            campaignName: (s as any).campaign_id ?? '',
+            campaignName: s.campaign_id ?? '',
             focusScore: (results.focus_score as number) ?? null,
             avgRt: Math.round(avgRt ?? 0) || null,
-            timestamp: (s as any).finished_at ?? s.created_at,
+            timestamp: s.finished_at ?? s.created_at,
           });
         }
         for (const s of abandonedRes.data ?? []) {
-          const results = (s as any).scientific_results as Record<string, unknown> ?? {};
-          const measurements = (s as any).measurements as Record<string, unknown> ?? {};
+          const results = s.scientific_results as Record<string, unknown> ?? {};
+          const measurements = s.measurements as Record<string, unknown> ?? {};
           const corr = (measurements.corrected_rts as number[]) ?? [];
           const avgRt = corr.length > 0 ? corr.reduce((a: number, b: number) => a + b, 0) / corr.length : null;
           events.push({
@@ -165,7 +165,7 @@ export function LiveDashboard() {
         for (const ev of regRes.data ?? []) {
           events.push({
             id: ev.id, type: 'registered',
-            userName: (ev.event_data as any)?.user_name ?? 'User',
+            userName: ev.event_data?.user_name ?? 'User',
             deviceName: '-', campaignName: ev.campaign_id ?? '',
             focusScore: null, avgRt: null, timestamp: ev.created_at,
           });
