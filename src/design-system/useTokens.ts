@@ -77,7 +77,7 @@ export function useBadgeRecipe(variant: BadgeRecipeVariant) {
 
 export function useInputRecipe(rad?: string) {
   const roles = useColorRoles();
-  return inputRecipe(roles, rad as any);
+  return inputRecipe(roles, rad ?? 'md');
 }
 
 export function useModalRecipe() {

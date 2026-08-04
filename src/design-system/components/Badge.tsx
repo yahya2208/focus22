@@ -1,4 +1,4 @@
-import { memo, type ReactNode } from 'react';
+import { memo, type ReactNode, type CSSProperties } from 'react';
 import { useBadgeRecipe } from '../useTokens';
 import { spacing } from '../spacing';
 
@@ -27,7 +27,7 @@ export const Badge = memo(function Badge({
         gap: spacing.xs,
         padding: recipe.padding,
         fontSize: recipe.fontSize,
-        fontWeight: recipe.fontWeight as any,
+        fontWeight: recipe.fontWeight as CSSProperties['fontWeight'],
         borderRadius: recipe.radius,
         background: recipe.background,
         color: recipe.color,

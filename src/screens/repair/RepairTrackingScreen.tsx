@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
-import { useThemeColors } from '../../hooks/useThemeColors';
+import { useThemeColors, type ThemeColors } from '../../hooks/useThemeColors';
 import { Screen, Stack } from '../../design-system/layout';
 import { RepairTimeline } from '../../components/repair/RepairTimeline';
 import { RepairQR } from '../../components/repair/RepairQR';
@@ -356,7 +356,7 @@ export const RepairTrackingScreen = memo(function RepairTrackingScreen() {
   );
 });
 
-function DetailRow({ label, value, colors }: { label: string; value: string; colors: any }) {
+function DetailRow({ label, value, colors }: { label: string; value: string; colors: ThemeColors }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',

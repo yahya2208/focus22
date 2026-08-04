@@ -4,7 +4,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Screen, HStack, Grid } from '../../design-system/layout';
 import { getRepairRepository } from '../../services/repair/repair-repository';
-import type { RepairRequest, RepairCustomerProfile } from '../../services/repair/repair-types';
+import type { RepairRequest, RepairIssue, RepairCustomerProfile } from '../../services/repair/repair-types';
 import { AlgerianPhoneInput } from '../../components/forms/AlgerianPhoneInput';
 
 const STATUS_ARABIC: Record<string, string> = {
@@ -50,7 +50,7 @@ function buildCustomerProfile(phone: string, all: RepairRequest[]): RepairCustom
     totalPaid: 0,
     averageRepairCost: 0,
     mostRepairedPhone: mostRepaired,
-    mostCommonIssue: (mostIssue ? mostIssue[0] : null) as any,
+    mostCommonIssue: (mostIssue ? mostIssue[0] : null) as RepairIssue | null,
     lastRepair: last ? { repairCode: last.repairCode, status: last.status, createdAt: last.createdAt } : null,
     repairSuccessRate: total > 0 ? (completed / (total - (customerRequests.filter(r => r.status === 'Pending').length || 1))) * 100 : 0,
     repairIds: customerRequests.map(r => r.id),

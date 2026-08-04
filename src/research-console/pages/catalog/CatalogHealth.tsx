@@ -121,7 +121,7 @@ export function CatalogHealth() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
         {summaryCards.map(card => (
-          <StatCard key={card.label} label={card.label} value={card.value} subtitle={'subtitle' in card ? (card as any).subtitle : undefined} color={card.color} />
+          <StatCard key={card.label} label={card.label} value={card.value} subtitle={'subtitle' in card ? card.subtitle : undefined} color={card.color} />
         ))}
       </div>
 
