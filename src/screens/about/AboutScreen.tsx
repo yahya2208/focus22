@@ -4,6 +4,8 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Card } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
+import { BrandLogo } from '../../components/brand/BrandLogo';
+import { BrandFooter } from '../../components/brand/BrandFooter';
 
 export const AboutScreen = memo(function AboutScreen() {
   const dispatch = useAppDispatch();
@@ -12,6 +14,15 @@ export const AboutScreen = memo(function AboutScreen() {
 
   return (
     <nav aria-label="About FOCUS" style={{ padding: '2rem', maxWidth: '480px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+        <BrandLogo size={64} showSubtitle subtitle={t('app.subtitle')} align="center" />
+      </div>
+      <p style={{
+        color: colors.accent, fontSize: '0.8rem', fontWeight: 600,
+        letterSpacing: '0.06em', textAlign: 'center', margin: '0 0 1.5rem',
+      }}>
+        {t('brand.motto')}
+      </p>
       <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: colors.text, marginBottom: '1.5rem' }}>
         {t('about.title')}
       </h1>
@@ -40,6 +51,7 @@ export const AboutScreen = memo(function AboutScreen() {
       <p style={{ color: colors.textFaint, textAlign: 'center', fontSize: '0.875rem', marginTop: '1rem' }}>
         {t('app.version')}
       </p>
+      <BrandFooter />
       <Button variant="secondary" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })} style={{ marginTop: '1rem' }}>
         {t('about.back')}
       </Button>

@@ -13,6 +13,7 @@ import { Flex } from '../../design-system/components/Flex';
 import { Screen, Grid } from '../../design-system/layout';
 import { getGlobalTelemetry } from '../../core/telemetry';
 import { getGlobalSessionService } from '../../core/session/service';
+import { useAuth } from '../../core/auth/AuthProvider';
 
 function StatCard({ label, value, accent, colors }: { label: string; value: string; accent?: boolean; colors: ReturnType<typeof useThemeColors> }) {
   return (
@@ -95,6 +96,7 @@ export const ResultsScreen = memo(function ResultsScreen() {
   const { results, isQrFlow, currentSession } = useAppState();
   const { t } = useTranslation();
   const colors = useThemeColors();
+  const { state: authState } = useAuth();
 
   const analysis = useMemo(() => {
     if (!results) return null;
@@ -158,6 +160,12 @@ export const ResultsScreen = memo(function ResultsScreen() {
     }
     dispatch({ type: 'SAVE_SESSION' });
     dispatch({ type: 'NAVIGATE', screen: 'home' });
+  };
+
+  const playAgain = () => {
+    getGlobalTelemetry().track('game_started', { source: 'results_play_again' });
+    dispatch({ type: 'SELECT_GAME', gameMode: 'reaction-light' });
+    dispatch({ type: 'NAVIGATE', screen: 'countdown' });
   };
 
   return (
@@ -307,11 +315,19 @@ export const ResultsScreen = memo(function ResultsScreen() {
 
         {/* Actions */}
         <Stack gap="sm" style={{ paddingBottom: '1rem' }}>
+          <Button variant="primary" onClick={playAgain} fullWidth>
+            {t('results.playAgain')}
+          </Button>
           <Button variant="secondary" onClick={saveAndExit} fullWidth>
             {t('results.saveAndExit')}
           </Button>
+          {authState.status !== 'authenticated' && (
+            <Button variant="outline" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'register' })} fullWidth>
+              {t('results.register')}
+            </Button>
+          )}
           <Button variant="ghost" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })} fullWidth>
-            {t('results.discard')}
+            {t('results.home')}
           </Button>
         </Stack>
       </Stack>

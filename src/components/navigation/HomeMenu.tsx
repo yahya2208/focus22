@@ -28,7 +28,7 @@ export const HomeMenu = memo(function HomeMenu({ open, onClose }: HomeMenuProps)
   const isGuest = !isAuthenticated && !isLoading;
   const canManage = permissionGuard.can(researchRole, 'scientific', 'read');
 
-  const navigate = (screen: 'login' | 'settings' | 'research') => {
+  const navigate = (screen: 'login' | 'settings' | 'research' | 'about') => {
     onClose();
     dispatch({ type: 'NAVIGATE', screen });
   };
@@ -94,16 +94,21 @@ export const HomeMenu = memo(function HomeMenu({ open, onClose }: HomeMenuProps)
       )}
 
       {canManage && (
-        <button onClick={() => navigate('settings')} style={btn()} onMouseEnter={hover} onMouseLeave={leave}>
-          {t('home.settings')}
-        </button>
-      )}
+      <button onClick={() => navigate('settings')} style={btn()} onMouseEnter={hover} onMouseLeave={leave}>
+        {t('home.settings')}
+      </button>
+    )}
 
       {canManage && (
         <button onClick={() => navigate('research')} style={btn()} onMouseEnter={hover} onMouseLeave={leave}>
           {t('home.researchConsole')}
         </button>
       )}
+
+      <button onClick={() => navigate('about')} style={btn()} onMouseEnter={hover} onMouseLeave={leave}>
+        {t('home.about')}
+      </button>
+
 
       <button onClick={cycleLanguage} style={btn({ display: 'flex', justifyContent: 'space-between' })} onMouseEnter={hover} onMouseLeave={leave}>
         <span>{t('settings.language')}</span>

@@ -3,7 +3,13 @@ import type { TranslationKey } from '../types';
 const ar: Record<TranslationKey, string> = {
   'app.title': 'FOCUS',
   'app.subtitle': 'منصة القياس المعرفي',
-  'app.version': 'FOCUS v0.1.0-alpha',
+  'app.subtitleAr': 'منصة قياس التركيز المعرفي',
+  'app.version': 'FOCUS v2.0',
+
+  // Brand
+  'brand.motto': 'ركّز ← راقب ← قِس ← افهم ← طوّر',
+  'brand.developedBy': 'تطوير يحيى منوني',
+  'brand.social.follow': 'تابع FOCUS',
 
   'home.greeting.morning': 'صباح الخير',
   'home.greeting.afternoon': 'مساء الخير',
@@ -70,6 +76,11 @@ const ar: Record<TranslationKey, string> = {
   'game.bestTime': 'الأفضل',
   'game.missed': 'فاتك! اضغط على المصباح',
   'game.lampInstruction': 'عندما يضيء المصباح، اضغط عليه بأسرع ما يمكن',
+  'game.stop': 'إيقاف الاختبار',
+  'game.stopConfirm.title': 'إيقاف الاختبار؟',
+  'game.stopConfirm.message': 'لن يتم حفظ تقدمك الحالي كنتيجة كاملة.',
+  'game.stopConfirm.confirm': 'نعم، أوقف',
+  'game.stopConfirm.cancel': 'متابعة الاختبار',
 
   'results.title': 'النتائج',
   'results.best': 'الأفضل',
@@ -98,6 +109,9 @@ const ar: Record<TranslationKey, string> = {
   'results.aiCoach': 'المدرب الذكي',
   'results.discard': 'تجاهل',
   'results.noResults': 'لا توجد نتائج متاحة.',
+  'results.playAgain': 'إعادة الاختبار',
+  'results.home': 'الرئيسية',
+  'results.exit': 'خروج',
 
   'history.title': 'سجل الجلسات',
   'history.noSessions': 'لا توجد جلسات بعد. أكمل قياساً لرؤية النتائج هنا.',

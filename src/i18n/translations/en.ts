@@ -2,7 +2,13 @@ const en = {
   // App
   'app.title': 'FOCUS',
   'app.subtitle': 'Cognitive Measurement Platform',
-  'app.version': 'FOCUS v0.1.0-alpha',
+  'app.subtitleAr': 'منصة قياس التركيز المعرفي',
+  'app.version': 'FOCUS v2.0',
+
+  // Brand
+  'brand.motto': 'Focus → Observe → Calibrate → Understand → Strengthen',
+  'brand.developedBy': 'Developed by Yahya Manouni',
+  'brand.social.follow': 'Follow FOCUS',
 
   // Home
   'home.greeting.morning': 'Good morning',
@@ -75,6 +81,11 @@ const en = {
   'game.bestTime': 'Best',
   'game.missed': 'Missed! Tap the lamp',
   'game.lampInstruction': 'When the lamp lights up, tap it as fast as you can',
+  'game.stop': 'Stop Test',
+  'game.stopConfirm.title': 'Stop the test?',
+  'game.stopConfirm.message': 'Your current progress will not be saved as a complete result.',
+  'game.stopConfirm.confirm': 'Yes, Stop',
+  'game.stopConfirm.cancel': 'Keep Testing',
 
   // Results
   'results.title': 'Results',
@@ -104,6 +115,9 @@ const en = {
   'results.aiCoach': 'AI Coach',
   'results.discard': 'Discard',
   'results.noResults': 'No results available.',
+  'results.playAgain': 'Play Again',
+  'results.home': 'Home',
+  'results.exit': 'Exit',
 
   // History
   'history.title': 'Session History',

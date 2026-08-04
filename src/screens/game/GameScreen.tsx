@@ -148,6 +148,7 @@ export const GameScreen = memo(function GameScreen() {
   const [phase, setPhase] = useState<Phase>('waiting');
   const [round, setRound] = useState(0);
   const [hudTick, setHudTick] = useState(0);
+  const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
 
   const rawRtsRef = useRef<number[]>([]);
   const bestTimeRef = useRef<number | null>(null);
@@ -159,6 +160,7 @@ export const GameScreen = memo(function GameScreen() {
   const sessionStartRef = useRef(Date.now());
   const sessionIdRef = useRef<string | null>(null);
   const completedRef = useRef(false);
+  const stoppedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const roundTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const phaseRef = useRef<Phase>('waiting');
@@ -280,6 +282,20 @@ export const GameScreen = memo(function GameScreen() {
       setRound((r) => r + 1);
     }, 700);
   }, [calibration]);
+
+  const confirmStop = useCallback(() => {
+    if (stoppedRef.current) return;
+    stoppedRef.current = true;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
+    const sessionId = sessionIdRef.current;
+    completedRef.current = true;
+    if (sessionId) {
+      getGlobalSessionService().abandonSession(sessionId, 'abandoned');
+    }
+    getGlobalTelemetry().track('game_abandoned', { round: roundRef.current + 1, source: 'stop_button' });
+    dispatch({ type: 'NAVIGATE', screen: 'home' });
+  }, [dispatch]);
 
   useEffect(() => {
     if (phase === 'visible' && lampElRef.current) {
@@ -480,6 +496,107 @@ export const GameScreen = memo(function GameScreen() {
               );
             })}
           </>
+        )}
+
+        {/* Stop Test — bottom center */}
+        <button
+          onClick={() => setStopConfirmOpen(true)}
+          style={{
+            position: 'absolute',
+            bottom: '1.25rem', left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 25,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.45rem',
+            background: colors.glass,
+            border: `1px solid ${colors.danger}55`,
+            color: colors.dangerText,
+            borderRadius: '14px',
+            padding: '0.55rem 1.1rem',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+            fontFamily: 'inherit',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            boxShadow: `0 6px 24px ${colors.shadow}`,
+          }}
+        >
+          <span style={{ fontSize: '0.65rem' }}>■</span>
+          {t('game.stop')}
+        </button>
+
+        {/* Stop confirmation modal */}
+        {stopConfirmOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stop-confirm-title"
+            style={{
+              position: 'fixed', inset: 0, zIndex: 30,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(0,0,0,0.62)',
+              backdropFilter: 'blur(6px)',
+              WebkitBackdropFilter: 'blur(6px)',
+              padding: '1.5rem',
+            }}
+          >
+            <div style={{
+              width: '100%', maxWidth: '340px',
+              background: colors.bgCard,
+              border: `1px solid ${colors.danger}55`,
+              borderRadius: '22px',
+              padding: '1.5rem',
+              textAlign: 'center',
+              boxShadow: `0 24px 64px rgba(0,0,0,0.5)`,
+              animation: 'scaleIn 0.2s ease-out',
+            }}>
+              <div style={{
+                width: 46, height: 46, borderRadius: '14px',
+                margin: '0 auto 0.9rem',
+                background: colors.dangerBg,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: colors.dangerText, fontSize: '1.1rem',
+              }}>
+                ■
+              </div>
+              <h2 id="stop-confirm-title" style={{
+                margin: '0 0 0.4rem', fontSize: '1.05rem', fontWeight: 700, color: colors.text,
+              }}>
+                {t('game.stopConfirm.title')}
+              </h2>
+              <p style={{
+                margin: '0 0 1.25rem', fontSize: '0.85rem', color: colors.textMuted, lineHeight: 1.5,
+              }}>
+                {t('game.stopConfirm.message')}
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                <button
+                  onClick={confirmStop}
+                  style={{
+                    width: '100%', cursor: 'pointer', fontFamily: 'inherit',
+                    padding: '0.7rem 1rem', borderRadius: '14px', border: 'none',
+                    background: `linear-gradient(135deg, ${colors.danger} 0%, ${colors.dangerText} 100%)`,
+                    color: '#fff', fontSize: '0.85rem', fontWeight: 700,
+                  }}
+                >
+                  {t('game.stopConfirm.confirm')}
+                </button>
+                <button
+                  onClick={() => setStopConfirmOpen(false)}
+                  style={{
+                    width: '100%', cursor: 'pointer', fontFamily: 'inherit',
+                    padding: '0.7rem 1rem', borderRadius: '14px',
+                    background: 'none', border: `1px solid ${colors.glassBorder}`,
+                    color: colors.textSecondary, fontSize: '0.85rem', fontWeight: 600,
+                  }}
+                >
+                  {t('game.stopConfirm.cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </nav>
     </>

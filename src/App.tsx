@@ -17,6 +17,7 @@ import { getGlobalTelemetry } from './core/telemetry';
 import { setupSessionTelemetry } from './core/telemetry';
 import { runSilentCalibration } from './core/calibration/silent';
 import { updateSettings } from './core/config/settings';
+import focusIcon from './assets/brand/focus-icon.svg';
 
 // Small/critical screens — lazy loaded to reduce initial bundle size
 const LibraryScreen = lazy(() => import('./screens/library/LibraryScreen').then(m => ({ default: m.LibraryScreen })));
@@ -174,8 +175,16 @@ function InitialRoute() {
 function ScreenFallback() {
   const colors = useThemeColors();
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: colors.text, background: colors.bg }}>
-      Loading...
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: colors.text, background: colors.bg, flexDirection: 'column', gap: '1rem' }}>
+      <img
+        src={focusIcon}
+        alt="FOCUS"
+        width={72}
+        height={72}
+        draggable={false}
+        style={{ borderRadius: '18px', boxShadow: `0 8px 32px ${colors.accentGlow}`, animation: 'pulse 1.6s ease-in-out infinite' }}
+      />
+      <span style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.14em', color: colors.textMuted }}>FOCUS</span>
     </div>
   );
 }

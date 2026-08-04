@@ -6,6 +6,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { Button } from '../../components/shared/Button';
 import { Card } from '../../components/shared/Card';
 import { getGlobalTelemetry } from '../../core/telemetry';
+import focusIcon from '../../assets/brand/focus-icon.svg';
 
 export const LandingScreen = memo(function LandingScreen() {
   const dispatch = useAppDispatch();
@@ -37,17 +38,20 @@ export const LandingScreen = memo(function LandingScreen() {
       flexDirection: 'column',
     }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <div style={{
-          width: 80, height: 80,
-          borderRadius: '20px',
-          background: colors.gradient,
-          border: `1px solid ${colors.glassBorder}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '2.25rem',
-          marginBottom: '1.5rem',
-          boxShadow: `0 8px 32px ${colors.accent}22`,
-        }}>
-          🧠
+        <div style={{ marginBottom: '1.5rem' }}>
+          <img
+            src={focusIcon}
+            alt="FOCUS"
+            width={88}
+            height={88}
+            draggable={false}
+            style={{
+              borderRadius: '20px',
+              display: 'block',
+              boxShadow: `0 8px 32px ${colors.accent}22`,
+              border: `1px solid ${colors.glassBorder}`,
+            }}
+          />
         </div>
 
         <h1 style={{
@@ -65,9 +69,15 @@ export const LandingScreen = memo(function LandingScreen() {
         </p>
         <p style={{
           color: colors.textMuted, fontSize: '0.85rem',
-          marginBottom: '2.5rem',
+          marginBottom: '0.75rem',
         }}>
           {t('landing.heroDescription')}
+        </p>
+        <p style={{
+          color: colors.accent, fontSize: '0.8rem', fontWeight: 600,
+          letterSpacing: '0.06em', marginBottom: '2.5rem',
+        }}>
+          {t('brand.motto')}
         </p>
 
         <Card style={{

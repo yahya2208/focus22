@@ -3,7 +3,13 @@ import type { TranslationKey } from '../types';
 const tr: Record<TranslationKey, string> = {
   'app.title': 'FOCUS',
   'app.subtitle': 'Bilişsel Ölçüm Platformu',
-  'app.version': 'FOCUS v0.1.0-alpha',
+  'app.subtitleAr': 'منصة قياس التركيز المعرفي',
+  'app.version': 'FOCUS v2.0',
+
+  // Brand
+  'brand.motto': 'Odaklan → Gözlemle → Ölç → Anla → Geliştir',
+  'brand.developedBy': 'Yahya Manouni tarafından geliştirildi',
+  'brand.social.follow': 'FOCUS\'u takip et',
 
   'home.greeting.morning': 'Günaydın',
   'home.greeting.afternoon': 'İyi günler',
@@ -70,6 +76,11 @@ const tr: Record<TranslationKey, string> = {
   'game.bestTime': 'En iyi',
   'game.missed': 'Kaçırdınız! Lambaya dokunun',
   'game.lampInstruction': 'Lamba yandığında mümkün olduğunca hızlı dokunun',
+  'game.stop': 'Testi Durdur',
+  'game.stopConfirm.title': 'Test durdurulsun mu?',
+  'game.stopConfirm.message': 'Mevcut ilerlemeniz tam bir sonuç olarak kaydedilmeyecek.',
+  'game.stopConfirm.confirm': 'Evet, Durdur',
+  'game.stopConfirm.cancel': 'Teste Devam Et',
 
   'results.title': 'Sonuçlar',
   'results.best': 'En İyi',
@@ -98,6 +109,9 @@ const tr: Record<TranslationKey, string> = {
   'results.aiCoach': 'Yapay Zeka Koçu',
   'results.discard': 'Sil',
   'results.noResults': 'Sonuç mevcut değil.',
+  'results.playAgain': 'Tekrar Oyna',
+  'results.home': 'Ana Sayfa',
+  'results.exit': 'Çıkış',
 
   'history.title': 'Oturum Geçmişi',
   'history.noSessions': 'Henüz oturum yok. Sonuçları görmek için bir ölçüm tamamlayın.',

@@ -4,6 +4,8 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useAuth } from '../../core/auth/AuthProvider';
 import { HomeMenu } from '../../components/navigation/HomeMenu';
+import { BrandLogo } from '../../components/brand/BrandLogo';
+import { BrandFooter } from '../../components/brand/BrandFooter';
 import { Screen, Grid } from '../../design-system/layout';
 import { Button } from '../../design-system/components/Button';
 import { Card } from '../../design-system/components/Card';
@@ -18,29 +20,6 @@ function getGreetingKey() {
   if (h < 12) return 'home.greeting.morning' as const;
   if (h < 17) return 'home.greeting.afternoon' as const;
   return 'home.greeting.evening' as const;
-}
-
-function FocusLogo({ colors }: { colors: ReturnType<typeof useThemeColors> }) {
-  return (
-    <Flex gap="sm" align="center" style={{ marginBottom: '0.25rem' }}>
-      <div style={{
-        width: '36px', height: '36px', borderRadius: '10px',
-        background: `linear-gradient(135deg, ${colors.accent} 0%, ${colors.accentLight} 100%)`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: `0 2px 12px ${colors.accentGlow}`,
-        fontSize: '0.9rem', fontWeight: 900, color: '#fff',
-        letterSpacing: '-0.02em',
-      }}>
-        F
-      </div>
-      <span style={{
-        fontSize: '1.1rem', fontWeight: 800, color: colors.text,
-        letterSpacing: '-0.02em',
-      }}>
-        FOCUS
-      </span>
-    </Flex>
-  );
 }
 
 function ScoreRing({ score, colors }: { score: number; colors: ReturnType<typeof useThemeColors> }) {
@@ -137,7 +116,7 @@ export const HomeScreen = memo(function HomeScreen() {
       <Stack gap="xl">
         {/* Top bar */}
         <Flex justify="space-between" align="center">
-          <FocusLogo colors={colors} />
+          <BrandLogo size={40} showSubtitle subtitle={t('app.subtitle')} />
           <Button
             variant="ghost"
             size="sm"
@@ -150,6 +129,18 @@ export const HomeScreen = memo(function HomeScreen() {
         </Flex>
 
         <HomeMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
+
+        {/* Motto */}
+        <p style={{
+          color: colors.accent,
+          fontSize: '0.78rem',
+          fontWeight: 600,
+          letterSpacing: '0.06em',
+          textAlign: 'center',
+          margin: '0.25rem 0 0',
+        }}>
+          {t('brand.motto')}
+        </p>
 
         {/* Greeting + Score */}
         <div style={{ textAlign: 'center' }}>
@@ -338,6 +329,9 @@ export const HomeScreen = memo(function HomeScreen() {
             </Card>
           )}
         </div>
+
+        {/* Brand identity */}
+        <BrandFooter />
       </Stack>
     </Screen>
   );
