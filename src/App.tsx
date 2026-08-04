@@ -43,7 +43,7 @@ const RepairHomeScreen = lazy(() => import('./screens/repair/RepairHomeScreen').
 const RepairDiagnosticsScreen = lazy(() => import('./screens/repair/RepairDiagnosticsScreen').then(m => ({ default: m.RepairDiagnosticsScreen })));
 const RepairPersonnelScreen = lazy(() => import('./screens/repair/RepairPersonnelScreen').then(m => ({ default: m.RepairPersonnelScreen })));
 const DesignSystemPlayground = lazy(() => import('./screens/design-system-playground/DesignSystemPlayground').then(m => ({ default: m.DesignSystemPlayground })));
-import { ResearchConsole } from './research-console/ResearchConsole';
+const ResearchConsole = lazy(() => import('./research-console/ResearchConsole').then(m => ({ default: m.ResearchConsole })));
 
 // Large screens — lazy loaded to reduce initial bundle size
 const HomeScreen = lazy(() => import('./screens/home/HomeScreen').then(m => ({ default: m.HomeScreen })));
