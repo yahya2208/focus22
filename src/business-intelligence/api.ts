@@ -141,7 +141,7 @@ export function createBusinessAPI(): BusinessAPI {
           const lastEvent = userEvents.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 
           const bestScore = userSessions.length > 0
-            ? Math.max(...userSessions.map(s => ((s as any).scientific_results?.focus_score as number) ?? 0))
+            ? Math.max(...userSessions.map(s => (s.scientific_results?.focus_score as number) ?? 0))
             : 0;
 
           const campaignSources = [...new Set(userSessions.map(s => s.campaign_id).filter(Boolean))];
@@ -206,10 +206,10 @@ export function createBusinessAPI(): BusinessAPI {
       if (!userResult.data) return null;
 
       const user = userResult.data;
-      const sessions = (sessionsResult.data ?? []) as any[];
-      const events = (eventsResult.data ?? []) as any[];
-      const trades = (tradesResult.data ?? []) as any[];
-      const whatsappEvents = (whatsappResult.data ?? []) as any[];
+      const sessions = sessionsResult.data ?? [];
+      const events = eventsResult.data ?? [];
+      const trades = tradesResult.data ?? [];
+      const whatsappEvents = whatsappResult.data ?? [];
 
       const completedSessions = sessions.filter(s => s.status === 'completed');
       const focusScores = completedSessions.map(s => s.focus_score as number).filter(s => typeof s === 'number');

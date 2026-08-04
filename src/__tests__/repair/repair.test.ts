@@ -157,15 +157,15 @@ describe('Repair OS', () => {
       };
       let capturedUrl = '';
       const origLoc = window.location;
-      delete (window as any).location;
-      (window as any).location = { set href(v: string) { capturedUrl = v; }, get href() { return ''; } };
+      delete (window as unknown as Record<string, unknown>).location;
+      (window as unknown as Record<string, unknown>).location = { set href(v: string) { capturedUrl = v; }, get href() { return ''; } };
       sendRepairRequestWhatsApp(request);
       expect(capturedUrl).toContain('wa.me/');
       expect(capturedUrl).toContain(encodeURIComponent(request.repairCode));
       expect(capturedUrl).toContain(encodeURIComponent(request.brandName));
       expect(capturedUrl).toContain(encodeURIComponent(request.modelName));
       expect(capturedUrl).toContain(encodeURIComponent(request.issue));
-      (window as any).location = origLoc;
+      (window as unknown as Record<string, unknown>).location = origLoc;
     });
   });
 

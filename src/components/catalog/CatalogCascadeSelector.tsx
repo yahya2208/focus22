@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { searchCatalog } from '../../services/catalog-service';
 import { getVariantsForModel, formatVariant } from '../../data/phone-variants';
-import type { CatalogCascadeProps } from './CatalogIdentity';
+import type { CatalogCascadeProps, PhoneIdentity } from './CatalogIdentity';
 import { ARABIC_BRANDS, STEP_NAMES, getFavorites, getMostUsed, addFavorite, trackUsage, getStockForModel, getPriceSummary, StepIndicator, type CatalogSearchResult, type DeviceCondition } from './CatalogCascadeTypes';
 import CatalogStepSearch from './CatalogStepSearch'; import CatalogStepBrand from './CatalogStepBrand'; import CatalogStepSeries from './CatalogStepSeries'; import CatalogStepModel from './CatalogStepModel'; import CatalogStepVariant from './CatalogStepVariant'; import CatalogStepCondition from './CatalogStepCondition'; import CatalogStepAction from './CatalogStepAction';
 
@@ -107,7 +107,7 @@ export function CatalogCascadeSelector({
   const favorites = useMemo(() => getFavorites().slice(0, 20), []);
   const mostUsed = useMemo(() => getMostUsed().slice(0, 50), []);
 
-  const emitChange = useCallback((updates: Record<string, any>) => onChange({ ...value, ...updates }), [value, onChange]);
+  const emitChange = useCallback((updates: Record<string, unknown>) => onChange({ ...value, ...updates }), [value, onChange]);
 
   const handleSearchSelect = (result: CatalogSearchResult) => {
     setSearchQuery(`${result.brand} ${result.model}`);
@@ -171,7 +171,7 @@ export function CatalogCascadeSelector({
 
   const handleOperationSelect = (op: string) => {
     setSelectedOperation(op);
-    emitChange({ operation: op as any });
+    emitChange({ operation: op as PhoneIdentity['operation'] });
   };
 
   const stepNames = STEP_NAMES.filter((_, i) => !(i === 1 && !allowSeries && currentSeries.length === 0 || i === 2 && !allowSeries || i === 4 && !allowVariant || i === 5 && !allowCondition || i === 6 && !allowOperation));
