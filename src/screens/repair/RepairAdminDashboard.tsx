@@ -67,7 +67,7 @@ export const RepairAdminDashboard = memo(function RepairAdminDashboard() {
       try {
         const quote = await repo.getQuote(r.id);
         if (quote) qResults.push(quote);
-      } catch {}
+      } catch { /* Intentionally ignored. */ }
     }
     setAllQuotes(qResults);
   }, []);

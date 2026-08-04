@@ -27,7 +27,7 @@ export function computeSummary(scans: StickerScanEvent[]): AnalyticsSummary {
     try {
       const hour = new Date(scan.scannedAt).getHours();
       hourBuckets[hour] = (hourBuckets[hour] || 0) + 1;
-    } catch {}
+    } catch { /* Intentionally ignored. */ }
     ctaMap.set(scan.cta, (ctaMap.get(scan.cta) || 0) + 1);
   }
 

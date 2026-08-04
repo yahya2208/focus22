@@ -150,11 +150,9 @@ function AccessibilityAudit() {
 
     // Check for common a11y attributes on the page
     const buttons = document.querySelectorAll('button');
-    let btnsWithoutAria = 0;
     let btnsNoLabel = 0;
     buttons.forEach(b => {
       if (!b.getAttribute('aria-label') && !b.textContent?.trim()) btnsNoLabel++;
-      if (b.getAttribute('aria-expanded') === null && b.getAttribute('aria-controls') === null) btnsWithoutAria++;
     });
     issues.push({ ok: btnsNoLabel === 0, label: `Buttons with accessible labels`, detail: `${buttons.length - btnsNoLabel}/${buttons.length}` });
 

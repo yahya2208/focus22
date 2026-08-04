@@ -102,7 +102,7 @@ export function createBusinessAPI(): BusinessAPI {
           campaignScores.set(sessionMatch.campaign_id, existing);
         }
       }
-      for (const [_, c] of campaignScores) {
+      for (const c of campaignScores.values()) {
         c.score = c.scans + c.trades * 10;
       }
       const ranked = Array.from(campaignScores.values()).sort((a, b) => b.score - a.score);
@@ -436,7 +436,7 @@ export function createBusinessAPI(): BusinessAPI {
       }
 
       const firstStage = funnelStages[0];
-      let firstCount = firstStage ? (uniqueUsersByEvent.get(firstStage)?.size ?? 1) : 1;
+      const firstCount = firstStage ? (uniqueUsersByEvent.get(firstStage)?.size ?? 1) : 1;
       const stages: FunnelStage[] = funnelStages.map((name, i) => {
         const count = uniqueUsersByEvent.get(name)?.size ?? 0;
         const percentage = firstCount > 0 ? Math.round((count / firstCount) * 1000) / 10 : 0;
@@ -599,7 +599,7 @@ export function createBusinessAPI(): BusinessAPI {
       try {
         const stored = localStorage.getItem(branchKey);
         if (stored) return JSON.parse(stored) as BranchData[];
-      } catch {}
+      } catch { /* Intentionally ignored. */ }
       return [];
     },
   };

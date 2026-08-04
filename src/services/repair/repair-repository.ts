@@ -29,7 +29,7 @@ async function logAudit(params: { repairId: string | null; action: string; detai
       id: uid(), repairId: params.repairId, action: params.action, details: params.details,
       performedBy: params.performedBy, performedById: null, ipAddress: '', userAgent: collectDeviceInfo(), createdAt: now(),
     });
-  } catch {}
+  } catch { /* Intentionally ignored. */ }
 }
 
 async function logStatusChange(params: { repairId: string; fromStatus: string | null; toStatus: string; changedBy: string; note: string }): Promise<void> {
@@ -38,7 +38,7 @@ async function logStatusChange(params: { repairId: string; fromStatus: string | 
       id: uid(), repairId: params.repairId, fromStatus: params.fromStatus, toStatus: params.toStatus,
       changedBy: params.changedBy, changedById: null, note: params.note, ipAddress: null, deviceInfo: null, createdAt: now(),
     });
-  } catch {}
+  } catch { /* Intentionally ignored. */ }
 }
 
 // ── Singleton ───────────────────────────────────────────────────

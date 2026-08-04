@@ -13,7 +13,7 @@ function getStore(): { getItem: (k: string) => string | null; setItem: (k: strin
   if (typeof localStorage !== 'undefined') return localStorage;
 
   const storeDir = join(process.cwd(), '.catalog-store');
-  try { mkdirSync(storeDir, { recursive: true }); } catch {}
+  try { mkdirSync(storeDir, { recursive: true }); } catch { /* Intentionally ignored. */ }
 
   return {
     getItem(k: string) {
