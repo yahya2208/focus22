@@ -211,7 +211,7 @@ function translateToken(t: string): string {
 }
 
 function searchByTokens(query: string): AliasSearchResult[] {
-  let rawTokens = tokenize(query);
+  const rawTokens = tokenize(query);
   if (rawTokens.length === 0) return [];
   const tokens = rawTokens.map(translateToken).filter(Boolean);
 

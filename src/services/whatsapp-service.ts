@@ -1,5 +1,6 @@
 import { getGlobalTelemetry } from '../core/telemetry';
 import { EventTypes } from '../core/analytics/events';
+import type { AnalyticsEventType } from '../core/analytics/events';
 
 export const WHATSAPP_PHONE = '+213551148943';
 
@@ -18,7 +19,7 @@ function buildWhatsAppUrl(phone: string, message: string): string {
 export function openWhatsApp(phone: string, message: string, analyticsEvent?: string): void {
   const url = buildWhatsAppUrl(phone, message);
   if (analyticsEvent) {
-    getGlobalTelemetry().track(analyticsEvent as any, { phone: formatPhone(phone), has_message: true });
+    getGlobalTelemetry().track(analyticsEvent as AnalyticsEventType, { phone: formatPhone(phone), has_message: true });
   }
   window.location.href = url;
 }

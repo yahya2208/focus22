@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useAppDispatch } from '../store/navigation';
 import { useAuth } from '../core/auth/AuthProvider';
-import { createPermissionGuard, type ResearchRole } from '../core/research/permissions';
+import { permissionGuard } from '../core/research/permissions';
 import { useTranslation } from '../hooks/useTranslation';
 import { ResearchLayout } from './layout/ResearchLayout';
 import type { DashboardId } from './layout/ResearchLayout';
@@ -28,15 +28,6 @@ import { VariantCoverageScreen } from '../screens/research/VariantCoverageScreen
 import { InventoryHealthScreen } from '../screens/research/InventoryHealthScreen';
 import { PriceMemoryCard } from '../components/research/PriceMemoryCard';
 import { LiveDiagnosticsDashboard } from './pages/live/LiveDiagnosticsDashboard';
-
-const guard = createPermissionGuard();
-
-const RESEARCH_ROLE_MAP: Partial<Record<ResearchRole, 'super_admin' | 'research_admin' | 'analyst' | 'viewer'>> = {
-  super_admin: 'super_admin',
-  research_admin: 'research_admin',
-  analyst: 'analyst',
-  viewer: 'viewer',
-};
 
 const DASHBOARD_RESOURCE_MAP: Record<DashboardId, string> = {
   overview: 'overview',
@@ -122,15 +113,13 @@ export function ResearchConsole() {
   const { t } = useTranslation();
   const [active, setActive] = useState<DashboardId>('overview');
 
-  const mappedRole = researchRole !== 'none' ? RESEARCH_ROLE_MAP[researchRole] : undefined;
-
   const accessibleDashboards = useMemo(() => {
-    if (!mappedRole) return [];
+    if (researchRole === 'none') return [];
     return DASHBOARD_IDS.filter((id) => {
       const resource = DASHBOARD_RESOURCE_MAP[id];
-      return guard.can(mappedRole, resource, 'read');
+      return permissionGuard.can(researchRole, resource, 'read');
     });
-  }, [mappedRole]);
+  }, [researchRole]);
 
   const effectiveActive = useMemo(() => {
     if (accessibleDashboards.includes(active)) return active;

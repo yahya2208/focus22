@@ -63,7 +63,8 @@ function StressTest() {
     const renderTime = performance.now() - start;
 
     const fps = Math.round(60 / Math.max(renderTime / 1000, 0.016));
-    const mem = (performance as any).memory ? `${Math.round((performance as any).memory.usedJSHeapSize / 1024 / 1024)}MB` : 'N/A';
+    const perf = performance as unknown as { memory?: { usedJSHeapSize: number } };
+    const mem = perf.memory ? `${Math.round(perf.memory.usedJSHeapSize / 1024 / 1024)}MB` : 'N/A';
 
     setResults(prev => [...prev, { label, fps, time: Math.round(renderTime), mem }]);
     setRunning(false);
@@ -150,11 +151,9 @@ function AccessibilityAudit() {
 
     // Check for common a11y attributes on the page
     const buttons = document.querySelectorAll('button');
-    let btnsWithoutAria = 0;
     let btnsNoLabel = 0;
     buttons.forEach(b => {
       if (!b.getAttribute('aria-label') && !b.textContent?.trim()) btnsNoLabel++;
-      if (b.getAttribute('aria-expanded') === null && b.getAttribute('aria-controls') === null) btnsWithoutAria++;
     });
     issues.push({ ok: btnsNoLabel === 0, label: `Buttons with accessible labels`, detail: `${buttons.length - btnsNoLabel}/${buttons.length}` });
 

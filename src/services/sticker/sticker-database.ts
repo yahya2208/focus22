@@ -84,7 +84,7 @@ export function logScanWithMetadata(
     const stored = JSON.parse(localStorage.getItem('sticker_scans') || '[]');
     stored.push(event);
     localStorage.setItem('sticker_scans', JSON.stringify(stored));
-  } catch {}
+  } catch { /* Intentionally ignored. */ }
   return event;
 }
 
@@ -186,13 +186,13 @@ export function loadStoredScans(): void {
     }
     const storedSerial = localStorage.getItem('sticker_serial_counter');
     if (storedSerial) serialCounter = Math.max(serialCounter, parseInt(storedSerial, 10));
-  } catch {}
+  } catch { /* Intentionally ignored. */ }
 }
 
 export function saveSerialCounter(): void {
   try {
     localStorage.setItem('sticker_serial_counter', String(serialCounter));
-  } catch {}
+  } catch { /* Intentionally ignored. */ }
 }
 
 loadStoredScans();

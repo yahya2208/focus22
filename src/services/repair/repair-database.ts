@@ -416,29 +416,32 @@ export async function syncToSupabase(): Promise<{ synced: number; failed: number
     if (!ok) return { synced: 0, failed: 0, errors: ['Supabase not available'] };
   }
 
-  const tables = [
-    { key: REPAIR_TABLES.REPAIR_REQUESTS, save: async (items: any[]) => {
+  const tables: Array<{
+    key: string;
+    save: (items: Array<RepairRequest | RepairQuote | RepairTimelineEvent>) => Promise<void>;
+  }> = [
+    { key: REPAIR_TABLES.REPAIR_REQUESTS, save: async (items) => {
       for (const item of items) {
         try { await getRepairDataService().saveRepairRequest(item as RepairRequest); synced++; }
-        catch (e: any) { failed++; errors.push(`Request ${item.id}: ${e?.message}`); }
+        catch (e) { failed++; errors.push(`Request ${item.id}: ${(e as Error)?.message}`); }
       }
     }},
-    { key: REPAIR_TABLES.REPAIR_QUOTES, save: async (items: any[]) => {
+    { key: REPAIR_TABLES.REPAIR_QUOTES, save: async (items) => {
       for (const item of items) {
         try { await getRepairDataService().saveQuote(item as RepairQuote); synced++; }
-        catch (e: any) { failed++; errors.push(`Quote ${item.id}: ${e?.message}`); }
+        catch (e) { failed++; errors.push(`Quote ${item.id}: ${(e as Error)?.message}`); }
       }
     }},
-    { key: REPAIR_TABLES.REPAIR_TIMELINE, save: async (items: any[]) => {
+    { key: REPAIR_TABLES.REPAIR_TIMELINE, save: async (items) => {
       for (const item of items) {
         try { await getRepairDataService().addTimelineEvent(item as RepairTimelineEvent); synced++; }
-        catch (e: any) { failed++; errors.push(`Timeline ${item.id}: ${e?.message}`); }
+        catch (e) { failed++; errors.push(`Timeline ${item.id}: ${(e as Error)?.message}`); }
       }
     }},
   ];
 
   for (const table of tables) {
-    const items = loadTable(table.key);
+    const items = loadTable<RepairRequest | RepairQuote | RepairTimelineEvent>(table.key);
     if (items.length > 0) {
       await table.save(items);
     }
@@ -462,7 +465,7 @@ export async function getHealthStatus(): Promise<{
   try {
     const result = await getRepairDataService().healthCheck();
     return { ...result, localStorageCount: lsCount };
-  } catch (e: any) {
-    return { connected: false, tables: {}, localStorageCount: lsCount, error: e?.message };
+  } catch (e) {
+    return { connected: false, tables: {}, localStorageCount: lsCount, error: (e as Error)?.message };
   }
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, memo } from 'react';
 import { useTranslation } from '../../hooks/useTranslation';
+import type { TranslationKey } from '../../i18n';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { Screen } from '../../design-system/layout';
@@ -259,7 +260,7 @@ export const StickerAnalyticsScreen = memo(function StickerAnalyticsScreen() {
               {ctaEntries.map(([cta, count]) => (
                 <div key={cta} style={styles.flexRow}>
                   <span style={{ color: colors.textSecondary, fontSize: '0.8rem', minWidth: '100px', fontFamily: 'inherit' }}>
-                    {t(STICKER_CTA_LABEL_KEYS[cta as StickerCTA] as any)}
+                    {t(STICKER_CTA_LABEL_KEYS[cta as StickerCTA] as TranslationKey)}
                   </span>
                   <div style={{
                     flex: 1, height: '8px', background: colors.bgInput, borderRadius: '4px', overflow: 'hidden',
@@ -346,7 +347,7 @@ export const StickerAnalyticsScreen = memo(function StickerAnalyticsScreen() {
                       color: suggestionText[sg.type] || colors.textSecondary,
                       fontSize: '0.8rem', fontWeight: 600, fontFamily: 'inherit',
                     }}>
-                      {t(sg.messageKey as any)}
+                      {t(sg.messageKey as TranslationKey)}
                     </div>
                     <div style={{ color: colors.textFaint, fontSize: '0.65rem', marginTop: '0.15rem', fontFamily: 'inherit' }}>
                       {Math.round(sg.confidence * 100)}% {t('sticker.analytics.confidence')}

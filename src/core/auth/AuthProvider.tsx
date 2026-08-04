@@ -1,8 +1,9 @@
 import { useState, useEffect, createContext, useContext, useMemo, useRef, type ReactNode } from 'react';
-import { createAuthService, type AuthService, type AuthState, type AuthUser } from './index';
+import { createAuthService, type AuthService, type AuthState } from './index';
+import { mapToResearchRole, type ResearchRole } from '../research/permissions';
 import { getGlobalTelemetry } from '../telemetry';
 
-export type ResearchRole = 'super_admin' | 'research_admin' | 'analyst' | 'viewer' | 'none';
+export type { ResearchRole };
 
 interface AuthContextValue {
   state: AuthState;
@@ -23,17 +24,6 @@ const STUB_SERVICE: AuthService = {
   signOut: async () => { throw new Error('Supabase not configured'); },
   getCurrentUser: () => null,
 };
-
-function mapToResearchRole(role: AuthUser['role']): ResearchRole {
-  switch (role) {
-    case 'super_admin': return 'super_admin';
-    case 'admin': return 'research_admin';
-    case 'researcher': return 'analyst';
-    case 'user': return 'viewer';
-    case 'guest': return 'none';
-    default: return 'none';
-  }
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(STUB_SERVICE.getState);

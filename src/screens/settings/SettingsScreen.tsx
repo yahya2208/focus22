@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useSettingsContext } from '../../hooks/useSettings';
 import { useAuth } from '../../core/auth/AuthProvider';
+import { permissionGuard } from '../../core/research/permissions';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors, THEME_IDS, THEME_META } from '../../hooks/useThemeColors';
 import { Card } from '../../components/shared/Card';
@@ -57,12 +58,12 @@ function ThemeSwatch({ name, preview, active, onClick, colors }: {
 export const SettingsScreen = memo(function SettingsScreen() {
   const navDispatch = useAppDispatch();
   const { settings, update } = useSettingsContext();
-  const { state, service } = useAuth();
+  const { state, service, researchRole } = useAuth();
   const { t } = useTranslation();
   const colors = useThemeColors();
 
   const isAuthenticated = state.status === 'authenticated' || state.status === 'anonymous';
-  const isResearcher = state.user?.role === 'researcher' || state.user?.role === 'admin' || state.user?.role === 'super_admin';
+  const canManage = permissionGuard.can(researchRole, 'scientific', 'read');
 
   return (
     <nav aria-label="Settings" style={{ padding: '1.5rem 1.25rem', maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -162,7 +163,7 @@ export const SettingsScreen = memo(function SettingsScreen() {
         </div>
       </Card>
 
-      {isResearcher && (
+      {canManage && (
         <Card glass>
           <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>Business Intelligence</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

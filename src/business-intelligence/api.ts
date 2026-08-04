@@ -102,7 +102,7 @@ export function createBusinessAPI(): BusinessAPI {
           campaignScores.set(sessionMatch.campaign_id, existing);
         }
       }
-      for (const [_, c] of campaignScores) {
+      for (const c of campaignScores.values()) {
         c.score = c.scans + c.trades * 10;
       }
       const ranked = Array.from(campaignScores.values()).sort((a, b) => b.score - a.score);
@@ -141,7 +141,7 @@ export function createBusinessAPI(): BusinessAPI {
           const lastEvent = userEvents.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 
           const bestScore = userSessions.length > 0
-            ? Math.max(...userSessions.map(s => ((s as any).scientific_results?.focus_score as number) ?? 0))
+            ? Math.max(...userSessions.map(s => (s.scientific_results?.focus_score as number) ?? 0))
             : 0;
 
           const campaignSources = [...new Set(userSessions.map(s => s.campaign_id).filter(Boolean))];
@@ -206,10 +206,10 @@ export function createBusinessAPI(): BusinessAPI {
       if (!userResult.data) return null;
 
       const user = userResult.data;
-      const sessions = (sessionsResult.data ?? []) as any[];
-      const events = (eventsResult.data ?? []) as any[];
-      const trades = (tradesResult.data ?? []) as any[];
-      const whatsappEvents = (whatsappResult.data ?? []) as any[];
+      const sessions = sessionsResult.data ?? [];
+      const events = eventsResult.data ?? [];
+      const trades = tradesResult.data ?? [];
+      const whatsappEvents = whatsappResult.data ?? [];
 
       const completedSessions = sessions.filter(s => s.status === 'completed');
       const focusScores = completedSessions.map(s => s.focus_score as number).filter(s => typeof s === 'number');
@@ -436,7 +436,7 @@ export function createBusinessAPI(): BusinessAPI {
       }
 
       const firstStage = funnelStages[0];
-      let firstCount = firstStage ? (uniqueUsersByEvent.get(firstStage)?.size ?? 1) : 1;
+      const firstCount = firstStage ? (uniqueUsersByEvent.get(firstStage)?.size ?? 1) : 1;
       const stages: FunnelStage[] = funnelStages.map((name, i) => {
         const count = uniqueUsersByEvent.get(name)?.size ?? 0;
         const percentage = firstCount > 0 ? Math.round((count / firstCount) * 1000) / 10 : 0;
@@ -599,7 +599,7 @@ export function createBusinessAPI(): BusinessAPI {
       try {
         const stored = localStorage.getItem(branchKey);
         if (stored) return JSON.parse(stored) as BranchData[];
-      } catch {}
+      } catch { /* Intentionally ignored. */ }
       return [];
     },
   };

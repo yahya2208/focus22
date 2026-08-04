@@ -108,9 +108,9 @@ export const InventoryHealthScreen = memo(function InventoryHealthScreen() {
 
   const healthLabel = (h: string) => {
     switch (h) {
-      case 'good': return t('research.inventoryHealth.health.good' as any);
-      case 'warning': return t('research.inventoryHealth.health.warning' as any);
-      case 'critical': return t('research.inventoryHealth.health.critical' as any);
+      case 'good': return t('research.inventoryHealth.health.good');
+      case 'warning': return t('research.inventoryHealth.health.warning');
+      case 'critical': return t('research.inventoryHealth.health.critical');
       default: return h;
     }
   };
@@ -127,7 +127,7 @@ export const InventoryHealthScreen = memo(function InventoryHealthScreen() {
   return (
     <div>
       <DashboardHeader
-        title={t('research.inventoryHealth.title' as any)}
+        title={t('research.inventoryHealth.title')}
         actions={
           <button
             onClick={() => {
@@ -140,7 +140,7 @@ export const InventoryHealthScreen = memo(function InventoryHealthScreen() {
               cursor: 'pointer', fontSize: '0.85rem',
             }}
           >
-            {t('research.inventoryHealth.export' as any)}
+            {t('research.inventoryHealth.export')}
           </button>
         }
       />
@@ -151,7 +151,7 @@ export const InventoryHealthScreen = memo(function InventoryHealthScreen() {
           background: colors.bgCard, border: `1px solid ${colors.border}`,
         }}>
           <p style={{ color: colors.textMuted, fontSize: '0.8rem', marginBottom: '0.25rem' }}>
-            {t('research.inventoryHealth.summary.totalModels' as any)}
+            {t('research.inventoryHealth.summary.totalModels')}
           </p>
           <p style={{ color: colors.text, fontSize: '1.5rem', fontWeight: 'bold' }}>
             {stats.total}
@@ -162,7 +162,7 @@ export const InventoryHealthScreen = memo(function InventoryHealthScreen() {
           background: colors.bgCard, border: `1px solid ${colors.danger}`,
         }}>
           <p style={{ color: colors.textMuted, fontSize: '0.8rem', marginBottom: '0.25rem' }}>
-            {t('research.inventoryHealth.summary.missingPrices' as any)}
+            {t('research.inventoryHealth.summary.missingPrices')}
           </p>
           <p style={{ color: colors.danger, fontSize: '1.5rem', fontWeight: 'bold' }}>
             {stats.missingPrices}
@@ -173,7 +173,7 @@ export const InventoryHealthScreen = memo(function InventoryHealthScreen() {
           background: colors.bgCard, border: `1px solid ${colors.warning}`,
         }}>
           <p style={{ color: colors.textMuted, fontSize: '0.8rem', marginBottom: '0.25rem' }}>
-            {t('research.inventoryHealth.summary.missingVariants' as any)}
+            {t('research.inventoryHealth.summary.missingVariants')}
           </p>
           <p style={{ color: colors.warning, fontSize: '1.5rem', fontWeight: 'bold' }}>
             {stats.missingVariants}
@@ -184,7 +184,7 @@ export const InventoryHealthScreen = memo(function InventoryHealthScreen() {
           background: colors.bgCard, border: `1px solid ${colors.success}`,
         }}>
           <p style={{ color: colors.textMuted, fontSize: '0.8rem', marginBottom: '0.25rem' }}>
-            {t('research.inventoryHealth.summary.complete' as any)}
+            {t('research.inventoryHealth.summary.complete')}
           </p>
           <p style={{ color: colors.success, fontSize: '1.5rem', fontWeight: 'bold' }}>
             {stats.complete}
@@ -198,7 +198,7 @@ export const InventoryHealthScreen = memo(function InventoryHealthScreen() {
           onChange={e => setBrandFilter(e.target.value)}
           style={{ padding: '0.4rem 0.75rem', borderRadius: '4px', border: `1px solid ${colors.border}`, background: '#12121a', color: colors.text, fontSize: '0.85rem' }}
         >
-          <option value="">{t('research.variantCoverage.filter.brand' as any)}</option>
+          <option value="">{t('research.variantCoverage.filter.brand')}</option>
           {brands.map(b => (
             <option key={b} value={b}>{b}</option>
           ))}
@@ -209,10 +209,10 @@ export const InventoryHealthScreen = memo(function InventoryHealthScreen() {
           onChange={e => setHealthFilter(e.target.value as HealthFilter)}
           style={{ padding: '0.4rem 0.75rem', borderRadius: '4px', border: `1px solid ${colors.border}`, background: '#12121a', color: colors.text, fontSize: '0.85rem' }}
         >
-          <option value="all">{t('research.inventoryHealth.filter.all' as any)}</option>
-          <option value="good">{t('research.inventoryHealth.filter.good' as any)}</option>
-          <option value="warning">{t('research.inventoryHealth.filter.warning' as any)}</option>
-          <option value="critical">{t('research.inventoryHealth.filter.critical' as any)}</option>
+          <option value="all">{t('research.inventoryHealth.filter.all')}</option>
+          <option value="good">{t('research.inventoryHealth.filter.good')}</option>
+          <option value="warning">{t('research.inventoryHealth.filter.warning')}</option>
+          <option value="critical">{t('research.inventoryHealth.filter.critical')}</option>
         </select>
       </div>
 
@@ -220,13 +220,13 @@ export const InventoryHealthScreen = memo(function InventoryHealthScreen() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${colors.border}`, color: colors.textMuted }}>
-              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.inventoryHealth.table.brand' as any)}</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.inventoryHealth.table.model' as any)}</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.inventoryHealth.table.variants' as any)}</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.inventoryHealth.table.hasPrices' as any)}</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.inventoryHealth.table.missingVariants' as any)}</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.inventoryHealth.table.health' as any)}</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.inventoryHealth.table.lastUpdated' as any)}</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.inventoryHealth.table.brand')}</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.inventoryHealth.table.model')}</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.inventoryHealth.table.variants')}</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.inventoryHealth.table.hasPrices')}</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.inventoryHealth.table.missingVariants')}</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.inventoryHealth.table.health')}</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.inventoryHealth.table.lastUpdated')}</th>
             </tr>
           </thead>
           <tbody>

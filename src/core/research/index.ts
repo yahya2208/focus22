@@ -1,6 +1,9 @@
 export {
   createPermissionGuard,
-  type ResearchRole, type RolePermission, type PermissionGuard,
+  permissionGuard,
+  mapToResearchRole,
+  ROLE_CAPABILITY_MAP,
+  type ResearchRole, type RolePermission, type PermissionGuard, type GuardAction,
 } from './permissions';
 
 export {

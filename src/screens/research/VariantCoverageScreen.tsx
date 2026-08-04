@@ -52,21 +52,21 @@ export const VariantCoverageScreen = memo(function VariantCoverageScreen() {
 
   return (
     <div>
-      <DashboardHeader title={t('research.variantCoverage.title' as any)} />
+      <DashboardHeader title={t('research.variantCoverage.title')} />
 
       {stats && (
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap', fontSize: '0.9rem' }}>
           <span style={{ color: colors.success, fontWeight: 600 }}>
-            {t('research.variantCoverage.summary.full' as any)}: {stats.fullCoverage}
+            {t('research.variantCoverage.summary.full')}: {stats.fullCoverage}
           </span>
           <span style={{ color: colors.warning, fontWeight: 600 }}>
-            {t('research.variantCoverage.summary.partial' as any)}: {stats.partialCoverage}
+            {t('research.variantCoverage.summary.partial')}: {stats.partialCoverage}
           </span>
           <span style={{ color: colors.danger, fontWeight: 600 }}>
-            {t('research.variantCoverage.summary.none' as any)}: {stats.noCoverage}
+            {t('research.variantCoverage.summary.none')}: {stats.noCoverage}
           </span>
           <span style={{ color: colors.accent, fontWeight: 600 }}>
-            {t('research.variantCoverage.summary.avg' as any)}: {(stats.averageCoverage * 100).toFixed(1)}%
+            {t('research.variantCoverage.summary.avg')}: {(stats.averageCoverage * 100).toFixed(1)}%
           </span>
         </div>
       )}
@@ -77,7 +77,7 @@ export const VariantCoverageScreen = memo(function VariantCoverageScreen() {
           onChange={e => setBrandFilter(e.target.value)}
           style={{ padding: '0.4rem 0.75rem', borderRadius: '4px', border: `1px solid ${colors.border}`, background: '#12121a', color: colors.text, fontSize: '0.85rem' }}
         >
-          <option value="">{t('research.variantCoverage.filter.brand' as any)}</option>
+          <option value="">{t('research.variantCoverage.filter.brand')}</option>
           {brands.map(b => (
             <option key={b} value={b}>{b}</option>
           ))}
@@ -85,20 +85,20 @@ export const VariantCoverageScreen = memo(function VariantCoverageScreen() {
 
         <select
           value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value as any)}
+          onChange={e => setStatusFilter(e.target.value as 'all' | 'full' | 'partial' | 'none')}
           style={{ padding: '0.4rem 0.75rem', borderRadius: '4px', border: `1px solid ${colors.border}`, background: '#12121a', color: colors.text, fontSize: '0.85rem' }}
         >
-          <option value="all">{t('research.variantCoverage.filter.all' as any)}</option>
-          <option value="full">{t('research.variantCoverage.filter.full' as any)}</option>
-          <option value="partial">{t('research.variantCoverage.filter.partial' as any)}</option>
-          <option value="none">{t('research.variantCoverage.filter.none' as any)}</option>
+          <option value="all">{t('research.variantCoverage.filter.all')}</option>
+          <option value="full">{t('research.variantCoverage.filter.full')}</option>
+          <option value="partial">{t('research.variantCoverage.filter.partial')}</option>
+          <option value="none">{t('research.variantCoverage.filter.none')}</option>
         </select>
 
         <input
           type="text"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          placeholder={t('research.variantCoverage.table.model' as any)}
+          placeholder={t('research.variantCoverage.table.model')}
           style={{ padding: '0.4rem 0.75rem', borderRadius: '4px', border: `1px solid ${colors.border}`, background: '#12121a', color: colors.text, fontSize: '0.85rem', flex: 1, minWidth: '180px' }}
         />
       </div>
@@ -107,11 +107,11 @@ export const VariantCoverageScreen = memo(function VariantCoverageScreen() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${colors.border}`, color: colors.textMuted }}>
-              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.variantCoverage.table.brand' as any)}</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.variantCoverage.table.model' as any)}</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.variantCoverage.table.coverage' as any)}</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.variantCoverage.table.missing' as any)}</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.variantCoverage.table.extra' as any)}</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.variantCoverage.table.brand')}</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.variantCoverage.table.model')}</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.variantCoverage.table.coverage')}</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.variantCoverage.table.missing')}</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left' }}>{t('research.variantCoverage.table.extra')}</th>
             </tr>
           </thead>
           <tbody>

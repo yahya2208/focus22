@@ -187,38 +187,44 @@ function ScreenRouter() {
 
   if (currentScreen === 'research') {
     content = (
-      <ProtectedRoute requiredRole="researcher">
+      <ProtectedRoute requiredResource="scientific" requiredAction="read">
         <ResearchConsole />
       </ProtectedRoute>
     );
   } else if (currentScreen === 'business-intelligence') {
     content = (
-      <ProtectedRoute requiredRole="researcher">
+      <ProtectedRoute requiredResource="scientific" requiredAction="read">
         <BusinessIntelligenceCenter />
       </ProtectedRoute>
     );
   } else if (currentScreen === 'repair-admin') {
     content = (
-      <ProtectedRoute requiredRole="admin">
+      <ProtectedRoute requiredResource="campaigns" requiredAction="read">
         <RepairAdminDashboard />
       </ProtectedRoute>
     );
   } else if (currentScreen === 'repair-courier') {
     content = (
-      <ProtectedRoute requiredRole="admin">
+      <ProtectedRoute requiredResource="campaigns" requiredAction="read">
         <RepairCourierScreen />
       </ProtectedRoute>
     );
   } else if (currentScreen === 'repair-customer-history') {
     content = (
-      <ProtectedRoute requiredRole="admin">
+      <ProtectedRoute requiredResource="campaigns" requiredAction="read">
         <RepairCustomerHistory />
       </ProtectedRoute>
     );
   } else if (currentScreen === 'repair-personnel') {
     content = (
-      <ProtectedRoute requiredRole="admin">
+      <ProtectedRoute requiredResource="campaigns" requiredAction="read">
         <RepairPersonnelScreen />
+      </ProtectedRoute>
+    );
+  } else if (currentScreen === 'repair-diagnostics') {
+    content = (
+      <ProtectedRoute requiredResource="campaigns" requiredAction="read">
+        <RepairDiagnosticsScreen />
       </ProtectedRoute>
     );
   } else {

@@ -1,4 +1,4 @@
-import { memo, useEffect, type ReactNode } from 'react';
+import { memo, useEffect, type ReactNode, type CSSProperties } from 'react';
 import { useModalRecipe } from '../useTokens';
 import { spacing } from '../spacing';
 import { zIndex } from '../z-index';
@@ -66,7 +66,7 @@ export const Modal = memo(function Modal({
           <h2
             style={{
               fontSize: recipe.titleFontSize,
-              fontWeight: recipe.titleFontWeight as any,
+              fontWeight: recipe.titleFontWeight as CSSProperties['fontWeight'],
               color: recipe.titleColor,
               margin: `0 0 ${spacing.md}`,
             }}

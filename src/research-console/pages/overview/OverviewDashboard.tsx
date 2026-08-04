@@ -126,7 +126,7 @@ export function OverviewDashboard() {
     const yesterday = new Date(Date.now() - 86400000);
     yesterday.setHours(0, 0, 0, 0);
     const api2 = createResearchAPI();
-    api2.getOverview({ ...filters, dateFrom: yesterday.toISOString(), dateTo: new Date(Date.now() - 86400000).toISOString() } as any).then(setYesterdayStats);
+    api2.getOverview({ ...filters, dateFrom: yesterday.toISOString(), dateTo: new Date(Date.now() - 86400000).toISOString() } as unknown as ResearchFilters).then(setYesterdayStats);
   }, [filters]);
 
   const summary = stats ? generateSummary(stats) : [];
@@ -202,7 +202,7 @@ export function OverviewDashboard() {
               { label: t('overview.peakToday'), value: stats.peakToday, key: 'peakToday', color: '#f59e0b' },
               { label: t('overview.users'), value: stats.totalUsers, key: 'totalUsers', color: '' },
             ] as { label: string; value: number | string; key: string; color: string }[]).map(item => {
-              const prev = yesterdayStats ? (yesterdayStats as any)[item.key] as number : null;
+              const prev = yesterdayStats ? (yesterdayStats as unknown as Record<string, unknown>)[item.key] as number : null;
               const tr = prev != null ? trendSymbol(typeof item.value === 'string' ? parseFloat(item.value) : item.value, prev) : null;
               return (
                 <div key={item.key} style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: '10px', padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '100px' }}>
