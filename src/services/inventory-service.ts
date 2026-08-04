@@ -57,6 +57,11 @@ export interface InventoryRecord {
   updatedAt: string;
   totalPurchased: number;
   totalSold: number;
+  /**
+   * Optional compressed data-URL images for the phone (used-phones showroom).
+   * Not part of the stock contract — purely presentational.
+   */
+  images?: string[];
 }
 
 export type TimelineEventType =
@@ -547,5 +552,23 @@ export const InventoryService = {
   deleteRecord(recordId: string) {
     const records = loadAll().filter(r => r.id !== recordId);
     saveAll(records);
+  },
+
+  /**
+   * Store/update the optional showroom images for a record.
+   * Images are compressed data-URLs; the whole array is saved with the record.
+   */
+  updateImages(recordId: string, images: string[]): InventoryRecord | null {
+    const records = loadAll();
+    const record = records.find(r => r.id === recordId);
+    if (!record) return null;
+    record.images = images.length > 0 ? images.slice(0, 12) : undefined;
+    record.updatedAt = new Date().toISOString();
+    saveAll(records);
+    return record;
+  },
+
+  getImages(recordId: string): string[] {
+    return loadAll().find(r => r.id === recordId)?.images ?? [];
   },
 };

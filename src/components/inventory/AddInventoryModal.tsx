@@ -5,6 +5,7 @@ import { VariantSelector } from '../catalog/VariantSelector';
 import { InventoryService } from '../../services/inventory-service';
 import { ALL_CONDITIONS, type DeviceCondition } from '../../services/price-memory';
 import type { CatalogSearchResult, PhoneVariant } from '../../services/catalog-service';
+import { PhoneImageUploader } from '../showroom/PhoneImageUploader';
 
 interface AddInventoryModalProps {
   colors: ThemeColors;
@@ -18,6 +19,7 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
   const [selectedVariant, setSelectedVariant] = useState<PhoneVariant | null>(null);
   const [selectedCondition, setSelectedCondition] = useState<DeviceCondition>('New');
   const [quantity, setQuantity] = useState(1);
+  const [images, setImages] = useState<string[]>([]);
 
   const handleModelSelect = (result: CatalogSearchResult) => {
     setSelectedBrand(result.brand);
@@ -37,7 +39,10 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
 
   const handleSave = () => {
     if (selectedBrand && selectedModel && selectedVariant) {
-      InventoryService.addStock(selectedBrand, selectedModel, selectedVariant, quantity, undefined, undefined, 'purchase', undefined, undefined, undefined, selectedCondition);
+      const record = InventoryService.addStock(selectedBrand, selectedModel, selectedVariant, quantity, undefined, undefined, 'purchase', undefined, undefined, undefined, selectedCondition);
+      if (record && images.length > 0) {
+        InventoryService.updateImages(record.id, images);
+      }
       onDone();
     }
   };
@@ -149,6 +154,10 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
                 background: colors.bgInput, color: colors.text, fontSize: '1.1rem', cursor: 'pointer',
               }}>+</button>
             </div>
+          </div>
+
+          <div style={{ marginBottom: '12px' }}>
+            <PhoneImageUploader images={images} onImagesChange={setImages} maxImages={6} />
           </div>
 
           <div style={{ display: 'flex', gap: '8px' }}>

@@ -24,4 +24,5 @@ export interface CatalogCascadeProps {
   showSearch?: boolean;
   showFavorites?: boolean;
   disabled?: boolean;
+  onModelNotFound?: (brand: string, model: string) => void;
 }

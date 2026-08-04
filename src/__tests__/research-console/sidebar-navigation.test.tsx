@@ -7,7 +7,7 @@ const ALL_DASHBOARDS: readonly DashboardId[] = [
   'overview', 'acquisition', 'scientific', 'users', 'sessions', 'devices', 'surveys',
   'campaigns', 'live', 'system', 'journey', 'health', 'conversion', 'comparator',
   'intelligence', 'insights', 'exchange', 'inventory', 'catalog-health',
-  'variant-coverage', 'inventory-health', 'price-memory', 'diagnostics',
+  'variant-coverage', 'inventory-health', 'price-memory', 'diagnostics', 'ads',
 ];
 
 function Harness({ availableDashboards = ALL_DASHBOARDS, onBack }: { availableDashboards?: readonly DashboardId[]; onBack?: () => void }) {

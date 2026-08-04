@@ -8,6 +8,8 @@ import { ALL_CONDITIONS, type DeviceCondition } from '../../services/price-memor
 import { InventoryService } from '../../services/inventory-service';
 import type { InventoryRecord } from '../../services/inventory-service';
 import { openWhatsAppForAction } from '../../services/whatsapp-message';
+import { openModelNotFoundRequest } from '../../services/whatsapp-service';
+import { AdSpot } from '../../components/ads/AdSpot';
 import {
   trackPhoneServiceOpened,
   trackDeviceSelected,
@@ -218,6 +220,7 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
           placeholder="ابحث عن هاتف..."
           autoFocus
           label="اسم الموديل أو العلامة"
+          onModelNotFound={(brand, model) => openModelNotFoundRequest(brand, model)}
         />
       </div>
     </div>
@@ -338,6 +341,8 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
           action === 'exchange' ? 'استبدال' :
           'شراء فقط'
         )}
+
+        {action === 'exchange' && <AdSpot placement="exchange" />}
 
         {showInventory && (
           <div>

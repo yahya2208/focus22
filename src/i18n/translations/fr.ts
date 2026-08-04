@@ -6,6 +6,7 @@ const fr: Record<string, string> = {
   'brand.motto': 'Concentrez-vous → Observez → Mesurez → Comprenez → Progressez',
   'brand.developedBy': 'Développé par Yahya Manouni',
   'brand.social.follow': 'Suivez FOCUS',
+  'brand.social.tiktokReview': 'Le compte est en cours de révision. Revenez plus tard.',
   'home.greeting.morning': 'Bonjour',
   'home.greeting.afternoon': 'Bon après-midi',
   'home.greeting.evening': 'Bonsoir',
@@ -347,6 +348,7 @@ const fr: Record<string, string> = {
   'research.nav.inventory-health': 'Santé de l\'inventaire',
   'research.nav.price-memory': 'Mémoire des prix',
   'research.nav.diagnostics': 'Diagnostics',
+  'research.nav.ads': 'Gestion des publicités',
   'sidebar.focusResearch': 'FOCUS Research',
   'sidebar.filters': 'Filtres',
   'sidebar.reset': 'Réinitialiser',
@@ -418,6 +420,16 @@ const fr: Record<string, string> = {
   'live.latest': 'Récent',
   'sessions.title': 'Sessions',
   'sessions.noSessions': 'Aucune session trouvée',
+  'error.title': 'Quelque chose a mal tourné',
+  'error.unexpected': 'Une erreur inattendue s\'est produite.',
+  'error.reload': 'Recharger',
+
+  // Showroom
+  'home.showroom': '🏬 Vitrine de téléphones d\'occasion',
+  'showroom.title': 'Vitrine de téléphones d\'occasion',
+  'showroom.subtitle': 'Téléphones certifiés disponibles maintenant',
+  'showroom.empty': 'Aucun appareil en stock pour le moment',
+  'showroom.back': '← Retour à l\'accueil',
 };
 
 export default fr;

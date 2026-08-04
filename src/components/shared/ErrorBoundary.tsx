@@ -1,5 +1,6 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react';
 import { useTranslation } from '../../hooks/useTranslation';
+import { devError } from '../../core/logging';
 
 interface Props {
   children: ReactNode;
@@ -11,7 +12,7 @@ interface State {
   error: Error | null;
 }
 
-function ErrorFallback({ error }: { error: Error | null }) {
+function ErrorFallback() {
   const { t } = useTranslation();
   return (
     <div
@@ -30,12 +31,9 @@ function ErrorFallback({ error }: { error: Error | null }) {
       }}
     >
       <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>{t('error.title')}</h1>
-      <p style={{ color: '#888', marginBottom: '1rem', fontSize: '0.85rem', maxWidth: '500px', wordBreak: 'break-all' }}>
-        {error?.message ?? t('error.unexpected')}
+      <p style={{ color: '#888', marginBottom: '2rem', fontSize: '0.85rem', maxWidth: '500px' }}>
+        {t('error.unexpected')}
       </p>
-      <pre style={{ color: '#666', fontSize: '0.7rem', marginBottom: '2rem', maxWidth: '500px', overflow: 'auto', textAlign: 'left' }}>
-        {error?.stack}
-      </pre>
       <button
         onClick={() => window.location.reload()}
         style={{
@@ -65,20 +63,20 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('═══════════════════════════════════════');
-    console.error('FOCUS ERROR BOUNDARY CAUGHT AN ERROR');
-    console.error('═══════════════════════════════════════');
-    console.error('Error message:', error.message);
-    console.error('Error name:', error.name);
-    console.error('Error stack:', error.stack);
-    console.error('Component stack:', errorInfo.componentStack);
-    console.error('═══════════════════════════════════════');
+    devError('═══════════════════════════════════════');
+    devError('FOCUS ERROR BOUNDARY CAUGHT AN ERROR');
+    devError('═══════════════════════════════════════');
+    devError('Error message:', error.message);
+    devError('Error name:', error.name);
+    devError('Error stack:', error.stack);
+    devError('Component stack:', errorInfo.componentStack);
+    devError('═══════════════════════════════════════');
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        this.props.fallback ?? <ErrorFallback error={this.state.error} />
+        this.props.fallback ?? <ErrorFallback />
       );
     }
     return this.props.children;

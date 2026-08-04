@@ -11,6 +11,7 @@ import { Button } from '../../design-system/components/Button';
 import { Card } from '../../design-system/components/Card';
 import { Stack } from '../../design-system/components/Stack';
 import { Flex } from '../../design-system/components/Flex';
+import { AdSpot } from '../../components/ads/AdSpot';
 
 import { useState } from 'react';
 import { getGlobalTelemetry } from '../../core/telemetry';
@@ -236,6 +237,22 @@ export const HomeScreen = memo(function HomeScreen() {
           </Grid>
         </div>
 
+        {/* Showroom */}
+        <div>
+          <Card
+            variant="interactive"
+            padding="lg"
+            onClick={() => dispatch({ type: 'NAVIGATE', screen: 'showroom' })}
+          >
+            <div style={{ textAlign: 'center' }}>
+              <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '0.35rem' }}>🏬</span>
+              <span style={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
+                {t('home.showroom')}
+              </span>
+            </div>
+          </Card>
+        </div>
+
         {/* Sticker Studio */}
         <div>
           <Card
@@ -254,6 +271,7 @@ export const HomeScreen = memo(function HomeScreen() {
 
         {/* Statistics */}
         <div>
+          <AdSpot placement="home" />
           <p style={{
             color: colors.textMuted, fontSize: '0.7rem', textTransform: 'uppercase',
             letterSpacing: '0.1em', fontWeight: 600, marginBottom: '0.75rem',

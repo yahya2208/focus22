@@ -5,6 +5,7 @@ import { FunnelChart } from '../../../research-console/components/FunnelChart';
 import { BarChart, LineChart } from '../../../research-console/components/charts/Charts';
 import { exportCSV, exportExcel } from '../../../research-console/components/ExportUtils';
 import { useThemeStyles } from '../../../hooks/useThemeStyles';
+import { devError } from '../../../core/logging';
 function parseDeviceUA(ua: string | null | undefined): { brand: string; model: string; marketingName: string } {
   if (!ua) return { brand: 'Unknown', model: 'Unknown', marketingName: 'Unknown' };
   const lower = ua.toLowerCase();
@@ -100,7 +101,7 @@ function SessionExpandRow({ session: s }: { readonly session: SessionRow }) {
         onClick={() => setExpanded(!expanded)}
         style={{ cursor: 'pointer', background: expanded ? '#16162a' : 'transparent' }}
       >
-        <td style={{ ...TD, fontFamily: 'monospace', fontSize: '0.65rem', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={s.id}>{s.id.slice(0, 8)}…</td>
+        <td style={{ ...TD, fontFamily: 'monospace', fontSize: '0.65rem', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={s.id}>{s.id.slice(0, 8)}â€¦</td>
         <td style={TD}>
           <span style={{ padding: '1px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 600,
             background: s.status === 'completed' ? '#22c55e20' : s.status === 'running' ? '#3b82f620' : '#f59e0b20',
@@ -136,7 +137,7 @@ function SessionExpandRow({ session: s }: { readonly session: SessionRow }) {
                 <p style={{ color: '#888', margin: '0.15rem 0' }}>Brand: {s.brand || '-'} / Model: {s.model || '-'}</p>
                 <p style={{ color: '#888', margin: '0.15rem 0' }}>OS: {s.os} {s.osVersion} / {s.platform}</p>
                 <p style={{ color: '#888', margin: '0.15rem 0' }}>Browser: {s.browser} {s.browserVersion}</p>
-                <p style={{ color: '#888', margin: '0.15rem 0' }}>Screen: {s.screenWidth}×{s.screenHeight}</p>
+                <p style={{ color: '#888', margin: '0.15rem 0' }}>Screen: {s.screenWidth}Ã—{s.screenHeight}</p>
                 <p style={{ color: '#888', margin: '0.15rem 0' }}>RAM: {s.memoryGb ? `${s.memoryGb}GB` : '-'} / CPU: {s.cpuCores > 0 ? `${s.cpuCores} cores` : '-'}</p>
                 <p style={{ color: '#888', margin: '0.15rem 0' }}>Timezone: {s.timezone || '-'} / Lang: {s.language || '-'}</p>
               </div>
@@ -256,7 +257,7 @@ export function CampaignAnalytics({ campaign, qrCodes, sessionStats }: Props) {
           .order('created_at', { ascending: false })
           .limit(200);
 
-        if (error) console.error({ code: error.code, message: error.message, details: error.details, hint: error.hint });
+        if (error) devError({ code: error.code, message: error.message, details: error.details, hint: error.hint });
 
         const mapped: SessionRow[] = (data ?? []).map((row: Record<string, unknown>) => {
           const dev = (row._devices as Record<string, unknown>) ?? {};
@@ -301,7 +302,7 @@ export function CampaignAnalytics({ campaign, qrCodes, sessionStats }: Props) {
 
         setSessions(mapped);
       } catch (err) {
-        console.error('[CampaignAnalytics] load error', err);
+        devError('[CampaignAnalytics] load error', err);
       }
     };
     loadSessions();
@@ -449,7 +450,7 @@ export function CampaignAnalytics({ campaign, qrCodes, sessionStats }: Props) {
         <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: '12px', overflow: 'hidden' }}>
           <div style={{ ...styles.flexBetween, padding: '1rem 1rem 0.5rem' }}>
             <h3 style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
-              {campaign.name} — Sessions ({sessions.length})
+              {campaign.name} â€” Sessions ({sessions.length})
             </h3>
           </div>
           <div style={{ overflowX: 'auto' }}>

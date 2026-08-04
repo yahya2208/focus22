@@ -9,6 +9,7 @@ import { calculateFocusScore } from '../engine/scoring';
 import { getGlobalEventPublisher } from '../events';
 import { getGlobalTelemetry } from '../telemetry';
 import type { SessionCreatedPayload, SessionCompletedPayload, SessionAbandonedPayload, EndedReason } from '../session/service';
+import { devError } from '../logging';
 
 const PING_INTERVAL_MS = 30_000;
 const STALE_CUTOFF_MINUTES = 5;
@@ -45,7 +46,7 @@ async function closeStaleSessionsForUser(userId: string): Promise<void> {
     .eq('status', 'running')
     .lt('updated_at', cutoff);
   if (error) {
-    console.error({ code: error.code, message: error.message, details: error.details, hint: error.hint });
+    devError({ code: error.code, message: error.message, details: error.details, hint: error.hint });
   }
 }
 
@@ -121,7 +122,7 @@ async function doCloseSession(
     markCompleted();
     if (error) {
       emitDiagnosticLog({ service: 'persistence', action: 'session_completed', durationMs: performance.now() - t0, status: 'error', errorCode: error.code, caller: 'persistence-provider', trigger: 'session_completed_event', sessionId });
-      console.error({ code: error.code, message: error.message, details: error.details, hint: error.hint });
+      devError({ code: error.code, message: error.message, details: error.details, hint: error.hint });
     } else {
       emitDiagnosticLog({ service: 'persistence', action: 'session_completed', durationMs: performance.now() - t0, status: 'ok', caller: 'persistence-provider', trigger: 'session_completed_event', sessionId });
     }
@@ -136,7 +137,7 @@ async function doCloseSession(
     markCompleted();
     if (error) {
       emitDiagnosticLog({ service: 'persistence', action: 'session_completed', durationMs: performance.now() - t0, status: 'error', errorCode: error.code, caller: 'persistence-provider', trigger: 'session_completed_event', sessionId });
-      console.error({ code: error.code, message: error.message, details: error.details, hint: error.hint });
+      devError({ code: error.code, message: error.message, details: error.details, hint: error.hint });
     } else {
       emitDiagnosticLog({ service: 'persistence', action: 'session_completed', durationMs: performance.now() - t0, status: 'ok', caller: 'persistence-provider', trigger: 'session_completed_event', sessionId });
     }
@@ -185,7 +186,7 @@ async function sendCloseSessionFetch(sessionId: string, _endedReason: EndedReaso
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      console.error({ code: 'PATCH_FAIL', status: res.status, message: err.message, details: err.details, hint: err.hint });
+      devError({ code: 'PATCH_FAIL', status: res.status, message: err.message, details: err.details, hint: err.hint });
     }
   } catch {
     // fetch failure is non-critical during unload
@@ -207,7 +208,7 @@ async function autoCleanupStaleSessions(): Promise<void> {
     .eq('status', 'running')
     .lt('updated_at', cutoff);
   if (selectErr) {
-    console.error({ code: selectErr.code, message: selectErr.message, details: selectErr.details, hint: selectErr.hint });
+    devError({ code: selectErr.code, message: selectErr.message, details: selectErr.details, hint: selectErr.hint });
     return;
   }
   if (!stale || stale.length === 0) return;
@@ -220,14 +221,14 @@ async function autoCleanupStaleSessions(): Promise<void> {
       .update({ status: 'completed', finished_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .in('id', ids);
     if (updateErr) {
-      console.error({ code: updateErr.code, message: updateErr.message, details: updateErr.details, hint: updateErr.hint });
+      devError({ code: updateErr.code, message: updateErr.message, details: updateErr.details, hint: updateErr.hint });
     }
   }
 }
 
 // Contract (P0-1): a session with status='running' AND zero rounds AND
-// updated_at older than 30s never started a real game → mark it abandoned so it
-// disappears from Live. Runs frequently to respect the ≤10s visibility contract.
+// updated_at older than 30s never started a real game â†’ mark it abandoned so it
+// disappears from Live. Runs frequently to respect the â‰¤10s visibility contract.
 const ZERO_ROUND_STALE_MS = 30_000;
 
 async function autoCleanupAbandonedZeroRoundSessions(): Promise<void> {
@@ -240,7 +241,7 @@ async function autoCleanupAbandonedZeroRoundSessions(): Promise<void> {
     .eq('status', 'running')
     .lt('updated_at', cutoff);
   if (selectErr) {
-    console.error({ code: selectErr.code, message: selectErr.message, details: selectErr.details, hint: selectErr.hint });
+    devError({ code: selectErr.code, message: selectErr.message, details: selectErr.details, hint: selectErr.hint });
     return;
   }
   if (!stale || stale.length === 0) return;
@@ -253,7 +254,7 @@ async function autoCleanupAbandonedZeroRoundSessions(): Promise<void> {
     .update({ status: 'completed', finished_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .in('id', ids);
   if (updateErr) {
-    console.error({ code: updateErr.code, message: updateErr.message, details: updateErr.details, hint: updateErr.hint });
+    devError({ code: updateErr.code, message: updateErr.message, details: updateErr.details, hint: updateErr.hint });
   } else {
     for (const id of ids) {
       emitDiagnosticLog({ service: 'persistence', action: 'session_abandoned_auto', caller: 'persistence-provider', trigger: 'zero_round_stale', sessionId: id, status: 'ok' });
@@ -302,7 +303,7 @@ async function ensureDeviceAndCalibration(userId: string, calibrationProfile: Ca
       .single();
 
     if (deviceError) {
-      console.error({ code: deviceError.code, message: deviceError.message, details: deviceError.details, hint: deviceError.hint });
+      devError({ code: deviceError.code, message: deviceError.message, details: deviceError.details, hint: deviceError.hint });
     } else {
       deviceId = newDevice.id;
     }
@@ -345,7 +346,7 @@ async function ensureDeviceAndCalibration(userId: string, calibrationProfile: Ca
         .single();
 
       if (calError) {
-        console.error({ code: calError.code, message: calError.message, details: calError.details, hint: calError.hint });
+        devError({ code: calError.code, message: calError.message, details: calError.details, hint: calError.hint });
       } else {
         calibrationId = newCal.id;
       }
@@ -378,7 +379,7 @@ export function PersistenceProvider({ children }: { children: React.ReactNode })
     const { error } = await client.from('sessions').update({ updated_at: now }).eq('id', sessionId);
     if (error) {
       emitDiagnosticLog({ service: 'persistence', action: 'heartbeat_ping', durationMs: performance.now() - t0, status: 'error', errorCode: error.code, caller: 'persistence-provider', trigger: 'heartbeat_interval', sessionId });
-      console.error({ code: error.code, message: error.message, details: error.details, hint: error.hint });
+      devError({ code: error.code, message: error.message, details: error.details, hint: error.hint });
     } else {
       emitDiagnosticLog({ service: 'persistence', action: 'heartbeat_ping', durationMs: performance.now() - t0, status: 'ok', caller: 'persistence-provider', trigger: 'heartbeat_interval', sessionId });
     }
@@ -424,7 +425,7 @@ export function PersistenceProvider({ children }: { children: React.ReactNode })
     });
     if (error) {
       emitDiagnosticLog({ service: 'persistence', action: 'session_created', durationMs: performance.now() - t0, status: 'error', errorCode: error.code, caller: 'persistence-provider', trigger: 'session_created_event', sessionId: payload.sessionId });
-      console.error({ code: error.code, message: error.message, details: error.details, hint: error.hint });
+      devError({ code: error.code, message: error.message, details: error.details, hint: error.hint });
       return;
     }
     emitDiagnosticLog({ service: 'persistence', action: 'session_created', durationMs: performance.now() - t0, status: 'ok', caller: 'persistence-provider', trigger: 'session_created_event', sessionId: payload.sessionId });

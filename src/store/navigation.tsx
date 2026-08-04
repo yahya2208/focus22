@@ -38,6 +38,7 @@ export type ScreenName =
   | 'sticker-studio'
   | 'sticker-analytics'
   | 'sticker-scan'
+  | 'showroom'
   | 'design-system-playground';
 
 export interface SessionRecord {

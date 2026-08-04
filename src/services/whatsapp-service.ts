@@ -2,7 +2,7 @@ import { getGlobalTelemetry } from '../core/telemetry';
 import { EventTypes } from '../core/analytics/events';
 import type { AnalyticsEventType } from '../core/analytics/events';
 
-export const WHATSAPP_PHONE = '+213551148943';
+export const WHATSAPP_PHONE = '+213556254007';
 
 function formatPhone(phone: string): string {
   const cleaned = phone.replace(/[^0-9]/g, '');
@@ -126,4 +126,20 @@ export function openInventoryRequest(params: { brand: string; model: string; var
 
 export function openCustomMessage(phone: string, message: string): void {
   openWhatsApp(phone, message);
+}
+
+export function openModelNotFoundRequest(brand: string, model: string): void {
+  const message = [
+    'السلام عليكم.',
+    '',
+    'الهاتف الذي أبحث عنه غير موجود في موقعكم.',
+    '',
+    `🏭 الشركة المصنعة: ${brand}`,
+    `📱 الموديل: ${model}`,
+    '',
+    'هل يمكنكم توفيره لي؟',
+    '',
+    'شكراً.',
+  ].filter(Boolean).join('\n');
+  openWhatsApp(WHATSAPP_PHONE, message);
 }

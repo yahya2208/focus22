@@ -4,6 +4,7 @@ import { getSupabaseClient } from '../../../core/supabase/client';
 import { markRender } from '../../../core/supabase/live-diagnostics';
 import { StatCard, DashboardHeader } from '../../layout/ResearchLayout';
 import { useTranslation } from '../../../hooks/useTranslation';
+import { devError } from '../../../core/logging';
 
 function formatElapsed(ms: number): string {
   const seconds = Math.floor(ms / 1000);
@@ -66,15 +67,15 @@ function DeviceDetailsPanel({ device }: { device: LiveSession['deviceDetails'] }
 
 function RecentEventCard({ event }: { readonly event: RecentEvent }) {
   const colors: Record<string, string> = { finished: '#22c55e', registered: '#6366f1', abandoned: '#ef4444', error: '#dc2626' };
-  const icons: Record<string, string> = { finished: '✓', registered: '→', abandoned: '✕', error: '⚠' };
+  const icons: Record<string, string> = { finished: 'âœ“', registered: 'â†’', abandoned: 'âœ•', error: 'âš ' };
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', borderBottom: '1px solid #1e1e2e', fontSize: '0.78rem' }}>
       <span style={{ color: colors[event.type] ?? '#888', fontWeight: 700, width: '1.2rem', textAlign: 'center' }}>{icons[event.type] ?? '?'}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <span style={{ color: '#ccc' }}>{event.userName}</span>
         <span style={{ color: '#666', marginLeft: '0.25rem' }}>{event.type}</span>
-        {event.deviceName && <span style={{ color: '#555', marginLeft: '0.25rem', fontSize: '0.7rem' }}>· {event.deviceName}</span>}
-        {event.campaignName && <span style={{ color: '#555', marginLeft: '0.25rem', fontSize: '0.7rem' }}>· {event.campaignName}</span>}
+        {event.deviceName && <span style={{ color: '#555', marginLeft: '0.25rem', fontSize: '0.7rem' }}>Â· {event.deviceName}</span>}
+        {event.campaignName && <span style={{ color: '#555', marginLeft: '0.25rem', fontSize: '0.7rem' }}>Â· {event.campaignName}</span>}
         {event.focusScore != null && <span style={{ color: '#f59e0b', marginLeft: '0.25rem', fontWeight: 600 }}>{event.focusScore.toFixed(0)}</span>}
       </div>
       <span style={{ color: '#555', fontSize: '0.65rem', whiteSpace: 'nowrap' }}>{timeAgo(event.timestamp)}</span>
@@ -126,9 +127,9 @@ export function LiveDashboard() {
             .order('created_at', { ascending: false })
             .limit(5),
         ]);
-        if (completedRes.error) console.error({ code: completedRes.error.code, message: completedRes.error.message, details: completedRes.error.details, hint: completedRes.error.hint });
-        if (abandonedRes.error) console.error({ code: abandonedRes.error.code, message: abandonedRes.error.message, details: abandonedRes.error.details, hint: abandonedRes.error.hint });
-        if (regRes.error) console.error({ code: regRes.error.code, message: regRes.error.message, details: regRes.error.details, hint: regRes.error.hint });
+        if (completedRes.error) devError({ code: completedRes.error.code, message: completedRes.error.message, details: completedRes.error.details, hint: completedRes.error.hint });
+        if (abandonedRes.error) devError({ code: abandonedRes.error.code, message: abandonedRes.error.message, details: abandonedRes.error.details, hint: abandonedRes.error.hint });
+        if (regRes.error) devError({ code: regRes.error.code, message: regRes.error.message, details: regRes.error.details, hint: regRes.error.hint });
 
         const events: RecentEvent[] = [];
 
@@ -173,7 +174,7 @@ export function LiveDashboard() {
 
         events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         setRecentEvents(events.slice(0, 20));
-      } catch (err) { console.error('[LiveDashboard] loadRecent error', err); }
+      } catch (err) { devError('[LiveDashboard] loadRecent error', err); }
     };
 
     loadRecent();
@@ -193,7 +194,7 @@ export function LiveDashboard() {
         ]);
         const totalScans = (qrRes.data ?? []).reduce((s, q) => s + (q.scan_count ?? 0), 0);
         setStats28({ registrations: regCount.count ?? 0, qrScans: totalScans, campaigns: campRes.count ?? 0 });
-      } catch (err) { console.error('[LiveDashboard] load28 error', err); }
+      } catch (err) { devError('[LiveDashboard] load28 error', err); }
     };
     load28();
   }, []);
@@ -238,7 +239,7 @@ export function LiveDashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1rem' }}>
           <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: '12px', overflow: 'hidden' }}>
             <div style={{ padding: '0.6rem 0.75rem', borderBottom: '1px solid #1e1e2e', fontSize: '0.72rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Live Sessions — {t('live.currentlyPlaying')}: {running.length}
+              Live Sessions â€” {t('live.currentlyPlaying')}: {running.length}
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -286,7 +287,7 @@ export function LiveDashboard() {
             {/* Realtime Event Feed */}
             <div style={{ background: '#12121a', border: '1px solid #1e1e2e', borderRadius: '12px', overflow: 'hidden' }}>
               <div style={{ padding: '0.6rem 0.75rem', borderBottom: '1px solid #1e1e2e', fontSize: '0.72rem', color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                ● Live Feed — Last 60min
+                â— Live Feed â€” Last 60min
               </div>
               <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {recentEvents.length > 0 ? recentEvents.map(ev => (

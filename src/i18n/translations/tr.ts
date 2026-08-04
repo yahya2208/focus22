@@ -10,6 +10,7 @@ const tr: Record<TranslationKey, string> = {
   'brand.motto': 'Odaklan → Gözlemle → Ölç → Anla → Geliştir',
   'brand.developedBy': 'Yahya Manouni tarafından geliştirildi',
   'brand.social.follow': 'FOCUS\'u takip et',
+  'brand.social.tiktokReview': 'Hesap incelemede, lütfen daha sonra tekrar gelin.',
 
   'home.greeting.morning': 'Günaydın',
   'home.greeting.afternoon': 'İyi günler',
@@ -562,6 +563,7 @@ const tr: Record<TranslationKey, string> = {
   'research.nav.inventory-health': 'Envanter Sağlığı',
   'research.nav.price-memory': 'Fiyat Hafızası',
   'research.nav.diagnostics': 'Teşhis',
+  'research.nav.ads': 'Reklam Yöneticisi',
 
   // Dashboard Section Headers
   'dashboard.qrFunnel': 'QR Hunisi',
@@ -949,6 +951,13 @@ const tr: Record<TranslationKey, string> = {
 
   // Sticker Studio
   'home.stickerStudio': '🖼️ Etiket Stüdyosu',
+
+  // Showroom
+  'home.showroom': '🏬 İkinci El Telefon Vitrini',
+  'showroom.title': 'İkinci El Telefon Vitrini',
+  'showroom.subtitle': 'Onaylı ikinci el telefonlar — hemen stokta',
+  'showroom.empty': 'Henüz stokta cihaz yok',
+  'showroom.back': '← Ana Sayfaya Dön',
   'sticker.type.focusGame': '🎯 Odak Oyunu',
   'sticker.type.repair': '🔧 Tamir',
   'sticker.type.buyPhone': '📱 Telefon Al',

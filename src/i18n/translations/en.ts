@@ -9,6 +9,7 @@ const en = {
   'brand.motto': 'Focus → Observe → Calibrate → Understand → Strengthen',
   'brand.developedBy': 'Developed by Yahya Manouni',
   'brand.social.follow': 'Follow FOCUS',
+  'brand.social.tiktokReview': 'The account is under review. Please come back later.',
 
   // Home
   'home.greeting.morning': 'Good morning',
@@ -582,6 +583,7 @@ const en = {
   'research.nav.inventory-health': 'Inventory Health',
   'research.nav.price-memory': 'Price Memory',
   'research.nav.diagnostics': 'Diagnostics',
+  'research.nav.ads': 'Ads Manager',
 
   // Dashboard Section Headers
   'dashboard.qrFunnel': 'QR Funnel',
@@ -969,6 +971,13 @@ const en = {
 
   // Sticker Studio
   'home.stickerStudio': '🖼️ Sticker Studio',
+
+  // Showroom
+  'home.showroom': '🏬 Used Phones Showroom',
+  'showroom.title': 'Used Phones Showroom',
+  'showroom.subtitle': 'Certified used phones — available now',
+  'showroom.empty': 'No devices in stock yet',
+  'showroom.back': '← Back to Home',
   'sticker.type.focusGame': 'Focus Game',
   'sticker.type.repair': 'Repair',
   'sticker.type.buyPhone': 'Buy Phone',

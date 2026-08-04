@@ -1,13 +1,14 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { devError } from './core/logging';
 
 window.addEventListener('error', (event) => {
-  console.error('[FOCUS ERROR]', event.message, event.error);
+  devError('[FOCUS ERROR]', event.message, event.error);
 });
 
 window.addEventListener('unhandledrejection', (event) => {
-  console.error('[FOCUS UNHANDLED REJECTION]', event.reason);
+  devError('[FOCUS UNHANDLED REJECTION]', event.reason);
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

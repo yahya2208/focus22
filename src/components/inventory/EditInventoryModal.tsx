@@ -1,6 +1,8 @@
 import { memo, useState } from 'react';
 import type { ThemeColors } from '../../hooks/useThemeColors';
 import type { InventoryRecord } from '../../services/inventory-service';
+import { InventoryService } from '../../services/inventory-service';
+import { PhoneImageUploader } from '../showroom/PhoneImageUploader';
 
 interface EditInventoryModalProps {
   record: InventoryRecord;
@@ -11,6 +13,12 @@ interface EditInventoryModalProps {
 
 export const EditInventoryModal = memo(function EditInventoryModal({ record, colors, onSave, onClose }: EditInventoryModalProps) {
   const [quantity, setQuantity] = useState(record.quantity);
+  const [images, setImages] = useState<string[]>(record.images ?? []);
+
+  const handleSave = () => {
+    InventoryService.updateImages(record.id, images);
+    onSave(record, quantity);
+  };
 
   return (
     <div style={{
@@ -20,7 +28,7 @@ export const EditInventoryModal = memo(function EditInventoryModal({ record, col
     }} onClick={onClose}>
       <div style={{
         background: colors.bgCard, border: `1px solid ${colors.border}`,
-        borderRadius: '12px', padding: '20px', width: '300px',
+        borderRadius: '12px', padding: '20px', width: '320px', maxHeight: '90vh', overflowY: 'auto',
       }} onClick={e => e.stopPropagation()}>
         <h3 style={{ color: colors.text, fontSize: '0.9rem', margin: '0 0 12px' }}>
           تعديل الكمية - {record.brand} {record.model}
@@ -34,12 +42,15 @@ export const EditInventoryModal = memo(function EditInventoryModal({ record, col
             background: colors.bgInput, color: colors.text, fontSize: '1.2rem', textAlign: 'center', fontFamily: 'inherit',
             boxSizing: 'border-box', marginBottom: '12px',
           }} autoFocus />
+        <div style={{ marginBottom: '12px' }}>
+          <PhoneImageUploader images={images} onImagesChange={setImages} maxImages={12} />
+        </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={onClose} style={{
             flex: 1, padding: '8px', borderRadius: '8px', border: `1px solid ${colors.border}`,
             background: 'transparent', color: colors.textMuted, fontSize: '0.82rem', cursor: 'pointer', fontFamily: 'inherit',
           }}>إلغاء</button>
-          <button onClick={() => onSave(record, quantity)} style={{
+          <button onClick={handleSave} style={{
             flex: 2, padding: '8px', borderRadius: '8px', border: 'none',
             background: colors.accent, color: '#fff', fontSize: '0.85rem',
             fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',

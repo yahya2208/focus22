@@ -9,11 +9,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FOCUS" />
     <meta name="description" content="FOCUS — Cognitive Measurement Platform | منصة قياس التركيز المعرفي" />
-    <link rel="icon" type="image/svg+xml" href="/icons/focus-icon.svg" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/icons/focus-32.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/icons/focus-192.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%icons/focus-icon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%icons/focus-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="%BASE_URL%icons/focus-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%icons/apple-touch-icon.png" />
+    <link rel="manifest" href="%BASE_URL%manifest.json" />
     <title>FOCUS — Cognitive Measurement Platform</title>
     <style>
       *, *::before, *::after {
@@ -77,6 +77,11 @@
       @keyframes shimmer {
         0% { background-position: -200% 0; }
         100% { background-position: 200% 0; }
+      }
+
+      @keyframes kenburns {
+        0% { transform: translate3d(-2%, -1%, 0) scale(1); }
+        100% { transform: translate3d(2%, 1.5%, 0) scale(1.12); }
       }
 
       @media (prefers-reduced-motion: reduce) {

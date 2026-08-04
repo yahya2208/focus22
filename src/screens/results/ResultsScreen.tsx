@@ -14,6 +14,7 @@ import { Screen, Grid } from '../../design-system/layout';
 import { getGlobalTelemetry } from '../../core/telemetry';
 import { getGlobalSessionService } from '../../core/session/service';
 import { useAuth } from '../../core/auth/AuthProvider';
+import { AdSpot } from '../../components/ads/AdSpot';
 
 function StatCard({ label, value, accent, colors }: { label: string; value: string; accent?: boolean; colors: ReturnType<typeof useThemeColors> }) {
   return (
@@ -192,6 +193,7 @@ export const ResultsScreen = memo(function ResultsScreen() {
         </Card>
 
         {/* Quick Stats */}
+        <AdSpot placement="results" />
         <Grid columns={2} gap="md">
           <StatCard label={t('results.best')} value={`${Math.round(bestRt)}ms`} accent colors={colors} />
           <StatCard label={t('results.average')} value={`${Math.round(avgRt)}ms`} colors={colors} />

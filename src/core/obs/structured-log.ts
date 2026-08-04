@@ -1,3 +1,5 @@
+import { devInfo, devError } from '../logging';
+
 export type LogStatus = 'ok' | 'error' | 'skipped';
 
 export interface StructuredEvent {
@@ -50,9 +52,9 @@ export function emitLog(input: {
   recent.push(event);
   if (recent.length > MAX_EVENTS) recent.shift();
   if (event.status === 'error') {
-    console.error(`[obs] ${JSON.stringify(event)}`);
+    devError(`[obs] ${JSON.stringify(event)}`);
   } else {
-    console.info(`[obs] ${JSON.stringify(event)}`);
+    devInfo(`[obs] ${JSON.stringify(event)}`);
   }
   return event;
 }

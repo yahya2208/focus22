@@ -7,9 +7,9 @@ import { STICKER_TYPES_CONFIG, LAYOUT_CONFIG, STICKER_THEME_CONFIG } from '../..
 import { getTypeTitle, generateAllPages, getContentLabel, getThemeLabel } from '../../services/sticker/sticker-engine';
 import { getAllCategories, getWisdomByCategory, CATEGORY_LABELS, type WisdomCategory } from '../../data/wisdom-database';
 import { calculateStickerLayout, A4, mmToPx } from '../../services/sticker/sticker-layout';
+import { WHATSAPP_PHONE as STORE_PHONE } from '../../services/whatsapp-service';
 
 const STORE_NAME = 'يحي فون';
-const STORE_PHONE = '+213551148943';
 const PRINT_CSS = `
 @media print {
   @page { size: A4; margin: 0; }

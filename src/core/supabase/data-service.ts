@@ -1,5 +1,6 @@
 import { getSupabaseClient } from './client';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { devError, devDebug } from '../logging';
 
 const BASE62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 function generateShortCode(): string {
@@ -301,19 +302,17 @@ class DataService {
 
     if (error) {
       if (error.code === 'PGRST202') {
-        console.error(
+        devError(
           'lookup_campaign_by_short_code RPC is missing. Run the database migration.'
         );
         throw error;
       }
 
-      console.error('[lookup_campaign_by_short_code]', error);
+      devError('[lookup_campaign_by_short_code]', error);
       throw error;
     }
 
-    if (import.meta.env.DEV) {
-      console.debug('[lookup_campaign_by_short_code] result', data);
-    }
+    devDebug('[lookup_campaign_by_short_code] result', data);
 
     return data as CampaignLookupResult | null;
   }

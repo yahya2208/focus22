@@ -9,9 +9,10 @@ interface CatalogAutocompleteProps {
   placeholder?: string;
   autoFocus?: boolean;
   label?: string;
+  onModelNotFound?: (brand: string, model: string) => void;
 }
 
-export const CatalogAutocomplete = memo(function CatalogAutocomplete({ onSelect }: CatalogAutocompleteProps) {
+export const CatalogAutocomplete = memo(function CatalogAutocomplete({ onSelect, onModelNotFound }: CatalogAutocompleteProps) {
   return (
     <CatalogCascadeSelector
       value={{}}
@@ -27,6 +28,7 @@ export const CatalogAutocomplete = memo(function CatalogAutocomplete({ onSelect 
       }}
       showSearch
       showFavorites
+      onModelNotFound={onModelNotFound}
     />
   );
 });

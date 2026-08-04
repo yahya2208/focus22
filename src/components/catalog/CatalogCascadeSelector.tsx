@@ -10,6 +10,7 @@ export function CatalogCascadeSelector({
   value, onChange, allowSeries = true, allowVariant = true,
   allowCondition = true, allowOperation = true,
   showSearch = true, showFavorites = true, disabled,
+  onModelNotFound,
 }: CatalogCascadeProps) {
   const colors = useThemeColors();
   const [step, setStep] = useState(0);
@@ -189,7 +190,8 @@ export function CatalogCascadeSelector({
           mostUsed={mostUsed} showFavorites={showFavorites}
           onFavoriteSelect={(brand, model) => { setSearchQuery(`${brand} ${model}`); setSelectedBrand(brand); setSelectedModel(model); setStep(allowVariant ? 3 : 4); }}
           onBrowseClick={() => setStep(1)} disabled={disabled}
-          searchRef={searchRef} searchInputRef={searchInputRef} />
+          searchRef={searchRef} searchInputRef={searchInputRef}
+          onModelNotFound={onModelNotFound} />
       )}
 
       {step >= 1 && <StepIndicator current={step - 1} stepNames={stepNames} />}

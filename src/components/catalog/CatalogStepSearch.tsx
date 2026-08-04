@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Highlight } from './CatalogCascadeTypes';
 import type { CatalogSearchResult } from './CatalogCascadeTypes';
@@ -22,6 +22,7 @@ interface CatalogStepSearchProps {
   disabled?: boolean;
   searchRef: React.RefObject<HTMLDivElement | null>;
   searchInputRef: React.RefObject<HTMLInputElement | null>;
+  onModelNotFound?: (brand: string, model: string) => void;
 }
 
 function CatalogStepSearch({
@@ -29,8 +30,32 @@ function CatalogStepSearch({
   showSearchResults, searchResults, groupedResults, searchIndex,
   onSearchSelect, onSearchHover, favorites, mostUsed, showFavorites,
   onFavoriteSelect, onBrowseClick, disabled, searchRef, searchInputRef,
+  onModelNotFound,
 }: CatalogStepSearchProps) {
   const colors = useThemeColors();
+  const [notFoundOpen, setNotFoundOpen] = useState(false);
+  const [notFoundBrand, setNotFoundBrand] = useState('');
+  const [notFoundModel, setNotFoundModel] = useState('');
+
+  const handleNotFoundSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const brand = notFoundBrand.trim();
+    const model = notFoundModel.trim();
+    if (brand && model && onModelNotFound) {
+      onModelNotFound(brand, model);
+      setNotFoundOpen(false);
+      setNotFoundBrand('');
+      setNotFoundModel('');
+    }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '8px 12px', borderRadius: '8px',
+    border: `1px solid ${colors.border}`, background: colors.bgInput,
+    color: colors.text, fontSize: '0.82rem', fontFamily: 'inherit',
+    boxSizing: 'border-box',
+  };
+
   return (
     <div ref={searchRef} style={{ position: 'relative' }}>
       <div style={{ marginBottom: '8px', display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -67,8 +92,57 @@ function CatalogStepSearch({
           boxShadow: '0 8px 24px rgba(0,0,0,0.2)', direction: 'rtl',
         }}>
           {searchResults.length === 0 && searchQuery.length >= 1 && (
-            <div style={{ padding: '16px', textAlign: 'center', color: colors.textMuted, fontSize: '0.82rem' }}>
-              لا توجد نتائج. يمكنك اختيار براند من القائمة.
+            <div style={{ padding: '16px', textAlign: 'center' }}>
+              <p style={{ color: colors.textMuted, fontSize: '0.82rem', margin: '0 0 10px' }}>
+                لا توجد نتائج مطابقة.
+              </p>
+              {onModelNotFound && (
+                notFoundOpen ? (
+                  <form
+                    onSubmit={handleNotFoundSubmit}
+                    style={{ display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'right' }}
+                  >
+                    <input
+                      autoFocus
+                      value={notFoundBrand}
+                      onChange={e => setNotFoundBrand(e.target.value)}
+                      placeholder="اسم الشركة المصنعة (مثال: سامسونج)"
+                      style={inputStyle}
+                    />
+                    <input
+                      value={notFoundModel}
+                      onChange={e => setNotFoundModel(e.target.value)}
+                      placeholder="اسم الموديل (مثال: A32)"
+                      style={inputStyle}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!notFoundBrand.trim() || !notFoundModel.trim()}
+                      style={{
+                        padding: '8px 12px', borderRadius: '8px', border: 'none',
+                        background: '#25D366', color: '#fff', cursor: 'pointer',
+                        fontSize: '0.8rem', fontFamily: 'inherit', fontWeight: 600,
+                        opacity: (!notFoundBrand.trim() || !notFoundModel.trim()) ? 0.5 : 1,
+                      }}
+                    >
+                      📤 إرسال عبر واتساب
+                    </button>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setNotFoundOpen(true)}
+                    style={{
+                      padding: '8px 14px', borderRadius: '8px',
+                      border: `1px dashed ${colors.accent}`,
+                      background: 'transparent', color: colors.accent,
+                      cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'inherit',
+                    }}
+                  >
+                    هاتفي غير موجود؟ أخبرنا
+                  </button>
+                )
+              )}
             </div>
           )}
           {groupedResults.map(([brand, items]) => (

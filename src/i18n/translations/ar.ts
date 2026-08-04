@@ -10,6 +10,7 @@ const ar: Record<TranslationKey, string> = {
   'brand.motto': 'ركّز ← راقب ← قِس ← افهم ← طوّر',
   'brand.developedBy': 'تطوير يحيى منوني',
   'brand.social.follow': 'تابع FOCUS',
+  'brand.social.tiktokReview': 'الحساب قيد المراجعة، يمكنك العودة لاحقًا.',
 
   'home.greeting.morning': 'صباح الخير',
   'home.greeting.afternoon': 'مساء الخير',
@@ -562,6 +563,7 @@ const ar: Record<TranslationKey, string> = {
   'research.nav.inventory-health': 'صحة المخزون',
   'research.nav.price-memory': 'ذاكرة الأسعار',
   'research.nav.diagnostics': 'التشخيص',
+  'research.nav.ads': 'مدير الإعلانات',
 
   // Dashboard Section Headers
   'dashboard.qrFunnel': 'قمع QR',
@@ -949,6 +951,13 @@ const ar: Record<TranslationKey, string> = {
 
   // Sticker Studio
   'home.stickerStudio': '🖼️ ستوديو الملصقات',
+
+  // Showroom
+  'home.showroom': '🏬 معرض الهواتف المستعملة',
+  'showroom.title': 'معرض الهواتف المستعملة',
+  'showroom.subtitle': 'هواتف معتمدة متوفرة الآن',
+  'showroom.empty': 'لا توجد أجهزة في المخزون حالياً',
+  'showroom.back': '← العودة للرئيسية',
   'sticker.type.focusGame': '🎯 لعبة التركيز',
   'sticker.type.repair': '🔧 تصليح',
   'sticker.type.buyPhone': '📱 شراء هاتف',

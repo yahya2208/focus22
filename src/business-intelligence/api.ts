@@ -8,6 +8,7 @@ import type {
   AIInsight, Prediction, HotDevice, TreasureModeData,
 } from './types';
 import type { BranchData } from './actions/types';
+import { devError } from '../core/logging';
 
 export interface BusinessAPI {
   getCommandCenter(): Promise<CommandCenterData>;
@@ -39,11 +40,11 @@ export function createBusinessAPI(): BusinessAPI {
         client.from('analytics_events').select('user_id, created_at').eq('event_type', 'whatsapp_clicked').gte('created_at', todayStart),
         client.from('users').select('id, display_name, role, created_at'),
       ]);
-      if (eventsResult.error) console.error({ code: eventsResult.error.code, message: eventsResult.error.message, details: eventsResult.error.details, hint: eventsResult.error.hint });
-      if (sessionsResult.error) console.error({ code: sessionsResult.error.code, message: sessionsResult.error.message, details: sessionsResult.error.details, hint: sessionsResult.error.hint });
-      if (tradeResult.error) console.error({ code: tradeResult.error.code, message: tradeResult.error.message, details: tradeResult.error.details, hint: tradeResult.error.hint });
-      if (whatsappResult.error) console.error({ code: whatsappResult.error.code, message: whatsappResult.error.message, details: whatsappResult.error.details, hint: whatsappResult.error.hint });
-      if (usersResult.error) console.error({ code: usersResult.error.code, message: usersResult.error.message, details: usersResult.error.details, hint: usersResult.error.hint });
+      if (eventsResult.error) devError({ code: eventsResult.error.code, message: eventsResult.error.message, details: eventsResult.error.details, hint: eventsResult.error.hint });
+      if (sessionsResult.error) devError({ code: sessionsResult.error.code, message: sessionsResult.error.message, details: sessionsResult.error.details, hint: sessionsResult.error.hint });
+      if (tradeResult.error) devError({ code: tradeResult.error.code, message: tradeResult.error.message, details: tradeResult.error.details, hint: tradeResult.error.hint });
+      if (whatsappResult.error) devError({ code: whatsappResult.error.code, message: whatsappResult.error.message, details: whatsappResult.error.details, hint: whatsappResult.error.hint });
+      if (usersResult.error) devError({ code: usersResult.error.code, message: usersResult.error.message, details: usersResult.error.details, hint: usersResult.error.hint });
 
       const events = eventsResult.data ?? [];
       const sessions = sessionsResult.data ?? [];
@@ -386,12 +387,12 @@ export function createBusinessAPI(): BusinessAPI {
         const conversionRate = campaignUsers.length > 0 ? Math.round((tradeCount / campaignUsers.length) * 100) : 0;
 
         let aiSummary = '';
-        if (completionRate > 80) aiSummary = 'هذه الحملة تجذب زوارًا متفاعلين يكملون اللعبة بنسبة عالية.';
-        else if (completionRate < 50) aiSummary = 'نسبة إكمال منخفضة — قد يحتاج عرض اللعبة إلى تحسين.';
-        else aiSummary = 'أداء متوسط — يمكن تحسينه بتعديل عرض الحملة.';
+        if (completionRate > 80) aiSummary = 'Ù‡Ø°Ù‡ Ø§Ù„Ø­Ù…Ù„Ø© ØªØ¬Ø°Ø¨ Ø²ÙˆØ§Ø±Ù‹Ø§ Ù…ØªÙØ§Ø¹Ù„ÙŠÙ† ÙŠÙƒÙ…Ù„ÙˆÙ† Ø§Ù„Ù„Ø¹Ø¨Ø© Ø¨Ù†Ø³Ø¨Ø© Ø¹Ø§Ù„ÙŠØ©.';
+        else if (completionRate < 50) aiSummary = 'Ù†Ø³Ø¨Ø© Ø¥ÙƒÙ…Ø§Ù„ Ù…Ù†Ø®ÙØ¶Ø© â€” Ù‚Ø¯ ÙŠØ­ØªØ§Ø¬ Ø¹Ø±Ø¶ Ø§Ù„Ù„Ø¹Ø¨Ø© Ø¥Ù„Ù‰ ØªØ­Ø³ÙŠÙ†.';
+        else aiSummary = 'Ø£Ø¯Ø§Ø¡ Ù…ØªÙˆØ³Ø· â€” ÙŠÙ…ÙƒÙ† ØªØ­Ø³ÙŠÙ†Ù‡ Ø¨ØªØ¹Ø¯ÙŠÙ„ Ø¹Ø±Ø¶ Ø§Ù„Ø­Ù…Ù„Ø©.';
 
-        if (avgFocus > 70) aiSummary += ' اللاعبونCenter عالية التركيز.';
-        else if (avgFocus < 40) aiSummary += ' مستوى التركيز منخفض — قد تكون اللعبة صعبة لهذه الفئة.';
+        if (avgFocus > 70) aiSummary += ' Ø§Ù„Ù„Ø§Ø¹Ø¨ÙˆÙ†Center Ø¹Ø§Ù„ÙŠØ© Ø§Ù„ØªØ±ÙƒÙŠØ².';
+        else if (avgFocus < 40) aiSummary += ' Ù…Ø³ØªÙˆÙ‰ Ø§Ù„ØªØ±ÙƒÙŠØ² Ù…Ù†Ø®ÙØ¶ â€” Ù‚Ø¯ ØªÙƒÙˆÙ† Ø§Ù„Ù„Ø¹Ø¨Ø© ØµØ¹Ø¨Ø© Ù„Ù‡Ø°Ù‡ Ø§Ù„ÙØ¦Ø©.';
 
         insights.push({
           id: c.id,
@@ -480,8 +481,8 @@ export function createBusinessAPI(): BusinessAPI {
       if (cc.today.conversionRate < 10) {
         problems.push({
           type: 'problem',
-          title: 'نسبة تحويل منخفضة',
-          description: `اليوم فقط ${cc.today.conversionRate}% من الزوار طلبوا استبدال.`,
+          title: 'Ù†Ø³Ø¨Ø© ØªØ­ÙˆÙŠÙ„ Ù…Ù†Ø®ÙØ¶Ø©',
+          description: `Ø§Ù„ÙŠÙˆÙ… ÙÙ‚Ø· ${cc.today.conversionRate}% Ù…Ù† Ø§Ù„Ø²ÙˆØ§Ø± Ø·Ù„Ø¨ÙˆØ§ Ø§Ø³ØªØ¨Ø¯Ø§Ù„.`,
           severity: 'high',
           metric: cc.today.conversionRate,
           trend: 'down',
@@ -492,8 +493,8 @@ export function createBusinessAPI(): BusinessAPI {
         if (c.conversionRate < 5 && c.visitors > 10) {
           problems.push({
             type: 'problem',
-            title: `حملة ضعيفة: ${c.name}`,
-            description: `نسبة تحويل ${c.conversionRate}% فقط من ${c.visitors} زائر.`,
+            title: `Ø­Ù…Ù„Ø© Ø¶Ø¹ÙŠÙØ©: ${c.name}`,
+            description: `Ù†Ø³Ø¨Ø© ØªØ­ÙˆÙŠÙ„ ${c.conversionRate}% ÙÙ‚Ø· Ù…Ù† ${c.visitors} Ø²Ø§Ø¦Ø±.`,
             severity: 'medium',
             metric: c.conversionRate,
             trend: 'down',
@@ -505,8 +506,8 @@ export function createBusinessAPI(): BusinessAPI {
       if (funnel.criticalDropOff && funnel.criticalDropOff.dropRate > 50) {
         alerts.push({
           type: 'alert',
-          title: 'تسرب كبير في المسار',
-          description: `${funnel.criticalDropOff.dropRate}% من الزوار يغادرون عند ${funnel.criticalDropOff.to}.`,
+          title: 'ØªØ³Ø±Ø¨ ÙƒØ¨ÙŠØ± ÙÙŠ Ø§Ù„Ù…Ø³Ø§Ø±',
+          description: `${funnel.criticalDropOff.dropRate}% Ù…Ù† Ø§Ù„Ø²ÙˆØ§Ø± ÙŠØºØ§Ø¯Ø±ÙˆÙ† Ø¹Ù†Ø¯ ${funnel.criticalDropOff.to}.`,
           severity: 'high',
           metric: funnel.criticalDropOff.dropRate,
         });
@@ -519,8 +520,8 @@ export function createBusinessAPI(): BusinessAPI {
       if ((abandonedSessions.count ?? 0) > 3) {
         alerts.push({
           type: 'alert',
-          title: 'جلسات متوقفة',
-          description: `يوجد ${abandonedSessions.count} جلسة توقفت قبل نهاية اللعبة في آخر 24 ساعة.`,
+          title: 'Ø¬Ù„Ø³Ø§Øª Ù…ØªÙˆÙ‚ÙØ©',
+          description: `ÙŠÙˆØ¬Ø¯ ${abandonedSessions.count} Ø¬Ù„Ø³Ø© ØªÙˆÙ‚ÙØª Ù‚Ø¨Ù„ Ù†Ù‡Ø§ÙŠØ© Ø§Ù„Ù„Ø¹Ø¨Ø© ÙÙŠ Ø¢Ø®Ø± 24 Ø³Ø§Ø¹Ø©.`,
           severity: 'medium',
           metric: abandonedSessions.count ?? undefined,
         });
@@ -531,16 +532,16 @@ export function createBusinessAPI(): BusinessAPI {
         .slice(0, 5)
         .map(o => ({
           type: 'recommendation' as const,
-          title: `خصم مقترح لـ ${o.displayName}`,
-          description: `زار ${o.visitCount} مرات ولم يطلب استبدال. اعرض خصم 5%.`,
+          title: `Ø®ØµÙ… Ù…Ù‚ØªØ±Ø­ Ù„Ù€ ${o.displayName}`,
+          description: `Ø²Ø§Ø± ${o.visitCount} Ù…Ø±Ø§Øª ÙˆÙ„Ù… ÙŠØ·Ù„Ø¨ Ø§Ø³ØªØ¨Ø¯Ø§Ù„. Ø§Ø¹Ø±Ø¶ Ø®ØµÙ… 5%.`,
           severity: 'medium' as const,
         }));
 
       if (cc.opportunities.filter(o => o.visitCount >= 3 && !o.tradeRequested).length > 5) {
         recommendations.push({
           type: 'recommendation',
-          title: 'حملة عودة للزوار',
-          description: `${cc.opportunities.filter(o => o.visitCount >= 3 && !o.tradeRequested).length} زائرًا عادوا أكثر من 3 مرات ولم يطلبوا استبدال.`,
+          title: 'Ø­Ù…Ù„Ø© Ø¹ÙˆØ¯Ø© Ù„Ù„Ø²ÙˆØ§Ø±',
+          description: `${cc.opportunities.filter(o => o.visitCount >= 3 && !o.tradeRequested).length} Ø²Ø§Ø¦Ø±Ù‹Ø§ Ø¹Ø§Ø¯ÙˆØ§ Ø£ÙƒØ«Ø± Ù…Ù† 3 Ù…Ø±Ø§Øª ÙˆÙ„Ù… ÙŠØ·Ù„Ø¨ÙˆØ§ Ø§Ø³ØªØ¨Ø¯Ø§Ù„.`,
           severity: 'high',
         });
       }
