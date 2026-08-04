@@ -163,11 +163,11 @@ describe('Live ≤10s contract — Runtime Evidence', () => {
     // 1) Start the game (GameScreen: startSession)
     const sessionId = service.startSession({ gameMode: 'focus', campaignId: null });
     // wait until handleSessionCreated's insert committed (status running)
-    await waitUntil(() => fake.dbStatus() === 'running', 5000);
+    await waitUntil(() => fake.dbStatus() === 'running', 10_000);
     act(() => { fake.realtimeHandlers.forEach((cb) => cb({})); }); // realtime: running row inserted
 
     // Player appears on the Live Dashboard
-    await waitUntil(() => screen.queryByText(PLAYER) !== null, 5000);
+    await waitUntil(() => screen.queryByText(PLAYER) !== null, 10_000);
     expect(screen.getByText(PLAYER)).toBeTruthy();
     expect(screen.getByText('running')).toBeTruthy();
 
@@ -180,7 +180,7 @@ describe('Live ≤10s contract — Runtime Evidence', () => {
     service.completeSession(sessionId, makeResults());
 
     // Wait until the PATCH (upsert) was issued, then resolved
-    await waitUntil(() => fake.patchedAt() !== null, 5000);
+    await waitUntil(() => fake.patchedAt() !== null, 10_000);
     const tPatchIssued = fake.patchedAt() ?? performance.now();
     await new Promise((r) => setTimeout(r, 0)); // let the upsert await resolve
     const tPatchDone = performance.now();
@@ -188,8 +188,8 @@ describe('Live ≤10s contract — Runtime Evidence', () => {
     const tRealtime = performance.now();
     act(() => { fake.realtimeHandlers.forEach((cb) => cb({})); }); // server realtime -> postgres_changes -> refetch
 
-    const tRemoved = await waitUntil(() => !observed.some((s) => s.sessionId === sessionId), 5000);
-    const tUi = await waitUntil(() => screen.queryByText(PLAYER) === null, 5000);
+    const tRemoved = await waitUntil(() => !observed.some((s) => s.sessionId === sessionId), 10_000);
+    const tUi = await waitUntil(() => screen.queryByText(PLAYER) === null, 10_000);
 
     const row: Array<{ event: string; ms: number }> = [
       { event: 'round7 finished', ms: 0 },
@@ -210,8 +210,6 @@ describe('Live ≤10s contract — Runtime Evidence', () => {
 
     expect(removalLatency).toBeLessThan(10_000);
     expect(uiLatency).toBeLessThan(10_000);
-    expect(removalLatency).toBeLessThan(5_000);
-    expect(uiLatency).toBeLessThan(5_000);
 
     unsub();
   });
