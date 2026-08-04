@@ -1,10 +1,16 @@
-// @ts-nocheck
 import { seedCatalog, verifyCatalog } from './seeder';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PHONE_CATALOG } from '../data/phone-catalog';
 import type { CatalogBrand, CatalogModel, CatalogVariant, CatalogAlias } from './schema';
 import { TABLES } from './schema';
+
+declare global {
+  var __audit_brands: CatalogBrand[];
+  var __audit_models: CatalogModel[];
+  var __audit_variants: CatalogVariant[];
+  var __audit_aliases: CatalogAlias[];
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────
 function normalize(s: string): string {
@@ -17,10 +23,6 @@ function readTable<T>(key: string): T[] {
   try {
     return JSON.parse(readFileSync(join(storeDir, key.replace(/[^a-zA-Z0-9_-]/g, '_') + '.json'), 'utf8'));
   } catch { return []; }
-}
-
-function elapsed(start: bigint): string {
-  return ((Number(process.hrtime.bigint() - start) / 1e6)).toFixed(1) + 'ms';
 }
 
 function hr(): void {
@@ -48,10 +50,10 @@ function auditTables(): boolean {
   console.log(`  catalog_aliases → ${String(aliases.length).padStart(5)}`);
 
   // Store for later checks
-  (globalThis as any).__audit_brands = brands;
-  (globalThis as any).__audit_models = models;
-  (globalThis as any).__audit_variants = variants;
-  (globalThis as any).__audit_aliases = aliases;
+  globalThis.__audit_brands = brands;
+  globalThis.__audit_models = models;
+  globalThis.__audit_variants = variants;
+  globalThis.__audit_aliases = aliases;
 
   return brands.length > 0 && models.length > 0;
 }
@@ -121,7 +123,7 @@ function auditOrphanVariants(models: CatalogModel[], variants: CatalogVariant[])
 // ═══════════════════════════════════════════════════════════════════
 //  5. DUPLICATE MODELS
 // ═══════════════════════════════════════════════════════════════════
-function auditDuplicates(models: CatalogModel[]): any[] {
+function auditDuplicates(models: CatalogModel[]): [string, CatalogModel[]][] {
   console.log('\n═══ 5. DUPLICATE MODELS ═══\n');
 
   const groups = new Map<string, CatalogModel[]>();
@@ -136,8 +138,8 @@ function auditDuplicates(models: CatalogModel[]): any[] {
 
   if (dupes.length > 0) {
     console.log('');
-    for (const [key, group] of dupes) {
-      console.log(`  ⚠ "${group[0].brandName} ${group[0].name}" appears ${group.length}x`);
+    for (const [, group] of dupes) {
+      console.log(`  ⚠ "${group[0]!.brandName} ${group[0]!.name}" appears ${group.length}x`);
       for (const m of group) console.log(`      id=${m.id}, series=${m.seriesName || '—'}`);
     }
   }
@@ -183,7 +185,7 @@ function auditAmbiguousAliases(aliases: CatalogAlias[]): Map<string, CatalogAlia
       const modelMap = new Map(models.map(m => [m.id, m]));
 
       console.log('');
-      for (const [text, info] of multi.slice(0, 20)) {
+      for (const [, info] of multi.slice(0, 20)) {
         const names = [...info.modelIds].map(id => {
           const m = modelMap.get(id);
           return m ? `${m.brandName} ${m.name}` : id;
@@ -245,7 +247,7 @@ function auditVariants(variants: CatalogVariant[]): void {
   for (const [combo, count] of [...combos.entries()].sort((a, b) => {
     const [aR, aS] = a[0].split('/').map(Number);
     const [bR, bS] = b[0].split('/').map(Number);
-    return aR - bR || aS - bS;
+    return aR! - bR! || aS! - bS!;
   })) {
     const status = expected.includes(combo) ? '✓' : '?';
     console.log(`  ${status} ${combo.padEnd(14)} ${String(count).padStart(4)} models`);
@@ -293,8 +295,8 @@ function auditPriceMemory(models: CatalogModel[]): void {
       console.log(`\n  No history:`);
       for (const m of withoutHistory) console.log(`    ${m.brandName} ${m.name}`);
     }
-  } catch (e: any) {
-    console.log(`  Error reading price data: ${e.message}`);
+  } catch (e) {
+    console.log(`  Error reading price data: ${(e as Error).message}`);
   }
 }
 
@@ -328,7 +330,7 @@ function auditLedger(models: CatalogModel[]): void {
     let genericPhones = 0;
     let linkedDevices = 0;
 
-    for (const device of Object.values(devices) as any[]) {
+    for (const device of Object.values(devices) as Array<{ modelId?: string; modelName?: string; name?: string }>) {
       const ref = device.modelId || device.modelName || '';
       if (ref && modelIds.has(ref)) {
         linkedDevices++;
@@ -355,8 +357,8 @@ function auditLedger(models: CatalogModel[]): void {
     console.log(`  Unknown Device:         ${unknownDevices}`);
     console.log(`  Manual Device:          ${manualEntries}`);
     console.log(`  Generic / Unlinked:     ${genericPhones}`);
-  } catch (e: any) {
-    console.log(`  Error reading ledger: ${e.message}`);
+  } catch (e) {
+    console.log(`  Error reading ledger: ${(e as Error).message}`);
   }
 }
 
@@ -376,7 +378,7 @@ function auditIdempotent(): void {
   console.log(`  Delta:  ${diff > 0 ? '+' : ''}${diff}`);
 
   // Run again (should be no-op when not forced)
-  const r2 = seedCatalog();
+  seedCatalog();
   const after2 = readTable<CatalogModel>(TABLES.CATALOG_MODELS).length;
   console.log(`  Re-seed (no force): ${after2} models (${after2 === after ? '✓ stable' : '✗ changed'})`);
 
@@ -496,7 +498,7 @@ function auditBenchmark(models: CatalogModel[], aliases: CatalogAlias[]): void {
   function randomTerms(count: number): string[] {
     const result: string[] = [];
     for (let i = 0; i < count; i++) {
-      result.push(allKeys[Math.floor(Math.random() * allKeys.length)]);
+      result.push(allKeys[Math.floor(Math.random() * allKeys.length)]!);
     }
     return result;
   }
@@ -507,7 +509,7 @@ function auditBenchmark(models: CatalogModel[], aliases: CatalogAlias[]): void {
   const start = process.hrtime.bigint();
   for (const term of testTerms) {
     const t0 = process.hrtime.bigint();
-    const _ = searchIndex.get(term);
+    searchIndex.get(term);
     const t1 = process.hrtime.bigint();
     times.push(Number(t1 - t0));
   }
@@ -515,8 +517,8 @@ function auditBenchmark(models: CatalogModel[], aliases: CatalogAlias[]): void {
 
   times.sort((a, b) => a - b);
   const avg = times.reduce((s, t) => s + t, 0) / times.length;
-  const worst = times[times.length - 1];
-  const p95 = times[Math.floor(times.length * 0.95)];
+  const worst = times[times.length - 1]!;
+  const p95 = times[Math.floor(times.length * 0.95)]!;
   const memUsage = process.memoryUsage();
 
   console.log(`  Benchmark: ${testTerms.length} searches`);
@@ -550,7 +552,7 @@ async function main(): Promise<void> {
   hr();
 
   // 2
-  const [orphanBrandCount, orphanSeriesCount] = auditOrphans(brands, models);
+  const [orphanBrandCount] = auditOrphans(brands, models);
   hr();
 
   // 3
