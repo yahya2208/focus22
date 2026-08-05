@@ -213,15 +213,21 @@ export function createCampaignStore(): CampaignStore {
 
     async getStats(id: string): Promise<CampaignStats | null> {
       const client = getSupabaseClient();
-      const { data, error } = await client
+      const { count, error } = await client
+        .from('analytics_events')
+        .select('id', { count: 'exact', head: true })
+        .match({ event_type: 'qr_scanned', campaign_id: id });
+
+      if (error) return null;
+
+      const { data: regs, error: regsError } = await client
         .from('qr_codes')
-        .select('scan_count, registration_count')
+        .select('registration_count')
         .eq('campaign_id', id);
+      if (regsError || !regs || regs.length === 0) return null;
 
-      if (error || !data || data.length === 0) return null;
-
-      const totalScans = data.reduce((sum, row) => sum + (row.scan_count || 0), 0);
-      const totalConversions = data.reduce((sum, row) => sum + (row.registration_count || 0), 0);
+      const totalScans = count ?? 0;
+      const totalConversions = regs.reduce((sum, row) => sum + (row.registration_count || 0), 0);
 
       return {
         id,

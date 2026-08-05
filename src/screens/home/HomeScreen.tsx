@@ -3,6 +3,7 @@ import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useAuth } from '../../core/auth/AuthProvider';
+import { permissionGuard } from '../../core/research/permissions';
 import { HomeMenu } from '../../components/navigation/HomeMenu';
 import { BrandLogo } from '../../components/brand/BrandLogo';
 import { BrandFooter } from '../../components/brand/BrandFooter';
@@ -72,8 +73,10 @@ export const HomeScreen = memo(function HomeScreen() {
   const { sessions } = useAppState();
   const { t } = useTranslation();
   const colors = useThemeColors();
-  const { state } = useAuth();
+  const { state, researchRole } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const canUseSticker = permissionGuard.can(researchRole, 'sticker', 'write');
 
   const userName = state.user?.displayName || state.user?.email?.split('@')[0] || '';
 
@@ -254,20 +257,22 @@ export const HomeScreen = memo(function HomeScreen() {
         </div>
 
         {/* Sticker Studio */}
-        <div>
-          <Card
-            variant="interactive"
-            padding="lg"
-            onClick={() => dispatch({ type: 'NAVIGATE', screen: 'sticker-studio' })}
-          >
-            <div style={{ textAlign: 'center' }}>
-              <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '0.35rem' }}>🖼️</span>
-              <span style={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
-                {t('home.stickerStudio')}
-              </span>
-            </div>
-          </Card>
-        </div>
+        {canUseSticker && (
+          <div>
+            <Card
+              variant="interactive"
+              padding="lg"
+              onClick={() => dispatch({ type: 'NAVIGATE', screen: 'sticker-studio' })}
+            >
+              <div style={{ textAlign: 'center' }}>
+                <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '0.35rem' }}>🖼️</span>
+                <span style={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
+                  {t('home.stickerStudio')}
+                </span>
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* Statistics */}
         <div>

@@ -190,6 +190,36 @@ class DataService {
     return { data: data ?? [], count: count ?? 0 };
   }
 
+  // QR scan counts derived from real events (analytics_events), never from
+  // qr_codes.scan_count (see incident INC-2026-08-03-D2-close).
+  async countQrScans(options?: { since?: string; campaignId?: string }): Promise<number> {
+    let query = this.client
+      .from('analytics_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_type', 'qr_scanned');
+    if (options?.campaignId) query = query.eq('campaign_id', options.campaignId);
+    if (options?.since) query = query.gte('created_at', options.since);
+
+    const { count, error } = await query;
+    if (error) return 0;
+    return count ?? 0;
+  }
+
+  async getQrScansByCampaign(): Promise<Record<string, number>> {
+    const { data, error } = await this.client
+      .from('analytics_events')
+      .select('campaign_id')
+      .eq('event_type', 'qr_scanned');
+
+    const counts: Record<string, number> = {};
+    if (!error && data) {
+      for (const row of data) {
+        if (row.campaign_id) counts[row.campaign_id as string] = (counts[row.campaign_id as string] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }
+
   // Campaigns
   async createCampaign(campaign: Omit<Campaign, 'id' | 'created_at' | 'updated_at'>): Promise<Campaign | null> {
     const shortCode = generateShortCode();
@@ -677,13 +707,14 @@ class DataService {
     totalGameCompletes: number;
     totalRegistrations: number;
   }> {
-    const [campaignsResult, qrResult] = await Promise.all([
+    const [campaignsResult, qrResult, scanCount] = await Promise.all([
       this.client
         .from('campaigns')
         .select('id', { count: 'exact', head: true }),
       this.client
         .from('qr_codes')
-        .select('scan_count, game_start_count, game_complete_count, registration_count'),
+        .select('game_start_count, game_complete_count, registration_count'),
+      this.countQrScans(),
     ]);
 
     const activeCampaignsResult = await this.client
@@ -693,12 +724,10 @@ class DataService {
 
     const qrCodes = qrResult.data ?? [];
     const stats = qrCodes.reduce((acc, qr) => ({
-      totalScans: acc.totalScans + (qr.scan_count || 0),
       totalGameStarts: acc.totalGameStarts + (qr.game_start_count || 0),
       totalGameCompletes: acc.totalGameCompletes + (qr.game_complete_count || 0),
       totalRegistrations: acc.totalRegistrations + (qr.registration_count || 0),
     }), {
-      totalScans: 0,
       totalGameStarts: 0,
       totalGameCompletes: 0,
       totalRegistrations: 0,
@@ -708,6 +737,7 @@ class DataService {
       totalCampaigns: campaignsResult.count ?? 0,
       activeCampaigns: activeCampaignsResult.count ?? 0,
       totalQRCodes: qrCodes.length,
+      totalScans: scanCount,
       ...stats,
     };
   }

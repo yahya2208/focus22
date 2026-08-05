@@ -881,18 +881,18 @@ export function createResearchAPI(): ResearchAPI {
 
     async getCampaignAnalytics(_filters?: ResearchFilters): Promise<CampaignAnalytics> {
       const dataServiceLocal = getDataService(client);
-      const [campaignsResult, qrResult, sessionsResult] = await Promise.all([
+      const [campaignsResult, qrResult, sessionsResult, scanCounts] = await Promise.all([
         dataServiceLocal.getCampaigns({ limit: 100 }),
         dataServiceLocal.getQRCodes({ limit: 100 }),
         client.from('sessions').select('campaign_id, status').not('campaign_id', 'is', null),
+        dataServiceLocal.getQrScansByCampaign(),
       ]);
 
       const sessionList = sessionsResult.data ?? [];
 
       const campaigns = campaignsResult.data.map(c => {
         const cSessions = sessionList.filter(s => s.campaign_id === c.id);
-        const cQrs = qrResult.data.filter(qr => qr.campaign_id === c.id);
-        const totalScans = cQrs.reduce((sum, qr) => sum + qr.scan_count, 0);
+        const totalScans = scanCounts[c.id ?? ''] ?? 0;
         const totalRegs = cSessions.filter(s => s.status === 'completed').length;
         return {
           id: c.id ?? '',
@@ -904,12 +904,15 @@ export function createResearchAPI(): ResearchAPI {
         };
       });
 
-      const referralPerformance = qrResult.data.map(qr => ({
-        code: qr.code,
-        scans: qr.scan_count,
-        conversions: qr.registration_count,
-        rate: qr.scan_count > 0 ? (qr.registration_count / qr.scan_count) * 100 : 0,
-      }));
+      const referralPerformance = qrResult.data.map(qr => {
+        const scans = scanCounts[qr.campaign_id ?? ''] ?? 0;
+        return {
+          code: qr.code,
+          scans,
+          conversions: qr.registration_count,
+          rate: scans > 0 ? (qr.registration_count / scans) * 100 : 0,
+        };
+      });
 
       const totalScans = campaigns.reduce((sum, c) => sum + c.scans, 0);
       const totalRegs = campaigns.reduce((sum, c) => sum + c.registrations, 0);

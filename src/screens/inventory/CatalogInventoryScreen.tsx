@@ -34,6 +34,14 @@ export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
     setEditingRecord(null);
   };
 
+  const handleToggleVisibility = (id: string) => {
+    const rec = records.find(r => r.id === id);
+    if (!rec) return;
+    if (rec.status === 'archived' || rec.status === 'discontinued') InventoryService.unhideRecord(id);
+    else InventoryService.hideRecord(id);
+    refresh();
+  };
+
   return (
     <div style={{ ...styles.flexCol, gap: 16 }}>
       <div style={styles.flexBetween}>
@@ -45,7 +53,7 @@ export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
         <>
           <InventorySummaryCards colors={colors} totalItems={totalItems} recordsCount={records.length} lowStock={lowStock} outOfStock={outOfStock} />
           <InventorySearchBar value={search} onChange={setSearch} colors={colors} />
-          <InventoryTable filtered={filtered} search={search} colors={colors} onEdit={setEditingRecord} onDelete={id => { InventoryService.deleteRecord(id); refresh(); }} />
+          <InventoryTable filtered={filtered} search={search} colors={colors} onEdit={setEditingRecord} onDelete={id => { InventoryService.deleteRecord(id); refresh(); }} onToggleVisibility={handleToggleVisibility} />
         </>
       )}
 

@@ -7,10 +7,12 @@ interface InventoryRowProps {
   colors: ThemeColors;
   onEdit: () => void;
   onDelete: () => void;
+  onToggleVisibility: () => void;
 }
 
-export const InventoryRow = memo(function InventoryRow({ record, colors, onEdit, onDelete }: InventoryRowProps) {
+export const InventoryRow = memo(function InventoryRow({ record, colors, onEdit, onDelete, onToggleVisibility }: InventoryRowProps) {
   const statusColor = record.quantity <= 0 ? '#e74c3c' : record.quantity <= 3 ? '#f39c12' : colors.success;
+  const isHidden = record.status === 'archived' || record.status === 'discontinued';
 
   return (
     <div style={{
@@ -40,6 +42,10 @@ export const InventoryRow = memo(function InventoryRow({ record, colors, onEdit,
           padding: '4px 8px', borderRadius: '4px', border: 'none',
           background: colors.infoBg, color: colors.info, fontSize: '0.65rem', cursor: 'pointer',
         }}>تعديل</button>
+        <button onClick={onToggleVisibility} style={{
+          padding: '4px 8px', borderRadius: '4px', border: 'none',
+          background: colors.bgInput, color: colors.textMuted, fontSize: '0.65rem', cursor: 'pointer',
+        }}>{isHidden ? 'إظهار' : 'إخفاء'}</button>
         <button onClick={onDelete} style={{
           padding: '4px 8px', borderRadius: '4px', border: 'none',
           background: '#e74c3c20', color: '#e74c3c', fontSize: '0.65rem', cursor: 'pointer',

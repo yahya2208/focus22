@@ -6,6 +6,7 @@ import type { ModelPriceHistory } from '../../services/price-memory';
 import { DashboardHeader } from '../../research-console/layout/ResearchLayout';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { devError } from '../../core/logging';
 
 interface HealthReport {
   brand: string;
@@ -131,7 +132,7 @@ export const InventoryHealthScreen = memo(function InventoryHealthScreen() {
         actions={
           <button
             onClick={() => {
-              navigator.clipboard.writeText(handleExport()).catch(console.error);
+              navigator.clipboard.writeText(handleExport()).catch((err) => devError('Export copy failed', err));
             }}
             style={{
               padding: '0.4rem 1rem', borderRadius: '4px',

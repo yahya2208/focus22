@@ -33,6 +33,7 @@ interface Props {
   campaign: Campaign;
   qrCodes: QRCode[];
   sessionStats: { started: number; completed: number };
+  scanCount?: number;
 }
 
 interface HourlyData { hour: number; count: number; }
@@ -158,7 +159,7 @@ function SessionExpandRow({ session: s }: { readonly session: SessionRow }) {
   );
 }
 
-export function CampaignAnalytics({ campaign, qrCodes, sessionStats }: Props) {
+export function CampaignAnalytics({ campaign, qrCodes, sessionStats, scanCount = 0 }: Props) {
   const styles = useThemeStyles();
   const [hourlyData, setHourlyData] = useState<HourlyData[]>([]);
   const [dailyData, setDailyData] = useState<{ label: string; value: number }[]>([]);
@@ -168,7 +169,7 @@ export function CampaignAnalytics({ campaign, qrCodes, sessionStats }: Props) {
   const [events, setEvents] = useState<AnalyticsEvent[]>([]);
 
   const stats = {
-    scans: qrCodes.reduce((s, q) => s + q.scan_count, 0),
+    scans: scanCount,
     started: sessionStats.started,
     completed: sessionStats.completed,
     abandoned: sessionStats.started - sessionStats.completed,

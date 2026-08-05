@@ -28,6 +28,7 @@ export function CampaignDetailView({ campaign: c, onBack, onUpdate }: Props) {
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState(c.notes ?? '');
   const [sessionStats, setSessionStats] = useState<{ started: number; completed: number }>({ started: 0, completed: 0 });
+  const [scanCount, setScanCount] = useState(0);
 
   const basePath = import.meta.env.BASE_URL || '/';
   const shortCode = c.short_code || c.id || '';
@@ -36,8 +37,12 @@ export function CampaignDetailView({ campaign: c, onBack, onUpdate }: Props) {
   useEffect(() => {
     const load = async () => {
       const ds = getDataService(getSupabaseClient());
-      const result = await ds.getQRCodes({ campaign_id: c.id });
+      const [result, scans] = await Promise.all([
+        ds.getQRCodes({ campaign_id: c.id }),
+        ds.countQrScans({ campaignId: c.id }),
+      ]);
       setQRCodes(result.data);
+      setScanCount(scans);
     };
     load();
   }, [c.id]);
@@ -87,7 +92,7 @@ export function CampaignDetailView({ campaign: c, onBack, onUpdate }: Props) {
   };
 
   const stats = {
-    scans: qrCodes.reduce((s, q) => s + q.scan_count, 0),
+    scans: scanCount,
     started: sessionStats.started,
     completed: sessionStats.completed,
     registered: qrCodes.reduce((s, q) => s + q.registration_count, 0),
@@ -224,7 +229,7 @@ export function CampaignDetailView({ campaign: c, onBack, onUpdate }: Props) {
       )}
 
       {tab === 'analytics' && (
-        <CampaignAnalytics campaign={c} qrCodes={qrCodes} sessionStats={sessionStats} />
+        <CampaignAnalytics campaign={c} qrCodes={qrCodes} sessionStats={sessionStats} scanCount={scanCount} />
       )}
 
       {tab === 'print' && (

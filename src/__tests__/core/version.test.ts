@@ -4,8 +4,8 @@ import { APP_NAME, APP_VERSION, APP_BUILD_COMMIT, versionLabel, buildLabel } fro
 describe('version (single source from package.json)', () => {
   it('exposes the launch version and label', () => {
     expect(APP_NAME).toBe('FOCUS');
-    expect(APP_VERSION).toBe('2.0.1');
-    expect(versionLabel()).toBe('FOCUS v2.0.1');
+    expect(APP_VERSION).toBe('2.0.2');
+    expect(versionLabel()).toBe('FOCUS v2.0.2');
   });
 
   it('build label is safe when no build commit is injected', () => {

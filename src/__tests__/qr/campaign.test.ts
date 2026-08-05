@@ -15,6 +15,7 @@ const { mockFrom, chain } = vi.hoisted(() => {
     c.lte = vi.fn(() => c);
     c.in = vi.fn(() => c);
     c.not = vi.fn(() => c);
+    c.match = vi.fn(() => c);
     c.order = vi.fn(() => c);
     c.limit = vi.fn(() => c);
     c.single = vi.fn();
@@ -201,9 +202,10 @@ describe('Campaign Store (Supabase-backed)', () => {
     expect(all).toHaveLength(2);
   });
 
-  it('should compute stats', async () => {
+  it('should compute stats from analytics events', async () => {
+    chain.match.mockResolvedValue({ count: 3, error: null });
     chain.eq.mockResolvedValue({
-      data: [{ scan_count: 3, registration_count: 1 }],
+      data: [{ registration_count: 1 }],
       error: null,
     });
 
@@ -215,6 +217,7 @@ describe('Campaign Store (Supabase-backed)', () => {
   });
 
   it('should return null stats for non-existent campaign', async () => {
+    chain.match.mockResolvedValue({ count: 0, error: null });
     chain.eq.mockResolvedValue({ data: [], error: null });
 
     const store = createCampaignStore();

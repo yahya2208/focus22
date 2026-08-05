@@ -388,27 +388,28 @@ describe('Subscriber cleanup (StrictMode proof)', () => {
 // 6. CampaignAnalytics uses props only, no duplicate queries
 // ----------------------------------------------------------------
 describe('CampaignAnalytics props-only proof (no duplicate queries)', () => {
-  it('calculates stats from sessionStats prop, not from DB', () => {
-    // From CampaignAnalytics.tsx lines 24-29:
+  it('calculates stats from sessionStats and scanCount props, not from DB', () => {
+    // From CampaignAnalytics.tsx:
     //   const stats = {
-    //     scans: qrCodes.reduce(...),
+    //     scans: scanCount,                   ← from props (event-derived, see Incident D2)
     //     started: sessionStats.started,      ← from props
     //     completed: sessionStats.completed,    ← from props
     //     registered: qrCodes.reduce(...),
     //   };
     //
     // PROOF: CampaignAnalytics does NOT query sessions or qr_codes tables.
-    // It only uses `campaign`, `qrCodes`, and `sessionStats` props.
+    // It only uses `campaign`, `qrCodes`, `sessionStats`, and `scanCount` props.
 
     const qrCodes = [
-      { scan_count: 10, registration_count: 3, campaign_id: 'c1' },
-      { scan_count: 5, registration_count: 2, campaign_id: 'c1' },
+      { registration_count: 3, campaign_id: 'c1' },
+      { registration_count: 2, campaign_id: 'c1' },
     ];
 
     const sessionStats = { started: 8, completed: 5 };
+    const scanCount = 15;
 
     const stats = {
-      scans: qrCodes.reduce((s: number, q) => s + q.scan_count, 0),
+      scans: scanCount,
       started: sessionStats.started,
       completed: sessionStats.completed,
       registered: qrCodes.reduce((s: number, q) => s + q.registration_count, 0),

@@ -71,6 +71,11 @@ describe('PermissionGuard', () => {
       expect(guard.can('research_admin', 'cohorts', 'export')).toBe(true);
     });
 
+    it('can use Sticker Studio (write + export)', () => {
+      expect(guard.can('research_admin', 'sticker', 'write')).toBe(true);
+      expect(guard.can('research_admin', 'sticker', 'export')).toBe(true);
+    });
+
     it('returns correct accessible resources', () => {
       const resources = guard.getAccessibleResources('research_admin');
       expect(resources).toContain('sessions');
@@ -96,6 +101,11 @@ describe('PermissionGuard', () => {
       expect(guard.can('analyst', 'cohorts', 'write')).toBe(true);
     });
 
+    it('can use Sticker Studio (write + export)', () => {
+      expect(guard.can('analyst', 'sticker', 'write')).toBe(true);
+      expect(guard.can('analyst', 'sticker', 'export')).toBe(true);
+    });
+
     it('cannot access campaigns', () => {
       expect(guard.can('analyst', 'campaigns', 'read')).toBe(false);
       expect(guard.can('analyst', 'campaigns', 'write')).toBe(false);
@@ -115,9 +125,10 @@ describe('PermissionGuard', () => {
       expect(guard.can('viewer', 'users', 'delete')).toBe(false);
     });
 
-    it('cannot access campaigns or surveys', () => {
+    it('cannot access campaigns, surveys or Sticker Studio', () => {
       expect(guard.can('viewer', 'campaigns', 'read')).toBe(false);
       expect(guard.can('viewer', 'surveys', 'read')).toBe(false);
+      expect(guard.can('viewer', 'sticker', 'write')).toBe(false);
     });
   });
 

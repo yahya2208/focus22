@@ -39,6 +39,7 @@ const ROLE_PERMISSIONS: Record<ResearchRole, readonly RolePermission[]> = {
     { resource: 'exports', actions: ['read', 'export'] },
     { resource: 'overview', actions: ['read'] },
     { resource: 'scientific', actions: ['read', 'export'] },
+    { resource: 'sticker', actions: ['read', 'write', 'export'] },
   ],
   analyst: [
     { resource: 'sessions', actions: ['read', 'export'] },
@@ -47,6 +48,7 @@ const ROLE_PERMISSIONS: Record<ResearchRole, readonly RolePermission[]> = {
     { resource: 'surveys', actions: ['read', 'export'] },
     { resource: 'overview', actions: ['read'] },
     { resource: 'scientific', actions: ['read', 'export'] },
+    { resource: 'sticker', actions: ['read', 'write', 'export'] },
   ],
   viewer: [
     { resource: 'overview', actions: ['read'] },

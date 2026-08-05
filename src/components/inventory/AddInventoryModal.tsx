@@ -19,6 +19,8 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
   const [selectedVariant, setSelectedVariant] = useState<PhoneVariant | null>(null);
   const [selectedCondition, setSelectedCondition] = useState<DeviceCondition>('New');
   const [quantity, setQuantity] = useState(1);
+  const [buyPrice, setBuyPrice] = useState('');
+  const [sellPrice, setSellPrice] = useState('');
   const [images, setImages] = useState<string[]>([]);
 
   const handleModelSelect = (result: CatalogSearchResult) => {
@@ -39,7 +41,19 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
 
   const handleSave = () => {
     if (selectedBrand && selectedModel && selectedVariant) {
-      const record = InventoryService.addStock(selectedBrand, selectedModel, selectedVariant, quantity, undefined, undefined, 'purchase', undefined, undefined, undefined, selectedCondition);
+      const record = InventoryService.addStock(
+        selectedBrand,
+        selectedModel,
+        selectedVariant,
+        quantity,
+        buyPrice ? parseInt(buyPrice) || undefined : undefined,
+        sellPrice ? parseInt(sellPrice) || undefined : undefined,
+        'purchase',
+        undefined,
+        undefined,
+        undefined,
+        selectedCondition,
+      );
       if (record && images.length > 0) {
         InventoryService.updateImages(record.id, images);
       }
@@ -158,6 +172,27 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
 
           <div style={{ marginBottom: '12px' }}>
             <PhoneImageUploader images={images} onImagesChange={setImages} maxImages={6} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+            <div>
+              <label style={{ color: colors.textMuted, fontSize: '0.72rem', display: 'block', marginBottom: '4px' }}>سعر الشراء (د.ج)</label>
+              <input type="number" value={buyPrice} onChange={e => setBuyPrice(e.target.value)} placeholder="اختياري"
+                style={{
+                  width: '100%', padding: '9px', borderRadius: '8px', border: `1px solid ${colors.border}`,
+                  background: colors.bgInput, color: colors.text, fontSize: '0.9rem', fontFamily: 'inherit',
+                  boxSizing: 'border-box',
+                }} />
+            </div>
+            <div>
+              <label style={{ color: colors.textMuted, fontSize: '0.72rem', display: 'block', marginBottom: '4px' }}>سعر البيع (د.ج)</label>
+              <input type="number" value={sellPrice} onChange={e => setSellPrice(e.target.value)} placeholder="اختياري"
+                style={{
+                  width: '100%', padding: '9px', borderRadius: '8px', border: `1px solid ${colors.border}`,
+                  background: colors.bgInput, color: colors.text, fontSize: '0.9rem', fontFamily: 'inherit',
+                  boxSizing: 'border-box',
+                }} />
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '8px' }}>

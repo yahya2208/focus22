@@ -9,9 +9,10 @@ interface InventoryTableProps {
   colors: ThemeColors;
   onEdit: (record: InventoryRecord) => void;
   onDelete: (id: string) => void;
+  onToggleVisibility: (id: string) => void;
 }
 
-export const InventoryTable = memo(function InventoryTable({ filtered, search, colors, onEdit, onDelete }: InventoryTableProps) {
+export const InventoryTable = memo(function InventoryTable({ filtered, search, colors, onEdit, onDelete, onToggleVisibility }: InventoryTableProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
       {filtered.length === 0 ? (
@@ -20,7 +21,7 @@ export const InventoryTable = memo(function InventoryTable({ filtered, search, c
         </div>
       ) : (
         filtered.map(r => (
-          <InventoryRow key={r.id} record={r} colors={colors} onEdit={() => onEdit(r)} onDelete={() => onDelete(r.id)} />
+          <InventoryRow key={r.id} record={r} colors={colors} onEdit={() => onEdit(r)} onDelete={() => onDelete(r.id)} onToggleVisibility={() => onToggleVisibility(r.id)} />
         ))
       )}
     </div>

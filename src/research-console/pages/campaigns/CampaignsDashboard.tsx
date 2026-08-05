@@ -38,16 +38,17 @@ export function CampaignsDashboard() {
     try {
       const client = getSupabaseClient();
       const ds = getDataService(client);
-      const [campaignsResult, qrResult, sessionsResult] = await Promise.all([
+      const [campaignsResult, qrResult, sessionsResult, scanCounts] = await Promise.all([
         ds.getCampaigns({ limit: 100 }),
         ds.getQRCodes({ limit: 500 }),
         client.from('sessions').select('campaign_id, status').not('campaign_id', 'is', null),
+        ds.getQrScansByCampaign(),
       ]);
       const sessionList = sessionsResult.data ?? [];
       const rows: CampaignRow[] = campaignsResult.data.map(c => {
         const cQrs = qrResult.data.filter(qr => qr.campaign_id === c.id);
         const cSessions = sessionList.filter(s => s.campaign_id === c.id);
-        const scanCount = cQrs.reduce((s, q) => s + q.scan_count, 0);
+        const scanCount = scanCounts[c.id ?? ''] ?? 0;
         const startedCount = cSessions.length;
         const completeCount = cSessions.filter(s => s.status === 'completed').length;
         const regCount = cQrs.reduce((s, q) => s + q.registration_count, 0);

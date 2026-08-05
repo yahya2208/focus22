@@ -571,4 +571,47 @@ export const InventoryService = {
   getImages(recordId: string): string[] {
     return loadAll().find(r => r.id === recordId)?.images ?? [];
   },
+
+  /**
+   * Update buy/sell prices for a record. Records a price_updated timeline event.
+   */
+  updatePrices(recordId: string, buyPrice?: number, sellPrice?: number): InventoryRecord | null {
+    const records = loadAll();
+    const record = records.find(r => r.id === recordId);
+    if (!record) return null;
+    const priceBefore = record.sellPrice;
+    record.buyPrice = buyPrice;
+    record.sellPrice = sellPrice;
+    record.updatedAt = new Date().toISOString();
+    saveAll(records);
+    saveTimelineEvent({
+      id: generateId(),
+      recordId,
+      type: 'price_updated',
+      detail: `تحديث السعر: ${priceBefore != null ? priceBefore.toLocaleString() : '-'} ← ${sellPrice != null ? sellPrice.toLocaleString() : '-'} د.ج`,
+      priceBefore,
+      priceAfter: sellPrice,
+      createdAt: new Date().toISOString(),
+    });
+    return record;
+  },
+
+  /**
+   * Hide a record from the customer-facing showroom/exchange lists.
+   * The record stays visible on the admin Inventory page.
+   */
+  hideRecord(recordId: string): InventoryRecord | null {
+    const record = loadAll().find(r => r.id === recordId);
+    if (!record) return null;
+    return this.setStatus(recordId, 'archived');
+  },
+
+  /**
+   * Un-hide a previously archived record: restores it to its stock-derived status.
+   */
+  unhideRecord(recordId: string): InventoryRecord | null {
+    const record = loadAll().find(r => r.id === recordId);
+    if (!record) return null;
+    return this.setStatus(recordId, calcStatus(record.quantity));
+  },
 };

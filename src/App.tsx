@@ -240,6 +240,12 @@ function ScreenRouter() {
         <RepairPersonnelScreen />
       </ProtectedRoute>
     );
+  } else if (currentScreen === 'sticker-studio') {
+    content = (
+      <ProtectedRoute requiredResource="sticker" requiredAction="write">
+        <StickerStudioScreen />
+      </ProtectedRoute>
+    );
   } else if (currentScreen === 'repair-diagnostics') {
     content = (
       <ProtectedRoute requiredResource="campaigns" requiredAction="read">

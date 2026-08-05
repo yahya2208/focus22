@@ -133,6 +133,15 @@ export const PhoneShowroom = memo(function PhoneShowroom({
                     </span>
                   )}
                 </div>
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                  marginTop: '0.35rem', padding: '2px 8px', borderRadius: '999px',
+                  fontSize: '0.6rem', fontWeight: 700,
+                  color: device.condition === 'New' ? colors.success : colors.info,
+                  background: device.condition === 'New' ? colors.successBg : colors.infoBg,
+                }}>
+                  {device.condition === 'New' ? 'جديد' : `مستعمل · ${device.condition}`}
+                </div>
                 </div>
               </div>
             </button>

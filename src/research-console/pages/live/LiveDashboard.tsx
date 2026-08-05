@@ -187,12 +187,12 @@ export function LiveDashboard() {
       try {
         const client = getSupabaseClient();
         const monthAgo = new Date(Date.now() - 28 * 86400000).toISOString();
-        const [regCount, qrRes, campRes] = await Promise.all([
+        const [regCount, scanCount, campRes] = await Promise.all([
           client.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'registration').gte('created_at', monthAgo),
-          client.from('qr_codes').select('scan_count'),
+          client.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'qr_scanned').gte('created_at', monthAgo),
           client.from('campaigns').select('id', { count: 'exact', head: true }).eq('is_active', true),
         ]);
-        const totalScans = (qrRes.data ?? []).reduce((s, q) => s + (q.scan_count ?? 0), 0);
+        const totalScans = scanCount.count ?? 0;
         setStats28({ registrations: regCount.count ?? 0, qrScans: totalScans, campaigns: campRes.count ?? 0 });
       } catch (err) { devError('[LiveDashboard] load28 error', err); }
     };
