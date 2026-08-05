@@ -21,7 +21,12 @@ export function openWhatsApp(phone: string, message: string, analyticsEvent?: st
   if (analyticsEvent) {
     getGlobalTelemetry().track(analyticsEvent as AnalyticsEventType, { phone: formatPhone(phone), has_message: true });
   }
-  window.location.href = url;
+  // Launch-blocker fix: open WhatsApp in a new window/tab (reliable for mobile
+  // & in-app browsers), with a same-tab fallback if the popup is blocked.
+  const win = window.open(url, '_blank', 'noopener');
+  if (!win) {
+    window.location.href = url;
+  }
 }
 
 export function openBuyRequest(params: { brand: string; model: string; variant?: string; condition?: string }): void {
@@ -75,7 +80,7 @@ export function openExchangeRequest(params: { myBrand: string; myModel: string; 
   openWhatsApp(WHATSAPP_PHONE, message, EventTypes.EXCHANGE_FLOW_STARTED);
 }
 
-export function openRepairRequest(params: { brand: string; model: string; issue: string; description?: string; location?: string; code: string }): void {
+export function openRepairRequest(params: { brand: string; model: string; issue: string; description?: string; location?: string; code: string; condition?: string; customerPhone?: string }): void {
   const message = [
     'السلام عليكم.',
     '',
@@ -83,11 +88,13 @@ export function openRepairRequest(params: { brand: string; model: string; issue:
     '',
     `📱 الهاتف:`,
     `${params.brand} ${params.model}`,
+    params.condition ? `الحالة: ${params.condition}` : '',
     `🔧 العطل: ${params.issue}`,
     params.description ? `الوصف: ${params.description}` : '',
     params.location ? `📍 الموقع: ${params.location}` : '',
     '',
     `🆔 رقم الطلب: ${params.code}`,
+    params.customerPhone ? `📞 رقم العميل: ${params.customerPhone}` : '',
     '',
     'شكراً.',
   ].filter(Boolean).join('\n');

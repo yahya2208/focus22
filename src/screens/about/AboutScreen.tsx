@@ -6,6 +6,7 @@ import { Card } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
 import { BrandLogo } from '../../components/brand/BrandLogo';
 import { BrandFooter } from '../../components/brand/BrandFooter';
+import { versionLabel } from '../../core/version';
 
 export const AboutScreen = memo(function AboutScreen() {
   const dispatch = useAppDispatch();
@@ -49,7 +50,7 @@ export const AboutScreen = memo(function AboutScreen() {
         </p>
       </Card>
       <p style={{ color: colors.textFaint, textAlign: 'center', fontSize: '0.875rem', marginTop: '1rem' }}>
-        {t('app.version')}
+        {versionLabel()}
       </p>
       <BrandFooter />
       <Button variant="secondary" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })} style={{ marginTop: '1rem' }}>

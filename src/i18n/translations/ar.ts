@@ -4,13 +4,11 @@ const ar: Record<TranslationKey, string> = {
   'app.title': 'FOCUS',
   'app.subtitle': 'منصة القياس المعرفي',
   'app.subtitleAr': 'منصة قياس التركيز المعرفي',
-  'app.version': 'FOCUS v2.0',
 
   // Brand
   'brand.motto': 'ركّز ← راقب ← قِس ← افهم ← طوّر',
   'brand.developedBy': 'تطوير يحيى منوني',
   'brand.social.follow': 'تابع FOCUS',
-  'brand.social.tiktokReview': 'الحساب قيد المراجعة، يمكنك العودة لاحقًا.',
 
   'home.greeting.morning': 'صباح الخير',
   'home.greeting.afternoon': 'مساء الخير',

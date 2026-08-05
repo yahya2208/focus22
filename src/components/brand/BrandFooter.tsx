@@ -1,12 +1,13 @@
-import { memo, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { WHATSAPP_PHONE } from '../../services/whatsapp-service';
+import { versionLabel, buildLabel } from '../../core/version';
 
 interface SocialLink {
   id: string;
   label: string;
-  href: string | null;
+  href: string;
   icon: ReactNode;
 }
 
@@ -33,24 +34,11 @@ const SOCIAL_LINKS: SocialLink[] = [
       </svg>
     ),
   },
-  {
-    id: 'tiktok',
-    label: 'TikTok',
-    href: null,
-    icon: (
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M9.5 18.2V6.2l10-2.1v11.9" />
-        <circle cx="6.8" cy="18" r="2.7" />
-        <circle cx="16.8" cy="16" r="2.7" />
-      </svg>
-    ),
-  },
 ];
 
 export const BrandFooter = memo(function BrandFooter() {
   const { t } = useTranslation();
   const colors = useThemeColors();
-  const [tiktokOpen, setTiktokOpen] = useState(false);
 
   const chipStyle: CSSProperties = {
     width: 42,
@@ -83,55 +71,27 @@ export const BrandFooter = memo(function BrandFooter() {
       </p>
       <div style={{ display: 'flex', justifyContent: 'center', gap: '0.7rem' }}>
         {SOCIAL_LINKS.map((s) => (
-          s.href ? (
-            <a
-              key={s.id}
-              href={s.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={s.label}
-              title={s.label}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
-              style={chipStyle}
-            >
-              {s.icon}
-            </a>
-          ) : (
-            <button
-              key={s.id}
-              type="button"
-              aria-label={s.label}
-              title={s.label}
-              onClick={() => setTiktokOpen((open) => !open)}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
-              style={{ ...chipStyle, fontFamily: 'inherit', padding: 0 }}
-            >
-              {s.icon}
-            </button>
-          )
+          <a
+            key={s.id}
+            href={s.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={s.label}
+            title={s.label}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+            style={chipStyle}
+          >
+            {s.icon}
+          </a>
         ))}
       </div>
-      {tiktokOpen && (
-        <p
-          role="status"
-          style={{
-            color: colors.textSecondary,
-            fontSize: '0.78rem',
-            margin: '0.8rem 0 0',
-            padding: '0.5rem 0.9rem',
-            display: 'inline-block',
-            borderRadius: '10px',
-            background: colors.glass,
-            border: `1px solid ${colors.glassBorder}`,
-          }}
-        >
-          {t('brand.social.tiktokReview')}
-        </p>
-      )}
       <p style={{ color: colors.textFaint, fontSize: '0.7rem', letterSpacing: '0.04em', margin: '1rem 0 0' }}>
         {t('brand.developedBy')}
+      </p>
+      <p style={{ color: colors.textFaint, fontSize: '0.68rem', letterSpacing: '0.05em', margin: '0.4rem 0 0' }}>
+        {versionLabel()}
+        {buildLabel() ? ` · ${buildLabel()}` : ''}
       </p>
     </footer>
   );

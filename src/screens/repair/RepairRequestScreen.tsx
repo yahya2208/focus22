@@ -8,8 +8,9 @@ import type { PhoneIdentity } from '../../components/catalog/CatalogIdentity';
 import { RepairPhotoUpload } from '../../components/repair/RepairPhotoUpload';
 import { REPAIR_ISSUES, type RepairRequest } from '../../services/repair/repair-types';
 import { getRepairRepository } from '../../services/repair/repair-repository';
-import { openWhatsApp, WHATSAPP_PHONE, openModelNotFoundRequest } from '../../services/whatsapp-service';
-import { AlgerianPhoneInput, normalizePhone, toInternationalFormat } from '../../components/forms/AlgerianPhoneInput';
+import { sendRepairRequestWhatsApp } from '../../services/repair/repair-whatsapp';
+import { openModelNotFoundRequest } from '../../services/whatsapp-service';
+import { AlgerianPhoneInput, normalizePhone } from '../../components/forms/AlgerianPhoneInput';
 import { devError } from '../../core/logging';
 
 const INPUT_STYLE: Record<string, string | number> = {
@@ -71,24 +72,10 @@ export const RepairRequestScreen = memo(function RepairRequestScreen() {
 
   const handleOpenWhatsApp = useCallback(() => {
     if (!result) return;
-    const message = [
-      'Ø§Ù„Ø³Ù„Ø§Ù… Ø¹Ù„ÙŠÙƒÙ…',
-      '',
-      'Ø£Ø±ØºØ¨ ÙÙŠ Ø¥ØµÙ„Ø§Ø­ Ø§Ù„Ù‡Ø§ØªÙ Ø§Ù„ØªØ§Ù„ÙŠ',
-      '',
-      `Ø±Ù‚Ù… Ø§Ù„Ø·Ù„Ø¨: ${result.code}`,
-      `Ø§Ù„Ù‡Ø§ØªÙ: ${result.request.brandName} ${result.request.modelName}`,
-      result.request.condition ? `Ø§Ù„Ø­Ø§Ù„Ø©: ${result.request.condition}` : '',
-      '',
-      `Ø§Ù„Ù…Ø´ÙƒÙ„Ø©: ${result.request.issue}`,
-      description ? `${description}` : '',
-      '',
-      `Ø±Ù‚Ù… Ø§Ù„Ø¹Ù…ÙŠÙ„: ${toInternationalFormat(normalizedPhone)}`,
-      '',
-      'Ø´ÙƒØ±Ø§Ù‹.',
-    ].filter(Boolean).join('\n');
-    openWhatsApp(WHATSAPP_PHONE, message, 'repair_requested');
-  }, [result, description, normalizedPhone]);
+    // Launch-blocker fix: use the single unified generator + send path
+    // (sendRepairRequestWhatsApp → openRepairRequest → openWhatsApp).
+    sendRepairRequestWhatsApp(result.request);
+  }, [result]);
 
   const handleCopyCode = useCallback(() => {
     if (!result) return;

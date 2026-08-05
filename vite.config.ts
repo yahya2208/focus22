@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __BUILD_COMMIT__: JSON.stringify(process.env.GITHUB_SHA ?? ''),
+  },
   server: { port: 5173 },
   base: '/focus22/',
   build: {

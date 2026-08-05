@@ -4,13 +4,11 @@ const tr: Record<TranslationKey, string> = {
   'app.title': 'FOCUS',
   'app.subtitle': 'Bilişsel Ölçüm Platformu',
   'app.subtitleAr': 'منصة قياس التركيز المعرفي',
-  'app.version': 'FOCUS v2.0',
 
   // Brand
   'brand.motto': 'Odaklan → Gözlemle → Ölç → Anla → Geliştir',
   'brand.developedBy': 'Yahya Manouni tarafından geliştirildi',
   'brand.social.follow': 'FOCUS\'u takip et',
-  'brand.social.tiktokReview': 'Hesap incelemede, lütfen daha sonra tekrar gelin.',
 
   'home.greeting.morning': 'Günaydın',
   'home.greeting.afternoon': 'İyi günler',

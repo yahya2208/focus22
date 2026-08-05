@@ -3,13 +3,11 @@ const en = {
   'app.title': 'FOCUS',
   'app.subtitle': 'Cognitive Measurement Platform',
   'app.subtitleAr': 'منصة قياس التركيز المعرفي',
-  'app.version': 'FOCUS v2.0',
 
   // Brand
   'brand.motto': 'Focus → Observe → Calibrate → Understand → Strengthen',
   'brand.developedBy': 'Developed by Yahya Manouni',
   'brand.social.follow': 'Follow FOCUS',
-  'brand.social.tiktokReview': 'The account is under review. Please come back later.',
 
   // Home
   'home.greeting.morning': 'Good morning',

@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect, useRef, lazy, Suspense } from 'react';
 import { AppProvider, useAppState, useAppDispatch } from './store/navigation';
 import { ThemeProvider } from './design-system/use-theme';
 import { SettingsProvider } from './hooks/useSettings';
@@ -117,9 +117,17 @@ function HtmlSync() {
 function InitialRoute() {
   const dispatch = useAppDispatch();
   const { currentScreen } = useAppState();
+  const qrFlowHandledRef = useRef(false);
 
   useEffect(() => {
     if (currentScreen !== 'home') return;
+
+    // Launch-blocker fix: the QR/deep-link flow must be triggered ONCE per app
+    // load. Before this guard, returning to 'home' (Stop / Save & Exit / Home
+    // after a match) re-detected the still-present campaign params in the URL
+    // and re-dispatched START_QR_FLOW, restarting the game automatically.
+    if (qrFlowHandledRef.current) return;
+    qrFlowHandledRef.current = true;
 
     const path = window.location.pathname;
     const search = window.location.search;

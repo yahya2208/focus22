@@ -8,6 +8,8 @@ export function sendRepairRequestWhatsApp(request: RepairRequest): void {
     issue: request.issue,
     description: request.description || undefined,
     location: request.googleMapsLink || undefined,
+    condition: request.condition || undefined,
+    customerPhone: request.customerPhone || undefined,
     code: request.repairCode,
   });
 }
