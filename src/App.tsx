@@ -8,7 +8,7 @@ import { PersistenceProvider } from './core/supabase/PersistenceProvider';
 import { useThemeSync } from './hooks/useThemeSync';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { ProtectedRoute } from './components/shared/ProtectedRoute';
-import type { ScreenName } from './store/navigation';
+import { isScreenName, type ScreenName } from './store/navigation';
 import { useThemeColors } from './hooks/useThemeColors';
 import { AppShell } from './components/layout/AppShell';
 import { parseDeepLinkFromCurrentUrl } from './core/qr/deeplink';
@@ -167,6 +167,15 @@ function InitialRoute() {
 
       dispatch({ type: 'START_QR_FLOW' });
       return;
+    }
+
+    const hash = window.location.hash;
+    if (hash.startsWith('#/')) {
+      const target = hash.slice(2);
+      if (isScreenName(target) && target !== 'home') {
+        dispatch({ type: 'REPLACE', screen: target });
+        return;
+      }
     }
 
     runSilentCalibration().then((profile) => {

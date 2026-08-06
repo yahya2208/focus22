@@ -6,6 +6,12 @@ export const EventTypes = {
   // App lifecycle
   APP_OPENED: 'app_opened',
 
+  // Navigation
+  SCREEN_VIEW: 'screen_view',
+  NAVIGATION_PUSH: 'navigation_push',
+  NAVIGATION_REPLACE: 'navigation_replace',
+  NAVIGATION_POP: 'navigation_pop',
+
   // Landing
   LANDING_LOADED: 'landing_loaded',
   CAMPAIGN_DETECTED: 'campaign_detected',
