@@ -11,6 +11,8 @@ export const EventTypes = {
   NAVIGATION_PUSH: 'navigation_push',
   NAVIGATION_REPLACE: 'navigation_replace',
   NAVIGATION_POP: 'navigation_pop',
+  BACK_PRESSED: 'back_pressed',
+  BACK_BLOCKED: 'back_blocked',
 
   // Landing
   LANDING_LOADED: 'landing_loaded',

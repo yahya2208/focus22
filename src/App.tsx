@@ -11,6 +11,7 @@ import { ProtectedRoute } from './components/shared/ProtectedRoute';
 import { isScreenName, type ScreenName } from './store/navigation';
 import { useThemeColors } from './hooks/useThemeColors';
 import { AppShell } from './components/layout/AppShell';
+import { BackProvider } from './core/navigation/BackProvider';
 import { parseDeepLinkFromCurrentUrl } from './core/qr/deeplink';
 import { hasCampaign } from './core/qr/campaign';
 import { getGlobalTelemetry } from './core/telemetry';
@@ -288,7 +289,9 @@ export default function App() {
                 <PersistenceProvider>
                   <HtmlSync />
                   <InitialRoute />
-                  <AppShell><ScreenRouter /></AppShell>
+                  <BackProvider>
+                    <AppShell><ScreenRouter /></AppShell>
+                  </BackProvider>
                 </PersistenceProvider>
               </AppProvider>
             </AuthProvider>

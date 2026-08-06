@@ -1122,6 +1122,14 @@ const ar: Record<TranslationKey, string> = {
   'pwa.installBody': 'أضِف FOCUS إلى شاشتك الرئيسية لتجربة ملء الشاشة.',
   'pwa.installAction': 'تثبيت',
   'pwa.dismiss': 'ليس الآن',
+
+  // Smart Back (Phase 2)
+  'back.pressAgainToExit': 'اضغط مرة أخرى للخروج',
+  'back.title': 'رجوع',
+  'back.countdownCancelTitle': 'إلغاء العد التنازلي؟',
+  'back.countdownCancelBody': 'العودة إلى الشاشة السابقة؟',
+  'back.cancel': 'إلغاء',
+  'back.confirm': 'نعم',
 };
 
 export default ar;

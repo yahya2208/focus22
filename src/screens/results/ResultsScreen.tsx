@@ -1,5 +1,6 @@
 import { useMemo, useEffect, memo } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
+import { useBackGuard } from '../../core/navigation/BackProvider';
 import { calculateFocusScore } from '../../core/engine/scoring';
 import { analyzeConsistency } from '../../core/engine/consistency';
 import { detectFatigue } from '../../core/engine/fatigue';
@@ -123,6 +124,16 @@ export const ResultsScreen = memo(function ResultsScreen() {
     }
   }, [analysis, isQrFlow]);
 
+  // Smart Back (Phase 2): results is a terminal screen — back clears the stack to
+  // home (never re-enters the stale game below). Matches matrix: results → home.
+  useBackGuard({
+    screen: 'results',
+    beforeBack: () => {
+      dispatch({ type: 'RESET' });
+      return false;
+    },
+  });
+
   if (!results || !analysis) {
     return (
       <Screen ariaLabel="Results">
@@ -160,7 +171,7 @@ export const ResultsScreen = memo(function ResultsScreen() {
       });
     }
     dispatch({ type: 'SAVE_SESSION' });
-    dispatch({ type: 'NAVIGATE', screen: 'home' });
+    dispatch({ type: 'RESET' });
   };
 
   const playAgain = () => {
@@ -328,7 +339,7 @@ export const ResultsScreen = memo(function ResultsScreen() {
               {t('results.register')}
             </Button>
           )}
-          <Button variant="ghost" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })} fullWidth>
+          <Button variant="ghost" onClick={() => dispatch({ type: 'RESET' })} fullWidth>
             {t('results.home')}
           </Button>
         </Stack>

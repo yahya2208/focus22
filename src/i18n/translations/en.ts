@@ -1142,6 +1142,14 @@ const en = {
   'pwa.installBody': 'Add FOCUS to your home screen for a full-screen experience.',
   'pwa.installAction': 'Install',
   'pwa.dismiss': 'Not now',
+
+  // Smart Back (Phase 2)
+  'back.pressAgainToExit': 'Press back again to exit',
+  'back.title': 'Back',
+  'back.countdownCancelTitle': 'Cancel countdown?',
+  'back.countdownCancelBody': 'Return to the previous screen?',
+  'back.cancel': 'Cancel',
+  'back.confirm': 'Yes',
 } as const;
 
 export default en;

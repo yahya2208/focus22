@@ -1,5 +1,6 @@
 import { memo, useState, useRef, useCallback, useEffect } from 'react';
 import { useAppDispatch } from '../../store/navigation';
+import { useBackOverlay } from '../../core/navigation/BackProvider';
 import { useTheme } from '../../design-system/use-theme';
 import { useColors, useColorRoles } from '../../design-system/useTokens';
 import { typography } from '../../design-system/typography';
@@ -328,6 +329,17 @@ function QAInner() {
   const [tab, setTab] = useState<QATab>('components');
   const [modalOpen, setModalOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Smart Back (Phase 2): the demo Modal is a priority-3 overlay — back closes it first.
+  useBackOverlay({
+    kind: 'modal',
+    screen: 'design-system-playground',
+    isOpen: () => modalOpen,
+    close: () => {
+      setModalOpen(false);
+      return true;
+    },
+  });
 
   const themes = ['midnight', 'ocean', 'emerald', 'carbon', 'purple', 'sunrise', 'light'] as const;
   const isRtl = lang === 'ar';

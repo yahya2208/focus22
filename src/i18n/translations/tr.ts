@@ -1122,6 +1122,14 @@ const tr: Record<TranslationKey, string> = {
   'pwa.installBody': 'Tam ekran deneyimi için FOCUS\'u ana ekranınıza ekleyin.',
   'pwa.installAction': 'Yükle',
   'pwa.dismiss': 'Şimdi değil',
+
+  // Smart Back (Phase 2)
+  'back.pressAgainToExit': 'Çıkmak için tekrar geri tuşuna basın',
+  'back.title': 'Geri',
+  'back.countdownCancelTitle': 'Geri sayım iptal edilsin mi?',
+  'back.countdownCancelBody': 'Önceki ekrana dönülsün mü?',
+  'back.cancel': 'Vazgeç',
+  'back.confirm': 'Evet',
 };
 
 export default tr;

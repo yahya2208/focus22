@@ -111,7 +111,7 @@ export const initialState: AppState = {
   intendedScreen: null,
 };
 
-const SCREEN_NAMES: ReadonlySet<string> = new Set<ScreenName>([
+export const ALL_SCREEN_NAMES: readonly ScreenName[] = [
   'home',
   'library',
   'intro',
@@ -149,7 +149,9 @@ const SCREEN_NAMES: ReadonlySet<string> = new Set<ScreenName>([
   'sticker-scan',
   'showroom',
   'design-system-playground',
-]);
+];
+
+const SCREEN_NAMES: ReadonlySet<string> = new Set<ScreenName>(ALL_SCREEN_NAMES);
 
 export function isScreenName(value: string): value is ScreenName {
   return SCREEN_NAMES.has(value);
@@ -170,7 +172,7 @@ export function navigationReducer(state: AppState, action: NavigationAction): Ap
     }
     case 'BACK': {
       if (state.navStack.length <= 1) {
-        return { ...state, screen: 'home', currentScreen: 'home' };
+        return { ...state, screen: 'home', currentScreen: 'home', navStack: ['home'] };
       }
       const navStack = state.navStack.slice(0, -1);
       const target = navStack[navStack.length - 1]!;
@@ -206,7 +208,13 @@ export function navigationReducer(state: AppState, action: NavigationAction): Ap
     case 'SESSION_SAVED':
       return { ...state, currentSession: null };
     case 'RESET':
-      return { ...initialState };
+      return {
+        ...state,
+        screen: 'home',
+        currentScreen: 'home',
+        navStack: ['home'],
+        intendedScreen: null,
+      };
     case 'START_QR_FLOW':
       return {
         ...initialState,

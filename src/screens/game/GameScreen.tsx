@@ -1,5 +1,6 @@
 import { memo, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
+import { useBackOverlay, useBackGuard } from '../../core/navigation/BackProvider';
 import { correctReactionTime } from '../../core/measurement';
 import { REACTION } from '../../core/scientific/constants';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -169,6 +170,29 @@ export const GameScreen = memo(function GameScreen() {
   phaseRef.current = phase;
   roundRef.current = round;
 
+  // Smart Back (Phase 2): the stop-confirm dialog is a priority-1 overlay, and a
+  // beforeBack guard blocks leaving a live game (Stop & Save / Resume dialog).
+  useBackOverlay({
+    kind: 'dialog',
+    screen: 'game',
+    isOpen: () => stopConfirmOpen,
+    close: () => {
+      setStopConfirmOpen(false);
+      return true;
+    },
+  });
+
+  useBackGuard({
+    screen: 'game',
+    beforeBack: () => {
+      if (!completedRef.current) {
+        setStopConfirmOpen(true);
+        return false;
+      }
+      return true;
+    },
+  });
+
   useEffect(() => {
     const gameMode = selectedGame ?? 'reaction-light';
     const sessionService = getGlobalSessionService();
@@ -247,7 +271,7 @@ export const GameScreen = memo(function GameScreen() {
       });
       telemetry.flush();
       dispatch({ type: 'SET_RESULTS', results });
-      dispatch({ type: 'NAVIGATE', screen: 'results' });
+      dispatch({ type: 'REPLACE', screen: 'results' });
       return;
     }
     startRound();
@@ -294,7 +318,7 @@ export const GameScreen = memo(function GameScreen() {
       getGlobalSessionService().abandonSession(sessionId, 'abandoned');
     }
     getGlobalTelemetry().track('game_abandoned', { round: roundRef.current + 1, source: 'stop_button' });
-    dispatch({ type: 'NAVIGATE', screen: 'home' });
+    dispatch({ type: 'RESET' });
   }, [dispatch]);
 
   useEffect(() => {

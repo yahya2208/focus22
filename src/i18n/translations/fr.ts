@@ -434,6 +434,14 @@ const fr: Record<string, string> = {
   'pwa.installBody': 'Ajoutez FOCUS à votre écran d\'accueil pour une expérience plein écran.',
   'pwa.installAction': 'Installer',
   'pwa.dismiss': 'Plus tard',
+
+  // Smart Back (Phase 2)
+  'back.pressAgainToExit': 'Appuyez à nouveau pour quitter',
+  'back.title': 'Retour',
+  'back.countdownCancelTitle': 'Annuler le compte à rebours ?',
+  'back.countdownCancelBody': 'Revenir à l\'écran précédent ?',
+  'back.cancel': 'Annuler',
+  'back.confirm': 'Oui',
 };
 
 export default fr;

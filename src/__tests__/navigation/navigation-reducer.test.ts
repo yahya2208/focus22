@@ -135,3 +135,44 @@ describe('isScreenName', () => {
     expect(isScreenName('bogus')).toBe(false);
   });
 });
+
+describe('navigationReducer — Smart Back (Phase 2)', () => {
+  it('BACK on a single-entry cold-loaded stack lands on home and re-seeds the stack', () => {
+    const cold: AppState = { ...initialState, screen: 'showroom', currentScreen: 'showroom', navStack: ['showroom'] };
+    const back = navigationReducer(cold, { type: 'BACK' });
+    expect(back.screen).toBe('home');
+    expect(back.navStack).toEqual(['home']);
+  });
+
+  it('BACK on an empty stack lands on home and re-seeds the stack', () => {
+    const empty: AppState = { ...initialState, navStack: [] };
+    const back = navigationReducer(empty, { type: 'BACK' });
+    expect(back.screen).toBe('home');
+    expect(back.navStack).toEqual(['home']);
+  });
+
+  it('RESET is non-destructive: preserves session/calibration/results state', () => {
+    const profile = { refreshRate: 60, displayLagMs: 16, inputLagMs: 8, confidence: 0.9, platform: 'test', timestamp: 1 };
+    const a = navigationReducer(initialState, { type: 'START_SESSION', sessionId: 's1', gameMode: 'focus' });
+    const withCal = navigationReducer(a, { type: 'SET_CALIBRATION', profile });
+    const withResults = navigationReducer(withCal, {
+      type: 'SET_RESULTS',
+      results: { rawRts: [200], correctedRts: [200], calibration: profile, totalRounds: 1, validRounds: 1 },
+    });
+    const withNav = navigationReducer(withResults, { type: 'NAVIGATE', screen: 'game-intro' });
+    const reset = navigationReducer(withNav, { type: 'RESET' });
+
+    expect(reset.screen).toBe('home');
+    expect(reset.currentScreen).toBe('home');
+    expect(reset.navStack).toEqual(['home']);
+    expect(reset.currentSession).toEqual({ id: 's1', gameMode: 'focus' });
+    expect(reset.calibrationProfile).toEqual(withCal.calibrationProfile);
+    expect(reset.results).toEqual(withResults.results);
+  });
+
+  it('RESET clears the intended screen', () => {
+    const withIntent = navigationReducer(initialState, { type: 'SET_INTENDED_SCREEN', screen: 'showroom' });
+    expect(navigationReducer(withIntent, { type: 'RESET' }).intendedScreen).toBeNull();
+  });
+});
+
