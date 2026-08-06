@@ -10,7 +10,7 @@ import { useTranslation } from '../../../hooks/useTranslation';
 import type { TranslationKey } from '../../../i18n';
 
 interface CampaignRow extends Campaign {
-  scan_count: number;
+  scans: number;
   game_start_count: number;
   game_complete_count: number;
   registration_count: number;
@@ -54,7 +54,7 @@ export function CampaignsDashboard() {
         const regCount = cQrs.reduce((s, q) => s + q.registration_count, 0);
         return {
           ...c,
-          scan_count: scanCount,
+          scans: scanCount,
           game_complete_count: completeCount,
           game_start_count: startedCount,
           registration_count: regCount,
@@ -85,7 +85,7 @@ export function CampaignsDashboard() {
 
   const selected = selectedId ? campaigns.find(c => c.id === selectedId) ?? null : null;
   const filtered = statusFilter === 'all' ? campaigns : campaigns.filter(c => (c.status ?? 'active') === statusFilter);
-  const totalScans = campaigns.reduce((s, c) => s + c.scan_count, 0);
+  const totalScans = campaigns.reduce((s, c) => s + c.scans, 0);
   const totalCompleted = campaigns.reduce((s, c) => s + c.game_complete_count, 0);
   const totalRegistered = campaigns.reduce((s, c) => s + c.registration_count, 0);
 
@@ -144,7 +144,7 @@ export function CampaignsDashboard() {
             </thead>
             <tbody>
               {filtered.map(c => {
-                const conversion = c.scan_count > 0 ? ((c.registration_count / c.scan_count) * 100).toFixed(1) : '0';
+                const conversion = c.scans > 0 ? ((c.registration_count / c.scans) * 100).toFixed(1) : '0';
                 const status = c.status ?? 'active';
                 return (
                   <tr key={c.id} style={{ cursor: 'pointer', background: selectedId === c.id ? '#1a1a2e' : 'transparent', transition: 'background 0.1s' }}
@@ -154,7 +154,7 @@ export function CampaignsDashboard() {
                     <td style={{ ...ROW_STYLE, fontSize: '0.75rem' }} onClick={() => setSelectedId(c.id!)}>{c.goal?.replace(/_/g, ' ') ?? '-'}</td>
                     <td style={ROW_STYLE} onClick={() => setSelectedId(c.id!)}>{c.campaign_type ?? '-'}</td>
                     <td style={ROW_STYLE} onClick={() => setSelectedId(c.id!)}>{[c.city, c.country].filter(Boolean).join(', ') || '-'}</td>
-                    <td style={{ ...ROW_STYLE, fontVariantNumeric: 'tabular-nums' }} onClick={() => setSelectedId(c.id!)}>{c.scan_count}</td>
+                    <td style={{ ...ROW_STYLE, fontVariantNumeric: 'tabular-nums' }} onClick={() => setSelectedId(c.id!)}>{c.scans}</td>
                     <td style={{ ...ROW_STYLE, fontVariantNumeric: 'tabular-nums' }} onClick={() => setSelectedId(c.id!)}>{c.game_complete_count}</td>
                     <td style={{ ...ROW_STYLE, fontVariantNumeric: 'tabular-nums' }} onClick={() => setSelectedId(c.id!)}>{c.registration_count}</td>
                     <td style={{ ...ROW_STYLE, color: parseFloat(conversion) >= 20 ? '#22c55e' : parseFloat(conversion) >= 10 ? '#f59e0b' : '#888' }} onClick={() => setSelectedId(c.id!)}>{conversion}%</td>

@@ -71,7 +71,6 @@ export interface CampaignStore {
   create(name: string, baseUrl: string, params?: Partial<CampaignParams>): Promise<CampaignRecord>;
   get(id: string): Promise<CampaignRecord | null>;
   getAll(): Promise<readonly CampaignRecord[]>;
-  recordScan(id: string): Promise<void>;
   recordConversion(id: string): Promise<void>;
   deactivate(id: string): Promise<void>;
   getStats(id: string): Promise<CampaignStats | null>;
@@ -191,11 +190,6 @@ export function createCampaignStore(): CampaignStore {
         conversionCount: 0,
         active: row.is_active,
       }));
-    },
-
-    async recordScan(id: string): Promise<void> {
-      const client = getSupabaseClient();
-      await client.rpc('increment_qr_counter', { p_campaign_id: id, p_column: 'scan_count' });
     },
 
     async recordConversion(id: string): Promise<void> {

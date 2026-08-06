@@ -90,7 +90,6 @@ export function CampaignWizard({ onClose, onCreated }: Props) {
         campaign_id: campaign.id!,
         code: shortCode,
         url: campaignUrl,
-        scan_count: 0,
         game_start_count: 0,
         game_complete_count: 0,
         registration_count: 0,

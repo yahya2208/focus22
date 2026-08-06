@@ -223,4 +223,13 @@ describe('Campaign Store (Supabase-backed)', () => {
     const store = createCampaignStore();
     expect(await store.getStats('nonexistent')).toBeNull();
   });
+
+  it('should NOT expose a recordScan write path (scan_count is dormant)', async () => {
+    const store = createCampaignStore();
+    // The polluted counter column must never be written by app code.
+    // Scans are recorded solely via analytics_events (qr_scanned).
+    expect((store as unknown as Record<string, unknown>).recordScan).toBeUndefined();
+    // The RPC must never be invoked with the scan_count column.
+    expect(chain.rpc).toBeUndefined();
+  });
 });

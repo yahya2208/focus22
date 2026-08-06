@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { DashboardHeader } from '../../layout/ResearchLayout';
-import { getAdsFile, getAdOverride, saveAdOverride, resetAdOverride, resolveAd, AD_PLACEMENTS, type AdPlacement, type AdConfig } from '../../../services/ads-service';
-import { compressImage } from '../../../services/image-service';
+import {
+  refreshAds, getAds, saveAd, resetAd, uploadAdImage, AD_PLACEMENTS,
+  type AdPlacement, type AdConfig,
+} from '../../../services/ads-service';
+import { compressImageToBlob } from '../../../services/image-service';
 
 const PLACEMENT_LABELS: Record<AdPlacement, string> = {
   home: 'الصفحة الرئيسية',
@@ -16,28 +19,38 @@ function emptyConfig(): AdConfig {
   return { enabled: false, image: '', link: '', alt: '' };
 }
 
+function emptyMap(): Record<AdPlacement, AdConfig> {
+  const init = {} as Record<AdPlacement, AdConfig>;
+  for (const p of AD_PLACEMENTS) init[p] = emptyConfig();
+  return init;
+}
+
 export function AdsManager() {
-  const [edits, setEdits] = useState<Record<AdPlacement, AdConfig>>(() => {
-    const init = {} as Record<AdPlacement, AdConfig>;
-    for (const p of AD_PLACEMENTS) init[p] = emptyConfig();
-    return init;
-  });
-  const [savedTick, setSavedTick] = useState(0);
+  const [edits, setEdits] = useState<Record<AdPlacement, AdConfig>>(emptyMap);
+  const [pendingUploads, setPendingUploads] = useState<Record<AdPlacement, Blob>>({} as Record<AdPlacement, Blob>);
+  const [pendingPreviews, setPendingPreviews] = useState<Record<AdPlacement, string>>({} as Record<AdPlacement, string>);
+  const [status, setStatus] = useState<Record<AdPlacement, string>>({} as Record<AdPlacement, string>);
   const [busy, setBusy] = useState<AdPlacement | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    getAdsFile().then((file) => {
-      const override = getAdOverride();
-      const next = { ...edits };
-      for (const p of AD_PLACEMENTS) {
-        const base = file.placements?.[p] ?? emptyConfig();
-        const ov = override[p];
-        next[p] = { ...base, ...(ov ?? {}) };
-      }
+    let cancelled = false;
+    refreshAds().then(() => {
+      if (cancelled) return;
+      const next = emptyMap();
+      const ads = getAds();
+      for (const p of AD_PLACEMENTS) next[p] = ads?.[p] ?? emptyConfig();
       setEdits(next);
+      setLoaded(true);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [savedTick]);
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      for (const url of Object.values(pendingPreviews)) URL.revokeObjectURL(url);
+    };
+  }, [pendingPreviews]);
 
   const patch = (placement: AdPlacement, partial: Partial<AdConfig>) => {
     setEdits((prev) => ({ ...prev, [placement]: { ...prev[placement], ...partial } }));
@@ -48,21 +61,82 @@ export function AdsManager() {
     if (!file) return;
     setBusy(placement);
     try {
-      const dataUrl = await compressImage(file, { maxDimension: 1280, quality: 0.8 });
-      patch(placement, { image: dataUrl });
+      const blob = await compressImageToBlob(file, { maxDimension: 1280, quality: 0.8 });
+      setPendingPreviews((prev) => {
+        if (prev[placement]) URL.revokeObjectURL(prev[placement]);
+        return { ...prev, [placement]: URL.createObjectURL(blob) };
+      });
+      setPendingUploads((prev) => ({ ...prev, [placement]: blob }));
     } finally {
       setBusy(null);
     }
   };
 
-  const save = (placement: AdPlacement) => {
-    saveAdOverride(placement, edits[placement]);
-    setSavedTick((v) => v + 1);
+  const save = async (placement: AdPlacement) => {
+    setBusy(placement);
+    setStatus((prev) => ({ ...prev, [placement]: '' }));
+    try {
+      const cfg = edits[placement];
+      const pending = pendingUploads[placement];
+      let image_path = '';
+      let image_url = cfg.image;
+      if (pending) {
+        const uploaded = await uploadAdImage(placement, pending);
+        image_path = uploaded.path;
+        image_url = uploaded.url;
+      }
+      await saveAd({ placement, enabled: cfg.enabled, image_path, image_url, link: cfg.link, alt: cfg.alt });
+      setPendingUploads((prev) => {
+        const next = { ...prev };
+        delete next[placement];
+        return next;
+      });
+      setPendingPreviews((prev) => {
+        if (prev[placement]) URL.revokeObjectURL(prev[placement]);
+        const next = { ...prev };
+        delete next[placement];
+        return next;
+      });
+      patch(placement, { image: image_url });
+      const live = cfg.enabled && Boolean(image_url);
+      setStatus((prev) => ({
+        ...prev,
+        [placement]: live
+          ? '✓ تم الحفظ ونشره للجميع'
+          : cfg.enabled
+            ? '✓ تم الحفظ — لا توجد صورة، لن يظهر للزوار'
+            : '✓ تم الحفظ — الإعلان غير مفعّل، لن يظهر للزوار',
+      }));
+    } catch (err) {
+      setStatus((prev) => ({ ...prev, [placement]: err instanceof Error ? err.message : 'فشل الحفظ' }));
+    } finally {
+      setBusy(null);
+    }
   };
 
-  const reset = (placement: AdPlacement) => {
-    resetAdOverride(placement);
-    setSavedTick((v) => v + 1);
+  const reset = async (placement: AdPlacement) => {
+    setBusy(placement);
+    setStatus((prev) => ({ ...prev, [placement]: '' }));
+    try {
+      await resetAd(placement);
+      setPendingUploads((prev) => {
+        const next = { ...prev };
+        delete next[placement];
+        return next;
+      });
+      setPendingPreviews((prev) => {
+        if (prev[placement]) URL.revokeObjectURL(prev[placement]);
+        const next = { ...prev };
+        delete next[placement];
+        return next;
+      });
+      patch(placement, emptyConfig());
+      setStatus((prev) => ({ ...prev, [placement]: '✓ تمت الإزالة' }));
+    } catch (err) {
+      setStatus((prev) => ({ ...prev, [placement]: err instanceof Error ? err.message : 'فشل الإزالة' }));
+    } finally {
+      setBusy(null);
+    }
   };
 
   const inputStyle: React.CSSProperties = {
@@ -82,16 +156,18 @@ export function AdsManager() {
     <div>
       <DashboardHeader
         title="Ads Manager"
-        subtitle="إدارة الإعلانات الداخلية — تُحفظ على هذا الجهاز وتُدمج مع public/ads.json"
+        subtitle="إدارة الإعلانات الداخلية — تُحفظ في قاعدة البيانات وتظهر لكل الزوار فورًا"
       />
 
       <p style={{ color: '#666', fontSize: '0.8rem', margin: '0 0 1rem' }}>
-        كل موضع يعرض صورة واحدة فقط (PNG/WebP) بحركة Ken Burns. ارفع الصورة وحدّد الرابط وفعّل.
+        كل موضع يعرض صورة واحدة فقط (JPEG مضغوط) بحركة Ken Burns. ارفع الصورة وحدّد الرابط وفعّل، ثم احفظ.
       </p>
+
+      {!loaded && <p style={{ color: '#888', fontSize: '0.8rem' }}>جارِ التحميل...</p>}
 
       {AD_PLACEMENTS.map((placement) => {
         const cfg = edits[placement];
-        const preview = resolveAd(placement, null, { [placement]: cfg });
+        const previewImage = pendingPreviews[placement] || cfg.image;
         return (
           <div
             key={placement}
@@ -146,10 +222,10 @@ export function AdsManager() {
                   overflow: 'hidden', borderRadius: '8px', border: '1px solid #333',
                   background: '#0a0a0f',
                 }}>
-                  {preview?.image ? (
+                  {previewImage ? (
                     <img
-                      src={preview.image}
-                      alt={preview.alt || 'preview'}
+                      src={previewImage}
+                      alt={cfg.alt || 'preview'}
                       style={{
                         position: 'absolute', inset: '-8%',
                         width: '116%', height: '116%', objectFit: 'cover',
@@ -163,21 +239,24 @@ export function AdsManager() {
                   )}
                 </div>
                 {busy === placement && (
-                  <div style={{ color: '#888', fontSize: '0.75rem', marginTop: '6px' }}>جارِ الضغط...</div>
+                  <div style={{ color: '#888', fontSize: '0.75rem', marginTop: '6px' }}>جارِ المعالجة...</div>
+                )}
+                {status[placement] && (
+                  <div style={{ color: '#22c55e', fontSize: '0.75rem', marginTop: '6px' }}>{status[placement]}</div>
                 )}
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '8px', marginTop: '0.75rem' }}>
-              <button style={btnStyle(true)} onClick={() => save(placement)}>💾 حفظ</button>
-              <button style={btnStyle(false)} onClick={() => reset(placement)}>↩ إعادة لملف الإعدادات</button>
+              <button style={btnStyle(true)} disabled={busy !== null} onClick={() => save(placement)}>💾 حفظ ونشر</button>
+              <button style={btnStyle(false)} disabled={busy !== null} onClick={() => reset(placement)}>🗑 إزالة</button>
             </div>
           </div>
         );
       })}
 
       <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '0.5rem' }}>
-        ملاحظة: التغييرات تُحفظ في localStorage لهذا المتصفح. لنشرها لكل الزوار عدّل ملف <code>public/ads.json</code> ثم أعد البناء.
+        ملاحظة: التغييرات تُحفظ في قاعدة البيانات (جدول ads) وتنتشر فورًا لكل الزوار — لا حاجة لإعادة البناء.
       </div>
     </div>
   );

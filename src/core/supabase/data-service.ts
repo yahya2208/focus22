@@ -9,6 +9,10 @@ function generateShortCode(): string {
   return Array.from(buf, b => BASE62[b % 62]).join('');
 }
 
+// QR code columns selected explicitly (scan_count is excluded by design:
+// see incident INC-2026-08-03-D2-close — analytics_events is the single source).
+const QR_CODE_COLUMNS = 'id, campaign_id, code, referral_code, url, game_start_count, game_complete_count, registration_count, is_active, version, created_at, updated_at';
+
 // Types for analytics events
 export interface AnalyticsEvent {
   id?: string;
@@ -92,7 +96,6 @@ export interface QRCode {
   code: string;
   referral_code?: string;
   url: string;
-  scan_count: number;
   game_start_count: number;
   game_complete_count: number;
   registration_count: number;
@@ -383,7 +386,6 @@ class DataService {
         code: qrCode.code,
         referral_code: qrCode.referral_code,
         url: qrCode.url,
-        scan_count: qrCode.scan_count,
         game_start_count: qrCode.game_start_count,
         game_complete_count: qrCode.game_complete_count,
         registration_count: qrCode.registration_count,
@@ -404,7 +406,7 @@ class DataService {
   async getQRCode(code: string): Promise<QRCode | null> {
     const { data, error } = await this.client
       .from('qr_codes')
-      .select('*')
+      .select(QR_CODE_COLUMNS)
       .eq('code', code)
       .single();
 
@@ -416,7 +418,6 @@ class DataService {
   }
 
   async updateQRCodeStats(code: string, stats: {
-    scan_count?: number;
     game_start_count?: number;
     game_complete_count?: number;
     registration_count?: number;
@@ -433,7 +434,7 @@ class DataService {
   async getQRCodes(filters?: { campaign_id?: string; is_active?: boolean; limit?: number; offset?: number }): Promise<{ data: QRCode[]; count: number }> {
     let query = this.client
       .from('qr_codes')
-      .select('*', { count: 'exact' });
+      .select(QR_CODE_COLUMNS, { count: 'exact' });
 
     if (filters?.campaign_id) {
       query = query.eq('campaign_id', filters.campaign_id);

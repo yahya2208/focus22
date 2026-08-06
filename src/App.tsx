@@ -147,9 +147,6 @@ function InitialRoute() {
             telemetry.track('qr_scanned', { campaign_id: campaign.id });
             telemetry.flush();
             dispatch({ type: 'START_QR_FLOW', campaignId: campaign.id });
-            import('./core/qr/campaign').then(({ createCampaignStore }) => {
-              createCampaignStore().recordScan(campaign.id!).catch(() => {});
-            });
           } else { /* campaign not found */ }
         }).catch(() => {});
       }).catch(() => {});

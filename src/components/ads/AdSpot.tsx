@@ -1,28 +1,39 @@
 import { memo, useEffect, useState } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { getAdsFile, getAdOverride, resolveAd, type AdPlacement } from '../../services/ads-service';
+import { ensureAdsLoaded, getAd, subscribeAds, type AdPlacement } from '../../services/ads-service';
 
 interface AdSpotProps {
   placement: AdPlacement;
 }
 
+function resolve(placement: AdPlacement): { image: string; link: string; alt: string } | null {
+  const ad = getAd(placement);
+  if (!ad || !ad.enabled || !ad.image) return null;
+  return { image: ad.image, link: ad.link, alt: ad.alt };
+}
+
 /**
  * Renders the single configured banner for a placement (if any).
+ * Reads from Supabase (ads table) and updates instantly via Realtime.
  * The image is a still PNG/WebP animated with a slow Ken Burns pan/zoom —
  * no GIF conversion, so quality stays high.
  */
 export const AdSpot = memo(function AdSpot({ placement }: AdSpotProps) {
   const colors = useThemeColors();
-  const [ad, setAd] = useState<{ image: string; link: string; alt: string } | null>(null);
+  const [ad, setAd] = useState<{ image: string; link: string; alt: string } | null>(() => resolve(placement));
 
   useEffect(() => {
     let cancelled = false;
-    getAdsFile().then((file) => {
+    const update = () => {
       if (cancelled) return;
-      const resolved = resolveAd(placement, file, getAdOverride());
-      setAd(resolved ? { image: resolved.image, link: resolved.link, alt: resolved.alt } : null);
-    });
-    return () => { cancelled = true; };
+      setAd(resolve(placement));
+    };
+    ensureAdsLoaded().then(update).catch(() => {});
+    const unsubscribe = subscribeAds(update);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [placement]);
 
   if (!ad) return null;
