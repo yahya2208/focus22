@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from '../../hooks/useTranslation';
+import { buildAppUrl } from '../../core/base-path';
 
 interface RepairQRProps {
   repairCode: string;
@@ -18,7 +19,7 @@ export const RepairQR = memo(function RepairQR({ repairCode, size = 180 }: Repai
     let cancelled = false;
     setDataUrl('');
     setError(false);
-    const url = window.location.origin + '/repair/track?code=' + encodeURIComponent(repairCode);
+    const url = buildAppUrl(`#/repair-tracking?code=${encodeURIComponent(repairCode)}`);
     QRCode.toDataURL(url, {
       width: size,
       margin: 2,

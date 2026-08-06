@@ -32,14 +32,18 @@ describe('App', () => {
       window.history.replaceState({}, '', '/');
     });
 
-    it('starts the game from a QR deep link, and returning home does not auto-restart it', async () => {
+    it('boots a QR deep link to the landing screen, and returning home does not auto-restart it (Phase 3A v5.1 §1.3)', async () => {
       window.history.pushState({}, '', '/?campaign=test-campaign&source=qr');
       renderApp();
 
-      // 1. QR params in the URL are detected once -> game-intro appears.
-      expect(await screen.findByText('Test Your Focus', {}, { timeout: 15000 })).toBeTruthy();
+      // 1. QR params in the URL are detected once -> landing appears (not game-intro).
+      expect(await screen.findByText('Start Assessment', {}, { timeout: 15000 })).toBeTruthy();
+      expect(screen.queryByText('Test Your Focus')).toBeNull();
 
-      // 2. game-intro auto-advances into the game.
+      // 2. Walk the landing flow into the game: Start Assessment -> consent -> message -> countdown -> game.
+      fireEvent.click(await screen.findByRole('button', { name: /Start Assessment/ }, { timeout: 10000 }));
+      fireEvent.click(await screen.findByRole('button', { name: /I Agree & Continue/ }, { timeout: 10000 }));
+      fireEvent.click(await screen.findByRole('button', { name: /Start Assessment/ }, { timeout: 10000 }));
       const stopButton = await screen.findByRole('button', { name: /Stop Test/ }, { timeout: 15000 });
 
       // 3. User stops the test -> returns home (this is where the bug used to restart the game).

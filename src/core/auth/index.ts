@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../supabase/client';
+import { getAbsoluteBaseUrl } from '../base-path';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'anonymous' | 'unauthenticated';
 
@@ -145,7 +146,7 @@ export function createAuthService(client?: SupabaseClient): AuthService {
     async signInWithMagicLink(email: string): Promise<void> {
       const { error } = await supa.auth.signInWithOtp({
         email,
-        options: { emailRedirectTo: window.location.origin },
+        options: { emailRedirectTo: getAbsoluteBaseUrl() },
       });
       if (error) throw new Error(error.message);
     },

@@ -334,6 +334,15 @@ export const ResultsScreen = memo(function ResultsScreen() {
           <Button variant="secondary" onClick={saveAndExit} fullWidth>
             {t('results.saveAndExit')}
           </Button>
+          <Button variant="secondary" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'coach' })} fullWidth>
+            {t('results.coach')}
+          </Button>
+          <Button variant="secondary" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'achievements' })} fullWidth>
+            {t('results.achievements')}
+          </Button>
+          <Button variant="secondary" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'share' })} fullWidth>
+            {t('results.share')}
+          </Button>
           {authState.status !== 'authenticated' && (
             <Button variant="outline" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'register' })} fullWidth>
               {t('results.register')}

@@ -111,6 +111,9 @@ const tr: Record<TranslationKey, string> = {
   'results.playAgain': 'Tekrar Oyna',
   'results.home': 'Ana Sayfa',
   'results.exit': 'Çıkış',
+  'results.coach': 'Hata Koçu',
+  'results.achievements': 'Başarılar',
+  'results.share': 'Sonuçları Paylaş',
 
   'history.title': 'Oturum Geçmişi',
   'history.noSessions': 'Henüz oturum yok. Sonuçları görmek için bir ölçüm tamamlayın.',
@@ -283,6 +286,7 @@ const tr: Record<TranslationKey, string> = {
   'settings.signOut': 'Çıkış Yap',
   'settings.administration': 'Yönetim',
   'settings.adminSetup': 'Yönetici Ayarları',
+  'settings.designSystemQA': 'Tasarım Sistemi QA',
 
   // Campaign Manager
   'campaign.title': 'Kampanyalar',

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, memo } from 'react';
-import { useAppDispatch } from '../../store/navigation';
+import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors, type ThemeColors } from '../../hooks/useThemeColors';
 import { Screen, Stack } from '../../design-system/layout';
@@ -39,6 +39,7 @@ function formatFullDate(iso: string, lang: string): string {
 
 export const RepairTrackingScreen = memo(function RepairTrackingScreen() {
   const dispatch = useAppDispatch();
+  const { routeParams } = useAppState();
   const { t, dir, locale } = useTranslation();
   const colors = useThemeColors();
   const lang = (locale === 'tr' ? 'tr' : locale === 'en' ? 'en' : 'ar') as string;
@@ -52,12 +53,12 @@ export const RepairTrackingScreen = memo(function RepairTrackingScreen() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
+    const code = routeParams?.code ?? new URLSearchParams(window.location.search).get('code');
     if (code) {
       setSearchInput(code);
       doSearch(code);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const doSearch = useCallback(async (input?: string) => {

@@ -1,12 +1,14 @@
 import { useState, useEffect, memo } from 'react';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useAppDispatch } from '../../store/navigation';
 import { Screen } from '../../design-system/layout';
 import { logScanWithMetadata } from '../../services/sticker/sticker-database';
 
 export const StickerScanHandler = memo(function StickerScanHandler() {
   const { t, dir } = useTranslation();
   const colors = useThemeColors();
+  const dispatch = useAppDispatch();
 
   const [serialNumber, setSerialNumber] = useState<string | null>(null);
   const [logging, setLogging] = useState(true);
@@ -32,7 +34,7 @@ export const StickerScanHandler = memo(function StickerScanHandler() {
   }, [t]);
 
   const handleContinue = () => {
-    window.location.href = '/';
+    dispatch({ type: 'REPLACE', screen: 'home' });
   };
 
   return (

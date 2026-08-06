@@ -167,14 +167,37 @@ function InitialRoute() {
       });
 
       dispatch({ type: 'START_QR_FLOW' });
+      dispatch({
+        type: 'REPLACE',
+        screen: 'landing',
+        params: {
+          ...(deepLink.campaign.source ? { source: deepLink.campaign.source } : {}),
+          ...(deepLink.campaign.campaign ? { campaign: deepLink.campaign.campaign } : {}),
+          ...(deepLink.referralCode ? { ref: deepLink.referralCode } : {}),
+        },
+      });
       return;
     }
 
     const hash = window.location.hash;
     if (hash.startsWith('#/')) {
-      const target = hash.slice(2);
+      const rest = hash.slice(2);
+      const queryIndex = rest.indexOf('?');
+      const screenPart = queryIndex === -1 ? rest : rest.slice(0, queryIndex);
+      const queryPart = queryIndex === -1 ? '' : rest.slice(queryIndex + 1);
+      const params: Record<string, string> = {};
+      if (queryPart) {
+        new URLSearchParams(queryPart).forEach((value, key) => {
+          params[key] = value;
+        });
+      }
+      const target = screenPart === 'repair/track' ? 'repair-tracking' : screenPart;
       if (isScreenName(target) && target !== 'home') {
-        dispatch({ type: 'REPLACE', screen: target });
+        dispatch({
+          type: 'REPLACE',
+          screen: target,
+          params: Object.keys(params).length > 0 ? params : undefined,
+        });
         return;
       }
     }

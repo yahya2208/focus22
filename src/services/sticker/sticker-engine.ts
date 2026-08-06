@@ -2,6 +2,7 @@ import type { StickerConfig, StickerContent, StickerType, ContentType, StickerTh
 import { STICKER_TYPES_CONFIG, STICKER_CTA_URLS, LAYOUT_CONFIG } from './sticker-types';
 import { getRandomWisdom, getWisdomById, getRandomQuestion, type WisdomEntry, type QuestionEntry } from '../../data/wisdom-database';
 import { generateQRDataUrl } from '../../core/qr/generate';
+import { getBasePath } from '../../core/base-path';
 import { getNextSerialNumber, estimateSerialNumber, registerPrintBatch } from './sticker-database';
 
 export function getMessage(key: string, locale: 'ar' | 'en' | 'tr'): string {
@@ -89,7 +90,7 @@ export async function generateStickerContent(
   let qrUrl = '';
   if (config.showQR) {
     try {
-      const base = window.location.origin;
+      const base = getBasePath();
       const urlBuilder = STICKER_CTA_URLS[cta];
       const url = urlBuilder(base, serial);
       qrUrl = await generateQRDataUrl(url, { width: 120, margin: 1 });

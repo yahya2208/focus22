@@ -2,6 +2,7 @@ import { useState, useCallback, memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { createShareHandler, SHARE_PLATFORMS } from '../../core/qr/share';
 import { generateQRDataUrl } from '../../core/qr/generate';
+import { buildAppUrl } from '../../core/base-path';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Button } from '../../components/shared/Button';
@@ -15,7 +16,7 @@ export const ShareScreen = memo(function ShareScreen() {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const shareUrl = `${window.location.origin}/?source=share`;
+  const shareUrl = buildAppUrl('?source=share');
   const shareHandler = createShareHandler();
 
   const handleGenerateQr = useCallback(async () => {

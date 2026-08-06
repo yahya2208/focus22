@@ -18,12 +18,15 @@ function buildWhatsAppUrl(phone: string, message: string): string {
 
 export function openWhatsApp(phone: string, message: string, analyticsEvent?: string): void {
   const url = buildWhatsAppUrl(phone, message);
+  const telemetry = getGlobalTelemetry();
   if (analyticsEvent) {
-    getGlobalTelemetry().track(analyticsEvent as AnalyticsEventType, { phone: formatPhone(phone), has_message: true });
+    telemetry.track(analyticsEvent as AnalyticsEventType, { phone: formatPhone(phone), has_message: true });
   }
+  telemetry.track('exit_attempt', { target: 'whatsapp', phone: formatPhone(phone) });
   // Launch-blocker fix: open WhatsApp in a new window/tab (reliable for mobile
   // & in-app browsers), with a same-tab fallback if the popup is blocked.
   const win = window.open(url, '_blank', 'noopener');
+  telemetry.track('exit_confirmed', { target: 'whatsapp', same_tab: !win });
   if (!win) {
     window.location.href = url;
   }

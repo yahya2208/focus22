@@ -117,6 +117,9 @@ const en = {
   'results.playAgain': 'Play Again',
   'results.home': 'Home',
   'results.exit': 'Exit',
+  'results.coach': 'Mistakes Coach',
+  'results.achievements': 'Achievements',
+  'results.share': 'Share Results',
 
   // History
   'history.title': 'Session History',
@@ -303,6 +306,7 @@ const en = {
   'settings.signOut': 'Sign Out',
   'settings.administration': 'Administration',
   'settings.adminSetup': 'Admin Setup',
+  'settings.designSystemQA': 'Design System QA',
 
   // Campaign Manager
   'campaign.title': 'Campaigns',

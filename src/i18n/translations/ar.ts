@@ -111,6 +111,9 @@ const ar: Record<TranslationKey, string> = {
   'results.playAgain': 'إعادة الاختبار',
   'results.home': 'الرئيسية',
   'results.exit': 'خروج',
+  'results.coach': 'مدرب الأخطاء',
+  'results.achievements': 'الإنجازات',
+  'results.share': 'مشاركة النتائج',
 
   'history.title': 'سجل الجلسات',
   'history.noSessions': 'لا توجد جلسات بعد. أكمل قياساً لرؤية النتائج هنا.',
@@ -283,6 +286,7 @@ const ar: Record<TranslationKey, string> = {
   'settings.signOut': 'تسجيل الخروج',
   'settings.administration': 'الإدارة',
   'settings.adminSetup': 'إعداد المدير',
+  'settings.designSystemQA': 'معاينة التصميم',
 
   // Campaign Manager
   'campaign.title': 'الحملات',

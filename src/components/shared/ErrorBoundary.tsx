@@ -1,6 +1,7 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react';
 import { useTranslation } from '../../hooks/useTranslation';
 import { devError } from '../../core/logging';
+import { registerAppReset, requestInAppReset } from '../../core/navigation/error-reset';
 
 interface Props {
   children: ReactNode;
@@ -12,7 +13,7 @@ interface State {
   error: Error | null;
 }
 
-function ErrorFallback() {
+function ErrorFallback({ onRetry }: { onRetry: () => void }) {
   const { t } = useTranslation();
   return (
     <div
@@ -35,7 +36,7 @@ function ErrorFallback() {
         {t('error.unexpected')}
       </p>
       <button
-        onClick={() => window.location.reload()}
+        onClick={onRetry}
         style={{
           padding: '0.75rem 1.5rem',
           borderRadius: '8px',
@@ -73,10 +74,28 @@ export class ErrorBoundary extends Component<Props, State> {
     devError('═══════════════════════════════════════');
   }
 
+  private unregister?: () => void;
+
+  componentDidMount() {
+    this.unregister = registerAppReset(() => {
+      this.setState({ hasError: false, error: null });
+    });
+  }
+
+  componentWillUnmount() {
+    this.unregister?.();
+  }
+
+  private handleRetry = () => {
+    if (!requestInAppReset()) {
+      window.location.reload();
+    }
+  };
+
   render() {
     if (this.state.hasError) {
       return (
-        this.props.fallback ?? <ErrorFallback />
+        this.props.fallback ?? <ErrorFallback onRetry={this.handleRetry} />
       );
     }
     return this.props.children;

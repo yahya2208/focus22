@@ -45,6 +45,11 @@ export const EventTypes = {
   RESULTS_VIEWED: 'results_viewed',
   SHARE_CLICKED: 'share_clicked',
 
+  // Exit classification (Phase 3A): intentional exits (WhatsApp/tel/mailto/share)
+  // are tracked as exits; internal navigation no longer uses location.*.
+  EXIT_ATTEMPT: 'exit_attempt',
+  EXIT_CONFIRMED: 'exit_confirmed',
+
   // Auth
   AUTH_GUEST_CREATED: 'auth_guest_created',
   AUTH_REGISTERED: 'auth_registered',

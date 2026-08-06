@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import type { CalibrationProfile } from '../core/calibration';
 import type { ScoringResult } from '../core/engine/scoring';
 import { getGlobalTelemetry } from '../core/telemetry';
+import { registerAppReset } from '../core/navigation/error-reset';
 
 export type ScreenName =
   | 'home'
@@ -77,12 +78,13 @@ export interface AppState {
   placementId: string | null;
   navStack: ScreenName[];
   intendedScreen: ScreenName | null;
+  routeParams: Record<string, string>;
   sessionRestoredAt?: number;
 }
 
 export type NavigationAction =
-  | { type: 'NAVIGATE'; screen: ScreenName }
-  | { type: 'REPLACE'; screen: ScreenName }
+  | { type: 'NAVIGATE'; screen: ScreenName; params?: Record<string, string> }
+  | { type: 'REPLACE'; screen: ScreenName; params?: Record<string, string> }
   | { type: 'BACK' }
   | { type: 'SET_INTENDED_SCREEN'; screen: ScreenName | null }
   | { type: 'SELECT_GAME'; gameMode: string }
@@ -109,6 +111,7 @@ export const initialState: AppState = {
   placementId: null,
   navStack: ['home'],
   intendedScreen: null,
+  routeParams: {},
 };
 
 export const ALL_SCREEN_NAMES: readonly ScreenName[] = [
@@ -163,20 +166,20 @@ export function navigationReducer(state: AppState, action: NavigationAction): Ap
       const top = state.navStack[state.navStack.length - 1];
       const navStack =
         top === action.screen ? state.navStack : [...state.navStack, action.screen].slice(-MAX_STACK_DEPTH);
-      return { ...state, screen: action.screen, currentScreen: action.screen, navStack };
+      return { ...state, screen: action.screen, currentScreen: action.screen, navStack, routeParams: action.params ?? {} };
     }
     case 'REPLACE': {
       const navStack =
         state.navStack.length > 0 ? [...state.navStack.slice(0, -1), action.screen] : [action.screen];
-      return { ...state, screen: action.screen, currentScreen: action.screen, navStack };
+      return { ...state, screen: action.screen, currentScreen: action.screen, navStack, routeParams: action.params ?? {} };
     }
     case 'BACK': {
       if (state.navStack.length <= 1) {
-        return { ...state, screen: 'home', currentScreen: 'home', navStack: ['home'] };
+        return { ...state, screen: 'home', currentScreen: 'home', navStack: ['home'], routeParams: {} };
       }
       const navStack = state.navStack.slice(0, -1);
       const target = navStack[navStack.length - 1]!;
-      return { ...state, screen: target, currentScreen: target, navStack };
+      return { ...state, screen: target, currentScreen: target, navStack, routeParams: {} };
     }
     case 'SET_INTENDED_SCREEN':
       return { ...state, intendedScreen: action.screen };
@@ -214,6 +217,7 @@ export function navigationReducer(state: AppState, action: NavigationAction): Ap
         currentScreen: 'home',
         navStack: ['home'],
         intendedScreen: null,
+        routeParams: {},
       };
     case 'START_QR_FLOW':
       return {
@@ -224,6 +228,7 @@ export function navigationReducer(state: AppState, action: NavigationAction): Ap
         campaignId: action.campaignId ?? null,
         placementId: action.placementId ?? null,
         navStack: ['home', 'game-intro'],
+        routeParams: {},
       };
     default:
       return state;
@@ -239,8 +244,8 @@ interface NavigationContextValue {
 const NavigationContext = createContext<NavigationContextValue | null>(null);
 
 export interface NavigateApi {
-  push(screen: ScreenName): void;
-  replace(screen: ScreenName): void;
+  push(screen: ScreenName, params?: Record<string, string>): void;
+  replace(screen: ScreenName, params?: Record<string, string>): void;
   back(): void;
   reset(): void;
   setIntendedScreen(screen: ScreenName | null): void;
@@ -288,7 +293,8 @@ export function syncUrlWithState(
   actionType: NavigationAction['type'] | null = null,
 ): void {
   if (typeof window === 'undefined' || typeof window.history === 'undefined') return;
-  const target = `#/${state.screen}`;
+  const query = new URLSearchParams(state.routeParams).toString();
+  const target = query ? `#/${state.screen}?${query}` : `#/${state.screen}`;
   if (window.location.hash === target) return;
   if (actionType === 'REPLACE') {
     window.history.replaceState({ screen: state.screen }, '', target);
@@ -330,10 +336,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  useEffect(() => {
+    const unregister = registerAppReset(() => {
+      dispatch({ type: 'RESET' });
+    });
+    return unregister;
+  }, [dispatch]);
+
   const navigate = useMemo<NavigateApi>(
     () => ({
-      push: (screen) => dispatch({ type: 'NAVIGATE', screen }),
-      replace: (screen) => dispatch({ type: 'REPLACE', screen }),
+      push: (screen, params) => dispatch({ type: 'NAVIGATE', screen, params }),
+      replace: (screen, params) => dispatch({ type: 'REPLACE', screen, params }),
       back: () => dispatch({ type: 'BACK' }),
       reset: () => dispatch({ type: 'RESET' }),
       setIntendedScreen: (screen) => dispatch({ type: 'SET_INTENDED_SCREEN', screen }),
