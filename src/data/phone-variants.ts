@@ -94,8 +94,8 @@ function storageToSize(storage: string): StorageSize {
   return `${n}GB` as StorageSize;
 }
 
-export function getRealVariantsForModel(modelName: string): PhoneVariant[] {
-  const catalogVariants = getVariantsByName(modelName);
+export function getRealVariantsForModel(modelName: string, brand?: string): PhoneVariant[] {
+  const catalogVariants = getVariantsByName(modelName, brand);
   const seen = new Set<string>();
   const result: PhoneVariant[] = [];
   for (const cv of catalogVariants) {
@@ -115,13 +115,18 @@ export function getRealVariantsForModel(modelName: string): PhoneVariant[] {
   return result;
 }
 
-export function getVariantsForModel(modelName: string): PhoneVariant[] {
-  if (MODEL_VARIANT_OVERRIDES[modelName]) {
+/**
+ * Real variants for a model. When `brand` is provided, results are restricted
+ * to that brand (cross-brand isolation — S2 AT-23). When `brand` is absent,
+ * legacy behavior is kept: first brand match wins (backward compatible).
+ */
+export function getVariantsForModel(modelName: string, brand?: string): PhoneVariant[] {
+  if (!brand && MODEL_VARIANT_OVERRIDES[modelName]) {
     return MODEL_VARIANT_OVERRIDES[modelName]
       .map(label => VARIANT_LOOKUP.get(label))
       .filter((v): v is PhoneVariant => v !== undefined);
   }
-  const real = getRealVariantsForModel(modelName);
+  const real = getRealVariantsForModel(modelName, brand);
   if (real.length > 0) return real;
   return getHeuristicVariants(modelName);
 }

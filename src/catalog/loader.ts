@@ -119,10 +119,19 @@ function ensureVariantsByName(): Map<string, CatalogVariant[]> {
 
 /**
  * Real per-model variants from the canonical JSON catalog, looked up by model
- * name (first brand match wins). Returns [] when the model is unknown.
+ * name. When `brand` is provided, results are restricted to that brand's model
+ * (never another brand's). When `brand` is absent, legacy behavior is kept:
+ * first brand match wins (backward compatible).
  */
-export function getVariantsByName(modelName: string): CatalogVariant[] {
-  return ensureVariantsByName().get(normalize(modelName)) ?? [];
+export function getVariantsByName(modelName: string, brand?: string): CatalogVariant[] {
+  const normalized = normalize(modelName);
+  if (brand) {
+    const b = getBrand(brand);
+    if (!b) return [];
+    const model = b.models.find(m => normalize(m.model) === normalized);
+    return model?.variants ?? [];
+  }
+  return ensureVariantsByName().get(normalized) ?? [];
 }
 
 export function searchProgressive(query: string): { brands: string[]; series: string[]; models: string[] } {
