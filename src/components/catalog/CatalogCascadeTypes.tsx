@@ -65,10 +65,7 @@ export function getStockForModel(modelId: string): { variant: string; stock: num
     };
 
     if (!addMatching(modelId)) {
-      const models = JSON.parse(localStorage.getItem('catalog_models_v1') || '[]') as { brandName: string; name: string; id: string }[];
-      const entry = models.find(m => m.id === modelId);
-      if (!entry) return [];
-      addMatching(`${entry.brandName} ${entry.name}`);
+      return [];
     }
 
     return Object.entries(counts).map(([variant, stock]) => ({ variant, stock }));

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { searchCatalog } from '../../services/catalog-service';
 import { getVariantsForModel, formatVariant } from '../../data/phone-variants';
+import { getAllBrands, getSeries, getModelsBySeries } from '../../catalog/loader';
 import type { CatalogCascadeProps, PhoneIdentity } from './CatalogIdentity';
 import { ARABIC_BRANDS, STEP_NAMES, getFavorites, getMostUsed, addFavorite, trackUsage, getStockForModel, getPriceSummary, StepIndicator, type CatalogSearchResult, type DeviceCondition } from './CatalogCascadeTypes';
 import CatalogStepSearch from './CatalogStepSearch'; import CatalogStepBrand from './CatalogStepBrand'; import CatalogStepSeries from './CatalogStepSeries'; import CatalogStepModel from './CatalogStepModel'; import CatalogStepVariant from './CatalogStepVariant'; import CatalogStepCondition from './CatalogStepCondition'; import CatalogStepAction from './CatalogStepAction';
@@ -28,22 +29,35 @@ export function CatalogCascadeSelector({
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const catalogData = useMemo(() => {
-    try {
-      const brands = JSON.parse(localStorage.getItem('catalog_brands_v1') || '[]') as { name: string; series: string[]; id: string }[];
-      const models = JSON.parse(localStorage.getItem('catalog_models_v1') || '[]') as { brandName: string; seriesName: string | null; name: string; id: string }[];
-      return { brands, models };
-    } catch { return { brands: [], models: [] }; }
+    const brands = getAllBrands();
+    const seriesMap: Record<string, string[]> = {};
+    const modelMap: Record<string, { name: string; id: string; series: string | null }[]> = {};
+    for (const brand of brands) {
+      seriesMap[brand.brand] = getSeries(brand.brand);
+      for (const series of seriesMap[brand.brand]!) {
+        for (const m of getModelsBySeries(brand.brand, series)) {
+          (modelMap[brand.brand] ??= []).push({ name: m.model, id: `${brand.brand} ${m.model}`, series });
+        }
+      }
+    }
+    return { brands, seriesMap, modelMap };
   }, []);
 
   const brandModels = useMemo(() => {
     const map: Record<string, { series: string[]; models: { name: string; id: string; series: string | null }[] }> = {};
-    for (const m of catalogData.models) (map[m.brandName] ??= { series: [], models: [] }).models.push({ name: m.name, id: m.id, series: m.seriesName });
-    for (const b of catalogData.brands) if (map[b.name]) map[b.name]!.series = b.series;
+    for (const brand of catalogData.brands) {
+      map[brand.brand] = {
+        series: catalogData.seriesMap[brand.brand] ?? [],
+        models: catalogData.modelMap[brand.brand] ?? [],
+      };
+    }
     return map;
   }, [catalogData]);
 
   const availableBrands = useMemo(() =>
-    catalogData.brands.filter(b => (brandModels[b.name]?.models?.length ?? 0) > 0),
+    catalogData.brands
+      .filter(b => (brandModels[b.brand]?.models?.length ?? 0) > 0)
+      .map(b => ({ name: b.brand, series: brandModels[b.brand]?.series ?? [], id: b.brand })),
     [catalogData.brands, brandModels]
   );
 
@@ -115,7 +129,7 @@ export function CatalogCascadeSelector({
     setShowSearchResults(false);
     setSelectedBrand(result.brand);
     setSelectedModel(result.model);
-    setStep(allowVariant ? 3 : 4);
+    setStep(allowVariant ? 4 : 5);
     addFavorite(result.brand, result.model);
     trackUsage(result.brand, result.model);
     emitChange({ brandName: result.brand, modelName: result.model, brandId: '', modelId: '' });
@@ -144,14 +158,14 @@ export function CatalogCascadeSelector({
     setSelectedSeries(series);
     setSelectedModel(null);
     setSelectedVariant(null);
-    setStep(2);
+    setStep(3);
     emitChange({ seriesName: series, seriesId: '', modelName: null, modelId: null, variantId: null, ram: null, storage: null });
   };
 
   const handleModelSelect = (model: { name: string; id: string }) => {
     setSelectedModel(model.name);
     setSelectedVariant(null);
-    setStep(allowVariant ? 3 : 4);
+    setStep(allowVariant ? 4 : 5);
     addFavorite(selectedBrand!, model.name);
     trackUsage(selectedBrand!, model.name);
     emitChange({ modelName: model.name, modelId: model.id, variantId: null, ram: null, storage: null });
@@ -188,7 +202,7 @@ export function CatalogCascadeSelector({
           searchIndex={searchIndex} onSearchSelect={handleSearchSelect}
           onSearchHover={setSearchIndex} favorites={favorites}
           mostUsed={mostUsed} showFavorites={showFavorites}
-          onFavoriteSelect={(brand, model) => { setSearchQuery(`${brand} ${model}`); setSelectedBrand(brand); setSelectedModel(model); setStep(allowVariant ? 3 : 4); }}
+          onFavoriteSelect={(brand, model) => { setSearchQuery(`${brand} ${model}`); setSelectedBrand(brand); setSelectedModel(model); setStep(allowVariant ? 4 : 5); }}
           onBrowseClick={() => setStep(1)} disabled={disabled}
           searchRef={searchRef} searchInputRef={searchInputRef}
           onModelNotFound={onModelNotFound} />
