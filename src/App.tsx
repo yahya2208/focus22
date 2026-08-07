@@ -4,7 +4,6 @@ import { ThemeProvider } from './design-system/use-theme';
 import { SettingsProvider } from './hooks/useSettings';
 import { TranslationProvider, useTranslation } from './hooks/useTranslation';
 import { AuthProvider } from './core/auth/AuthProvider';
-import { PersistenceProvider } from './core/supabase/PersistenceProvider';
 import { useThemeSync } from './hooks/useThemeSync';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { ProtectedRoute } from './components/shared/ProtectedRoute';
@@ -12,12 +11,7 @@ import { isScreenName, type ScreenName } from './store/navigation';
 import { useThemeColors } from './hooks/useThemeColors';
 import { AppShell } from './components/layout/AppShell';
 import { BackProvider } from './core/navigation/BackProvider';
-import { parseDeepLinkFromCurrentUrl } from './core/qr/deeplink';
-import { hasCampaign } from './core/qr/campaign';
-import { getGlobalTelemetry } from './core/telemetry';
-import { setupSessionTelemetry } from './core/telemetry';
 import { runSilentCalibration } from './core/calibration/silent';
-import { updateSettings } from './core/config/settings';
 import focusIcon from './assets/brand/focus-icon.svg';
 
 // Small/critical screens — lazy loaded to reduce initial bundle size
@@ -120,83 +114,17 @@ function HtmlSync() {
 function InitialRoute() {
   const dispatch = useAppDispatch();
   const { currentScreen } = useAppState();
-  const qrFlowHandledRef = useRef(false);
+  const initialRoutingHandledRef = useRef(false);
 
   useEffect(() => {
     if (currentScreen !== 'home') return;
 
-    // Launch-blocker fix: the QR/deep-link flow must be triggered ONCE per app
-    // load. Before this guard, returning to 'home' (Stop / Save & Exit / Home
-    // after a match) re-detected the still-present campaign params in the URL
-    // and re-dispatched START_QR_FLOW, restarting the game automatically.
-    if (qrFlowHandledRef.current) return;
-    qrFlowHandledRef.current = true;
-
-    const path = window.location.pathname;
-    const search = window.location.search;
-    const fullPath = path + search;
-
-    const shortCodeMatch = fullPath.match(/\/c\/([a-zA-Z0-9]{6})/);
-    if (shortCodeMatch) {
-      const shortCode = shortCodeMatch[1]!;
-      const placementCode = new URLSearchParams(search).get('p') || undefined;
-
-      import('./core/supabase/data-service').then(({ getDataService }) => {
-        const ds = getDataService();
-        ds.lookupScanContext(shortCode, placementCode).then((context) => {
-          const NOT_PLAYABLE = new Set(['NOT_FOUND', 'ENDED', 'SCHEDULED', 'PAUSED', 'PLACEMENT_NOT_FOUND', 'PLACEMENT_INACTIVE', 'QR_NOT_ASSIGNED']);
-          if (context?.status && NOT_PLAYABLE.has(context.status)) {
-            /* campaign or placement not playable: stay on home */
-            return;
-          }
-          if (context?.campaign?.id) {
-            updateSettings({ language: 'ar' });
-            const telemetry = getGlobalTelemetry();
-            telemetry.setCampaignId(context.campaign.id);
-            telemetry.setPlacementId(context.placement?.id ?? null);
-            telemetry.track('qr_scanned', {
-              campaign_id: context.campaign.id,
-              placement_id: context.placement?.id ?? null,
-              qr_id: context.qr_version?.id ?? null,
-              placement_code: placementCode ?? null,
-            });
-            telemetry.flush();
-            dispatch({
-              type: 'START_QR_FLOW',
-              campaignId: context.campaign.id,
-              placementId: context.placement?.id ?? null,
-              qrId: context.qr_version?.id ?? null,
-            });
-          } else { /* campaign not found */ }
-        }).catch(() => {});
-      }).catch(() => {});
-      return;
-    }
-
-    const deepLink = parseDeepLinkFromCurrentUrl();
-    const telemetry = getGlobalTelemetry();
-    const hasQrParams = hasCampaign(deepLink.campaign) || deepLink.referralCode;
-
-    if (deepLink.isValid && hasQrParams) {
-      telemetry.setCampaignId(deepLink.campaign.campaign ?? deepLink.campaign.source ?? null);
-      telemetry.track('qr_scanned', {
-        source: deepLink.campaign.source,
-        campaign: deepLink.campaign.campaign,
-        referrer: deepLink.referralCode,
-      });
-
-      dispatch({ type: 'START_QR_FLOW' });
-      dispatch({
-        type: 'REPLACE',
-        screen: 'landing',
-        params: {
-          ...(deepLink.campaign.source ? { source: deepLink.campaign.source } : {}),
-          ...(deepLink.campaign.campaign ? { campaign: deepLink.campaign.campaign } : {}),
-          ...(deepLink.referralCode ? { ref: deepLink.referralCode } : {}),
-        },
-      });
-      return;
-    }
+    // Initial-route handling runs ONCE per app load: hash-based deep links
+    // (e.g. #/repair-tracking) and silent calibration. QR/campaign attribution
+    // was removed in P3 (Stop-Write) — campaign params in the URL are no longer
+    // read, so no lookupScanContext / analytics_events / START_QR_FLOW.
+    if (initialRoutingHandledRef.current) return;
+    initialRoutingHandledRef.current = true;
 
     const hash = window.location.hash;
     if (hash.startsWith('#/')) {
@@ -314,13 +242,6 @@ function ScreenRouter() {
 }
 
 export default function App() {
-  useEffect(() => {
-    const telemetry = getGlobalTelemetry();
-    telemetry.track('app_opened', { source: 'app_mount', timestamp: Date.now() });
-    const cleanup = setupSessionTelemetry();
-    return cleanup;
-  }, []);
-
   return (
     <ErrorBoundary>
       <SettingsProvider>
@@ -328,13 +249,11 @@ export default function App() {
           <TranslationProvider>
             <AuthProvider>
               <AppProvider>
-                <PersistenceProvider>
-                  <HtmlSync />
-                  <InitialRoute />
-                  <BackProvider>
-                    <AppShell><ScreenRouter /></AppShell>
-                  </BackProvider>
-                </PersistenceProvider>
+                <HtmlSync />
+                <InitialRoute />
+                <BackProvider>
+                  <AppShell><ScreenRouter /></AppShell>
+                </BackProvider>
               </AppProvider>
             </AuthProvider>
           </TranslationProvider>

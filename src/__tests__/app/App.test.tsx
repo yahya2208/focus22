@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { Suspense } from 'react';
 import App from '../../App';
 
@@ -27,39 +27,43 @@ describe('App', () => {
     expect(menuButtons.length).toBeGreaterThanOrEqual(1);
   }, TEST_TIMEOUT);
 
-  describe('QR deep-link flow fires once per app load (launch-blocker fix)', () => {
+  describe('P3 Stop-Write: QR/campaign attribution removed from boot', () => {
     afterEach(() => {
       window.history.replaceState({}, '', '/');
     });
 
-    it('boots a QR deep link to the landing screen, and returning home does not auto-restart it (Phase 3A v5.1 §1.3)', async () => {
+    it('a campaign deep-link URL no longer routes to landing/START_QR_FLOW (P3: لا attribution)', async () => {
       window.history.pushState({}, '', '/?campaign=test-campaign&source=qr');
       renderApp();
 
-      // 1. QR params in the URL are detected once -> landing appears (not game-intro).
-      expect(await screen.findByText('Start Assessment', {}, { timeout: 15000 })).toBeTruthy();
+      // P3 (مسار الخصوصية): campaign params في الـ URL لم تعد تُقرأ إطلاقاً —
+      // التطبيق يفتح على الشاشة الرئيسية فقط، ولا landing ولا تتبع حملات.
+      await waitFor(() => {
+        expect(screen.getByRole('main', { name: 'Main navigation' })).toBeTruthy();
+      }, { timeout: 5000 });
+
+      // انتظار إضافي: إثبات عدم وجود تحويل/تتبع متأخر (لا async attribution)
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      expect(screen.queryByText('Start Assessment')).toBeNull();
       expect(screen.queryByText('Test Your Focus')).toBeNull();
+      const buttons = await screen.findAllByRole('button', { name: '▶ Start Test' });
+      expect(buttons.length).toBeGreaterThanOrEqual(1);
+    }, 20000);
 
-      // 2. Walk the landing flow into the game: Start Assessment -> consent -> message -> countdown -> game.
-      fireEvent.click(await screen.findByRole('button', { name: /Start Assessment/ }, { timeout: 10000 }));
-      fireEvent.click(await screen.findByRole('button', { name: /I Agree & Continue/ }, { timeout: 10000 }));
-      fireEvent.click(await screen.findByRole('button', { name: /Start Assessment/ }, { timeout: 10000 }));
-      const stopButton = await screen.findByRole('button', { name: /Stop Test/ }, { timeout: 15000 });
+    it('hash-based initial route still works (P3 يبقي توجيه #/hash دون حملات)', async () => {
+      window.history.pushState({}, '', '/#/settings');
+      renderApp();
 
-      // 3. User stops the test -> returns home (this is where the bug used to restart the game).
-      fireEvent.click(stopButton);
-      const confirmStop = await screen.findByRole('button', { name: /Yes, Stop/ }, { timeout: 10000 });
-      fireEvent.click(confirmStop);
+      // InitialRoute لا يزال يعالج #/hash — التوجيه المبدئي السليم محفوظ دون أي
+      // فرع حملات: نفتح شاشة الإعدادات بدلاً من البقاء على home أو landing.
+      await waitFor(() => {
+        expect(screen.getByRole('navigation', { name: 'Settings' })).toBeTruthy();
+      }, { timeout: 5000 });
 
-      // 4. Home is shown again.
-      const homeButtons = await screen.findAllByRole('button', { name: '▶ Start Test' }, { timeout: 10000 });
-      expect(homeButtons.length).toBeGreaterThanOrEqual(1);
-
-      // 5. No auto-restart while the URL still carries QR params.
-      await new Promise((resolve) => setTimeout(resolve, 2500));
+      await new Promise((resolve) => setTimeout(resolve, 800));
       expect(screen.queryByText('Test Your Focus')).toBeNull();
-      expect(screen.queryByRole('button', { name: /Stop Test/ })).toBeNull();
-      expect((await screen.findAllByRole('button', { name: '▶ Start Test' })).length).toBeGreaterThanOrEqual(1);
-    }, 30000);
+      expect(screen.queryByText('Start Assessment')).toBeNull();
+      expect(screen.getByRole('navigation', { name: 'Settings' })).toBeTruthy();
+    }, 20000);
   });
 });

@@ -1,6 +1,3 @@
-import { getGlobalEventPublisher } from '../events';
-import type { SessionCreatedPayload, SessionCompletedPayload } from '../session/service';
-
 import type { AnalyticsEventType } from '../analytics/events';
 
 export type TelemetryEventType = AnalyticsEventType;
@@ -116,46 +113,23 @@ export function createTelemetryService(
 }
 
 let globalTelemetry: TelemetryService | null = null;
-let supabaseSendFn: ((events: readonly TelemetryEvent[]) => Promise<void>) | null = null;
 
-async function createSupabaseSendFn(): Promise<(events: readonly TelemetryEvent[]) => Promise<void>> {
-  if (supabaseSendFn) return supabaseSendFn;
-  
-  try {
-    const { getDataService } = await import('../supabase/data-service');
-    const dataService = getDataService();
-    
-    supabaseSendFn = async (events: readonly TelemetryEvent[]) => {
-      for (const event of events) {
-        await dataService.trackEvent({
-          user_id: event.userId ?? undefined,
-          session_id: event.sessionId ?? undefined,
-          event_type: event.type,
-          event_data: event.properties,
-          campaign_id: event.campaignId ?? undefined,
-          placement_id: event.placementId ?? undefined,
-          device_id: event.deviceId ?? undefined,
-          user_agent: navigator.userAgent,
-        });
-      }
-    };
-  } catch {
-    supabaseSendFn = async () => {};
-  }
-  
-  return supabaseSendFn;
+/**
+ * P3 Stop-Write (مسار الخصوصية، 2026-08-07):
+ * telemetry معطّل افتراضياً وبلا أي مُرسِل إلى Supabase — حتى لو بقي أي
+ * استدعاء track() في أي component/hook/service، فلن يُكتب analytics_events.
+ */
+function createDisabledTelemetry(): TelemetryService {
+  return createTelemetryService(undefined, { enabled: false, flushIntervalMs: 30000, batchSize: 20 });
 }
 
 export async function initGlobalTelemetry(): Promise<void> {
-  const sendFn = await createSupabaseSendFn();
-  globalTelemetry = createTelemetryService(sendFn, { flushIntervalMs: 5000, batchSize: 5 });
+  globalTelemetry = createDisabledTelemetry();
 }
 
 export function getGlobalTelemetry(): TelemetryService {
   if (!globalTelemetry) {
-    globalTelemetry = createTelemetryService();
-    // Async init - will start sending to Supabase once ready
-    initGlobalTelemetry().catch(() => {});
+    globalTelemetry = createDisabledTelemetry();
   }
   return globalTelemetry;
 }
@@ -165,31 +139,4 @@ export function resetGlobalTelemetry(): void {
     globalTelemetry.flush();
   }
   globalTelemetry = null;
-}
-
-export function setupSessionTelemetry(): () => void {
-  const telemetry = getGlobalTelemetry();
-  const publisher = getGlobalEventPublisher();
-
-  const unsubCreated = publisher.subscribe<SessionCreatedPayload>('session_created', (event) => {
-    telemetry.setContext(null, event.payload.sessionId, null, event.payload.campaignId, event.payload.placementId);
-    telemetry.track('game_started', {
-      game_mode: event.payload.gameMode,
-      campaign_id: event.payload.campaignId,
-      placement_id: event.payload.placementId,
-    });
-  });
-
-  const unsubCompleted = publisher.subscribe<SessionCompletedPayload>('session_completed', (event) => {
-    telemetry.track('game_completed', {
-      game_mode: event.payload.gameMode,
-      campaign_id: event.payload.campaignId,
-      placement_id: event.payload.placementId,
-    });
-  });
-
-  return () => {
-    unsubCreated();
-    unsubCompleted();
-  };
 }

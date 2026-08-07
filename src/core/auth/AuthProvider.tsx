@@ -28,7 +28,6 @@ const STUB_SERVICE: AuthService = {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(STUB_SERVICE.getState);
   const serviceRef = useRef<AuthService | null>(null);
-  const guestCreatedRef = useRef(false);
 
   if (!serviceRef.current) {
     try {
@@ -43,11 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const currentState = service.getState();
     setState(currentState);
 
-    if (!guestCreatedRef.current && currentState.status === 'unauthenticated') {
-      guestCreatedRef.current = true;
-      service.signInAsGuest().catch(() => {});
-    }
-
+    // P3 Stop-Write (مسار الخصوصية): لا signInAsGuest() تلقائياً لمجرد فتح
+    // التطبيق — إنشاء حساب ضيف هو قرار مستخدم صريح عبر LoginScreen فقط.
     return service.onStateChange((newState) => {
       setState(newState);
       const uid = newState.user?.id ?? null;
