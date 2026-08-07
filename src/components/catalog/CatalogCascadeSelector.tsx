@@ -61,8 +61,8 @@ export function CatalogCascadeSelector({
 
   const currentVariants = useMemo(() => {
     if (!selectedModel) return [];
-    return getVariantsForModel(selectedModel);
-  }, [selectedModel]);
+    return getVariantsForModel(selectedModel, selectedBrand ?? undefined);
+  }, [selectedModel, selectedBrand]);
 
   const currentStock = useMemo(() => {
     if (!value.modelId) return [];

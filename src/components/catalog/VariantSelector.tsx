@@ -6,15 +6,16 @@ import { getAllVariants } from '../../services/catalog-service';
 
 interface VariantSelectorProps {
   modelName?: string;
+  brand?: string;
   showAll?: boolean;
   onSelect: (variant: PhoneVariant) => void;
   selected?: string | null;
 }
 
-export const VariantSelector = memo(function VariantSelector({ modelName, showAll, onSelect, selected }: VariantSelectorProps) {
+export const VariantSelector = memo(function VariantSelector({ modelName, brand, showAll, onSelect, selected }: VariantSelectorProps) {
   const colors = useThemeColors();
   const styles = useThemeStyles();
-  const variants = showAll ? getAllVariants() : modelName ? getVariantsForModel(modelName) : getAllVariants();
+  const variants = showAll ? getAllVariants() : modelName ? getVariantsForModel(modelName, brand) : getAllVariants();
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>

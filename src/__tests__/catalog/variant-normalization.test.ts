@@ -39,7 +39,7 @@ describe('P2-C C-1 variant normalization', () => {
   it('every offered variant across all 866 models round-trips', () => {
     for (const brand of getAllBrands()) {
       for (const model of brand.models) {
-        for (const v of getVariantsForModel(model.model)) {
+        for (const v of getVariantsForModel(model.model, brand.brand)) {
           const parsed = parseVariant(v.label);
           expect(parsed, `${brand.brand} ${model.model} ${v.label}`).not.toBeNull();
           expect(formatVariant(parsed!.ram, parsed!.storage)).toBe(v.label);
@@ -59,8 +59,8 @@ describe('P2-C C-1 variant normalization', () => {
   it('no offered variant leaks outside the real JSON set (heuristic unused today)', () => {
     for (const brand of getAllBrands()) {
       for (const model of brand.models) {
-        const realLabels = new Set(getRealVariantsForModel(model.model).map(v => v.label));
-        const offered = getVariantsForModel(model.model).map(v => v.label);
+        const realLabels = new Set(getRealVariantsForModel(model.model, brand.brand).map(v => v.label));
+        const offered = getVariantsForModel(model.model, brand.brand).map(v => v.label);
         for (const label of offered) {
           expect(realLabels.has(label), `${brand.brand} ${model.model} -> ${label}`).toBe(true);
         }

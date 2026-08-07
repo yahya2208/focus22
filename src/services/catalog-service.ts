@@ -67,8 +67,8 @@ export function resolveModel(input: string): ResolvedModel | null {
   return null;
 }
 
-export function getSuggestedVariants(model: string): PhoneVariant[] {
-  return getVariantsForModel(model);
+export function getSuggestedVariants(model: string, brand?: string): PhoneVariant[] {
+  return getVariantsForModel(model, brand);
 }
 
 export function getAllVariants(): PhoneVariant[] {

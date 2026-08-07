@@ -98,7 +98,7 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
               background: colors.bgInput, color: colors.textMuted, fontSize: '0.7rem', cursor: 'pointer', fontFamily: 'inherit',
             }}>تغيير</button>
           </div>
-          <VariantSelector modelName={selectedModel} onSelect={handleVariantSelect} />
+          <VariantSelector modelName={selectedModel} brand={selectedBrand || undefined} onSelect={handleVariantSelect} />
         </div>
       )}
 

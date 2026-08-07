@@ -29,7 +29,7 @@ export function verifyModelVariants(
   actualVariants: { ram: string; storage: string }[],
   brand?: string,
 ): VariantReport {
-  const expected = getVariantsForModel(modelName);
+  const expected = getVariantsForModel(modelName, brand);
   const expectedLabels = expected.map(v => v.label);
   const actualLabels = actualVariants.map(v => toLabel(v.ram, v.storage));
 
@@ -67,7 +67,7 @@ export function verifyAllModels(): VariantReport[] {
 
   for (const brand of brands) {
     for (const model of brand.models) {
-      const actualVariants = getRealVariantsForModel(model.model).map(v => ({ ram: v.ram, storage: v.storage }));
+      const actualVariants = getRealVariantsForModel(model.model, brand.brand).map(v => ({ ram: v.ram, storage: v.storage }));
       const report = verifyModelVariants(model.model, actualVariants, brand.brand);
       reports.push(report);
     }

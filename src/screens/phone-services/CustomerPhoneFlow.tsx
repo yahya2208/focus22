@@ -248,6 +248,7 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
           </p>
           <VariantSelector
             modelName={selectedResult.model}
+            brand={selectedResult.brand}
             onSelect={handleVariantSelect}
           />
         </div>

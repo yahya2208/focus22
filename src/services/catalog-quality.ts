@@ -94,7 +94,7 @@ export const CatalogQuality = {
         });
       }
 
-      const variants = getVariantsForModel(model);
+      const variants = getVariantsForModel(model, brand);
       if (variants.length === 0) {
         findings.push({
           id: `missing_variant_${id}`,
@@ -341,7 +341,7 @@ export const CatalogQuality = {
       });
     }
 
-    const variants = getVariantsForModel(model);
+    const variants = getVariantsForModel(model, brand);
     if (variants.length === 0) {
       findings.push({
         id: `missing_variant_${modelId}`,
@@ -448,8 +448,8 @@ export const CatalogQuality = {
     return true;
   },
 
-  suggestVariants(_brand: string, model: string): string[] {
-    const variants = getVariantsForModel(model);
+  suggestVariants(brand: string, model: string): string[] {
+    const variants = getVariantsForModel(model, brand);
     if (variants.length === 0) return [];
     return variants.map(v => v.label);
   },
