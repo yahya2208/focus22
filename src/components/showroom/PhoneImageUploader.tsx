@@ -12,23 +12,25 @@ interface PhoneImageUploaderProps {
 export const PhoneImageUploader = memo(function PhoneImageUploader({
   images,
   onImagesChange,
-  maxImages = 6,
+  maxImages,
   disabled = false,
 }: PhoneImageUploaderProps) {
   const colors = useThemeColors();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
 
+  const unlimited = maxImages == null;
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    const remaining = maxImages - images.length;
+    const remaining = unlimited ? files.length : maxImages - images.length;
     const toRead = Array.from(files).slice(0, remaining);
     if (toRead.length === 0) return;
     setBusy(true);
     try {
       const compressed = await compressImages(toRead);
-      onImagesChange([...images, ...compressed].slice(0, maxImages));
+      onImagesChange(unlimited ? [...images, ...compressed] : [...images, ...compressed].slice(0, maxImages));
     } finally {
       setBusy(false);
     }
@@ -39,7 +41,7 @@ export const PhoneImageUploader = memo(function PhoneImageUploader({
     onImagesChange(images.filter((_, i) => i !== index));
   };
 
-  const canAdd = images.length < maxImages && !disabled && !busy;
+  const canAdd = (unlimited || images.length < maxImages) && !disabled && !busy;
 
   return (
     <div>
@@ -113,7 +115,7 @@ export const PhoneImageUploader = memo(function PhoneImageUploader({
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.accent + '66'; }}
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.glassBorder; }}
           >
-            {busy ? 'جارِ الضغط...' : `+ إضافة صور (${images.length}/${maxImages})`}
+            {busy ? 'جارِ الضغط...' : `+ إضافة صور (${images.length}${unlimited ? '' : `/${maxImages}`})`}
           </button>
         </>
       )}

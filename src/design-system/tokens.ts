@@ -55,6 +55,7 @@ export { zIndex, type ZIndexToken } from './z-index';
 
 export const layout = {
   containerMax: '480px',
+  containerMaxFluid: 'min(100%, 72rem)',
   containerPadding: '20px',
   sidebarExpanded: '240px',
   sidebarCollapsed: '60px',

@@ -53,7 +53,7 @@ export function Grid({
   const gridStyle: React.CSSProperties = minColumnWidth
     ? {
         display: 'grid',
-        gridTemplateColumns: `repeat(auto-fill, minmax(${minColumnWidth}, 1fr))`,
+        gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${minColumnWidth}), 1fr))`,
         gap: `${rowGapValue} ${gapValue}`,
         ...style,
       }

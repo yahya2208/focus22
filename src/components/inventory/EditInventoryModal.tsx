@@ -16,6 +16,12 @@ export const EditInventoryModal = memo(function EditInventoryModal({ record, col
   const [buyPrice, setBuyPrice] = useState(record.buyPrice != null ? String(record.buyPrice) : '');
   const [sellPrice, setSellPrice] = useState(record.sellPrice != null ? String(record.sellPrice) : '');
   const [images, setImages] = useState<string[]>(record.images ?? []);
+  const [color, setColor] = useState(record.color ?? '');
+  const [batteryHealth, setBatteryHealth] = useState(record.batteryHealth != null ? String(record.batteryHealth) : '');
+  const [warranty, setWarranty] = useState(record.warranty ?? '');
+  const [city, setCity] = useState(record.city ?? '');
+  const [description, setDescription] = useState(record.description ?? '');
+  const [code, setCode] = useState(record.code ?? '');
 
   const handleSave = () => {
     InventoryService.updateImages(record.id, images);
@@ -24,8 +30,37 @@ export const EditInventoryModal = memo(function EditInventoryModal({ record, col
       buyPrice ? parseInt(buyPrice) || undefined : undefined,
       sellPrice ? parseInt(sellPrice) || undefined : undefined,
     );
+    InventoryService.updateDetails(record.id, {
+      color: color.trim(),
+      batteryHealth: batteryHealth ? Math.max(0, Math.min(100, parseInt(batteryHealth) || 0)) : undefined,
+      warranty: warranty.trim(),
+      city: city.trim(),
+      description: description.trim(),
+      code: code.trim(),
+    });
     onSave(record, quantity);
   };
+
+  const inputStyle = (multiline = false): React.CSSProperties => ({
+    width: '100%',
+    padding: '9px',
+    borderRadius: '8px',
+    border: `1px solid ${colors.border}`,
+    background: colors.bgInput,
+    color: colors.text,
+    fontSize: '0.9rem',
+    fontFamily: 'inherit',
+    boxSizing: 'border-box',
+    resize: multiline ? 'vertical' : undefined,
+    minHeight: multiline ? '64px' : undefined,
+  });
+
+  const field = (label: string, node: React.ReactNode) => (
+    <div style={{ marginBottom: '10px' }}>
+      <label style={{ color: colors.textMuted, fontSize: '0.72rem', display: 'block', marginBottom: '4px' }}>{label}</label>
+      {node}
+    </div>
+  );
 
   return (
     <div style={{
@@ -50,7 +85,7 @@ export const EditInventoryModal = memo(function EditInventoryModal({ record, col
             boxSizing: 'border-box', marginBottom: '12px',
           }} autoFocus />
         <div style={{ marginBottom: '12px' }}>
-          <PhoneImageUploader images={images} onImagesChange={setImages} maxImages={12} />
+          <PhoneImageUploader images={images} onImagesChange={setImages} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
           <div>
@@ -72,6 +107,14 @@ export const EditInventoryModal = memo(function EditInventoryModal({ record, col
               }} />
           </div>
         </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          {field('اللون', <input type="text" value={color} onChange={e => setColor(e.target.value)} style={inputStyle()} />)}
+          {field('البطارية (%)', <input type="number" min={0} max={100} value={batteryHealth} onChange={e => setBatteryHealth(e.target.value)} style={inputStyle()} />)}
+          {field('الضمان', <input type="text" value={warranty} onChange={e => setWarranty(e.target.value)} style={inputStyle()} />)}
+          {field('المدينة', <input type="text" value={city} onChange={e => setCity(e.target.value)} style={inputStyle()} />)}
+        </div>
+        {field('رمز الإعلان (يظهر في واتساب)', <input type="text" value={code} onChange={e => setCode(e.target.value)} style={inputStyle()} />)}
+        {field('الوصف', <textarea value={description} onChange={e => setDescription(e.target.value)} style={inputStyle(true)} />)}
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={onClose} style={{
             flex: 1, padding: '8px', borderRadius: '8px', border: `1px solid ${colors.border}`,

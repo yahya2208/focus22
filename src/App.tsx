@@ -59,6 +59,7 @@ const RepairCourierScreen = lazy(() => import('./screens/repair/RepairCourierScr
 const RepairCustomerHistory = lazy(() => import('./screens/repair/RepairCustomerHistory').then(m => ({ default: m.RepairCustomerHistory })));
 const StickerAnalyticsScreen = lazy(() => import('./screens/stickers/StickerAnalyticsScreen').then(m => ({ default: m.StickerAnalyticsScreen })));
 const ShowroomScreen = lazy(() => import('./screens/showroom/ShowroomScreen').then(m => ({ default: m.ShowroomScreen })));
+const ProductDetailsScreen = lazy(() => import('./screens/showroom/ProductDetailsScreen').then(m => ({ default: m.ProductDetailsScreen })));
 const BusinessIntelligenceCenter = lazy(() => import('./business-intelligence/BusinessIntelligenceCenter').then(m => ({ default: m.BusinessIntelligenceCenter })));
 
 const screens: Record<ScreenName, React.ComponentType> = {
@@ -98,6 +99,7 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'sticker-analytics': StickerAnalyticsScreen,
   'sticker-scan': StickerScanHandler,
   'showroom': ShowroomScreen,
+  'phone-details': ProductDetailsScreen,
   'design-system-playground': DesignSystemPlayground,
 };
 

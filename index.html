@@ -79,9 +79,29 @@
         100% { background-position: 200% 0; }
       }
 
-      @keyframes kenburns {
-        0% { transform: translate3d(-2%, -1%, 0) scale(1); }
-        100% { transform: translate3d(2%, 1.5%, 0) scale(1.12); }
+      @keyframes adspot-breathe {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.97; }
+      }
+
+      @keyframes adspot-shine {
+        0% { background-position: 220% 0; }
+        100% { background-position: -120% 0; }
+      }
+
+      /* Featured-ad frame height cap — graded by screen size so tall/portrait
+         ads never dominate. Mobile keeps the natural size (auto). */
+      .adspot-frame {
+        max-height: 420px; /* Desktop */
+      }
+      @media (max-width: 1535px) {
+        .adspot-frame { max-height: 360px; } /* Laptop */
+      }
+      @media (max-width: 1023px) {
+        .adspot-frame { max-height: 320px; } /* Tablet */
+      }
+      @media (max-width: 639px) {
+        .adspot-frame { max-height: none; } /* Mobile — auto */
       }
 
       @media (prefers-reduced-motion: reduce) {

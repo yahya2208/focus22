@@ -1,5 +1,6 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react';
-import { useTranslation } from '../../hooks/useTranslation';
+import { t as translate, type Locale, type TranslationKey } from '../../i18n';
+import { getSettings } from '../../core/config/settings';
 import { devError } from '../../core/logging';
 import { registerAppReset, requestInAppReset } from '../../core/navigation/error-reset';
 
@@ -14,7 +15,11 @@ interface State {
 }
 
 function ErrorFallback({ onRetry }: { onRetry: () => void }) {
-  const { t } = useTranslation();
+  // The boundary sits above every provider, so hooks like `useTranslation`
+  // are unavailable here — the fallback resolves the persisted language
+  // directly and stays fully localized even when the app tree is unmounted.
+  const locale = (getSettings().language as Locale) || 'en';
+  const t = (key: TranslationKey) => translate(locale, key);
   return (
     <div
       role="alert"
@@ -79,6 +84,14 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidMount() {
     this.unregister = registerAppReset(() => {
       this.setState({ hasError: false, error: null });
+      // The boundary wraps the whole app tree: clearing hasError remounts every
+      // provider with fresh state (AppProvider boots at `home`). We must also
+      // normalize the URL first, otherwise InitialRoute re-reads the stale hash
+      // (e.g. `#/game-intro?...`), re-navigates into the throwing screen and the
+      // in-app reset would be ineffective (loop across remounts).
+      if (typeof window !== 'undefined' && window.location.hash) {
+        window.history.replaceState({ screen: 'home' }, '', '#/home');
+      }
     });
   }
 

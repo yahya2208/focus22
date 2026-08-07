@@ -76,6 +76,19 @@ export const EventTypes = {
   SELL_FLOW_STARTED: 'sell_flow_started',
   EXCHANGE_FLOW_STARTED: 'exchange_flow_started',
 
+  // Showroom / Phone Details UX (Phase 3B)
+  PHONE_CARD_CLICKED: 'phone_card_clicked',
+  PHONE_DETAILS_OPENED: 'phone_details_opened',
+  PHONE_DETAILS_CLOSED: 'phone_details_closed',
+  PHONE_GALLERY_SWIPE: 'phone_gallery_swipe',
+  PHONE_IMAGE_ZOOM: 'phone_image_zoom',
+  WHATSAPP_TEMPLATE_SELECTED: 'whatsapp_template_selected',
+  WHATSAPP_SENT: 'whatsapp_sent',
+  WHATSAPP_FALLBACK_SHOWN: 'whatsapp_fallback_shown',
+  WHATSAPP_MESSAGE_COPIED: 'whatsapp_message_copied',
+  SHOWROOM_FILTER_CHANGED: 'showroom_filter_changed',
+  SHOWROOM_SORT_CHANGED: 'showroom_sort_changed',
+
   // Session
   SESSION_SAVED: 'session_saved',
   SESSION_SYNCED: 'session_synced',

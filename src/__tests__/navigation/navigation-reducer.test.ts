@@ -131,7 +131,7 @@ describe('isScreenName', () => {
   it('accepts known screens and rejects unknown strings', () => {
     expect(isScreenName('showroom')).toBe(true);
     expect(isScreenName('game-intro')).toBe(true);
-    expect(isScreenName('phone-details')).toBe(false);
+    expect(isScreenName('phone-details')).toBe(true);
     expect(isScreenName('bogus')).toBe(false);
   });
 });

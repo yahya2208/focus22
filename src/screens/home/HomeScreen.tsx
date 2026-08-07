@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -7,14 +7,14 @@ import { permissionGuard } from '../../core/research/permissions';
 import { HomeMenu } from '../../components/navigation/HomeMenu';
 import { BrandLogo } from '../../components/brand/BrandLogo';
 import { BrandFooter } from '../../components/brand/BrandFooter';
-import { Screen, Grid } from '../../design-system/layout';
+import { Screen, Grid, Stack } from '../../design-system/layout';
+import { layout } from '../../design-system/tokens';
 import { Button } from '../../design-system/components/Button';
 import { Card } from '../../design-system/components/Card';
-import { Stack } from '../../design-system/components/Stack';
 import { Flex } from '../../design-system/components/Flex';
 import { AdSpot } from '../../components/ads/AdSpot';
+import { InventoryService, type InventoryRecord } from '../../services/inventory-service';
 
-import { useState } from 'react';
 import { getGlobalTelemetry } from '../../core/telemetry';
 
 function getGreetingKey() {
@@ -68,6 +68,98 @@ const SERVICE_ITEMS: { key: 'buyNew' | 'buyUsed' | 'sell' | 'exchange' | 'repair
   { key: 'repair', emoji: '🔧', color: '#ef4444', screen: 'repair-home' },
 ];
 
+function ProductCard({ device, colors, onOpen }: {
+  device: InventoryRecord;
+  colors: ReturnType<typeof useThemeColors>;
+  onOpen: () => void;
+}) {
+  const primary = device.images?.[0];
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      style={{
+        textAlign: 'right', padding: 0, margin: 0, border: 'none', cursor: 'pointer',
+        fontFamily: 'inherit', background: 'transparent', display: 'block', width: '100%',
+      }}
+    >
+      <div style={{
+        borderRadius: '18px',
+        background: colors.glass,
+        border: `1px solid ${colors.glassBorder}`,
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
+        boxShadow: `0 8px 28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.08)`,
+        overflow: 'hidden',
+        transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1), border-color 0.18s ease, box-shadow 0.18s ease',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-3px)';
+        e.currentTarget.style.borderColor = colors.accent + '55';
+        e.currentTarget.style.boxShadow = `0 16px 44px rgba(0,0,0,0.38), 0 0 28px ${colors.accentGlow}`;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.borderColor = colors.glassBorder;
+        e.currentTarget.style.boxShadow = '0 8px 28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.08)';
+      }}
+    >
+      <div style={{
+        aspectRatio: '4 / 3',
+        background: `linear-gradient(150deg, ${colors.bgCard} 0%, ${colors.bg} 100%)`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'relative',
+      }}>
+        {primary ? (
+          <img
+            src={primary}
+            alt={`${device.brand} ${device.model}`}
+            loading="lazy"
+            decoding="async"
+            width={480}
+            height={360}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        ) : (
+          <span style={{ fontSize: '2.2rem', opacity: 0.55 }}>📱</span>
+        )}
+      </div>
+
+      <div style={{ padding: '0.65rem 0.7rem 0.75rem' }}>
+        <div style={{ color: colors.accent, fontWeight: 700, fontSize: '0.7rem', marginBottom: '0.1rem' }}>
+          {device.brand}
+        </div>
+        <div style={{ color: colors.text, fontWeight: 600, fontSize: '0.78rem', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {device.model}
+        </div>
+        <div style={{ color: colors.textMuted, fontSize: '0.66rem', marginTop: '0.1rem' }}>
+          {device.variant}
+        </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginTop: '0.4rem',
+        }}>
+          <span style={{
+            fontSize: '0.6rem', fontWeight: 700,
+            color: device.quantity > 3 ? colors.success : colors.warning,
+            background: device.quantity > 3 ? colors.successBg : colors.warningBg,
+            padding: '1px 6px', borderRadius: '999px',
+          }}>
+            {device.quantity > 0 ? `متوفر (${device.quantity})` : 'نفد'}
+          </span>
+          {device.sellPrice != null && (
+            <span style={{ color: colors.textSecondary, fontWeight: 700, fontSize: '0.7rem', fontVariantNumeric: 'tabular-nums' }}>
+              {device.sellPrice.toLocaleString()} د.ج
+            </span>
+          )}
+        </div>
+      </div>
+      </div>
+    </button>
+  );
+}
+
 export const HomeScreen = memo(function HomeScreen() {
   const dispatch = useAppDispatch();
   const { sessions } = useAppState();
@@ -75,6 +167,11 @@ export const HomeScreen = memo(function HomeScreen() {
   const colors = useThemeColors();
   const { state, researchRole } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [devices, setDevices] = useState<InventoryRecord[]>([]);
+
+  useEffect(() => {
+    setDevices(InventoryService.getExchangeableDevices());
+  }, []);
 
   const canUseSticker = permissionGuard.can(researchRole, 'sticker', 'write');
 
@@ -115,9 +212,23 @@ export const HomeScreen = memo(function HomeScreen() {
     dispatch({ type: 'NAVIGATE', screen: 'countdown' });
   };
 
+  const openService = (item: (typeof SERVICE_ITEMS)[number]) => {
+    if (item.key === 'repair') {
+      dispatch({ type: 'NAVIGATE', screen: item.screen as 'repair-home' });
+    } else {
+      getGlobalTelemetry().track('phone_service_opened', { source: 'home_grid' });
+      dispatch({ type: 'NAVIGATE', screen: item.screen as 'phone-services' });
+    }
+  };
+
+  const sectionLabel: React.CSSProperties = {
+    color: colors.textMuted, fontSize: '0.7rem', textTransform: 'uppercase',
+    letterSpacing: '0.1em', fontWeight: 600, margin: 0,
+  };
+
   return (
-    <Screen ariaLabel="Main navigation" bottomPad="6rem">
-      <Stack gap="xl">
+    <Screen ariaLabel="Main navigation" maxWidth={layout.containerMaxFluid} bottomPad="6rem">
+      <Stack gap="lg">
         {/* Top bar */}
         <Flex justify="space-between" align="center">
           <BrandLogo size={40} showSubtitle subtitle={t('app.subtitle')} />
@@ -134,157 +245,141 @@ export const HomeScreen = memo(function HomeScreen() {
 
         <HomeMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
 
-        {/* Motto */}
-        <p style={{
-          color: colors.accent,
-          fontSize: '0.78rem',
-          fontWeight: 600,
-          letterSpacing: '0.06em',
-          textAlign: 'center',
-          margin: '0.25rem 0 0',
-        }}>
-          {t('brand.motto')}
-        </p>
+        {/* Hero — greeting + focus score + start, unified card */}
+        <Card variant="glass" padding="xl">
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ color: colors.textMuted, fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+              {t(getGreetingKey())}{userName ? `, ${userName}` : ''}
+            </p>
+            {stats.avgFocus !== null ? (
+              <ScoreRing score={stats.avgFocus} colors={colors} />
+            ) : (
+              <div style={{
+                width: '120px', height: '120px', margin: '0 auto',
+                borderRadius: '50%',
+                border: `3px dashed ${colors.borderLight}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <span style={{ fontSize: '0.75rem', color: colors.textMuted, textAlign: 'center', padding: '0.5rem' }}>
+                  {t('home.noSessionsToday')}
+                </span>
+              </div>
+            )}
+            <p style={{ color: colors.textMuted, fontSize: '0.75rem', marginTop: '0.5rem' }}>
+              {t('home.focusScore')}
+            </p>
+          </div>
+          <button
+            onClick={startTest}
+            style={{
+              width: '100%',
+              padding: '1rem 2rem',
+              borderRadius: '20px',
+              border: 'none',
+              background: `linear-gradient(135deg, ${colors.accent} 0%, ${colors.accentLight} 100%)`,
+              color: '#fff',
+              fontSize: '1.15rem',
+              fontWeight: 800,
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.75rem',
+              marginTop: '1rem',
+              boxShadow: `0 8px 32px ${colors.accentGlow}, 0 0 64px ${colors.accentGlow}`,
+              transition: 'all 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
+              letterSpacing: '0.02em',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px) scale(1.01)';
+              (e.currentTarget as HTMLElement).style.boxShadow = `0 12px 40px ${colors.accentGlow}, 0 0 80px ${colors.accentGlow}`;
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)';
+              (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 32px ${colors.accentGlow}, 0 0 64px ${colors.accentGlow}`;
+            }}
+          >
+            <span style={{ fontSize: '1.3rem' }}>▶</span>
+            {t('home.startTest')}
+          </button>
+        </Card>
 
-        {/* Greeting + Score */}
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ color: colors.textMuted, fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-            {t(getGreetingKey())}{userName ? `, ${userName}` : ''}
-          </p>
-          {stats.avgFocus !== null ? (
-            <ScoreRing score={stats.avgFocus} colors={colors} />
-          ) : (
-            <div style={{
-              width: '120px', height: '120px', margin: '0 auto',
-              borderRadius: '50%',
-              border: `3px dashed ${colors.borderLight}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ fontSize: '0.75rem', color: colors.textMuted, textAlign: 'center', padding: '0.5rem' }}>
-                {t('home.noSessionsToday')}
-              </span>
-            </div>
-          )}
-          <p style={{ color: colors.textMuted, fontSize: '0.75rem', marginTop: '0.5rem' }}>
-            {t('home.focusScore')}
-          </p>
-        </div>
-
-        {/* Giant Start Button */}
-        <button
-          onClick={startTest}
-          style={{
-            width: '100%',
-            padding: '1.25rem 2rem',
-            borderRadius: '24px',
-            border: 'none',
-            background: `linear-gradient(135deg, ${colors.accent} 0%, ${colors.accentLight} 100%)`,
-            color: '#fff',
-            fontSize: '1.25rem',
-            fontWeight: 800,
-            fontFamily: 'inherit',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.75rem',
-            boxShadow: `0 8px 32px ${colors.accentGlow}, 0 0 64px ${colors.accentGlow}`,
-            transition: 'all 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
-            letterSpacing: '0.02em',
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px) scale(1.01)';
-            (e.currentTarget as HTMLElement).style.boxShadow = `0 12px 40px ${colors.accentGlow}, 0 0 80px ${colors.accentGlow}`;
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)';
-            (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 32px ${colors.accentGlow}, 0 0 64px ${colors.accentGlow}`;
-          }}
-        >
-          <span style={{ fontSize: '1.5rem' }}>▶</span>
-          {t('home.startTest')}
-        </button>
-
-        {/* Phone Services Grid */}
+        {/* Phone services — flex-wrap strip, no empty cells at any width */}
         <div>
-          <p style={{
-            color: colors.textMuted, fontSize: '0.7rem', textTransform: 'uppercase',
-            letterSpacing: '0.1em', fontWeight: 600, marginBottom: '0.75rem',
-            textAlign: 'center',
-          }}>
+          <p style={{ ...sectionLabel, marginBottom: '0.75rem' }}>
             {t('home.services')}
           </p>
-          <Grid columns={2} gap="md">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
             {SERVICE_ITEMS.map((item) => (
               <Card
                 key={item.key}
                 variant="interactive"
                 padding="lg"
-                onClick={() => {
-                  if (item.key === 'repair') {
-                    dispatch({ type: 'NAVIGATE', screen: item.screen as 'repair-home' });
-                  } else {
-                    getGlobalTelemetry().track('phone_service_opened', { source: 'home_grid' });
-                    dispatch({ type: 'NAVIGATE', screen: item.screen as 'phone-services' });
-                  }
-                }}
+                onClick={() => openService(item)}
+                style={{ flex: '1 1 132px', minWidth: '112px', textAlign: 'center' }}
               >
-                <div style={{ textAlign: 'center' }}>
-                  <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '0.35rem' }}>{item.emoji}</span>
-                  <span style={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
-                    {t(`home.services.${item.key}`)}
-                  </span>
-                </div>
+                <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '0.35rem' }}>{item.emoji}</span>
+                <span style={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
+                  {t(`home.services.${item.key}`)}
+                </span>
               </Card>
             ))}
-          </Grid>
-        </div>
-
-        {/* Showroom */}
-        <div>
-          <Card
-            variant="interactive"
-            padding="lg"
-            onClick={() => dispatch({ type: 'NAVIGATE', screen: 'showroom' })}
-          >
-            <div style={{ textAlign: 'center' }}>
-              <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '0.35rem' }}>🏬</span>
-              <span style={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
-                {t('home.showroom')}
-              </span>
-            </div>
-          </Card>
-        </div>
-
-        {/* Sticker Studio */}
-        {canUseSticker && (
-          <div>
-            <Card
-              variant="interactive"
-              padding="lg"
-              onClick={() => dispatch({ type: 'NAVIGATE', screen: 'sticker-studio' })}
-            >
-              <div style={{ textAlign: 'center' }}>
+            {canUseSticker && (
+              <Card
+                variant="interactive"
+                padding="lg"
+                onClick={() => dispatch({ type: 'NAVIGATE', screen: 'sticker-studio' })}
+                style={{ flex: '1 1 132px', minWidth: '112px', textAlign: 'center' }}
+              >
                 <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '0.35rem' }}>🖼️</span>
                 <span style={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
                   {t('home.stickerStudio')}
                 </span>
-              </div>
-            </Card>
+              </Card>
+            )}
           </div>
-        )}
+        </div>
+
+        {/* Featured ad — renders nothing when no published ad, so no space is reserved */}
+        <AdSpot placement="home" />
+
+        {/* Latest devices — live data source, count adapts to screen */}
+        <div>
+          <Flex justify="space-between" align="center" style={{ marginBottom: '0.75rem' }}>
+            <p style={sectionLabel}>
+              {t('home.latestDevices')}
+            </p>
+            <Button variant="ghost" size="sm" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'showroom' })}>
+              {t('home.viewAll')} →
+            </Button>
+          </Flex>
+          {devices.length > 0 ? (
+            <Grid minColumnWidth="150px" gap="md">
+              {devices.map((device) => (
+                <ProductCard
+                  key={`${device.id}-${device.variant}-${device.condition}`}
+                  device={device}
+                  colors={colors}
+                  onOpen={() => dispatch({ type: 'NAVIGATE', screen: 'showroom' })}
+                />
+              ))}
+            </Grid>
+          ) : (
+            <Card variant="outlined" padding="lg">
+              <p style={{ color: colors.textMuted, fontSize: '0.8rem', margin: 0, textAlign: 'center' }}>
+                {t('home.noDevices')}
+              </p>
+            </Card>
+          )}
+        </div>
 
         {/* Statistics */}
         <div>
-          <AdSpot placement="home" />
-          <p style={{
-            color: colors.textMuted, fontSize: '0.7rem', textTransform: 'uppercase',
-            letterSpacing: '0.1em', fontWeight: 600, marginBottom: '0.75rem',
-            textAlign: 'center',
-          }}>
+          <p style={{ ...sectionLabel, marginBottom: '0.75rem' }}>
             {t('home.stats')}
           </p>
-          <Grid columns={2} gap="md">
+          <Grid minColumnWidth="150px" gap="md">
             {[
               { label: t('home.stats.sessions'), value: stats.totalSessions.toString() },
               { label: t('home.stats.avgFocus'), value: stats.avgFocus !== null ? `${stats.avgFocus}` : '—' },
@@ -305,11 +400,7 @@ export const HomeScreen = memo(function HomeScreen() {
 
         {/* Last Results */}
         <div>
-          <p style={{
-            color: colors.textMuted, fontSize: '0.7rem', textTransform: 'uppercase',
-            letterSpacing: '0.1em', fontWeight: 600, marginBottom: '0.75rem',
-            textAlign: 'center',
-          }}>
+          <p style={{ ...sectionLabel, marginBottom: '0.75rem' }}>
             {t('home.lastResults')}
           </p>
           {lastResults.length > 0 ? (

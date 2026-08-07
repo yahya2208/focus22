@@ -5,18 +5,29 @@ import { Screen, Stack, Grid } from '../../design-system/layout';
 import { Card } from '../../design-system/components/Card';
 import { Button } from '../../design-system/components/Button';
 import { PhoneShowroom } from '../../components/showroom/PhoneShowroom';
+import { ShowroomControls } from '../../components/showroom/ShowroomControls';
 import { AdSpot } from '../../components/ads/AdSpot';
 import { InventoryService } from '../../services/inventory-service';
 import type { InventoryRecord } from '../../services/inventory-service';
+import { useShowroomState, filterAndSortDevices } from '../../hooks/useShowroomState';
+import { useScrollPreservation } from '../../hooks/useScrollPreservation';
 
 export const ShowroomScreen = memo(function ShowroomScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const [devices, setDevices] = useState<InventoryRecord[]>([]);
+  const { state, update } = useShowroomState();
+  useScrollPreservation(devices.length > 0);
 
   useEffect(() => {
     setDevices(InventoryService.getExchangeableDevices());
   }, []);
+
+  const visible = filterAndSortDevices(devices, state);
+
+  const handleSelect = (device: InventoryRecord) => {
+    dispatch({ type: 'NAVIGATE', screen: 'phone-details', params: { device: device.id } });
+  };
 
   return (
     <Screen ariaLabel="Used phones showroom" bottomPad="6rem">
@@ -33,10 +44,13 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
 
         <AdSpot placement="phone-details" />
 
+        <ShowroomControls devices={devices} state={state} onChange={update} />
+
         <Grid columns={1} gap="md">
           <PhoneShowroom
-            devices={devices}
+            devices={visible}
             emptyText={t('showroom.empty')}
+            onSelect={handleSelect}
           />
         </Grid>
 

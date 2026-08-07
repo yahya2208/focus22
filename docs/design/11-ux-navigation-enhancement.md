@@ -105,8 +105,8 @@ the Admin dashboard.
 | 5 | **Authentication** | Login / magic link / access-denied redirects work; `intendedScreen` honored | Phase 2 (S4 back) |
 | 6 | **Guest Flow** | Anonymous user completes a full game + session without auth | Phase 2 (S7/S8) |
 | 7 | **Admin Flow** | Repair admin/courier/customer-history access intact | — |
-| 8 | **Used Phones** | Showroom → details → action → WhatsApp works; similar phones navigable | Phase 2 (S2 nav; handoff not Phase 2) |
-| 9 | **Ads** | `AdSpot` placements (phone-details, exchange, etc.) still render/impression-track | — |
+| 8 | **Used Phones** | Showroom → details → action → WhatsApp works; similar phones navigable | Phase 3 (3B-S1/S5/S6/S7/S13) |
+| 9 | **Ads** | `AdSpot` placements (phone-details, exchange, etc.) still render/impression-track | Phase 3 (3B-S3 details slot) |
 | 10 | **Sticker Flow** | Sticker scan → CTA → destination screen works (no hard reload) | — |
 | 11 | **Repair Flow** | Repair request → tracking → QR → WhatsApp intact | — |
 
@@ -172,7 +172,7 @@ Legend: ✓ supported · — not applicable / not allowed · `~` conditional (se
 | sticker-analytics | Implemented | ✓ | — | previous | — (protected) | BACK → prev / access-denied | same | no |
 | sticker-scan | Implemented | ✓ | — | home | via sticker QR (`#/sticker-scan?s=`) | REPLACE → home | same | no |
 | showroom | Implemented | ✓ | — | home (section root) | `#/showroom` | BACK → home | BACK → home | no |
-| phone-details *(new)* | Designed (Phase 4) | ✓ | — | showroom | `#/phone-details?device={id}` | BACK → showroom | BACK → showroom | ~ WhatsApp handoff |
+| phone-details | Implemented | ✓ | — | showroom | `#/phone-details?device={id}` | BACK → showroom | BACK → showroom | ~ WhatsApp handoff |
 | design-system-playground | Implemented | ✓ | — | home | `#/design-system-playground` | BACK → home | BACK → home | no |
 
 Notes:
@@ -328,7 +328,7 @@ Every screen declares its nav behavior:
 | calibration | from game-intro | game-intro | push |
 | results | from game | home (skip intermediate) | REPLACE |
 | showroom | home | home | push |
-| phone-details *(new)* | showroom | showroom | push |
+| phone-details | showroom | showroom | push |
 | research/* | protected | previous | push; auth-fail → access-denied |
 | login | any protected action | intendedScreen after auth | REPLACE |
 

@@ -8,7 +8,7 @@ import {
 
 describe('back matrix (Phase 2) — completeness', () => {
   it('covers every registered screen exactly once', () => {
-    expect(ALL_SCREEN_NAMES.length).toBe(37);
+    expect(ALL_SCREEN_NAMES.length).toBe(38);
     expect(Object.keys(BACK_MATRIX).sort()).toEqual([...ALL_SCREEN_NAMES].sort());
   });
 

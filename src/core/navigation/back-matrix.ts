@@ -59,6 +59,7 @@ export const BACK_MATRIX: Record<ScreenName, BackMatrixRow> = {
   'sticker-analytics': { screen: 'sticker-analytics', backTarget: 'previous', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'protected' },
   'sticker-scan': { screen: 'sticker-scan', backTarget: 'home', exitAllowed: false, browserBack: 'replace', androidBack: 'replace', hasInContentBackButton: false, note: 'auto handler; CTA REPLACEs home (Phase 7 item #1)' },
   showroom: { screen: 'showroom', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'section root; in-content Back → home' },
+  'phone-details': { screen: 'phone-details', backTarget: 'showroom', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'sales page; in-content Back → showroom (restores scroll/search/filters/sort)' },
   'design-system-playground': { screen: 'design-system-playground', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true },
 };
 

@@ -41,6 +41,7 @@ export type ScreenName =
   | 'sticker-analytics'
   | 'sticker-scan'
   | 'showroom'
+  | 'phone-details'
   | 'design-system-playground';
 
 export interface SessionRecord {
@@ -151,6 +152,7 @@ export const ALL_SCREEN_NAMES: readonly ScreenName[] = [
   'sticker-analytics',
   'sticker-scan',
   'showroom',
+  'phone-details',
   'design-system-playground',
 ];
 

@@ -7,10 +7,11 @@ import { EditInventoryModal } from '../../components/inventory/EditInventoryModa
 const mock = vi.hoisted(() => ({
   updateImages: vi.fn(() => ({})),
   updatePrices: vi.fn(() => ({})),
+  updateDetails: vi.fn(() => ({})),
 }));
 
 vi.mock('../../services/inventory-service', () => ({
-  InventoryService: { updateImages: mock.updateImages, updatePrices: mock.updatePrices },
+  InventoryService: { updateImages: mock.updateImages, updatePrices: mock.updatePrices, updateDetails: mock.updateDetails },
 }));
 
 vi.mock('../../components/showroom/PhoneImageUploader', () => ({
@@ -116,5 +117,31 @@ describe('EditInventoryModal', () => {
 
     expect(mock.updatePrices).toHaveBeenCalledWith('rec-1', undefined, undefined);
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 'rec-1' }), 3);
+  });
+
+  it('saves the §4 admin details trimmed via updateDetails (color/battery/warranty/city/code/description)', () => {
+    renderModal();
+
+    const boxes = screen.getAllByRole('textbox');
+    const color = boxes[0]!;
+    const warranty = boxes[1]!;
+    const city = boxes[2]!;
+    const code = boxes[3]!;
+    const description = boxes[4]!;
+    fireEvent.change(color, { target: { value: '  أسود ' } });
+    fireEvent.change(warranty, { target: { value: '6 أشهر' } });
+    fireEvent.change(city, { target: { value: 'الجزائر' } });
+    fireEvent.change(code, { target: { value: 'IP13-1' } });
+    fireEvent.change(description, { target: { value: '  حالة ممتازة ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'حفظ' }));
+
+    expect(mock.updateDetails).toHaveBeenCalledWith('rec-1', {
+      color: 'أسود',
+      batteryHealth: undefined,
+      warranty: '6 أشهر',
+      city: 'الجزائر',
+      description: 'حالة ممتازة',
+      code: 'IP13-1',
+    });
   });
 });

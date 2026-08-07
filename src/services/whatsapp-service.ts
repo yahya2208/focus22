@@ -1,6 +1,8 @@
 import { getGlobalTelemetry } from '../core/telemetry';
 import { EventTypes } from '../core/analytics/events';
 import type { AnalyticsEventType } from '../core/analytics/events';
+import { buildAppUrl } from '../core/base-path';
+import type { InventoryRecord } from './inventory-service';
 
 export const WHATSAPP_PHONE = '+213556254007';
 
@@ -15,6 +17,8 @@ function buildWhatsAppUrl(phone: string, message: string): string {
   const formatted = formatPhone(phone);
   return `https://wa.me/${formatted}?text=${encodeURIComponent(message)}`;
 }
+
+export { buildWhatsAppUrl, formatPhone };
 
 export function openWhatsApp(phone: string, message: string, analyticsEvent?: string): void {
   const url = buildWhatsAppUrl(phone, message);
@@ -152,4 +156,74 @@ export function openModelNotFoundRequest(brand: string, model: string): void {
     'شكراً.',
   ].filter(Boolean).join('\n');
   openWhatsApp(WHATSAPP_PHONE, message);
+}
+
+/**
+ * ── Phase 3B §9.1 — Phone action WhatsApp templates (v5, uniform 6 fields) ─────
+ * Every message auto-fills: اسم الهاتف · الكود · السعر · المدينة · رابط الإعلان ·
+ * نوع الطلب. The user types nothing. `بيع` is intentionally NOT part of the
+ * details action bar (v5 §2); the sell template stays only in CustomerPhoneFlow.
+ */
+export type PhoneActionId = 'buy' | 'exchange' | 'installment' | 'inquiry';
+
+export interface PhoneActionContext {
+  /** brand + model (variant) */
+  name: string;
+  /** record.code when set, else the short form of record.id (first 8 chars) */
+  code: string;
+  /** formatted price number (د.ج) — line omitted when the record has no price */
+  price?: string;
+  /** record.city — line omitted when unknown */
+  city?: string;
+  /** base-aware listing deep link (base + '#/phone-details?device=' + id) */
+  url: string;
+}
+
+const PHONE_ACTION_OPENERS: Record<PhoneActionId, string> = {
+  buy: 'أود شراء الهاتف التالي:',
+  exchange: 'أود استبدال هاتفي بهذا الجهاز:',
+  installment: 'أود الاستفسار عن إمكانية التقسيط لهذا الهاتف:',
+  inquiry: 'أود الاستفسار عن هذا الهاتف:',
+};
+
+export function getPhoneActionContext(device: Pick<InventoryRecord, 'id' | 'brand' | 'model' | 'variant' | 'sellPrice' | 'city' | 'code'>): PhoneActionContext {
+  const name = `${device.brand} ${device.model}${device.variant ? ` (${device.variant})` : ''}`;
+  const code = device.code && device.code.trim() ? device.code.trim() : device.id.slice(0, 8);
+  return {
+    name,
+    code,
+    price: device.sellPrice != null ? device.sellPrice.toLocaleString('en-US') : undefined,
+    city: device.city && device.city.trim() ? device.city.trim() : undefined,
+    url: buildAppUrl(`#/phone-details?device=${device.id}`),
+  };
+}
+
+export function buildPhoneActionMessage(action: PhoneActionId, device: Pick<InventoryRecord, 'id' | 'brand' | 'model' | 'variant' | 'sellPrice' | 'city' | 'code'>): string {
+  const ctx = getPhoneActionContext(device);
+  const lines = [
+    'السلام عليكم،',
+    PHONE_ACTION_OPENERS[action],
+    `اسم الهاتف: ${ctx.name}`,
+    `الكود: ${ctx.code}`,
+  ];
+  if (ctx.price != null) lines.push(`السعر: ${ctx.price} دج`);
+  if (ctx.city) lines.push(`المدينة: ${ctx.city}`);
+  lines.push(`رابط الإعلان: ${ctx.url}`);
+  lines.push('شكراً.');
+  return lines.join('\n');
+}
+
+/**
+ * §9.2 pipeline entry: tracks the funnel events then returns the message for the
+ * same-tab open (`useSmartWhatsApp`). Does NOT open anything itself.
+ */
+export function sendPhoneActionWhatsApp(
+  action: PhoneActionId,
+  device: Pick<InventoryRecord, 'id' | 'brand' | 'model' | 'variant' | 'sellPrice' | 'city' | 'code'>,
+): string {
+  const telemetry = getGlobalTelemetry();
+  const deviceId = device.id;
+  telemetry.track('whatsapp_template_selected' as AnalyticsEventType, { action, device_id: deviceId });
+  telemetry.track('whatsapp_clicked' as AnalyticsEventType, { action, device_id: deviceId });
+  return buildPhoneActionMessage(action, device);
 }

@@ -60,8 +60,21 @@ export interface InventoryRecord {
   /**
    * Optional compressed data-URL images for the phone (used-phones showroom).
    * Not part of the stock contract — purely presentational.
+   * No fixed cap (v5.1 §16.1): the gallery renders any count dynamically.
    */
   images?: string[];
+  /**
+   * Optional presentational fields for the Product Details sales page
+   * (v5.1 §10.1). None of these are part of the stock contract; existing
+   * records simply lack them and the UI hides empty sections/lines.
+   */
+  color?: string;
+  batteryHealth?: number;
+  warranty?: string;
+  city?: string;
+  description?: string;
+  /** Short ad code used in WhatsApp {code}; fallback = short form of record.id. */
+  code?: string;
 }
 
 export type TimelineEventType =
@@ -557,12 +570,35 @@ export const InventoryService = {
   /**
    * Store/update the optional showroom images for a record.
    * Images are compressed data-URLs; the whole array is saved with the record.
+   * v5.1 §16.1: the gallery supports ANY image count — no cap applied.
    */
   updateImages(recordId: string, images: string[]): InventoryRecord | null {
     const records = loadAll();
     const record = records.find(r => r.id === recordId);
     if (!record) return null;
-    record.images = images.length > 0 ? images.slice(0, 12) : undefined;
+    record.images = images.length > 0 ? [...images] : undefined;
+    record.updatedAt = new Date().toISOString();
+    saveAll(records);
+    return record;
+  },
+
+  /**
+   * Update the optional presentational fields used by the Product Details
+   * sales page (color / batteryHealth / warranty / city / description / code).
+   * Stock contract untouched — purely presentational.
+   */
+  updateDetails(
+    recordId: string,
+    details: Partial<Pick<InventoryRecord, 'color' | 'batteryHealth' | 'warranty' | 'city' | 'description' | 'code'>>,
+  ): InventoryRecord | null {
+    const records = loadAll();
+    const record = records.find(r => r.id === recordId);
+    if (!record) return null;
+    for (const [key, value] of Object.entries(details)) {
+      const trimmed = typeof value === 'string' ? value.trim() : value;
+      (record as unknown as Record<string, unknown>)[key] =
+        trimmed === '' || trimmed == null ? undefined : trimmed;
+    }
     record.updatedAt = new Date().toISOString();
     saveAll(records);
     return record;
