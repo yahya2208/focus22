@@ -142,7 +142,7 @@ function GlassLamp({ visible, xPct, yPct, onRef }: { visible: boolean; xPct: num
 
 export const GameScreen = memo(function GameScreen() {
   const dispatch = useAppDispatch();
-  const { calibrationProfile, isQrFlow, campaignId, selectedGame } = useAppState();
+  const { calibrationProfile, isQrFlow, campaignId, placementId, selectedGame } = useAppState();
   const { t } = useTranslation();
   const colors = useThemeColors();
 
@@ -199,6 +199,7 @@ export const GameScreen = memo(function GameScreen() {
     const sessionId = sessionService.startSession({
       gameMode,
       campaignId: isQrFlow ? campaignId : null,
+      placementId: isQrFlow ? placementId : null,
     });
     sessionIdRef.current = sessionId;
     dispatch({ type: 'START_SESSION', sessionId, gameMode });

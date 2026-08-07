@@ -403,6 +403,21 @@ const ar: Record<TranslationKey, string> = {
   'campaign.clickToCreate': 'اضغط "+ حملة جديدة" للإنشاء.',
   'campaign.fromPrev': 'من السابق',
 
+  'campaign.placements': 'الأماكن',
+  'campaign.newPlacement': 'مكان جديد',
+  'campaign.placementName': 'اسم المكان',
+  'campaign.placementCode': 'الرمز',
+  'campaign.addPlacement': 'إضافة مكان',
+  'campaign.noPlacements': 'لا توجد أماكن بعد. أضف أول موقع مثبَّت فيه رمز QR الخاص بالحملة.',
+  'campaign.building': 'المبنى',
+  'campaign.floor': 'الطابق',
+  'campaign.assignQrToPlacement': 'تعيين QR للمكان',
+  'campaign.printQr': 'طباعة QR',
+  'campaign.moveQr': 'نقل QR',
+  'campaign.placementHistory': 'سجل الأماكن',
+  'campaign.qrForPlacement': 'QR لهذا المكان',
+  'campaign.createQrForPlacement': 'إنشاء QR لهذا المكان',
+
   // Phone Services
   'phoneServices.title': 'خدمات الهاتف',
   'phoneServices.subtitle': 'استبدل هاتفك أو تصفح الأجهزة المستعملة المتاحة',

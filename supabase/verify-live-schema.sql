@@ -53,10 +53,10 @@ ORDER BY event_object_table, trigger_name;
 -- ----------------------------------------------------------------------------
 -- Q4 — sequences (00008 Q4)
 -- ----------------------------------------------------------------------------
-SELECT sequence_name, data_type, start_value, increment_by, last_value
-FROM information_schema.sequences
-WHERE sequence_schema = 'public'
-ORDER BY sequence_name;
+SELECT sequencename, data_type, start_value, increment_by, last_value
+FROM pg_sequences
+WHERE schemaname = 'public'
+ORDER BY sequencename;
 
 -- ----------------------------------------------------------------------------
 -- RLS policies (00008 baseline needs them in pg_policies)
@@ -139,11 +139,11 @@ SELECT 'analytics_events', count(*) FROM public.analytics_events;
 --   D_V1  : lookup v1 exists (app-compatible); v2 optional
 -- ----------------------------------------------------------------------------
 SELECT
-  'campaigns.is_active'  AS column,
+  'campaigns.is_active'  AS column_name,
   EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='campaigns' AND column_name='is_active') AS present
 UNION ALL SELECT 'campaigns.version', EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='campaigns' AND column_name='version')
 UNION ALL SELECT 'sessions.metadata', EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='sessions' AND column_name='metadata')
-ORDER BY column;
+ORDER BY column_name;
 
 -- Quick consolidated verdict (single value): ALL_PRESENT => 00012 is safe.
 SELECT CASE WHEN count(*) = 3 AND bool_and(present) THEN 'ALL_PRESENT — 00012 SAFE'
@@ -154,6 +154,41 @@ FROM (
   UNION ALL SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='campaigns' AND column_name='version')
   UNION ALL SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='sessions' AND column_name='metadata')
 ) g;
+
+-- ----------------------------------------------------------------------------
+-- GATE F — Contract v1.1 M1 (placements + attribution columns + scan RPC)
+--   F_TABLES  : placements & placement_history exist
+--   F_COLUMNS : qr_codes/sessions/analytics_events gained placement_id
+--   F_RPC     : lookup_scan_context(TEXT, TEXT) exists for the scan path
+-- ----------------------------------------------------------------------------
+SELECT table_name, 'EXISTS' AS state
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name IN ('placements', 'placement_history');
+
+SELECT
+  'qr_codes.placement_id'        AS column_name,
+  EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='qr_codes' AND column_name='placement_id') AS present
+UNION ALL SELECT 'sessions.placement_id', EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='sessions' AND column_name='placement_id')
+UNION ALL SELECT 'analytics_events.placement_id', EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='analytics_events' AND column_name='placement_id')
+ORDER BY column_name;
+
+SELECT p.proname, p.provolatile,
+       pg_get_function_identity_arguments(p.oid) AS args
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname IN ('lookup_scan_context')
+ORDER BY p.proname;
+
+SELECT CASE WHEN count(*) = 2 AND bool_and(present) THEN 'M1_ATTRIBUTION_READY'
+            ELSE 'M1_INCOMPLETE — run 00016/00017/00018'
+       END AS gate_f_verdict
+FROM (
+  SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='sessions' AND column_name='placement_id') AS present
+  UNION ALL SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='analytics_events' AND column_name='placement_id')
+) g;
+
 
 -- ============================================================================
 -- NEXT STEPS AFTER THIS VERIFICATION

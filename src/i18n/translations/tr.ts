@@ -403,6 +403,21 @@ const tr: Record<TranslationKey, string> = {
   'campaign.clickToCreate': '"+ Yeni Kampanya" ile oluşturun.',
   'campaign.fromPrev': 'önceki',
 
+  'campaign.placements': 'Konumlar',
+  'campaign.newPlacement': 'Yeni Konum',
+  'campaign.placementName': 'Konum Adı',
+  'campaign.placementCode': 'Kod',
+  'campaign.addPlacement': 'Konum Ekle',
+  'campaign.noPlacements': 'Henüz konum yok. Kampanyanın QR kodunun kurulduğu ilk yeri ekleyin.',
+  'campaign.building': 'Bina',
+  'campaign.floor': 'Kat',
+  'campaign.assignQrToPlacement': 'Konuma QR Ata',
+  'campaign.printQr': 'QR Yazdır',
+  'campaign.moveQr': 'QR Taşı',
+  'campaign.placementHistory': 'Konum Geçmişi',
+  'campaign.qrForPlacement': 'Bu konum için QR',
+  'campaign.createQrForPlacement': 'Bu konum için QR Oluştur',
+
   // Phone Services
   'phoneServices.title': 'Telefon Hizmetleri',
   'phoneServices.subtitle': 'Telefonunuzu değiştirin veya mevcut ikinci el cihazlara göz atın',

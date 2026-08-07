@@ -64,6 +64,21 @@ describe('ResearchAPI', () => {
       const overview = await api.getOverview();
       expect(overview.devices).toBe(2);
     });
+
+    it('computes retention D1 from sessions on consecutive days', async () => {
+      const day1 = Date.UTC(2026, 7, 1, 12);
+      const day2 = Date.UTC(2026, 7, 2, 12);
+      const day3 = Date.UTC(2026, 7, 3, 12);
+      const s1 = makeSession({ deviceId: 'd1', createdAt: day1 });
+      const s2 = makeSession({ deviceId: 'd1', createdAt: day2 });
+      const s3 = makeSession({ deviceId: 'd2', createdAt: day1 });
+      const s4 = makeSession({ deviceId: 'd2', createdAt: day3 });
+      const api = createResearchAPI([s1, s2, s3, s4]);
+      const overview = await api.getOverview();
+      // d1 returned on day+1 (100%), d2 did not (0%) -> 50%.
+      expect(overview.retentionD1).toBe(50);
+      expect(overview.retentionD30).toBe(0);
+    });
   });
 
   describe('getScientific', () => {
@@ -98,6 +113,18 @@ describe('ResearchAPI', () => {
       const api = createResearchAPI();
       const analytics = await api.getUserAnalytics();
       expect(analytics.registrationFunnel).toEqual([]);
+      expect(analytics.returningUsers).toBe(0);
+    });
+
+    it('counts returning users by device with 2+ active days', async () => {
+      const day1 = Date.UTC(2026, 7, 1, 12);
+      const day2 = Date.UTC(2026, 7, 2, 12);
+      const s1 = makeSession({ deviceId: 'd1', createdAt: day1 });
+      const s2 = makeSession({ deviceId: 'd1', createdAt: day2 });
+      const s3 = makeSession({ deviceId: 'd2', createdAt: day1 });
+      const api = createResearchAPI([s1, s2, s3]);
+      const analytics = await api.getUserAnalytics();
+      expect(analytics.returningUsers).toBe(1);
     });
   });
 

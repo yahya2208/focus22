@@ -1,0 +1,31 @@
+$ vite
+
+  [32m[1mVITE[22m v6.4.3[39m  [2mready in [0m[1m586[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/focus22/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m1:22:43 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/services/inventory-service.ts[22m
+[2m1:22:43 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/services/inventory-service.ts[22m
+[2m1:22:56 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/services/inventory-service.ts[22m
+[2m1:23:10 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/auth/LoginScreen.tsx, /src/components/brand/BrandFooter.tsx[22m
+[2m1:23:23 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/store/navigation.tsx[22m
+[2m1:23:35 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/store/navigation.tsx[22m
+[2m1:23:49 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m1:24:02 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m1:24:14 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/layout/AppShell.tsx, /src/components/navigation/BackButton.tsx[22m
+[2m1:25:43 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hooks/useTranslation.tsx, /src/components/shared/ErrorBoundary.tsx, /src/components/layout/AppHeader.tsx[22m
+[2m1:26:20 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hooks/useTranslation.tsx, /src/components/shared/ErrorBoundary.tsx, /src/components/layout/AppHeader.tsx[22m
+[2m1:26:35 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hooks/useTranslation.tsx, /src/components/shared/ErrorBoundary.tsx, /src/components/layout/AppHeader.tsx[22m
+[2m1:26:36 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hooks/useTranslation.tsx, /src/components/shared/ErrorBoundary.tsx, /src/components/layout/AppHeader.tsx[22m
+[2m1:26:53 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/hooks/useTranslation.tsx, /src/components/shared/ErrorBoundary.tsx, /src/components/layout/AppHeader.tsx[22m
+[2m1:28:43 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/brand/BrandFooter.tsx[22m
+[2m1:29:00 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/brand/BrandFooter.tsx[22m
+[2m1:37:25 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/showroom/PhoneShowroom.tsx[22m
+[2m1:37:36 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/showroom/PhoneShowroom.tsx[22m
+[2m1:37:54 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/showroom/PhoneGallery.tsx[22m
+[2m1:40:31 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/showroom/PhoneShowroom.tsx[22m
+[2m1:40:42 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/showroom/PhoneShowroom.tsx[22m
+[2m1:40:51 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/showroom/PhoneShowroom.tsx[22m
+[2m1:43:47 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/showroom/ShowroomScreen.tsx[22m
+[2m2:51:42 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/showroom/ShowroomScreen.tsx[22m
+[2m3:08:13 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/brand/BrandFooter.tsx[22m

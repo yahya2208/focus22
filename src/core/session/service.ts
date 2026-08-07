@@ -25,12 +25,14 @@ export interface SessionResults {
 export interface SessionStartParams {
   readonly gameMode: string;
   readonly campaignId: string | null;
+  readonly placementId?: string | null;
 }
 
 export interface SessionCreatedPayload {
   readonly sessionId: string;
   readonly gameMode: string;
   readonly campaignId: string | null;
+  readonly placementId: string | null;
   readonly createdAt: number;
 }
 
@@ -38,6 +40,7 @@ export interface SessionCompletedPayload {
   readonly sessionId: string;
   readonly gameMode: string;
   readonly campaignId: string | null;
+  readonly placementId: string | null;
   readonly results: SessionResults;
   readonly createdAt: number;
   readonly endedReason: EndedReason;
@@ -57,13 +60,13 @@ export interface SessionService {
 export function createSessionService(
   publisher: EventPublisher = getGlobalEventPublisher(),
 ): SessionService {
-  const activeSessions = new Map<string, { gameMode: string; campaignId: string | null; createdAt: number }>();
+  const activeSessions = new Map<string, { gameMode: string; campaignId: string | null; placementId: string | null; createdAt: number }>();
 
   return {
     startSession(params: SessionStartParams): string {
       const sessionId = createSessionId();
       const now = Date.now();
-      activeSessions.set(sessionId, { gameMode: params.gameMode, campaignId: params.campaignId, createdAt: now });
+      activeSessions.set(sessionId, { gameMode: params.gameMode, campaignId: params.campaignId, placementId: params.placementId ?? null, createdAt: now });
 
       emitDiagnosticLog({
         service: 'session',
@@ -77,6 +80,7 @@ export function createSessionService(
         sessionId,
         gameMode: params.gameMode,
         campaignId: params.campaignId,
+        placementId: params.placementId ?? null,
         createdAt: now,
       }, 'session-service');
 
@@ -119,6 +123,7 @@ export function createSessionService(
         sessionId,
         gameMode: session.gameMode,
         campaignId: session.campaignId,
+        placementId: session.placementId,
         results,
         createdAt: session.createdAt,
         endedReason: 'completed',

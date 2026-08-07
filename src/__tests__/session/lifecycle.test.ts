@@ -103,6 +103,7 @@ describe('Persistence UPSERT idempotency (same session.id, not two rows)', () =>
       sessionId: 'fixed-session-abc-123',
       gameMode: 'reaction-light',
       campaignId: 'camp-456',
+      placementId: null,
       createdAt: Date.now(),
     };
 
@@ -124,6 +125,7 @@ describe('Persistence UPSERT idempotency (same session.id, not two rows)', () =>
       sessionId: 'fixed-session-abc-123',
       gameMode: 'reaction-light',
       campaignId: 'camp-456',
+      placementId: null,
       results,
       createdAt: Date.now(),
       endedReason: 'completed',

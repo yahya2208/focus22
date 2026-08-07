@@ -207,6 +207,32 @@ export function createResearchAPI(
       const now = Date.now();
       const dayMs = 86400000;
       const completed = filtered.filter((s) => s.status === 'completed');
+
+      // In-memory mock has no user identity, so deviceId approximates a returning
+      // user. The live implementation (api-supabase) groups by user_id.
+      const deviceActiveDays = new Map<string, Set<string>>();
+      const firstDeviceDay = new Map<string, string>();
+      for (const s of filtered) {
+        if (!s.deviceId) continue;
+        const day = new Date(s.createdAt).toISOString().slice(0, 10);
+        if (!deviceActiveDays.has(s.deviceId)) deviceActiveDays.set(s.deviceId, new Set());
+        deviceActiveDays.get(s.deviceId)!.add(day);
+        if (!firstDeviceDay.has(s.deviceId)) firstDeviceDay.set(s.deviceId, day);
+      }
+      const retentionRate = (delta: number): number => {
+        let returned = 0;
+        let total = 0;
+        for (const [deviceId, firstDay] of firstDeviceDay) {
+          const days = deviceActiveDays.get(deviceId);
+          if (!days || days.size < 1) continue;
+          total++;
+          const target = new Date(firstDay);
+          target.setDate(target.getDate() + delta);
+          if (days.has(target.toISOString().slice(0, 10))) returned++;
+        }
+        return total > 0 ? Math.round((returned / total) * 100) : 0;
+      };
+
       return {
         ...EMPTY_OVERVIEW,
         totalSessions: filtered.length,
@@ -216,6 +242,9 @@ export function createResearchAPI(
         gamesThisMonth: filtered.filter((s) => now - s.createdAt < 30 * dayMs).length,
         avgFocusScore: completed.length > 0 ? completed.reduce((a, s) => a + (s.scientificResults?.focusScore ?? 0), 0) / completed.length : 0,
         devices: new Set(filtered.map((s) => s.deviceId)).size,
+        retentionD1: retentionRate(1),
+        retentionD7: retentionRate(7),
+        retentionD30: retentionRate(30),
       };
     },
 
@@ -225,9 +254,18 @@ export function createResearchAPI(
 
     async getUserAnalytics(_filters?: ResearchFilters): Promise<UserAnalytics> {
       void filterSessions;
+      // In-memory mock has no user identity, so deviceId approximates a returning user.
+      const deviceActiveDays = new Map<string, Set<string>>();
+      for (const s of sessions) {
+        if (!s.deviceId) continue;
+        const day = new Date(s.createdAt).toISOString().slice(0, 10);
+        if (!deviceActiveDays.has(s.deviceId)) deviceActiveDays.set(s.deviceId, new Set());
+        deviceActiveDays.get(s.deviceId)!.add(day);
+      }
+      const returningUsers = [...deviceActiveDays.values()].filter((days) => days.size >= 2).length;
       return {
         guestUsers: 0, registeredUsers: 0, conversions: 0,
-        newUsers: 0, returningUsers: 0,
+        newUsers: 0, returningUsers,
         dailyActiveUsers: 0, weeklyActiveUsers: 0, monthlyActiveUsers: 0,
         avgSessionsPerUser: 0, avgGamesPerUser: 0,
         registrationFunnel: [], acquisitionSources: [], referralSuccess: [],

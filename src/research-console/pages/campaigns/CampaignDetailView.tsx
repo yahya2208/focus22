@@ -5,10 +5,11 @@ import QRCodeLib from 'qrcode';
 import { QRDesigner } from './QRDesigner';
 import { PrintCenter } from './PrintCenter';
 import { CampaignAnalytics } from './CampaignAnalytics';
+import { PlacementsTab } from './PlacementsTab';
 import { useTranslation } from '../../../hooks/useTranslation';
 import type { TranslationKey } from '../../../i18n';
 
-type DetailTab = 'overview' | 'designer' | 'analytics' | 'print';
+type DetailTab = 'overview' | 'designer' | 'analytics' | 'print' | 'placements';
 
 interface Props {
   campaign: Campaign;
@@ -118,6 +119,7 @@ export function CampaignDetailView({ campaign: c, onBack, onUpdate }: Props) {
           { id: 'overview' as DetailTab, icon: '📊' },
           { id: 'designer' as DetailTab, icon: '🎨' },
           { id: 'analytics' as DetailTab, icon: '📈' },
+          { id: 'placements' as DetailTab, icon: '📍' },
           { id: 'print' as DetailTab, icon: '🖨' },
         ]).map(tabItem => (
           <button key={tabItem.id} onClick={() => setTab(tabItem.id)} style={{
@@ -230,6 +232,10 @@ export function CampaignDetailView({ campaign: c, onBack, onUpdate }: Props) {
 
       {tab === 'analytics' && (
         <CampaignAnalytics campaign={c} qrCodes={qrCodes} sessionStats={sessionStats} scanCount={scanCount} />
+      )}
+
+      {tab === 'placements' && (
+        <PlacementsTab campaignId={c.id!} shortCode={shortCode} qrCodes={qrCodes} onUpdate={onUpdate} />
       )}
 
       {tab === 'print' && (

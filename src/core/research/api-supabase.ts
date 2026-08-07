@@ -260,7 +260,7 @@ export function createResearchAPI(): ResearchAPI {
 
       const [usersResult, sessionsResult, todayResult, weekResult, monthResult, runningResult, qrStats] = await Promise.all([
         client.from('users').select('id, role', { count: 'exact' }),
-        client.from('sessions').select('id, status, measurements, scientific_results, created_at, device_id, user_id', { count: 'exact' }),
+        client.from('sessions').select('id, status, measurements, scientific_results, created_at, device_id, user_id, calibration_id', { count: 'exact' }),
         client.from('sessions').select('id, created_at', { count: 'exact' }).gte('created_at', todayStart),
         client.from('sessions').select('id', { count: 'exact' }).gte('created_at', weekStart),
         client.from('sessions').select('id', { count: 'exact' }).gte('created_at', monthStart),
@@ -340,6 +340,37 @@ export function createResearchAPI(): ResearchAPI {
         }
         return total > 0 ? Math.round((returned / total) * 100) : 0;
       })();
+      const retentionD30 = (() => {
+        let returned = 0;
+        let total = 0;
+        for (const [uid, firstDay] of userFirstSession) {
+          const days = userDaySet.get(uid);
+          if (!days || days.size < 1) continue;
+          total++;
+          const monthLater = new Date(firstDay);
+          monthLater.setDate(monthLater.getDate() + 30);
+          const monthLaterStr = monthLater.toISOString().slice(0, 10);
+          if (days.has(monthLaterStr)) returned++;
+        }
+        return total > 0 ? Math.round((returned / total) * 100) : 0;
+      })();
+
+      const avgCalibrationConfidence = await (async () => {
+        const calibrationIds = [...new Set(completedSessions
+          .map(s => (s as { calibration_id?: string | null }).calibration_id)
+          .filter((v): v is string => typeof v === 'string' && v !== ''))];
+        if (calibrationIds.length === 0) return 0;
+        const { data: cals } = await client
+          .from('calibrations')
+          .select('id, confidence')
+          .in('id', calibrationIds.slice(0, 100));
+        const confidences = (cals ?? [])
+          .map(c => c.confidence)
+          .filter((v): v is number => typeof v === 'number' && !isNaN(v));
+        return confidences.length > 0
+          ? Math.round((confidences.reduce((a, b) => a + b, 0) / confidences.length) * 10) / 10
+          : 0;
+      })();
 
       return {
         totalUsers: users.length,
@@ -365,7 +396,7 @@ export function createResearchAPI(): ResearchAPI {
             .filter(score => typeof score === 'number' && !isNaN(score));
           return fatigueScores.length > 0 ? Math.round(fatigueScores.reduce((a, b) => a + b, 0) / fatigueScores.length * 10) / 10 : 0;
         })(),
-        avgCalibrationConfidence: 0,
+        avgCalibrationConfidence,
         countries: 0,
         cities: 0,
         campaigns: qrStats.totalCampaigns,
@@ -374,7 +405,7 @@ export function createResearchAPI(): ResearchAPI {
         peakToday,
         retentionD1,
         retentionD7,
-        retentionD30: 0,
+        retentionD30,
       };
     },
 
@@ -444,8 +475,9 @@ export function createResearchAPI(): ResearchAPI {
 
     async getUserAnalytics(_filters?: ResearchFilters): Promise<UserAnalytics> {
       const { data: users } = await client.from('users').select('id, role, created_at');
-      const { data: sessions } = await client.from('sessions').select('user_id, created_at');
-      const { data: events } = await client.from('analytics_events').select('event_type, user_id, event_data, created_at');
+      const { data: sessions } = await client.from('sessions').select('id, user_id, created_at, campaign_id');
+      const { data: events } = await client.from('analytics_events').select('event_type, user_id, event_data, session_id, created_at');
+      const { data: qrCodes } = await client.from('qr_codes').select('id, code, referral_code, registration_count');
 
       const userList = users ?? [];
       const sessionList = sessions ?? [];
@@ -480,25 +512,64 @@ export function createResearchAPI(): ResearchAPI {
         { stage: 'Active Users', count: registeredUsers, rate: userList.length > 0 ? (registeredUsers / userList.length) * 100 : 0 },
       ];
 
+      const userActiveDays = new Map<string, Set<string>>();
+      for (const s of sessionList) {
+        if (!s.user_id || !s.created_at) continue;
+        const uid = s.user_id as string;
+        const day = (s.created_at as string).slice(0, 10);
+        if (!userActiveDays.has(uid)) userActiveDays.set(uid, new Set());
+        userActiveDays.get(uid)!.add(day);
+      }
+      const returningUsers = [...userActiveDays.values()].filter(days => days.size >= 2).length;
+
+      const sessionIdToCampaign = new Map<string, string | null>(
+        sessionList.map(s => [s.id as string, (s.campaign_id as string) ?? null])
+      );
+      const regCountByCampaign = new Map<string, number>();
+      registrationEvents.forEach(e => {
+        if (!e.session_id) return;
+        const campaign = sessionIdToCampaign.get(e.session_id as string) ?? null;
+        if (campaign) regCountByCampaign.set(campaign, (regCountByCampaign.get(campaign) ?? 0) + 1);
+      });
+
       const scanEvents = eventList.filter(e => e.event_type === 'qr_scanned');
+      const qrIdToReferral = new Map<string, string>((qrCodes ?? [])
+        .filter(q => q.referral_code)
+        .map(q => [q.id as string, q.referral_code as string]));
+      const referralConversions = new Map<string, number>();
+      (qrCodes ?? []).forEach(q => {
+        if (!q.referral_code) return;
+        referralConversions.set(q.referral_code as string, (referralConversions.get(q.referral_code as string) ?? 0) + (q.registration_count ?? 0));
+      });
       const campaignCounts = new Map<string, number>();
+      const referralScans = new Map<string, number>();
       scanEvents.forEach(e => {
-        const campaign = (e.event_data as Record<string, unknown>)?.campaign as string ?? 'direct';
+        const data = (e.event_data as Record<string, unknown>) ?? {};
+        const referral = (data.referrer as string) ?? qrIdToReferral.get((data.qr_id as string) ?? '') ?? null;
+        if (referral) referralScans.set(referral, (referralScans.get(referral) ?? 0) + 1);
+        const campaignId = typeof data.campaign_id === 'string' ? data.campaign_id : null;
+        const legacySource = (data.campaign as string) ?? (data.source as string) ?? null;
+        const campaign = campaignId ?? legacySource ?? 'direct';
         campaignCounts.set(campaign, (campaignCounts.get(campaign) ?? 0) + 1);
       });
 
       const acquisitionSources = Array.from(campaignCounts.entries()).map(([source, count]) => ({
         source,
         count,
-        conversionRate: count > 0 ? (registrationEvents.length / count) * 100 : 0,
+        conversionRate: count > 0 ? ((regCountByCampaign.get(source) ?? 0) / count) * 100 : 0,
       }));
+
+      const referralSuccess = Array.from(referralScans.entries()).map(([code, scans]) => {
+        const conversionsByCode = referralConversions.get(code) ?? 0;
+        return { code, scans, conversions: conversionsByCode, rate: scans > 0 ? (conversionsByCode / scans) * 100 : 0 };
+      });
 
       return {
         guestUsers,
         registeredUsers,
         conversions,
         newUsers: userList.length,
-        returningUsers: 0,
+        returningUsers,
         dailyActiveUsers,
         weeklyActiveUsers,
         monthlyActiveUsers,
@@ -506,7 +577,7 @@ export function createResearchAPI(): ResearchAPI {
         avgGamesPerUser: sessionsPerUser,
         registrationFunnel,
         acquisitionSources,
-        referralSuccess: [],
+        referralSuccess,
       };
     },
 

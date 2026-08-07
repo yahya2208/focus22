@@ -5,6 +5,7 @@ import {
   type AdPlacement, type AdConfig,
 } from '../../../services/ads-service';
 import { compressImageToBlob } from '../../../services/image-service';
+import { AdBanner } from '../../../components/ads/AdBanner';
 
 const PLACEMENT_LABELS: Record<AdPlacement, string> = {
   home: 'الصفحة الرئيسية',
@@ -160,7 +161,7 @@ export function AdsManager() {
       />
 
       <p style={{ color: '#666', fontSize: '0.8rem', margin: '0 0 1rem' }}>
-        كل موضع يعرض صورة واحدة فقط (JPEG مضغوط) بحركة Ken Burns. ارفع الصورة وحدّد الرابط وفعّل، ثم احفظ.
+        كل موضع يعرض صورة واحدة فقط (JPEG مضغوط). الإطار يتكيف تلقائياً مع أبعاد الصورة لتظهر كاملة دون قصّ — ارفع الصورة وحدّد الرابط وفعّل، ثم احفظ.
       </p>
 
       {!loaded && <p style={{ color: '#888', fontSize: '0.8rem' }}>جارِ التحميل...</p>}
@@ -217,23 +218,11 @@ export function AdsManager() {
 
               <div style={{ flex: '1 1 220px', minWidth: 0 }}>
                 <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '4px' }}>المعاينة</div>
-                <div style={{
-                  position: 'relative', width: '100%', aspectRatio: '16 / 5',
-                  overflow: 'hidden', borderRadius: '8px', border: '1px solid #333',
-                  background: '#0a0a0f',
-                }}>
+                <div style={{ width: '100%', overflow: 'hidden', borderRadius: '8px', border: '1px solid #333', background: '#0a0a0f' }}>
                   {previewImage ? (
-                    <img
-                      src={previewImage}
-                      alt={cfg.alt || 'preview'}
-                      style={{
-                        position: 'absolute', inset: '-8%',
-                        width: '116%', height: '116%', objectFit: 'cover',
-                        animation: 'kenburns 22s ease-in-out infinite alternate',
-                      }}
-                    />
+                    <AdBanner image={previewImage} alt={cfg.alt || 'preview'} />
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#444', fontSize: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#444', fontSize: '0.75rem', padding: '2.5rem 0' }}>
                       لا صورة — الإعلان مخفي
                     </div>
                   )}

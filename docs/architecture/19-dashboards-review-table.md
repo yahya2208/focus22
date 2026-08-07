@@ -10,8 +10,8 @@ some sub-fields hardcoded to `0`/empty) · **❌ placeholder/mock**.
 
 | # | Dashboard | Data source | Status | Notes |
 |---|---|---|---|---|
-| 1 | overview | Supabase `users`, `sessions`, `qr_codes` (`getQRStats`) | 🟡 | `countries`/`cities`/`calibrationConfidence`/`retentionD30` hardcoded `0` |
-| 2 | acquisition | Supabase `users`, `sessions`, `analytics_events` | 🟡 | `returningUsers: 0`, `referralSuccess: []` |
+| 1 | overview | Supabase `users`, `sessions`, `qr_codes` (`getQRStats`) | 🟡 | `retentionD30` + `calibrationConfidence` now real (M2); `countries`/`cities` hardcoded `0` (no geo source captured yet) |
+| 2 | acquisition | Supabase `users`, `sessions`, `analytics_events`, `qr_codes` | 🟡 | `returningUsers` + `referralSuccess` now real (M2); per-source conversion attributed via `session_id -> campaign_id` |
 | 3 | scientific | Supabase `sessions.measurements.corrected_rts` + `sessions.scientific_results` | ✅ | Verified real — see `18-scientific-dashboard-audit.md`; `byDimension`/`calibrationConfidence` gaps |
 | 4 | users | Supabase `users`, `analytics_events` | ✅ | Real |
 | 5 | sessions | Supabase `sessions` + `users` + `devices` (`getSessionList`) | ✅ | Real |

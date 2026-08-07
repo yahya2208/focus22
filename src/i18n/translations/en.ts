@@ -423,6 +423,21 @@ const en = {
   'campaign.clickToCreate': 'Click "+ New Campaign" to create one.',
   'campaign.fromPrev': 'from prev',
 
+  'campaign.placements': 'Placements',
+  'campaign.newPlacement': 'New Placement',
+  'campaign.placementName': 'Placement Name',
+  'campaign.placementCode': 'Code',
+  'campaign.addPlacement': 'Add Placement',
+  'campaign.noPlacements': 'No placements yet. Add the first location where this campaign’s QR is installed.',
+  'campaign.building': 'Building',
+  'campaign.floor': 'Floor',
+  'campaign.assignQrToPlacement': 'Assign QR to Placement',
+  'campaign.printQr': 'Print QR',
+  'campaign.moveQr': 'Move QR',
+  'campaign.placementHistory': 'Placement History',
+  'campaign.qrForPlacement': 'QR for this placement',
+  'campaign.createQrForPlacement': 'Create QR for this placement',
+
   // Phone Services
   'phoneServices.title': 'Phone Services',
   'phoneServices.subtitle': 'Buy, sell, or exchange phones — all in one place',

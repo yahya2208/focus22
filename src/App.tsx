@@ -139,17 +139,34 @@ function InitialRoute() {
     const shortCodeMatch = fullPath.match(/\/c\/([a-zA-Z0-9]{6})/);
     if (shortCodeMatch) {
       const shortCode = shortCodeMatch[1]!;
+      const placementCode = new URLSearchParams(search).get('p') || undefined;
 
       import('./core/supabase/data-service').then(({ getDataService }) => {
         const ds = getDataService();
-        ds.getCampaignByShortCode(shortCode).then((campaign) => {
-          if (campaign?.id) {
+        ds.lookupScanContext(shortCode, placementCode).then((context) => {
+          const NOT_PLAYABLE = new Set(['NOT_FOUND', 'ENDED', 'SCHEDULED', 'PAUSED', 'PLACEMENT_NOT_FOUND', 'PLACEMENT_INACTIVE', 'QR_NOT_ASSIGNED']);
+          if (context?.status && NOT_PLAYABLE.has(context.status)) {
+            /* campaign or placement not playable: stay on home */
+            return;
+          }
+          if (context?.campaign?.id) {
             updateSettings({ language: 'ar' });
             const telemetry = getGlobalTelemetry();
-            telemetry.setCampaignId(campaign.id);
-            telemetry.track('qr_scanned', { campaign_id: campaign.id });
+            telemetry.setCampaignId(context.campaign.id);
+            telemetry.setPlacementId(context.placement?.id ?? null);
+            telemetry.track('qr_scanned', {
+              campaign_id: context.campaign.id,
+              placement_id: context.placement?.id ?? null,
+              qr_id: context.qr_version?.id ?? null,
+              placement_code: placementCode ?? null,
+            });
             telemetry.flush();
-            dispatch({ type: 'START_QR_FLOW', campaignId: campaign.id });
+            dispatch({
+              type: 'START_QR_FLOW',
+              campaignId: context.campaign.id,
+              placementId: context.placement?.id ?? null,
+              qrId: context.qr_version?.id ?? null,
+            });
           } else { /* campaign not found */ }
         }).catch(() => {});
       }).catch(() => {});

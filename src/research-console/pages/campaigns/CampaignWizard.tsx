@@ -84,10 +84,25 @@ export function CampaignWizard({ onClose, onCreated }: Props) {
 
       const basePath = import.meta.env.BASE_URL || '/';
       const shortCode = campaign.short_code || '';
-      const campaignUrl = `${window.location.origin}${basePath}c/${shortCode}`;
+
+      // M1: QRs belong to placements. Create a default placement (code "main")
+      // so the first QR is assigned to a location and its URL carries ?p=.
+      const placementCode = 'main';
+      const placement = await ds.createPlacement({
+        campaign_id: campaign.id!,
+        code: placementCode,
+        name: venue || city || 'Main Location',
+        city: city || undefined,
+        district: district || undefined,
+        venue: venue || undefined,
+        status: 'active',
+      });
+
+      const campaignUrl = `${window.location.origin}${basePath}c/${shortCode}?p=${placementCode}`;
 
       await ds.createQRCode({
         campaign_id: campaign.id!,
+        placement_id: placement?.id,
         code: shortCode,
         url: campaignUrl,
         game_start_count: 0,
@@ -131,7 +146,7 @@ export function CampaignWizard({ onClose, onCreated }: Props) {
             {result.qrImage && <img src={result.qrImage} alt="QR" style={{ borderRadius: '12px', border: '1px solid #1e1e2e' }} />}
           </div>
           <p style={{ color: '#22c55e', fontSize: '0.9rem', textAlign: 'center', marginBottom: '0.25rem', fontWeight: 600 }}>
-            focus.app/c/{result.shortCode}
+            focus.app/c/{result.shortCode}?p=main
           </p>
           <p style={{ color: '#666', fontSize: '0.7rem', textAlign: 'center', wordBreak: 'break-all', marginBottom: '1rem' }}>{result.url}</p>
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '1rem' }}>

@@ -11,7 +11,7 @@ function generateShortCode(): string {
 
 // QR code columns selected explicitly (scan_count is excluded by design:
 // see incident INC-2026-08-03-D2-close — analytics_events is the single source).
-const QR_CODE_COLUMNS = 'id, campaign_id, code, referral_code, url, game_start_count, game_complete_count, registration_count, is_active, version, created_at, updated_at';
+const QR_CODE_COLUMNS = 'id, campaign_id, code, referral_code, url, game_start_count, game_complete_count, registration_count, is_active, version, placement_id, created_at, updated_at';
 
 // Types for analytics events
 export interface AnalyticsEvent {
@@ -21,9 +21,73 @@ export interface AnalyticsEvent {
   event_type: string;
   event_data: Record<string, unknown>;
   campaign_id?: string;
+  placement_id?: string;
   device_id?: string;
   user_agent?: string;
   created_at?: string;
+}
+
+// Types for placements (contract v1.1 M1: Campaign -> Placement -> QR Version).
+export interface Placement {
+  id?: string;
+  campaign_id: string;
+  code: string;
+  name: string;
+  city?: string;
+  district?: string;
+  venue?: string;
+  building?: string;
+  floor?: string;
+  notes?: string;
+  status: string;
+  installed_at?: string;
+  removed_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PlacementHistory {
+  id?: string;
+  placement_id: string;
+  qr_id?: string | null;
+  action: string;
+  field?: string | null;
+  from_value?: unknown;
+  to_value?: unknown;
+  actor?: string | null;
+  created_at?: string;
+}
+
+// Result of the single-entry scan resolution RPC (campaign + placement + QR version).
+export interface ScanContext {
+  status: 'NOT_FOUND' | 'ENDED' | 'SCHEDULED' | 'PAUSED' | 'FOUND' | 'PLACEMENT_NOT_FOUND' | 'PLACEMENT_INACTIVE' | 'QR_NOT_ASSIGNED';
+  campaign: {
+    id: string;
+    short_code: string;
+    name: string;
+    version?: number | null;
+    abandon_timeout_minutes?: number | null;
+  } | null;
+  placement: {
+    id: string;
+    campaign_id: string;
+    code: string;
+    name: string;
+    city?: string | null;
+    district?: string | null;
+    venue?: string | null;
+    building?: string | null;
+    floor?: string | null;
+    status: string;
+  } | null;
+  qr_version: {
+    id: string;
+    code: string;
+    referral_code?: string | null;
+    url?: string | null;
+    is_active: boolean;
+    version?: number | null;
+  } | null;
 }
 
 // Types for campaigns
@@ -93,6 +157,7 @@ export interface CampaignTimelineEntry {
 export interface QRCode {
   id?: string;
   campaign_id?: string;
+  placement_id?: string;
   code: string;
   referral_code?: string;
   url: string;
@@ -112,6 +177,7 @@ export interface SessionData {
   device_id: string;
   calibration_id: string;
   campaign_id?: string;
+  placement_id?: string;
   plugin_id: string;
   status: string;
   measurements?: Record<string, unknown>;
@@ -134,6 +200,7 @@ class DataService {
   async trackEvent(event: Omit<AnalyticsEvent, 'id' | 'created_at'>): Promise<void> {
     const props = event.event_data as Record<string, unknown>;
     const campaignId = (props?.campaign_id as string) ?? event.campaign_id ?? undefined;
+    const placementId = (props?.placement_id as string) ?? event.placement_id ?? undefined;
     await this.client
       .from('analytics_events')
       .insert({
@@ -142,6 +209,7 @@ class DataService {
         event_type: event.event_type,
         event_data: event.event_data,
         campaign_id: campaignId,
+        placement_id: placementId,
         device_id: event.device_id,
         user_agent: event.user_agent || navigator.userAgent,
         created_at: new Date().toISOString(),
@@ -383,6 +451,7 @@ class DataService {
       .from('qr_codes')
       .insert({
         campaign_id: qrCode.campaign_id,
+        placement_id: qrCode.placement_id,
         code: qrCode.code,
         referral_code: qrCode.referral_code,
         url: qrCode.url,
@@ -459,6 +528,141 @@ class DataService {
     return { data: data ?? [], count: count ?? 0 };
   }
 
+  // Placements (contract v1.1 M1: Campaign -> Placement -> QR Version)
+  async lookupScanContext(shortCode: string, placementCode?: string): Promise<ScanContext | null> {
+    const { data, error } = await this.client
+      .rpc('lookup_scan_context', { p_short_code: shortCode, p_placement_code: placementCode ?? null });
+
+    if (error) {
+      if (error.code === 'PGRST202') {
+        devError('lookup_scan_context RPC is missing. Run migration 00018.');
+        throw error;
+      }
+      devError('[lookup_scan_context]', error);
+      throw error;
+    }
+
+    return (data?.[0] ?? null) as ScanContext | null;
+  }
+
+  async getPlacements(campaignId: string): Promise<Placement[]> {
+    const { data, error } = await this.client
+      .from('placements')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      return [];
+    }
+
+    return (data ?? []) as Placement[];
+  }
+
+  async createPlacement(placement: Omit<Placement, 'id' | 'created_at' | 'updated_at'>): Promise<Placement | null> {
+    const { data, error } = await this.client
+      .from('placements')
+      .insert({
+        campaign_id: placement.campaign_id,
+        code: placement.code,
+        name: placement.name,
+        city: placement.city,
+        district: placement.district,
+        venue: placement.venue,
+        building: placement.building,
+        floor: placement.floor,
+        notes: placement.notes,
+        status: placement.status ?? 'active',
+        installed_at: placement.installed_at,
+        removed_at: placement.removed_at,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return null;
+    }
+
+    if (data?.id) {
+      await this.client.from('placement_history').insert({
+        placement_id: data.id,
+        action: 'created',
+        field: 'placement',
+        actor: undefined,
+      });
+    }
+
+    return data as Placement;
+  }
+
+  async updatePlacement(id: string, updates: Partial<Placement>): Promise<void> {
+    await this.client
+      .from('placements')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id);
+  }
+
+  async getPlacementHistory(placementId: string): Promise<PlacementHistory[]> {
+    const { data, error } = await this.client
+      .from('placement_history')
+      .select('*')
+      .eq('placement_id', placementId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return [];
+    }
+
+    return (data ?? []) as PlacementHistory[];
+  }
+
+  // Assign an existing QR (version) to a placement. Moves the QR if it was on
+  // another placement; every transition is recorded in placement_history.
+  async assignQRToPlacement(qrId: string, placementId: string): Promise<{ from: string | null; qr: QRCode | null }> {
+    const { data: current } = await this.client
+      .from('qr_codes')
+      .select('id, placement_id, code')
+      .eq('id', qrId)
+      .maybeSingle();
+
+    const from = current?.placement_id ?? null;
+
+    const { data: updated, error } = await this.client
+      .from('qr_codes')
+      .update({ placement_id: placementId, updated_at: new Date().toISOString() })
+      .eq('id', qrId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      return { from, qr: null };
+    }
+
+    const actor = undefined;
+    if (from && from !== placementId) {
+      await this.client.from('placement_history').insert({
+        placement_id: from,
+        qr_id: qrId,
+        action: 'qr_unassigned',
+        field: 'qr',
+        from_value: placementId,
+        to_value: null,
+        actor,
+      });
+    }
+    await this.client.from('placement_history').insert({
+      placement_id: placementId,
+      qr_id: qrId,
+      action: 'qr_assigned',
+      field: 'qr',
+      from_value: from,
+      to_value: placementId,
+      actor,
+    });
+
+    return { from, qr: (updated as QRCode) ?? null };
+  }
+
   // Sessions
   async saveSession(session: SessionData): Promise<void> {
     const { error } = await this.client
@@ -469,6 +673,7 @@ class DataService {
         device_id: session.device_id,
         calibration_id: session.calibration_id,
         campaign_id: session.campaign_id,
+        placement_id: session.placement_id,
         plugin_id: session.plugin_id,
         status: session.status,
         measurements: session.measurements,

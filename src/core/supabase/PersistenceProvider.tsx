@@ -58,6 +58,7 @@ async function doCloseSession(
     deviceId: string;
     calibrationId: string | null;
     campaignId: string | null;
+    placementId: string | null;
     gameMode: string;
     createdAt: string;
     results?: SessionCompletedPayload['results'];
@@ -93,6 +94,7 @@ async function doCloseSession(
       device_id: payload.deviceId,
       calibration_id: payload.calibrationId,
       campaign_id: payload.campaignId,
+      placement_id: payload.placementId,
       plugin_id: payload.gameMode,
       status: 'completed',
       measurements: {
@@ -365,6 +367,7 @@ export function PersistenceProvider({ children }: { children: React.ReactNode })
     deviceId: string;
     calibrationId: string | null;
     campaignId: string | null;
+    placementId: string | null;
     gameMode: string;
     createdAt: string;
   } | null>(null);
@@ -414,6 +417,7 @@ export function PersistenceProvider({ children }: { children: React.ReactNode })
       device_id: deviceId,
       calibration_id: calibrationId,
       campaign_id: payload.campaignId,
+      placement_id: payload.placementId,
       plugin_id: payload.gameMode,
       status: 'running',
       created_at: createdAt,
@@ -432,7 +436,7 @@ export function PersistenceProvider({ children }: { children: React.ReactNode })
 
     activeSessionIdRef.current = payload.sessionId;
     markHeartbeat(true);
-    sessionDataRef.current = { userId, deviceId, calibrationId, campaignId: payload.campaignId, gameMode: payload.gameMode, createdAt };
+    sessionDataRef.current = { userId, deviceId, calibrationId, campaignId: payload.campaignId, placementId: payload.placementId, gameMode: payload.gameMode, createdAt };
 
     if (!pingIntervalRef.current) {
       pingIntervalRef.current = setInterval(updateActivity, PING_INTERVAL_MS);
@@ -451,6 +455,7 @@ export function PersistenceProvider({ children }: { children: React.ReactNode })
         deviceId,
         calibrationId,
         campaignId: payload.campaignId,
+        placementId: payload.placementId,
         gameMode: payload.gameMode,
         createdAt: new Date(payload.createdAt).toISOString(),
         results: payload.results,
