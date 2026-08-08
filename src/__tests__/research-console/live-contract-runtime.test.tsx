@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, act } from '@testing-library/react';
-import { PersistenceProvider, resetPersistenceCache } from '../../core/supabase/PersistenceProvider';
+import { LiveSessionSimulator } from './LiveSessionSimulator';
 import { createSupabaseClientForTest, getSupabaseClient, resetSupabaseClient } from '../../core/supabase/client';
 import { subscribeToLiveSessions, resetLiveSessions, type LiveSession } from '../../core/supabase/live-sessions';
 import { getGlobalSessionService, resetGlobalSessionService, type SessionResults } from '../../core/session/service';
@@ -142,7 +142,6 @@ async function waitUntil(cond: () => boolean, timeoutMs: number, onTick?: () => 
 afterEach(() => {
   cleanup();
   resetLiveSessions();
-  resetPersistenceCache();
   resetGlobalSessionService();
   resetSupabaseClient();
   vi.restoreAllMocks();
@@ -155,9 +154,9 @@ describe('Live ≤10s contract — Runtime Evidence', () => {
     const service = getGlobalSessionService();
 
     render(
-      <PersistenceProvider>
+      <LiveSessionSimulator>
         <LiveDashboard />
-      </PersistenceProvider>,
+      </LiveSessionSimulator>,
     );
 
     // 1) Start the game (GameScreen: startSession)
@@ -220,9 +219,9 @@ describe('Live ≤10s contract — Runtime Evidence', () => {
     const service = getGlobalSessionService();
 
     render(
-      <PersistenceProvider>
+      <LiveSessionSimulator>
         <LiveDashboard />
-      </PersistenceProvider>,
+      </LiveSessionSimulator>,
     );
 
     const flush = async () => { for (let i = 0; i < 30; i++) await vi.advanceTimersByTimeAsync(0); };

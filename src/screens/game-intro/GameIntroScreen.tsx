@@ -2,7 +2,6 @@ import { memo, useEffect } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { getGlobalTelemetry } from '../../core/telemetry';
 import { runSilentCalibration } from '../../core/calibration/silent';
 
 const INTRO_DURATION_MS = 1000;
@@ -13,8 +12,6 @@ export const GameIntroScreen = memo(function GameIntroScreen() {
   const colors = useThemeColors();
 
   useEffect(() => {
-    getGlobalTelemetry().track('game_intro_shown');
-
     runSilentCalibration().then((profile) => {
       if (profile) {
         dispatch({ type: 'SET_CALIBRATION', profile });

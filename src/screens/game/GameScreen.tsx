@@ -5,7 +5,6 @@ import { correctReactionTime } from '../../core/measurement';
 import { REACTION } from '../../core/scientific/constants';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { getGlobalTelemetry } from '../../core/telemetry';
 import { getGlobalSessionService } from '../../core/session/service';
 import { emitDiagnosticLog } from '../../core/supabase/live-diagnostics';
 import { trackLampAppeared, trackLampClicked, trackMissClick, trackRoundStarted } from '../../core/analytics/tracker';
@@ -263,14 +262,6 @@ export const GameScreen = memo(function GameScreen() {
         getGlobalSessionService().completeSession(sessionId, results);
       }
 
-      const telemetry = getGlobalTelemetry();
-      telemetry.track('game_completed', {
-        totalRounds: TOTAL_ROUNDS,
-        validRounds,
-        isQrFlow,
-        campaign_id: campaignId,
-      });
-      telemetry.flush();
       dispatch({ type: 'SET_RESULTS', results });
       dispatch({ type: 'REPLACE', screen: 'results' });
       return;
@@ -318,7 +309,6 @@ export const GameScreen = memo(function GameScreen() {
     if (sessionId) {
       getGlobalSessionService().abandonSession(sessionId, 'abandoned');
     }
-    getGlobalTelemetry().track('game_abandoned', { round: roundRef.current + 1, source: 'stop_button' });
     dispatch({ type: 'RESET' });
   }, [dispatch]);
 

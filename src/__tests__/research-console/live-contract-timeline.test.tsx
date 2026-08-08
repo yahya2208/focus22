@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, act } from '@testing-library/react';
-import { PersistenceProvider, resetPersistenceCache } from '../../core/supabase/PersistenceProvider';
+import { LiveSessionSimulator } from './LiveSessionSimulator';
 import { createSupabaseClientForTest, getSupabaseClient, resetSupabaseClient } from '../../core/supabase/client';
 import { subscribeToLiveSessions, getActiveLiveSessions, resetLiveSessions } from '../../core/supabase/live-sessions';
 import { getLiveDiagnostics, resetRuntimeDiagnostics } from '../../core/supabase/live-diagnostics';
@@ -136,7 +136,6 @@ async function waitUntil(cond: () => boolean, timeoutMs: number): Promise<number
 afterEach(() => {
   cleanup();
   resetLiveSessions();
-  resetPersistenceCache();
   resetGlobalSessionService();
   resetSupabaseClient();
   resetRuntimeDiagnostics();
@@ -150,9 +149,9 @@ describe('Live ≤10s contract — full pipeline timeline (performance.now)', ()
     const service = getGlobalSessionService();
 
     render(
-      <PersistenceProvider>
+      <LiveSessionSimulator>
         <LiveDashboard />
-      </PersistenceProvider>,
+      </LiveSessionSimulator>,
     );
 
     const sessionId = service.startSession({ gameMode: 'focus', campaignId: null });

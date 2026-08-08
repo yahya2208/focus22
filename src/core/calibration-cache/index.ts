@@ -23,8 +23,6 @@ const DEFAULT_POLICY: CalibrationPolicy = {
   recalibrateOnRefreshRateChange: true,
 };
 
-const CALIBRATION_CACHE_KEY = 'focus_calibration_cache';
-
 export function getDefaultPolicy(): CalibrationPolicy {
   return DEFAULT_POLICY;
 }
@@ -73,28 +71,6 @@ export interface CalibrationCache {
   get(): CalibrationCacheEntry | null;
   set(entry: CalibrationCacheEntry): void;
   clear(): void;
-}
-
-export function createCalibrationCache(): CalibrationCache {
-  return {
-    get(): CalibrationCacheEntry | null {
-      const raw = localStorage.getItem(CALIBRATION_CACHE_KEY);
-      if (!raw) return null;
-      try {
-        return JSON.parse(raw) as CalibrationCacheEntry;
-      } catch {
-        return null;
-      }
-    },
-
-    set(entry: CalibrationCacheEntry): void {
-      localStorage.setItem(CALIBRATION_CACHE_KEY, JSON.stringify(entry));
-    },
-
-    clear(): void {
-      localStorage.removeItem(CALIBRATION_CACHE_KEY);
-    },
-  };
 }
 
 export function createInMemoryCalibrationCache(): CalibrationCache {

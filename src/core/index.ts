@@ -60,7 +60,7 @@ export {
 
 export {
   getDefaultPolicy, isCalibrationValid, createCacheEntry,
-  createCalibrationCache, createInMemoryCalibrationCache,
+  createInMemoryCalibrationCache,
   type CalibrationCacheEntry, type CalibrationPolicy, type CalibrationCache,
 } from './calibration-cache';
 

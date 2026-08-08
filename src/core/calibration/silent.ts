@@ -1,35 +1,11 @@
 import { CALIBRATION } from '../scientific/constants';
 import { createDefaultCalibrationProfile, type CalibrationProfile } from './index';
 
-const STORAGE_KEY = 'focus_calibration_profile';
-const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-
-function getCachedProfile(): CalibrationProfile | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const profile = JSON.parse(raw) as CalibrationProfile;
-    if (Date.now() - profile.timestamp > CACHE_MAX_AGE_MS) {
-      localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-    return profile;
-  } catch {
-    return null;
-  }
-}
-
-function saveProfile(profile: CalibrationProfile): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-  } catch { /* storage full or unavailable */ }
-}
-
+let cachedProfile: CalibrationProfile | null = null;
 let inFlight: Promise<CalibrationProfile | null> | null = null;
 
 export function runSilentCalibration(): Promise<CalibrationProfile | null> {
-  const cached = getCachedProfile();
-  if (cached) return Promise.resolve(cached);
+  if (cachedProfile) return Promise.resolve(cachedProfile);
 
   if (inFlight) return inFlight;
 
@@ -72,7 +48,7 @@ export function runSilentCalibration(): Promise<CalibrationProfile | null> {
           timestamp: Date.now(),
         };
 
-        saveProfile(profile);
+        cachedProfile = profile;
         resolve(profile);
         inFlight = null;
       } else {

@@ -1,4 +1,4 @@
-import { useMemo, useEffect, memo } from 'react';
+import { useMemo, memo } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useBackGuard } from '../../core/navigation/BackProvider';
 import { calculateFocusScore } from '../../core/engine/scoring';
@@ -12,7 +12,6 @@ import { Card } from '../../design-system/components/Card';
 import { Stack } from '../../design-system/components/Stack';
 import { Flex } from '../../design-system/components/Flex';
 import { Screen, Grid } from '../../design-system/layout';
-import { getGlobalTelemetry } from '../../core/telemetry';
 import { getGlobalSessionService } from '../../core/session/service';
 import { useAuth } from '../../core/auth/AuthProvider';
 import { AdSpot } from '../../components/ads/AdSpot';
@@ -95,7 +94,7 @@ function ScoreRing({ score, colors }: { score: number; colors: ReturnType<typeof
 
 export const ResultsScreen = memo(function ResultsScreen() {
   const dispatch = useAppDispatch();
-  const { results, isQrFlow, currentSession } = useAppState();
+  const { results, currentSession } = useAppState();
   const { t } = useTranslation();
   const colors = useThemeColors();
   const { state: authState } = useAuth();
@@ -113,16 +112,6 @@ export const ResultsScreen = memo(function ResultsScreen() {
     });
     return { consistency, fatigue, score };
   }, [results]);
-
-  useEffect(() => {
-    if (analysis) {
-      getGlobalTelemetry().track('results_viewed', {
-        focusScore: analysis.score.focusScore,
-        grade: analysis.score.grade,
-        isQrFlow,
-      });
-    }
-  }, [analysis, isQrFlow]);
 
   // Smart Back (Phase 2): results is a terminal screen — back clears the stack to
   // home (never re-enters the stale game below). Matches matrix: results → home.
@@ -175,7 +164,6 @@ export const ResultsScreen = memo(function ResultsScreen() {
   };
 
   const playAgain = () => {
-    getGlobalTelemetry().track('game_started', { source: 'results_play_again' });
     dispatch({ type: 'SELECT_GAME', gameMode: 'reaction-light' });
     dispatch({ type: 'NAVIGATE', screen: 'countdown' });
   };

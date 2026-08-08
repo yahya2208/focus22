@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, act } from '@testing-library/react';
-import { PersistenceProvider, resetPersistenceCache } from '../../core/supabase/PersistenceProvider';
+import { LiveSessionSimulator } from './LiveSessionSimulator';
 import { createSupabaseClientForTest, getSupabaseClient, resetSupabaseClient } from '../../core/supabase/client';
 import { getGlobalSessionService, resetGlobalSessionService, type SessionResults } from '../../core/session/service';
 import { LiveDashboard } from '../../research-console/pages/live/LiveDashboard';
@@ -145,7 +145,6 @@ async function waitUntil(cond: () => boolean, timeoutMs: number): Promise<number
 
 afterEach(() => {
   cleanup();
-  resetPersistenceCache();
   resetGlobalSessionService();
   resetSupabaseClient();
   vi.restoreAllMocks();
@@ -157,9 +156,9 @@ describe('Live Dashboard — 10 consecutive games, end-to-end (game→DB→realt
     const service = getGlobalSessionService();
 
     render(
-      <PersistenceProvider>
+      <LiveSessionSimulator>
         <LiveDashboard />
-      </PersistenceProvider>,
+      </LiveSessionSimulator>,
     );
 
     const records: Array<{ game: number; appearedRunning: boolean; disappearLatencyMs: number; dbStatusAfter: string }> = [];
