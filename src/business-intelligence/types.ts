@@ -110,24 +110,6 @@ export interface DeviceModelInsight {
   tradeRate: number;
 }
 
-export interface CampaignInsight {
-  id: string;
-  name: string;
-  isActive: boolean;
-  roi: number;
-  visitors: number;
-  games: number;
-  completionRate: number;
-  tradeRequests: number;
-  whatsappClicks: number;
-  conversionRate: number;
-  avgFocusScore: number;
-  avgDeviceAge: number;
-  mostCommonPhones: { model: string; count: number }[];
-  returningVisitors: number;
-  aiSummary: string;
-}
-
 export interface CommerceFunnel {
   stages: FunnelStage[];
   totalDropOff: number;

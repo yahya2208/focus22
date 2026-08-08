@@ -15,8 +15,6 @@ import { Flex } from '../../design-system/components/Flex';
 import { AdSpot } from '../../components/ads/AdSpot';
 import { InventoryService, type InventoryRecord } from '../../services/inventory-service';
 
-import { getGlobalTelemetry } from '../../core/telemetry';
-
 function getGreetingKey() {
   const h = new Date().getHours();
   if (h < 12) return 'home.greeting.morning' as const;
@@ -207,7 +205,6 @@ export const HomeScreen = memo(function HomeScreen() {
   }, [sessions]);
 
   const startTest = () => {
-    getGlobalTelemetry().track('game_started', { source: 'home_start_button' });
     dispatch({ type: 'SELECT_GAME', gameMode: 'reaction-light' });
     dispatch({ type: 'NAVIGATE', screen: 'countdown' });
   };
@@ -216,7 +213,6 @@ export const HomeScreen = memo(function HomeScreen() {
     if (item.key === 'repair') {
       dispatch({ type: 'NAVIGATE', screen: item.screen as 'repair-home' });
     } else {
-      getGlobalTelemetry().track('phone_service_opened', { source: 'home_grid' });
       dispatch({ type: 'NAVIGATE', screen: item.screen as 'phone-services' });
     }
   };

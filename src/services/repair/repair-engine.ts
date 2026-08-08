@@ -1,6 +1,3 @@
-import { getGlobalTelemetry } from '../../core/telemetry';
-import { EventTypes } from '../../core/analytics/events';
-import type { AnalyticsEventType } from '../../core/analytics/events';
 import {
   getAllRepairRequests as loadRequests,
   getRepairRequest, saveRepairRequest,
@@ -135,10 +132,6 @@ export async function createRepairRequest(input: {
     performedBy: input.customerName,
   });
 
-  getGlobalTelemetry().track(EventTypes.REPAIR_REQUESTED, {
-    repair_code: code, brand: input.brandName, model: input.modelName, issue: input.issue,
-  });
-
   return { request, code };
 }
 
@@ -181,7 +174,6 @@ export async function createQuote(
     });
   }
 
-  getGlobalTelemetry().track(EventTypes.QUOTE_SENT, { repair_id: repairId, price: estimatedPrice, days: estimatedDays });
   return quote;
 }
 
@@ -208,7 +200,6 @@ export async function approveQuote(repairId: string): Promise<RepairRequest | nu
     details: 'تم قبول السعر من قبل العميل',
     performedBy: 'customer',
   });
-  getGlobalTelemetry().track(EventTypes.QUOTE_APPROVED, { repair_id: repairId });
   return request;
 }
 
@@ -281,7 +272,6 @@ export async function assignCourier(repairId: string, courierId: string, courier
     details: `المندوب: ${courierName} (${courierId})`,
     performedBy: 'admin',
   });
-  getGlobalTelemetry().track(EventTypes.COURIER_ASSIGNED, { repair_id: repairId, courier_id: courierId });
   return job;
 }
 
@@ -293,18 +283,6 @@ export async function updateCourierJobStatus(jobId: string, status: CourierJobSt
   job.status = status;
   job.updatedAt = now();
   await saveCourierJob(job);
-
-  const statusToEvent: Record<string, string> = {
-    'Trip Started': EventTypes.COURIER_TRIP_STARTED,
-    'Arrived': EventTypes.COURIER_ARRIVED,
-    'Collected': EventTypes.COURIER_COLLECTED,
-    'Heading To Store': EventTypes.COURIER_HEADING_STORE,
-    'Delivered To Store': EventTypes.STORE_RECEIVED,
-    'Returning': EventTypes.COURIER_RETURNING,
-    'Returned': EventTypes.COURIER_RETURNED,
-  };
-  const eventName = statusToEvent[status] as string | undefined;
-  if (eventName) getGlobalTelemetry().track(eventName as AnalyticsEventType, { repair_id: job.repairId, job_id: jobId });
 
   const request = await getRepairRequest(job.repairId);
   if (request && status === 'Collected') await updateStatus(request, 'Received');
@@ -351,17 +329,6 @@ async function updateStatus(request: RepairRequest, status: RepairRequestStatus)
   request.status = status;
   request.updatedAt = now();
   await saveRepairRequest(request);
-
-  const statusToEvent: Record<string, string> = {
-    'Diagnosing': EventTypes.INSPECTION_STARTED,
-    'Repairing': EventTypes.REPAIR_STARTED,
-    'Waiting Parts': EventTypes.WAITING_PARTS,
-    'Ready': EventTypes.REPAIR_COMPLETED,
-    'Cancelled': EventTypes.REPAIR_FAILED,
-    'Delivered': EventTypes.CUSTOMER_RECEIVED,
-  };
-  const eventName = statusToEvent[status] as string | undefined;
-  if (eventName) getGlobalTelemetry().track(eventName as AnalyticsEventType, { repair_id: request.id, repair_code: request.repairCode });
 }
 
 // ── Analytics ────────────────────────────────────────────────

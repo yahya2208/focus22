@@ -36,5 +36,5 @@ export {
   createResearchAPI,
   type ResearchAPI, type OverviewStats, type ScientificMetrics,
   type UserAnalytics, type SessionAnalytics, type DeviceAnalytics,
-  type SurveyAnalytics, type CampaignAnalytics, type LiveEvent, type SystemHealth,
+  type SurveyAnalytics, type LiveEvent, type SystemHealth,
 } from './api';

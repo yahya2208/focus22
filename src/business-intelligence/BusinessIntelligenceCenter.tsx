@@ -7,7 +7,6 @@ import type { TreasureModeData, BIDashboardId } from './types';
 import { CommandCenter } from './pages/CommandCenter';
 import { CustomerIntelligence } from './pages/CustomerIntelligence';
 import { DeviceIntelligenceBI } from './pages/DeviceIntelligenceBI';
-import { CampaignIntelligenceBI } from './pages/CampaignIntelligenceBI';
 import { CommerceIntelligenceBI } from './pages/CommerceIntelligenceBI';
 import {
   SmartOfferEngine, TradePriceEngine, NotificationCenter,
@@ -27,7 +26,6 @@ const dashboards: { id: BIDashboardId; label: string; icon: string }[] = [
   { id: 'command', label: 'Command Center', icon: '📊' },
   { id: 'customers', label: 'Customer Intelligence', icon: '👤' },
   { id: 'devices', label: 'Device Intelligence', icon: '📱' },
-  { id: 'campaigns', label: 'Campaign Intelligence', icon: '📢' },
   { id: 'commerce', label: 'Commerce Intelligence', icon: '💰' },
   { id: 'actions', label: 'Action Center', icon: '⚡' },
   { id: 'smart-offers', label: 'Smart Offers', icon: '🎯' },
@@ -64,7 +62,6 @@ export function BusinessIntelligenceCenter() {
       case 'command': return <CommandCenter />;
       case 'customers': return <CustomerIntelligence />;
       case 'devices': return <DeviceIntelligenceBI />;
-      case 'campaigns': return <CampaignIntelligenceBI />;
       case 'commerce': return <CommerceIntelligenceBI />;
       case 'actions': return <ActionCenter onNavigate={setActive} />;
       case 'smart-offers': return <SmartOfferEngine />;

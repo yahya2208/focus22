@@ -4,7 +4,6 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Card } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
-import { getGlobalTelemetry } from '../../core/telemetry';
 
 export const ConsentScreen = memo(function ConsentScreen() {
   const dispatch = useAppDispatch();
@@ -12,12 +11,10 @@ export const ConsentScreen = memo(function ConsentScreen() {
   const colors = useThemeColors();
 
   const handleAgree = () => {
-    getGlobalTelemetry().track('consent_granted');
     dispatch({ type: 'NAVIGATE', screen: 'message' });
   };
 
   const handleDecline = () => {
-    getGlobalTelemetry().track('consent_withdrawn');
     dispatch({ type: 'NAVIGATE', screen: 'home' });
   };
 

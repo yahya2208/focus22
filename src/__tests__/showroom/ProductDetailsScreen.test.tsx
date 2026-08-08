@@ -8,12 +8,6 @@ import { ProductDetailsScreen } from '../../screens/showroom/ProductDetailsScree
 import { InventoryService } from '../../services/inventory-service';
 import { ensureInventorySeeded } from '../../services/inventory-seed';
 
-const { track } = vi.hoisted(() => ({ track: vi.fn() }));
-
-vi.mock('../../core/telemetry', () => ({
-  getGlobalTelemetry: () => ({ track, setCampaignId: vi.fn(), setPlacementId: vi.fn(), flush: vi.fn() }),
-}));
-
 vi.mock('../../components/ads/AdSpot', () => ({ AdSpot: () => null }));
 
 function GoTo({ id }: { id: string }) {
@@ -47,7 +41,6 @@ describe('Phase 3B §3.2/§3.3 — ProductDetailsScreen', () => {
   beforeEach(() => {
     localStorage.clear();
     ensureInventorySeeded();
-    track.mockClear();
   });
 
   afterEach(() => {
@@ -73,17 +66,6 @@ describe('Phase 3B §3.2/§3.3 — ProductDetailsScreen', () => {
     expect(screen.queryByRole('button', { name: /Sell/i })).toBeNull();
   });
 
-  it('emits phone_details_opened with device context on mount', async () => {
-    const target = InventoryService.getExchangeableDevices()[0]!;
-    renderScreen(target.id);
-    await waitFor(() => {
-      expect(track).toHaveBeenCalledWith(
-        'phone_details_opened',
-        expect.objectContaining({ device_id: target.id }),
-      );
-    });
-  });
-
   it('missing/stale id → not-available state (no blank page) + similar carousel + back button', async () => {
     renderScreen('missing-id');
     await waitFor(() => {
@@ -91,10 +73,6 @@ describe('Phase 3B §3.2/§3.3 — ProductDetailsScreen', () => {
     });
     expect(screen.getByText(/Back to Showroom/)).toBeTruthy();
     expect(screen.getByText(/Similar Phones/i)).toBeTruthy();
-    expect(track).toHaveBeenCalledWith(
-      'phone_details_opened',
-      expect.objectContaining({ device_id: 'missing-id', not_found: true }),
-    );
   });
 
   it('no route param → not-found branch, no crash', async () => {

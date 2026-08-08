@@ -7,7 +7,6 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { getGlobalSessionService } from '../../core/session/service';
 import { emitDiagnosticLog } from '../../core/supabase/live-diagnostics';
-import { trackLampAppeared, trackLampClicked, trackMissClick, trackRoundStarted } from '../../core/analytics/tracker';
 
 type Phase = 'waiting' | 'visible' | 'hit' | 'miss';
 
@@ -141,7 +140,7 @@ function GlassLamp({ visible, xPct, yPct, onRef }: { visible: boolean; xPct: num
 
 export const GameScreen = memo(function GameScreen() {
   const dispatch = useAppDispatch();
-  const { calibrationProfile, isQrFlow, campaignId, placementId, selectedGame } = useAppState();
+  const { calibrationProfile, selectedGame } = useAppState();
   const { t } = useTranslation();
   const colors = useThemeColors();
 
@@ -195,11 +194,7 @@ export const GameScreen = memo(function GameScreen() {
   useEffect(() => {
     const gameMode = selectedGame ?? 'reaction-light';
     const sessionService = getGlobalSessionService();
-    const sessionId = sessionService.startSession({
-      gameMode,
-      campaignId: isQrFlow ? campaignId : null,
-      placementId: isQrFlow ? placementId : null,
-    });
+    const sessionId = sessionService.startSession({ gameMode });
     sessionIdRef.current = sessionId;
     dispatch({ type: 'START_SESSION', sessionId, gameMode });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -224,7 +219,6 @@ export const GameScreen = memo(function GameScreen() {
   const startRound = useCallback(() => {
     const nextRound = roundRef.current + 1;
     emitDiagnosticLog({ service: 'game', action: 'round_started', caller: 'game-screen', trigger: 'startRound', sessionId: sessionIdRef.current ?? undefined, detail: `round=${nextRound}/${TOTAL_ROUNDS}` });
-    trackRoundStarted(nextRound, TOTAL_ROUNDS, campaignId ?? undefined);
     setPhase('waiting');
     lastRtRef.current = null;
     const delay = MIN_DELAY_MS + secureRandom() * (MAX_DELAY_MS - MIN_DELAY_MS);
@@ -233,7 +227,6 @@ export const GameScreen = memo(function GameScreen() {
       lampCellRef.current = nextCell;
       stimulusTimeRef.current = performance.now();
       setPhase('visible');
-      trackLampAppeared(roundRef.current + 1, delay);
     }, delay);
   }, []);
 
@@ -271,18 +264,15 @@ export const GameScreen = memo(function GameScreen() {
       if (timerRef.current) clearTimeout(timerRef.current);
       if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
     };
-  }, [round, calibration, dispatch, startRound, campaignId, isQrFlow]);
+  }, [round, calibration, dispatch, startRound]);
 
   const handleLampTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     if (phaseRef.current !== 'visible') {
-      trackMissClick(roundRef.current + 1, 'early');
       return;
     }
 
     const rt = performance.now() - stimulusTimeRef.current;
-    const corrected = rt - calibration.displayLagMs - calibration.inputLagMs;
-    trackLampClicked(roundRef.current + 1, Math.round(rt), corrected >= REACTION.MIN_RT_MS);
     rawRtsRef.current.push(rt);
     lastRtRef.current = rt;
     if (bestTimeRef.current === null || rt < bestTimeRef.current) {

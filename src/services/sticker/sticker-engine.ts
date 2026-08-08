@@ -1,8 +1,6 @@
 import type { StickerConfig, StickerContent, StickerType, ContentType, StickerTheme } from './sticker-types';
-import { STICKER_TYPES_CONFIG, STICKER_CTA_URLS, LAYOUT_CONFIG } from './sticker-types';
+import { STICKER_TYPES_CONFIG, LAYOUT_CONFIG } from './sticker-types';
 import { getRandomWisdom, getWisdomById, getRandomQuestion, type WisdomEntry, type QuestionEntry } from '../../data/wisdom-database';
-import { generateQRDataUrl } from '../../core/qr/generate';
-import { getBasePath } from '../../core/base-path';
 import { getNextSerialNumber, estimateSerialNumber, registerPrintBatch } from './sticker-database';
 
 export function getMessage(key: string, locale: 'ar' | 'en' | 'tr'): string {
@@ -87,15 +85,7 @@ export async function generateStickerContent(
     { year: 'numeric', month: 'short', day: 'numeric' },
   );
 
-  let qrUrl = '';
-  if (config.showQR) {
-    try {
-      const base = getBasePath();
-      const urlBuilder = STICKER_CTA_URLS[cta];
-      const url = urlBuilder(base, serial);
-      qrUrl = await generateQRDataUrl(url, { width: 120, margin: 1 });
-    } catch { qrUrl = ''; }
-  }
+  const qrUrl = '';
 
   return {
     type: config.type,

@@ -1,15 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { useState } from 'react';
 import { render, fireEvent, screen, waitFor, cleanup } from '@testing-library/react';
 import { AppProvider, useAppDispatch, useAppState } from '../../store/navigation';
 import { BackProvider, useBack, useBackOverlay, useBackGuard } from '../../core/navigation/BackProvider';
 import { BackButton } from '../../components/navigation/BackButton';
-
-const { track } = vi.hoisted(() => ({ track: vi.fn() }));
-
-vi.mock('../../core/telemetry', () => ({
-  getGlobalTelemetry: () => ({ track }),
-}));
 
 function NavProbe() {
   const dispatch = useAppDispatch();
@@ -72,10 +66,6 @@ function pop() {
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
-beforeEach(() => {
-  track.mockClear();
-});
-
 afterEach(() => {
   cleanup();
   window.history.replaceState({}, '', '/');
@@ -101,8 +91,6 @@ describe('BackProvider (Phase 2) — integration', () => {
 
     pop();
     await waitFor(() => expect(screen.getByTestId('screen').textContent).toBe('settings:home>settings'));
-    expect(track).toHaveBeenCalledWith('back_pressed', { screen: 'about', stack_depth: 3 });
-    expect(track).toHaveBeenCalledWith('navigation_pop', { from: 'about', to: 'settings' });
   });
 
   it('useBack() triggers the same popstate back() policy', async () => {
@@ -141,8 +129,6 @@ describe('BackProvider (Phase 2) — integration', () => {
 
     pop();
     await waitFor(() => expect(screen.getByTestId('screen').textContent).toBe('settings:home>settings'));
-    expect(track).toHaveBeenCalledWith('back_pressed', expect.anything());
-    expect(track).not.toHaveBeenCalledWith('navigation_pop', expect.anything());
   });
 
   it('a blocking guard emits back_blocked and does not navigate', async () => {
@@ -157,7 +143,6 @@ describe('BackProvider (Phase 2) — integration', () => {
     await waitFor(() => expect(screen.getByTestId('screen').textContent).toBe('settings:home>settings'));
 
     pop();
-    await waitFor(() => expect(track).toHaveBeenCalledWith('back_blocked', { screen: 'settings', reason: 'beforeBack' }));
     expect(screen.getByTestId('screen').textContent).toBe('settings:home>settings');
   });
 
@@ -165,7 +150,6 @@ describe('BackProvider (Phase 2) — integration', () => {
     renderApp(<ScreenProbe />);
     pop();
     expect(await screen.findByRole('status')).toBeTruthy();
-    expect(track).toHaveBeenCalledWith('back_pressed', { screen: 'home', stack_depth: 1 });
   });
 
   it('second back within the window calls window.close', async () => {

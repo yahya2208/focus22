@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   buildWhatsAppUrl,
   buildPhoneActionMessage,
@@ -8,12 +8,6 @@ import {
   type PhoneActionId,
 } from '../../services/whatsapp-service';
 import type { InventoryRecord } from '../../services/inventory-service';
-
-const { track } = vi.hoisted(() => ({ track: vi.fn() }));
-
-vi.mock('../../core/telemetry', () => ({
-  getGlobalTelemetry: () => ({ track, setCampaignId: vi.fn(), setPlacementId: vi.fn(), flush: vi.fn() }),
-}));
 
 function makeDevice(overrides?: Partial<InventoryRecord>): InventoryRecord {
   return {
@@ -37,8 +31,6 @@ function makeDevice(overrides?: Partial<InventoryRecord>): InventoryRecord {
 }
 
 describe('Phase 3B §9.1 — phone action WhatsApp templates', () => {
-  beforeEach(() => track.mockClear());
-
   it('context auto-fills name/code/price/city/link from the record', () => {
     const ctx = getPhoneActionContext(makeDevice());
     expect(ctx.name).toBe('Apple iPhone 13 (128GB)');
@@ -108,24 +100,11 @@ describe('Phase 3B §9.1 — phone action WhatsApp templates', () => {
 });
 
 describe('Phase 3B §9.2 — sendPhoneActionWhatsApp funnel', () => {
-  beforeEach(() => track.mockClear());
-
-  it('tracks template_selected + whatsapp_clicked with action/device_id, returns the message, opens nothing', () => {
+  it('returns the message and opens nothing (pure pipeline entry, no telemetry)', () => {
     const openSpy = vi.spyOn(window, 'open');
     const message = sendPhoneActionWhatsApp('installment', makeDevice());
     expect(openSpy).not.toHaveBeenCalled();
     expect(message).toContain('تقسيط');
-    expect(track).toHaveBeenCalledTimes(2);
-    const events = track.mock.calls.map((c) => c[0]);
-    expect(events).toEqual(['whatsapp_template_selected', 'whatsapp_clicked']);
-    expect(track).toHaveBeenCalledWith('whatsapp_template_selected', { action: 'installment', device_id: 'rec_abcdef12' });
-    expect(track).toHaveBeenCalledWith('whatsapp_clicked', { action: 'installment', device_id: 'rec_abcdef12' });
     openSpy.mockRestore();
-  });
-
-  it('does not duplicate exit events (leave those to useSmartWhatsApp)', () => {
-    sendPhoneActionWhatsApp('buy', makeDevice());
-    const events = track.mock.calls.map((c) => c[0]);
-    expect(events.filter((e) => e === 'exit_attempt' || e === 'exit_confirmed')).toEqual([]);
   });
 });

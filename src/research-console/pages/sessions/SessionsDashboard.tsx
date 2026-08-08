@@ -141,7 +141,6 @@ function SessionDetail({ session: s }: { session: SessionRow }) {
             { label: 'Language', value: s.language || '-' },
             { label: 'Timezone', value: s.timezone || '-' },
             { label: 'Device', value: s.deviceInfo },
-            { label: 'Source', value: s.campaignSource ?? 'Direct' },
           ].map(({ label, value }) => (
             <div key={label}>
               <p style={{ color: '#666', fontSize: '0.65rem', margin: '0 0 0.1rem', textTransform: 'uppercase' as const }}>{label}</p>
@@ -166,14 +165,14 @@ export function SessionsDashboard() {
   }, [filters]);
 
   const csvData = useMemo(() => {
-    const headers = ['Session ID', 'Created', 'Status', 'User', 'Type', 'Game', 'Avg (ms)', 'Best (ms)', 'Grade', 'Focus', 'Device', 'Brand', 'Model', 'OS', 'Browser', 'Screen', 'RAM', 'CPU', 'Refresh Rate', 'Campaign'];
+    const headers = ['Session ID', 'Created', 'Status', 'User', 'Type', 'Game', 'Avg (ms)', 'Best (ms)', 'Grade', 'Focus', 'Device', 'Brand', 'Model', 'OS', 'Browser', 'Screen', 'RAM', 'CPU', 'Refresh Rate'];
     const rows = sessions.map(s => [
       s.id, s.createdAt, s.status, s.userName, s.userType, s.pluginId,
       String(s.avgRt), String(s.bestRt), s.grade, String(s.focusScore),
       s.deviceInfo, s.brand, s.marketingName, s.deviceOs, s.deviceBrowser,
       s.screenWidth && s.screenHeight ? `${s.screenWidth}x${s.screenHeight}` : '',
       s.memoryGb ? `${s.memoryGb}GB` : '', s.cpuCores ? `${s.cpuCores} cores` : '',
-      s.refreshRate ? `${s.refreshRate}Hz` : '', s.campaignSource ?? '',
+      s.refreshRate ? `${s.refreshRate}Hz` : '',
     ]);
     return { headers, rows };
   }, [sessions]);
@@ -205,7 +204,6 @@ export function SessionsDashboard() {
                 <th style={TH_STYLE}>{t('sessions.colTime')}</th>
                 <th style={TH_STYLE}>Status</th>
                 <th style={TH_STYLE}>{t('sessions.colUser')}</th>
-                <th style={TH_STYLE}>{t('sessions.colQr')}</th>
                 <th style={TH_STYLE}>Device</th>
                 <th style={TH_STYLE}>{t('sessions.colAvgMs')}</th>
                 <th style={TH_STYLE}>{t('sessions.colBestMs')}</th>
@@ -228,7 +226,6 @@ export function SessionsDashboard() {
                       <span style={{ padding: '1px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 600, background: `${statusColor(s.status)}20`, color: statusColor(s.status) }}>{s.status}</span>
                     </td>
                     <td style={ROW_STYLE}>{s.userName}</td>
-                    <td style={ROW_STYLE}>{s.campaignSource ?? '-'}</td>
                     <td style={{ ...ROW_STYLE, fontSize: '0.75rem' }}>{s.marketingName || s.deviceInfo}</td>
                     <td style={{ ...ROW_STYLE, fontVariantNumeric: 'tabular-nums' }}>{s.avgRt || '-'}</td>
                     <td style={{ ...ROW_STYLE, fontVariantNumeric: 'tabular-nums' }}>{s.bestRt || '-'}</td>
@@ -238,7 +235,7 @@ export function SessionsDashboard() {
                   </tr>
                   {expandedId === s.id && (
                     <tr>
-                      <td colSpan={10} style={{ padding: '1rem', background: '#0e0e18', borderBottom: '2px solid #6366f1' }}>
+                      <td colSpan={9} style={{ padding: '1rem', background: '#0e0e18', borderBottom: '2px solid #6366f1' }}>
                         <SessionDetail session={s} />
                       </td>
                     </tr>
@@ -247,7 +244,7 @@ export function SessionsDashboard() {
               ))}
               {sessions.length === 0 && (
                 <tr>
-                  <td colSpan={10} style={{ padding: '2rem', textAlign: 'center', color: '#555' }}>{t('sessions.noSessions')}</td>
+                  <td colSpan={9} style={{ padding: '2rem', textAlign: 'center', color: '#555' }}>{t('sessions.noSessions')}</td>
                 </tr>
               )}
             </tbody>

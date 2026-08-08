@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createBusinessAPI } from '../api';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import type { Opportunity, DeviceInsight, CampaignInsight, FunnelStage } from '../types';
+import type { Opportunity, DeviceInsight, FunnelStage } from '../types';
 
 const api = createBusinessAPI();
 
@@ -15,7 +15,6 @@ interface Message {
 function analyzeQuery(query: string, data: {
   opportunities: Opportunity[];
   devices: DeviceInsight[];
-  campaigns: CampaignInsight[];
   funnel: FunnelStage[];
 }): Message {
   const lower = query.toLowerCase();
@@ -58,39 +57,18 @@ function analyzeQuery(query: string, data: {
     };
   }
 
-  if (lower.includes('حملة') || lower.includes('campaign') || lower.includes('اعلان') || lower.includes('ad')) {
-    const activeCampaigns = data.campaigns.filter(c => c.isActive);
-    return {
-      role: 'assistant',
-      text: `معلومات الحملات:\n• الحملات النشطة: ${activeCampaigns.length}\n• إجمالي الحملات: ${data.campaigns.length}\n\n${
-        activeCampaigns.length === 0 ? 'لا توجد حملات نشطة حالياً. هل تريد إنشاء حملة جديدة؟' :
-        activeCampaigns.map(c => `• ${c.name}: ${c.visitors} زائر، ${c.conversionRate}% تحويل`).join('\n')
-      }`,
-      timestamp: new Date(),
-    };
-  }
-
-  if (lower.includes('ربح') || lower.includes('profit') || lower.includes('revenue') || lower.includes('إيراد') || lower.includes('مالي')) {
-    const totalRevenue = data.campaigns.reduce((s, c) => s + (c.roi ?? 0), 0);
-    return {
-      role: 'assistant',
-      text: `نظرة مالية:\n• إجمالي العائد: ${totalRevenue.toLocaleString()} د.ج\n• عدد الحملات المربحة: ${data.campaigns.filter(c => (c.roi ?? 0) > 0).length}\n\n• أفضل حملة: ${data.campaigns.sort((a, b) => (b.roi ?? 0) - (a.roi ?? 0))[0]?.name ?? '—'}`,
-      timestamp: new Date(),
-    };
-  }
-
   if (lower.includes('توصية') || lower.includes('recommend') || lower.includes('اقتراح') || lower.includes('suggest')) {
     const lowConversion = data.opportunities.filter(o => o.visitCount >= 3 && !o.tradeRequested);
     return {
       role: 'assistant',
-      text: `توصيات ذكية:\n1. استهدف ${lowConversion.length} زائراً عائداً بعروض خصم\n2. ${data.campaigns.filter(c => (c.roi ?? 0) < 0).length} حملات غير مربحة — راجع ميزانيتها\n3. ${data.devices.length > 5 ? 'نوّع مخزون الأجهزة الأكثر طلباً' : 'وسّع قائمة الأجهزة'}\n4. تابع الزوار الذين تفاعلوا عبر واتساب`,
+      text: `توصيات ذكية:\n1. استهدف ${lowConversion.length} زائراً عائداً بعروض خصم\n2. ${data.devices.length > 5 ? 'نوّع مخزون الأجهزة الأكثر طلباً' : 'وسّع قائمة الأجهزة'}\n3. تابع الزوار الذين تفاعلوا عبر واتساب`,
       timestamp: new Date(),
     };
   }
 
   return {
     role: 'assistant',
-    text: `مرحباً! أنا مساعد التحليل الذكي. يمكنني مساعدتك في:\n\n• إحصائيات الزوار والمبيعات\n• تحليل مسار التحويل (Funnel)\n• معلومات الأجهزة الأكثر طلباً\n• أداء الحملات التسويقية\n• التقارير المالية\n• التوصيات والاقتراحات\n\nاكتب سؤالك بأي لغة (عربي أو إنجليزي).`,
+    text: `مرحباً! أنا مساعد التحليل الذكي. يمكنني مساعدتك في:\n\n• إحصائيات الزوار والمبيعات\n• تحليل مسار التحويل (Funnel)\n• معلومات الأجهزة الأكثر طلباً\n• التوصيات والاقتراحات\n\nاكتب سؤالك بأي لغة (عربي أو إنجليزي).`,
     timestamp: new Date(),
   };
 }
@@ -103,18 +81,17 @@ export function AIAssistant() {
     timestamp: new Date(),
   }]);
   const [input, setInput] = useState('');
-  const [data, setData] = useState<{ opportunities: Opportunity[]; devices: DeviceInsight[]; campaigns: CampaignInsight[]; funnel: FunnelStage[] }>({
-    opportunities: [], devices: [], campaigns: [], funnel: [],
+  const [data, setData] = useState<{ opportunities: Opportunity[]; devices: DeviceInsight[]; funnel: FunnelStage[] }>({
+    opportunities: [], devices: [], funnel: [],
   });
 
   useEffect(() => {
     Promise.all([
       api.getCustomerList(),
       api.getDeviceInsights(),
-      api.getCampaignInsights(),
       api.getCommerceFunnel(),
-    ]).then(([opportunities, devices, campaigns, funnel]) => {
-      setData({ opportunities, devices, campaigns, funnel: funnel.stages });
+    ]).then(([opportunities, devices, funnel]) => {
+      setData({ opportunities, devices, funnel: funnel.stages });
     }).catch(() => {});
   }, []);
 

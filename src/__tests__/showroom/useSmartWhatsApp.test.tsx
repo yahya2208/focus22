@@ -2,12 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, fireEvent, screen, act } from '@testing-library/react';
 import { useSmartWhatsApp, WHATSAPP_GUARD_TIMEOUT_MS } from '../../hooks/useSmartWhatsApp';
 
-const { track } = vi.hoisted(() => ({ track: vi.fn() }));
-
-vi.mock('../../core/telemetry', () => ({
-  getGlobalTelemetry: () => ({ track, setCampaignId: vi.fn(), setPlacementId: vi.fn(), flush: vi.fn() }),
-}));
-
 const writeTextMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 let capturedHref: string | null = null;
@@ -38,7 +32,6 @@ function Probe() {
 describe('Phase 3B §9.2 — useSmartWhatsApp same-tab + guard + fallback', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    track.mockClear();
     writeTextMock.mockClear();
     stubLocation();
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: writeTextMock } });
@@ -60,7 +53,7 @@ describe('Phase 3B §9.2 — useSmartWhatsApp same-tab + guard + fallback', () =
     openSpy.mockRestore();
   });
 
-  it('guard times out without pagehide → fallback modal + whatsapp_fallback_shown', () => {
+  it('guard times out without pagehide → fallback modal', () => {
     render(<Probe />);
     fireEvent.click(screen.getByText('send'));
     expect(screen.queryByTestId('modal')).toBeNull();
@@ -68,10 +61,9 @@ describe('Phase 3B §9.2 — useSmartWhatsApp same-tab + guard + fallback', () =
       vi.advanceTimersByTime(WHATSAPP_GUARD_TIMEOUT_MS);
     });
     expect(screen.getByTestId('modal').textContent).toBe('مرحبا');
-    expect(track).toHaveBeenCalledWith('whatsapp_fallback_shown', { action: 'buy', deviceId: 'd1' });
   });
 
-  it('page actually leaves during the guard → whatsapp_sent + exit_confirmed, no fallback', () => {
+  it('page actually leaves during the guard → no fallback', () => {
     render(<Probe />);
     fireEvent.click(screen.getByText('send'));
     act(() => {
@@ -79,19 +71,9 @@ describe('Phase 3B §9.2 — useSmartWhatsApp same-tab + guard + fallback', () =
       vi.advanceTimersByTime(WHATSAPP_GUARD_TIMEOUT_MS + 100);
     });
     expect(screen.queryByTestId('modal')).toBeNull();
-    expect(track).toHaveBeenCalledWith('whatsapp_sent', { action: 'buy', deviceId: 'd1' });
-    expect(track).toHaveBeenCalledWith('exit_confirmed', { target: 'whatsapp' });
-    expect(track).not.toHaveBeenCalledWith('whatsapp_fallback_shown', expect.anything());
   });
 
-  it('sends exactly one exit_attempt per send (no duplication)', () => {
-    render(<Probe />);
-    fireEvent.click(screen.getByText('send'));
-    const attempts = track.mock.calls.filter((c) => c[0] === 'exit_attempt');
-    expect(attempts).toHaveLength(1);
-  });
-
-  it('copy in the fallback modal copies the message + whatsapp_message_copied', async () => {
+  it('copy in the fallback modal copies the message', async () => {
     render(<Probe />);
     fireEvent.click(screen.getByText('send'));
     act(() => {
@@ -100,6 +82,5 @@ describe('Phase 3B §9.2 — useSmartWhatsApp same-tab + guard + fallback', () =
     fireEvent.click(screen.getByText('copy'));
     await act(async () => { await Promise.resolve(); });
     expect(writeTextMock).toHaveBeenCalledWith('مرحبا');
-    expect(track).toHaveBeenCalledWith('whatsapp_message_copied', { action: 'buy', deviceId: 'd1' });
   });
 });

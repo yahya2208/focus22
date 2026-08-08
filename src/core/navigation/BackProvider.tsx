@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from 'react';
 import { useAppDispatch, useAppState, type ScreenName } from '../../store/navigation';
-import { getGlobalTelemetry } from '../telemetry';
 import { devLog } from '../logging';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -66,7 +65,6 @@ export function BackProvider({ children }: { children: ReactNode }) {
         getGuards: (screen) =>
           (registryRef.current?.guardsFor(screen) ?? []).map((g) => () => g.beforeBack()),
         dispatch: (action) => dispatchRef.current(action),
-        track: (type, payload) => getGlobalTelemetry().track(type as never, payload),
         isDoubleExitArmed: () => doubleExitArmedRef.current,
         armDoubleExit: () => {
           if (doubleExitTimerRef.current) clearTimeout(doubleExitTimerRef.current);

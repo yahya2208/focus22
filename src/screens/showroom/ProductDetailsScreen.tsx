@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -17,8 +17,6 @@ import { useViewCounter } from '../../hooks/useViewCounter';
 import { useSmartWhatsApp } from '../../hooks/useSmartWhatsApp';
 import { useFavorites } from '../../hooks/useFavorites';
 import { sendPhoneActionWhatsApp, type PhoneActionId } from '../../services/whatsapp-service';
-import { getGlobalTelemetry } from '../../core/telemetry';
-import { EventTypes } from '../../core/analytics/events';
 import { buildAppUrl } from '../../core/base-path';
 import type { InventoryRecord } from '../../services/inventory-service';
 
@@ -72,34 +70,10 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
   const [copied, setCopied] = useState(false);
-  const openedAtRef = useRef(0);
-  const openedTrackedRef = useRef(false);
 
   const handleBack = useCallback(() => {
     dispatch({ type: 'BACK' });
   }, [dispatch]);
-
-  useEffect(() => {
-    if (!deviceId) return;
-    if (openedTrackedRef.current) return;
-    if (!device && !notFound) return;
-    openedTrackedRef.current = true;
-    openedAtRef.current = Date.now();
-    getGlobalTelemetry().track(EventTypes.PHONE_DETAILS_OPENED, {
-      device_id: deviceId,
-      ...(device ? { brand: device.brand, model: device.model } : { not_found: true }),
-    });
-  }, [device, notFound, deviceId]);
-
-  useEffect(() => {
-    return () => {
-      if (!openedTrackedRef.current) return;
-      getGlobalTelemetry().track(EventTypes.PHONE_DETAILS_CLOSED, {
-        device_id: deviceId,
-        dwell_ms: Date.now() - openedAtRef.current,
-      });
-    };
-  }, [deviceId]);
 
   const handleShare = useCallback(async () => {
     const url = buildAppUrl(`#/phone-details?device=${deviceId}`);

@@ -1,7 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
 import type { CalibrationProfile } from '../core/calibration';
 import type { ScoringResult } from '../core/engine/scoring';
-import { getGlobalTelemetry } from '../core/telemetry';
 import { registerAppReset } from '../core/navigation/error-reset';
 
 export type ScreenName =
@@ -74,9 +73,6 @@ export interface AppState {
     sessionEnd?: number;
   } | null;
   sessions: SessionRecord[];
-  isQrFlow: boolean;
-  campaignId: string | null;
-  placementId: string | null;
   navStack: ScreenName[];
   intendedScreen: ScreenName | null;
   routeParams: Record<string, string>;
@@ -93,7 +89,6 @@ export type NavigationAction =
   | { type: 'SET_RESULTS'; results: AppState['results'] }
   | { type: 'SAVE_SESSION' }
   | { type: 'RESET' }
-  | { type: 'START_QR_FLOW'; campaignId?: string | null; placementId?: string | null; qrId?: string | null }
   | { type: 'START_SESSION'; sessionId: string; gameMode: string }
   | { type: 'SESSION_SAVED'; sessionId: string };
 
@@ -107,9 +102,6 @@ export const initialState: AppState = {
   currentSession: null,
   results: null,
   sessions: [],
-  isQrFlow: false,
-  campaignId: null,
-  placementId: null,
   navStack: ['home'],
   intendedScreen: null,
   routeParams: {},
@@ -221,17 +213,6 @@ export function navigationReducer(state: AppState, action: NavigationAction): Ap
         intendedScreen: null,
         routeParams: {},
       };
-    case 'START_QR_FLOW':
-      return {
-        ...initialState,
-        screen: 'game-intro',
-        currentScreen: 'game-intro',
-        isQrFlow: true,
-        campaignId: action.campaignId ?? null,
-        placementId: action.placementId ?? null,
-        navStack: ['home', 'game-intro'],
-        routeParams: {},
-      };
     default:
       return state;
   }
@@ -253,44 +234,7 @@ export interface NavigateApi {
   setIntendedScreen(screen: ScreenName | null): void;
 }
 
-function emitNavigationAnalytics(prev: AppState, action: NavigationAction): void {
-  const telemetry = getGlobalTelemetry();
-  switch (action.type) {
-    case 'NAVIGATE': {
-      if (prev.screen === action.screen) return;
-      telemetry.track('navigation_push', { from: prev.screen, to: action.screen });
-      telemetry.track('screen_view', { screen: action.screen });
-      return;
-    }
-    case 'REPLACE': {
-      if (prev.screen === action.screen) return;
-      telemetry.track('navigation_replace', { from: prev.screen, to: action.screen });
-      telemetry.track('screen_view', { screen: action.screen });
-      return;
-    }
-    case 'BACK': {
-      if (prev.navStack.length <= 1) return;
-      const target = prev.navStack[prev.navStack.length - 2];
-      if (target === prev.screen) return;
-      telemetry.track('navigation_pop', { from: prev.screen, to: target });
-      telemetry.track('screen_view', { screen: target });
-      return;
-    }
-    case 'RESET': {
-      if (prev.screen === 'home') return;
-      telemetry.track('screen_view', { screen: 'home' });
-      return;
-    }
-    case 'START_QR_FLOW': {
-      telemetry.track('screen_view', { screen: 'game-intro', via: 'qr' });
-      return;
-    }
-    default:
-      return;
-  }
-}
-
-export function syncUrlWithState(
+function syncUrlWithState(
   state: AppState,
   actionType: NavigationAction['type'] | null = null,
 ): void {
@@ -308,16 +252,11 @@ export function syncUrlWithState(
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, rawDispatch] = useReducer(navigationReducer, initialState);
 
-  const stateRef = useRef(state);
-  stateRef.current = state;
-
   const lastActionTypeRef = useRef<NavigationAction['type'] | null>(null);
   const firstRenderRef = useRef(true);
 
   const dispatch = useCallback(
     (action: NavigationAction): void => {
-      lastActionTypeRef.current = action.type;
-      emitNavigationAnalytics(stateRef.current, action);
       rawDispatch(action);
     },
     [rawDispatch],
@@ -330,13 +269,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     syncUrlWithState(state, lastActionTypeRef.current);
   }, [state]);
-
-  useEffect(() => {
-    getGlobalTelemetry().track('screen_view', {
-      screen: stateRef.current.screen,
-      via: 'initial',
-    });
-  }, []);
 
   useEffect(() => {
     const unregister = registerAppReset(() => {

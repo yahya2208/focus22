@@ -11,13 +11,11 @@ interface Harness {
   deps: BackControllerDeps;
   back(): ReturnType<ReturnType<typeof createBackController>['back']>;
   actions: NavigationAction[];
-  tracks: { type: string; payload: Record<string, unknown> }[];
   exitCalled: boolean;
 }
 
 function makeHarness(overrides: Partial<BackControllerDeps> = {}): Harness {
   const actions: NavigationAction[] = [];
-  const tracks: { type: string; payload: Record<string, unknown> }[] = [];
   const stack: ScreenName[] = ['home'];
   const screen: ScreenName = 'home';
   const open = false;
@@ -30,7 +28,6 @@ function makeHarness(overrides: Partial<BackControllerDeps> = {}): Harness {
     getOverlays: () => (open ? [overlay('dialog', () => true)] : []),
     getGuards: () => [],
     dispatch: (action) => actions.push(action),
-    track: (type, payload) => tracks.push({ type, payload }),
     isDoubleExitArmed: () => armed,
     armDoubleExit: () => {
       armed = true;
@@ -48,7 +45,6 @@ function makeHarness(overrides: Partial<BackControllerDeps> = {}): Harness {
     deps,
     back: createBackController(deps).back,
     actions,
-    tracks,
     get exitCalled() {
       return exitCalled;
     },
@@ -77,7 +73,6 @@ describe('back dispatcher (Phase 2) — priority table', () => {
     });
     const outcome = h.back();
     expect(outcome).toEqual({ outcome: 'guard-blocked', reason: 'overlay-guard' });
-    expect(h.tracks).toContainEqual({ type: 'back_blocked', payload: { screen: 'settings', reason: 'overlay-guard' } });
   });
 
   it('lets the highest-priority open overlay win when several are open', () => {
@@ -106,7 +101,6 @@ describe('back dispatcher (Phase 2) — priority table', () => {
     expect(outcome).toEqual({ outcome: 'guard-blocked', reason: 'beforeBack' });
     expect(guard).toHaveBeenCalledTimes(1);
     expect(h.actions).toEqual([]);
-    expect(h.tracks).toContainEqual({ type: 'back_blocked', payload: { screen: 'game', reason: 'beforeBack' } });
   });
 
   it('allows back when all guards pass', () => {
@@ -154,17 +148,5 @@ describe('back dispatcher (Phase 2) — priority table', () => {
     const outcome = h.back();
     expect(outcome).toEqual({ outcome: 'back' });
     expect(h.actions).toEqual([{ type: 'BACK' }]);
-  });
-
-  it('always emits back_pressed with the current screen and stack depth', () => {
-    const h = makeHarness({ getStack: () => ['home', 'settings'], getScreen: () => 'settings' });
-    h.back();
-    expect(h.tracks).toContainEqual({ type: 'back_pressed', payload: { screen: 'settings', stack_depth: 2 } });
-  });
-
-  it('emits back_pressed even when nothing happens (home, not armed)', () => {
-    const h = makeHarness({ getStack: () => ['home'], getScreen: () => 'home' });
-    h.back();
-    expect(h.tracks[0]!.type).toBe('back_pressed');
   });
 });

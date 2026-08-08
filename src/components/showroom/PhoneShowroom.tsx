@@ -1,39 +1,29 @@
 import { memo, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from '../../hooks/useTranslation';
-import { getGlobalTelemetry } from '../../core/telemetry';
-import { EventTypes } from '../../core/analytics/events';
 import type { InventoryRecord } from '../../services/inventory-service';
 
 export interface PhoneCardProps {
   device: InventoryRecord;
   compact?: boolean;
-  index?: number;
   onSelect: (device: InventoryRecord) => void;
 }
 
 /**
  * Showroom product card (§3.2): image fills the card (no whitespace), badge
  * جديد/مستعمل, multi-image indicator, name/price/condition/city. Tap ALWAYS
- * opens the details page (`phone_card_clicked`). The old gallery-only tap is
- * gone — gallery lives in the details page.
+ * opens the details page. The old gallery-only tap is gone — gallery lives in
+ * the details page.
  */
-export const PhoneCard = memo(function PhoneCard({ device, compact = false, index, onSelect }: PhoneCardProps) {
+export const PhoneCard = memo(function PhoneCard({ device, compact = false, onSelect }: PhoneCardProps) {
   const colors = useThemeColors();
   const { t } = useTranslation();
   const images = device.images ?? [];
   const primary = images[0];
 
   const handleClick = useCallback(() => {
-    getGlobalTelemetry().track(EventTypes.PHONE_CARD_CLICKED, {
-      device_id: device.id,
-      brand: device.brand,
-      model: device.model,
-      price: device.sellPrice ?? undefined,
-      index,
-    });
     onSelect(device);
-  }, [device, index, onSelect]);
+  }, [device, onSelect]);
 
   const badge = (
     <span
@@ -201,11 +191,10 @@ export const PhoneShowroom = memo(function PhoneShowroom({ devices, onSelect, em
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 160px), 1fr))', gap: '0.75rem' }}>
-      {devices.map((device, index) => (
+      {devices.map((device) => (
         <PhoneCard
           key={`${device.id}-${device.variant}-${device.condition}`}
           device={device}
-          index={index}
           onSelect={onSelect}
         />
       ))}

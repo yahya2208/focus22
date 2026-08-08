@@ -56,13 +56,6 @@ describe('navigationReducer — routeParams (Phase 3A)', () => {
     expect(reset.routeParams).toEqual({});
   });
 
-  it('START_QR_FLOW starts with empty routeParams', () => {
-    const state = navigationReducer(initialState, { type: 'START_QR_FLOW' });
-    expect(state.screen).toBe('game-intro');
-    expect(state.isQrFlow).toBe(true);
-    expect(state.routeParams).toEqual({});
-  });
-
   it('params survive a subsequent NAVIGATE with params (per-screen params, not global)', () => {
     const first = navigationReducer(initialState, {
       type: 'NAVIGATE',

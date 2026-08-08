@@ -3,20 +3,35 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   getDataService,
   resetDataService,
-  type CampaignLookupResult,
+  type SessionData,
 } from '../../core/supabase/data-service';
 
-interface RpcErrorLike {
-  code: string;
-  message: string;
-  details?: string | null;
-  hint?: string | null;
-}
+const sessionRow: SessionData = {
+  id: 's1',
+  user_id: 'u1',
+  device_id: 'd1',
+  calibration_id: 'c1',
+  plugin_id: 'reaction-light',
+  status: 'completed',
+  measurements: { corrected_rts: [260, 240] },
+  scientific_results: { focus_score: 88 },
+  metadata: {},
+  created_at: '2026-01-01T00:00:00.000Z',
+  updated_at: '2026-01-01T00:01:00.000Z',
+  finished_at: '2026-01-01T00:01:00.000Z',
+  version: '2.0.0',
+};
 
-function clientWith(rpcResult: { data: unknown; error: RpcErrorLike | null }) {
-  const maybeSingle = vi.fn().mockResolvedValue(rpcResult);
-  const rpc = vi.fn(() => ({ maybeSingle }));
-  return { client: { rpc, maybeSingle } as unknown as SupabaseClient, rpc, maybeSingle };
+function clientWith(result: { data?: unknown; count?: number; error?: unknown }) {
+  const q: Record<string, unknown> & { then: (resolve: (v: unknown) => void) => void } = {
+    then: (resolve: (v: unknown) => void) => resolve(result),
+  };
+  for (const m of ['select', 'eq', 'order', 'range', 'upsert']) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    q[m] = vi.fn(() => q) as any;
+  }
+  const from = vi.fn(() => q);
+  return { client: { from } as unknown as SupabaseClient, from, q };
 }
 
 function service(client: SupabaseClient) {
@@ -24,70 +39,66 @@ function service(client: SupabaseClient) {
   return getDataService(client);
 }
 
-const campaignRow: CampaignLookupResult = {
-  id: 'a0626da4-d89c-45a9-84e8-0d71b531d08b',
-  short_code: 'test01',
-  name: 'P3 Test Campaign',
-  is_active: true,
-};
-
 afterEach(() => {
   resetDataService();
   vi.restoreAllMocks();
 });
 
-describe('getCampaignByShortCode', () => {
-  it('returns the CampaignLookupResult when the campaign exists', async () => {
-    const { client, rpc, maybeSingle } = clientWith({ data: campaignRow, error: null });
+describe('saveSession', () => {
+  it('upserts the session row and throws no error on success', async () => {
+    const { client, from, q } = clientWith({ error: null });
     const ds = service(client);
 
-    const result = await ds.getCampaignByShortCode('test01');
+    await ds.saveSession(sessionRow);
 
-    expect(rpc).toHaveBeenCalledWith('lookup_campaign_by_short_code', { p_code: 'test01' });
-    expect(maybeSingle).toHaveBeenCalled();
-    expect(result).toEqual(campaignRow);
+    expect(from).toHaveBeenCalledWith('sessions');
+    expect(q.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      id: 's1',
+      user_id: 'u1',
+      status: 'completed',
+      version: '2.0.0',
+    }));
   });
 
-  it('returns null when no campaign exists', async () => {
-    const { client, rpc } = clientWith({ data: null, error: null });
+  it('throws when the upsert fails', async () => {
+    const { client } = clientWith({ error: new Error('db down') });
     const ds = service(client);
 
-    const result = await ds.getCampaignByShortCode('does-not-exist');
+    await expect(ds.saveSession(sessionRow)).rejects.toThrow('db down');
+  });
+});
 
-    expect(rpc).toHaveBeenCalledWith('lookup_campaign_by_short_code', { p_code: 'does-not-exist' });
-    expect(result).toBeNull();
+describe('getSessions', () => {
+  it('returns the rows and total count', async () => {
+    const { client, from, q } = clientWith({ data: [sessionRow], count: 1, error: null });
+    const ds = service(client);
+
+    const result = await ds.getSessions();
+
+    expect(from).toHaveBeenCalledWith('sessions');
+    expect(q.select).toHaveBeenCalledWith('*', { count: 'exact' });
+    expect(result.data).toHaveLength(1);
+    expect(result.count).toBe(1);
+    expect(result.data[0]!.id).toBe('s1');
   });
 
-  it('throws with a clear message when the RPC is missing (PGRST202)', async () => {
-    const error = { code: 'PGRST202', message: 'Could not find the function public.lookup_campaign_by_short_code' };
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const { client } = clientWith({ data: null, error });
+  it('applies the user_id and status filters', async () => {
+    const { client, q } = clientWith({ data: [], count: 0, error: null });
     const ds = service(client);
 
-    await expect(ds.getCampaignByShortCode('test01')).rejects.toMatchObject({ code: 'PGRST202' });
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'lookup_campaign_by_short_code RPC is missing. Run the database migration.',
-    );
+    await ds.getSessions({ user_id: 'u1', status: 'completed' });
+
+    expect(q.eq).toHaveBeenCalledWith('user_id', 'u1');
+    expect(q.eq).toHaveBeenCalledWith('status', 'completed');
   });
 
-  it('throws when multiple rows are returned (data corruption / missing index)', async () => {
-    const error = {
-      code: 'PGRST116',
-      details: 'The result contains 2 rows',
-      message: 'JSON object requested, multiple (or no) rows returned',
-      hint: null,
-    };
-    const { client } = clientWith({ data: null, error });
+  it('returns empty data when the query errors', async () => {
+    const { client } = clientWith({ data: null, error: new Error('boom') });
     const ds = service(client);
 
-    await expect(ds.getCampaignByShortCode('dup')).rejects.toMatchObject({ code: 'PGRST116' });
-  });
+    const result = await ds.getSessions();
 
-  it('throws on permission denied (42501) instead of returning null', async () => {
-    const error = { code: '42501', message: 'permission denied for function lookup_campaign_by_short_code', details: null, hint: null };
-    const { client } = clientWith({ data: null, error });
-    const ds = service(client);
-
-    await expect(ds.getCampaignByShortCode('test01')).rejects.toMatchObject({ code: '42501' });
+    expect(result.data).toEqual([]);
+    expect(result.count).toBe(0);
   });
 });

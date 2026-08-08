@@ -6,12 +6,6 @@ import { TranslationProvider } from '../../hooks/useTranslation';
 import { resetShowroomUiState, type ShowroomUiState } from '../../hooks/useShowroomState';
 import type { InventoryRecord } from '../../services/inventory-service';
 
-const { track } = vi.hoisted(() => ({ track: vi.fn() }));
-
-vi.mock('../../core/telemetry', () => ({
-  getGlobalTelemetry: () => ({ track, setCampaignId: vi.fn(), setPlacementId: vi.fn(), flush: vi.fn() }),
-}));
-
 function makeDevice(overrides: Partial<InventoryRecord>): InventoryRecord {
   return {
     id: overrides.id ?? 'd',
@@ -53,42 +47,37 @@ function renderControls(onChange: (patch: Partial<ShowroomUiState>) => void) {
 describe('Phase 3B §4/§5 — ShowroomControls', () => {
   beforeEach(() => {
     resetShowroomUiState();
-    track.mockClear();
   });
 
-  it('search input propagates query without telemetry', () => {
+  it('search input propagates query', () => {
     const onChange = vi.fn();
     renderControls(onChange);
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'iphone' } });
     expect(onChange).toHaveBeenCalledWith({ query: 'iphone' });
-    expect(track).not.toHaveBeenCalled();
   });
 
-  it('condition chip emits showroom_filter_changed and propagates the value', () => {
+  it('condition chip propagates the value', () => {
     const onChange = vi.fn();
     renderControls(onChange);
     fireEvent.click(screen.getByRole('button', { name: 'New' }));
     expect(onChange).toHaveBeenCalledWith({ condition: 'new' });
-    expect(track).toHaveBeenCalledWith('showroom_filter_changed', { filter: 'condition', value: 'new' });
   });
 
-  it('city chip emits showroom_filter_changed and propagates the city', () => {
+  it('city chip propagates the city', () => {
     const onChange = vi.fn();
     renderControls(onChange);
     fireEvent.click(screen.getByRole('button', { name: /الجزائر/ }));
     expect(onChange).toHaveBeenCalledWith({ city: 'الجزائر' });
-    expect(track).toHaveBeenCalledWith('showroom_filter_changed', { filter: 'city', value: 'الجزائر' });
   });
 
-  it('sort select emits showroom_sort_changed and propagates the value', () => {
+  it('sort select propagates the value', () => {
     const onChange = vi.fn();
     renderControls(onChange);
     fireEvent.change(screen.getByRole('combobox', { name: 'Sort' }), { target: { value: 'expensive' } });
     expect(onChange).toHaveBeenCalledWith({ sort: 'expensive' });
-    expect(track).toHaveBeenCalledWith('showroom_sort_changed', { sort: 'expensive' });
   });
 
-  it('re-selecting the active condition does not emit telemetry', () => {
+  it('re-selecting the active condition does not propagate', () => {
     const onChange = vi.fn();
     render(
       <ThemeProvider>
@@ -99,6 +88,5 @@ describe('Phase 3B §4/§5 — ShowroomControls', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'New' }));
     expect(onChange).not.toHaveBeenCalled();
-    expect(track).not.toHaveBeenCalled();
   });
 });

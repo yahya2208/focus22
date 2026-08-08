@@ -6,12 +6,6 @@ import { TranslationProvider } from '../../hooks/useTranslation';
 import { ThemeProvider } from '../../design-system/use-theme';
 import { ErrorBoundary } from '../../components/shared/ErrorBoundary';
 
-const { track } = vi.hoisted(() => ({ track: vi.fn() }));
-
-vi.mock('../../core/telemetry', () => ({
-  getGlobalTelemetry: () => ({ track, setCampaignId: vi.fn(), setPlacementId: vi.fn(), flush: vi.fn() }),
-}));
-
 function StateProbe() {
   const { screen, routeParams } = useAppState();
   return <div data-testid="state-probe">screen={screen}|params={JSON.stringify(routeParams)}</div>;
@@ -62,7 +56,6 @@ describe('ErrorBoundary in-app reset (Phase 3A) — no loop, no double reset, no
   let resetCalls: number;
 
   beforeEach(async () => {
-    track.mockClear();
     throwAttempts = 0;
     bridge = await import('../../core/navigation/error-reset');
     resetCalls = 0;

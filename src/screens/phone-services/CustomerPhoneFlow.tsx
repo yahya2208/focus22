@@ -1,4 +1,4 @@
-import { memo, useState, useEffect } from 'react';
+import { memo, useState } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { CatalogAutocomplete } from '../../components/catalog/CatalogAutocomplete';
 import type { CatalogSearchResult } from '../../services/catalog-service';
@@ -10,13 +10,6 @@ import type { InventoryRecord } from '../../services/inventory-service';
 import { openWhatsAppForAction } from '../../services/whatsapp-message';
 import { openModelNotFoundRequest } from '../../services/whatsapp-service';
 import { AdSpot } from '../../components/ads/AdSpot';
-import {
-  trackPhoneServiceOpened,
-  trackDeviceSelected,
-  trackBuyFlowStarted,
-  trackSellFlowStarted,
-  trackExchangeFlowStarted,
-} from '../../core/analytics/tracker';
 
 type FlowStep = 'search' | 'variant' | 'condition' | 'action' | 'whatsapp';
 type CustomerAction = 'sell' | 'buy' | 'exchange';
@@ -29,8 +22,6 @@ export interface CustomerPhoneFlowProps {
 
 export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: CustomerPhoneFlowProps) {
   const colors = useThemeColors();
-
-  useEffect(() => { trackPhoneServiceOpened('customer_flow'); }, []);
 
   const [step, setStep] = useState<FlowStep>('search');
   const [selectedResult, setSelectedResult] = useState<CatalogSearchResult | null>(null);
@@ -62,7 +53,6 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
 
   const handleSearchSelect = (result: CatalogSearchResult) => {
     setSelectedResult(result);
-    trackDeviceSelected('customer_flow', result.brand, result.model);
     setStep('variant');
   };
 
@@ -78,9 +68,6 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
 
   const handleActionSelect = (chosen: CustomerAction) => {
     setAction(chosen);
-    if (chosen === 'sell') trackSellFlowStarted('customer_sell');
-    else if (chosen === 'buy') trackBuyFlowStarted('customer_buy');
-    else if (chosen === 'exchange') trackExchangeFlowStarted();
     setTargetDevice(null);
     setSearchQuery('');
     setStep('whatsapp');

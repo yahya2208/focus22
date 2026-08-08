@@ -65,22 +65,6 @@ describe('navigationReducer — NavStack (Phase 1)', () => {
     expect(cleared.intendedScreen).toBeNull();
   });
 
-  it('START_QR_FLOW seeds the stack as home -> game-intro with attribution', () => {
-    const state = navigationReducer(initialState, {
-      type: 'START_QR_FLOW',
-      campaignId: 'camp-1',
-      placementId: 'place-1',
-      qrId: 'qr-1',
-    });
-    expect(state.screen).toBe('game-intro');
-    expect(state.currentScreen).toBe('game-intro');
-    expect(state.isQrFlow).toBe(true);
-    expect(state.campaignId).toBe('camp-1');
-    expect(state.placementId).toBe('place-1');
-    expect(state.navStack).toEqual(['home', 'game-intro']);
-    expect(state.intendedScreen).toBeNull();
-  });
-
   it('caps the stack at MAX_STACK_DEPTH (50) entries', () => {
     const cycle: ScreenName[] = ['settings', 'about', 'library', 'history', 'showroom'];
     let state: AppState = { ...initialState };

@@ -1,6 +1,5 @@
 import type { ResearchFilters } from './filters';
 import { getSupabaseClient } from '../supabase/client';
-import { getDataService } from '../supabase/data-service';
 import { parseDeviceBrandModel } from '../device/parser';
 
 export interface OverviewStats {
@@ -20,7 +19,6 @@ export interface OverviewStats {
   readonly avgCalibrationConfidence: number;
   readonly countries: number;
   readonly cities: number;
-  readonly campaigns: number;
   readonly devices: number;
   readonly currentOnline: number;
   readonly peakToday: number;
@@ -52,9 +50,6 @@ export interface UserAnalytics {
   readonly monthlyActiveUsers: number;
   readonly avgSessionsPerUser: number;
   readonly avgGamesPerUser: number;
-  readonly registrationFunnel: { readonly stage: string; readonly count: number; readonly rate: number }[];
-  readonly acquisitionSources: { readonly source: string; readonly count: number; readonly conversionRate: number }[];
-  readonly referralSuccess: { readonly code: string; readonly scans: number; readonly conversions: number; readonly rate: number }[];
 }
 
 export interface SessionAnalytics {
@@ -122,7 +117,6 @@ export interface DeviceIntelligence {
   readonly avgDuration: number;
   readonly avgRt: number;
   readonly avgFocusScore: number;
-  readonly campaigns: readonly string[];
   readonly firstSeen: string;
   readonly lastSeen: string;
   readonly health: DeviceHealthMetrics;
@@ -157,17 +151,6 @@ export interface SurveyAnalytics {
   readonly exerciseDistribution: { readonly frequency: string; readonly count: number }[];
   readonly completionRate: number;
   readonly correlationMatrix: { readonly field1: string; readonly field2: string; readonly correlation: number }[];
-}
-
-export interface CampaignAnalytics {
-  readonly campaigns: { readonly id: string; readonly name: string; readonly is_active: boolean; readonly created_at: string }[];
-  readonly referralPerformance: { readonly code: string; readonly scans: number; readonly conversions: number; readonly rate: number }[];
-  readonly landingConversion: number;
-  readonly registrationConversion: number;
-  readonly sessionCompletionByCampaign: { readonly campaign: string; readonly rate: number }[];
-  readonly avgRtByCampaign: { readonly campaign: string; readonly avgRt: number }[];
-  readonly avgFocusByCampaign: { readonly campaign: string; readonly avgFocus: number }[];
-  readonly campaignRanking: { readonly campaign: string; readonly score: number }[];
 }
 
 export interface LiveEvent {
@@ -211,7 +194,6 @@ export interface SessionRow {
   readonly deviceInfo: string;
   readonly deviceOs: string;
   readonly deviceBrowser: string;
-  readonly campaignSource: string | null;
   readonly brand: string;
   readonly model: string;
   readonly marketingName: string;
@@ -239,7 +221,6 @@ export interface ResearchAPI {
   getDeviceAnalytics(filters?: ResearchFilters): Promise<DeviceAnalytics>;
   getDeviceIntelligence(filters?: ResearchFilters): Promise<readonly DeviceHierarchyGroup[]>;
   getSurveyAnalytics(filters?: ResearchFilters): Promise<SurveyAnalytics>;
-  getCampaignAnalytics(filters?: ResearchFilters): Promise<CampaignAnalytics>;
   getLiveEvents(): readonly LiveEvent[];
   addLiveEvent(event: LiveEvent): void;
   getSystemHealth(): Promise<SystemHealth>;
@@ -248,7 +229,6 @@ export interface ResearchAPI {
 export function createResearchAPI(): ResearchAPI {
   const liveEvents: LiveEvent[] = [];
   const client = getSupabaseClient();
-  const dataService = getDataService(client);
 
   return {
     async getOverview(filters?: ResearchFilters): Promise<OverviewStats> {
@@ -258,14 +238,13 @@ export function createResearchAPI(): ResearchAPI {
       const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-      const [usersResult, sessionsResult, todayResult, weekResult, monthResult, runningResult, qrStats] = await Promise.all([
+      const [usersResult, sessionsResult, todayResult, weekResult, monthResult, runningResult] = await Promise.all([
         client.from('users').select('id, role', { count: 'exact' }),
         client.from('sessions').select('id, status, measurements, scientific_results, created_at, device_id, user_id, calibration_id', { count: 'exact' }),
         client.from('sessions').select('id, created_at', { count: 'exact' }).gte('created_at', todayStart),
         client.from('sessions').select('id', { count: 'exact' }).gte('created_at', weekStart),
         client.from('sessions').select('id', { count: 'exact' }).gte('created_at', monthStart),
         client.from('sessions').select('id', { count: 'exact', head: true }).eq('status', 'running'),
-        dataService.getQRStats(),
       ]);
 
       const users = usersResult.data ?? [];
@@ -399,7 +378,6 @@ export function createResearchAPI(): ResearchAPI {
         avgCalibrationConfidence,
         countries: 0,
         cities: 0,
-        campaigns: qrStats.totalCampaigns,
         devices: uniqueDevices,
         currentOnline: runningCount,
         peakToday,
@@ -475,13 +453,10 @@ export function createResearchAPI(): ResearchAPI {
 
     async getUserAnalytics(_filters?: ResearchFilters): Promise<UserAnalytics> {
       const { data: users } = await client.from('users').select('id, role, created_at');
-      const { data: sessions } = await client.from('sessions').select('id, user_id, created_at, campaign_id');
-      const { data: events } = await client.from('analytics_events').select('event_type, user_id, event_data, session_id, created_at');
-      const { data: qrCodes } = await client.from('qr_codes').select('id, code, referral_code, registration_count');
+      const { data: sessions } = await client.from('sessions').select('id, user_id, created_at');
 
       const userList = users ?? [];
       const sessionList = sessions ?? [];
-      const eventList = events ?? [];
 
       const guestUsers = userList.filter(u => u.role === 'guest').length;
       const registeredUsers = userList.filter(u => u.role !== 'guest').length;
@@ -504,14 +479,6 @@ export function createResearchAPI(): ResearchAPI {
 
       const sessionsPerUser = userList.length > 0 ? sessionList.length / userList.length : 0;
 
-      const registrationEvents = eventList.filter(e => e.event_type === 'registration_completed');
-      const registrationFunnel = [
-        { stage: 'Visitors', count: userList.length, rate: 100 },
-        { stage: 'Guest Users', count: guestUsers, rate: userList.length > 0 ? (guestUsers / userList.length) * 100 : 0 },
-        { stage: 'Registrations', count: registrationEvents.length, rate: userList.length > 0 ? (registrationEvents.length / userList.length) * 100 : 0 },
-        { stage: 'Active Users', count: registeredUsers, rate: userList.length > 0 ? (registeredUsers / userList.length) * 100 : 0 },
-      ];
-
       const userActiveDays = new Map<string, Set<string>>();
       for (const s of sessionList) {
         if (!s.user_id || !s.created_at) continue;
@@ -521,48 +488,6 @@ export function createResearchAPI(): ResearchAPI {
         userActiveDays.get(uid)!.add(day);
       }
       const returningUsers = [...userActiveDays.values()].filter(days => days.size >= 2).length;
-
-      const sessionIdToCampaign = new Map<string, string | null>(
-        sessionList.map(s => [s.id as string, (s.campaign_id as string) ?? null])
-      );
-      const regCountByCampaign = new Map<string, number>();
-      registrationEvents.forEach(e => {
-        if (!e.session_id) return;
-        const campaign = sessionIdToCampaign.get(e.session_id as string) ?? null;
-        if (campaign) regCountByCampaign.set(campaign, (regCountByCampaign.get(campaign) ?? 0) + 1);
-      });
-
-      const scanEvents = eventList.filter(e => e.event_type === 'qr_scanned');
-      const qrIdToReferral = new Map<string, string>((qrCodes ?? [])
-        .filter(q => q.referral_code)
-        .map(q => [q.id as string, q.referral_code as string]));
-      const referralConversions = new Map<string, number>();
-      (qrCodes ?? []).forEach(q => {
-        if (!q.referral_code) return;
-        referralConversions.set(q.referral_code as string, (referralConversions.get(q.referral_code as string) ?? 0) + (q.registration_count ?? 0));
-      });
-      const campaignCounts = new Map<string, number>();
-      const referralScans = new Map<string, number>();
-      scanEvents.forEach(e => {
-        const data = (e.event_data as Record<string, unknown>) ?? {};
-        const referral = (data.referrer as string) ?? qrIdToReferral.get((data.qr_id as string) ?? '') ?? null;
-        if (referral) referralScans.set(referral, (referralScans.get(referral) ?? 0) + 1);
-        const campaignId = typeof data.campaign_id === 'string' ? data.campaign_id : null;
-        const legacySource = (data.campaign as string) ?? (data.source as string) ?? null;
-        const campaign = campaignId ?? legacySource ?? 'direct';
-        campaignCounts.set(campaign, (campaignCounts.get(campaign) ?? 0) + 1);
-      });
-
-      const acquisitionSources = Array.from(campaignCounts.entries()).map(([source, count]) => ({
-        source,
-        count,
-        conversionRate: count > 0 ? ((regCountByCampaign.get(source) ?? 0) / count) * 100 : 0,
-      }));
-
-      const referralSuccess = Array.from(referralScans.entries()).map(([code, scans]) => {
-        const conversionsByCode = referralConversions.get(code) ?? 0;
-        return { code, scans, conversions: conversionsByCode, rate: scans > 0 ? (conversionsByCode / scans) * 100 : 0 };
-      });
 
       return {
         guestUsers,
@@ -575,9 +500,6 @@ export function createResearchAPI(): ResearchAPI {
         monthlyActiveUsers,
         avgSessionsPerUser: Math.round(sessionsPerUser * 10) / 10,
         avgGamesPerUser: sessionsPerUser,
-        registrationFunnel,
-        acquisitionSources,
-        referralSuccess,
       };
     },
 
@@ -635,7 +557,7 @@ export function createResearchAPI(): ResearchAPI {
 
     async getSessionList(filters?: ResearchFilters): Promise<readonly SessionRow[]> {
       let query = client.from('sessions')
-        .select('id, user_id, device_id, plugin_id, status, updated_at, measurements, scientific_results, metadata, campaign_id, created_at');
+        .select('id, user_id, device_id, plugin_id, status, updated_at, measurements, scientific_results, metadata, created_at');
 
       if (filters?.dateFrom) query = query.gte('created_at', new Date(filters.dateFrom).toISOString());
       if (filters?.dateTo) query = query.lte('created_at', new Date(filters.dateTo).toISOString());
@@ -673,7 +595,6 @@ export function createResearchAPI(): ResearchAPI {
         const best = correctedRts.length > 0 ? Math.min(...correctedRts) : 0;
         const user = usersMap.get(s.user_id);
         const device = devicesMap.get(s.device_id);
-        const meta = s.metadata as Record<string, unknown> | null;
         const ua = device?.user_agent ?? '';
         const parsed = ua ? parseDeviceBrandModel(ua) : { brand: 'Unknown', model: 'Unknown', marketingName: 'Unknown' };
 
@@ -695,7 +616,6 @@ export function createResearchAPI(): ResearchAPI {
           deviceInfo: device ? `${device.browser} / ${device.os}` : '-',
           deviceOs: device ? `${device.os} ${device.os_version ?? ''}`.trim() : '-',
           deviceBrowser: device ? `${device.browser} ${device.browser_version ?? ''}`.trim() : '-',
-          campaignSource: (s.campaign_id as string) ?? (meta?.campaign_source as string) ?? null,
           brand: parsed.brand,
           model: parsed.model,
           marketingName: parsed.marketingName,
@@ -756,11 +676,11 @@ export function createResearchAPI(): ResearchAPI {
       const deviceIds = deviceList.map(d => d.id);
       const { data: sessionsData } = await client
         .from('sessions')
-        .select('id, device_id, status, campaign_id, created_at, finished_at, measurements, scientific_results')
+        .select('id, device_id, status, created_at, finished_at, measurements, scientific_results')
         .in('device_id', deviceIds);
       if (!sessionsData) return [];
 
-      interface SessionData { id?: string; device_id: string; status: string; campaign_id: string | null; created_at: string | null; finished_at: string | null; measurements: Record<string, unknown> | null; scientific_results: Record<string, unknown> | null }
+      interface SessionData { id?: string; device_id: string; status: string; created_at: string | null; finished_at: string | null; measurements: Record<string, unknown> | null; scientific_results: Record<string, unknown> | null }
 
       const sessionsByDevice = new Map<string, SessionData[]>();
       for (const s of sessionsData as SessionData[]) {
@@ -809,7 +729,6 @@ export function createResearchAPI(): ResearchAPI {
           return m.reduce((a, b) => a + b, 0) / m.length;
         }).filter((v): v is number => v !== null);
         const focusScores = devSessions.map(s => s.scientific_results?.focus_score as number | undefined).filter((v): v is number => v != null);
-        const campaignNames = [...new Set(devSessions.map(s => s.campaign_id).filter((c): c is string => c !== null))];
         const timestamps = devSessions.flatMap(s => [s.created_at ? new Date(s.created_at).getTime() : null, s.finished_at ? new Date(s.finished_at).getTime() : null]).filter((t): t is number => t !== null);
 
         const total = devSessions.length || 1;
@@ -860,7 +779,6 @@ export function createResearchAPI(): ResearchAPI {
           avgDuration: durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0,
           avgRt: avgRts.length > 0 ? avgRts.reduce((a, b) => a + b, 0) / avgRts.length : 0,
           avgFocusScore: focusScores.length > 0 ? focusScores.reduce((a, b) => a + b, 0) / focusScores.length : 0,
-          campaigns: campaignNames,
           firstSeen: timestamps.length > 0 ? new Date(Math.min(...timestamps)).toISOString() : '',
           lastSeen: timestamps.length > 0 ? new Date(Math.max(...timestamps)).toISOString() : '',
           health: {
@@ -947,62 +865,6 @@ export function createResearchAPI(): ResearchAPI {
         exerciseDistribution: [],
         completionRate: surveyList.length > 0 ? 100 : 0,
         correlationMatrix: [],
-      };
-    },
-
-    async getCampaignAnalytics(_filters?: ResearchFilters): Promise<CampaignAnalytics> {
-      const dataServiceLocal = getDataService(client);
-      const [campaignsResult, qrResult, sessionsResult, scanCounts] = await Promise.all([
-        dataServiceLocal.getCampaigns({ limit: 100 }),
-        dataServiceLocal.getQRCodes({ limit: 100 }),
-        client.from('sessions').select('campaign_id, status').not('campaign_id', 'is', null),
-        dataServiceLocal.getQrScansByCampaign(),
-      ]);
-
-      const sessionList = sessionsResult.data ?? [];
-
-      const campaigns = campaignsResult.data.map(c => {
-        const cSessions = sessionList.filter(s => s.campaign_id === c.id);
-        const totalScans = scanCounts[c.id ?? ''] ?? 0;
-        const totalRegs = cSessions.filter(s => s.status === 'completed').length;
-        return {
-          id: c.id ?? '',
-          name: c.name,
-          is_active: c.is_active,
-          created_at: c.created_at ?? new Date().toISOString(),
-          scans: totalScans,
-          registrations: totalRegs,
-        };
-      });
-
-      const referralPerformance = qrResult.data.map(qr => {
-        const scans = scanCounts[qr.campaign_id ?? ''] ?? 0;
-        return {
-          code: qr.code,
-          scans,
-          conversions: qr.registration_count,
-          rate: scans > 0 ? (qr.registration_count / scans) * 100 : 0,
-        };
-      });
-
-      const totalScans = campaigns.reduce((sum, c) => sum + c.scans, 0);
-      const totalRegs = campaigns.reduce((sum, c) => sum + c.registrations, 0);
-
-      return {
-        campaigns: campaigns.map(c => ({ id: c.id, name: c.name, is_active: c.is_active, created_at: c.created_at })),
-        referralPerformance,
-        landingConversion: campaigns.length > 0 ? Math.round((qrResult.data.length / Math.max(campaigns.length, 1)) * 100) / 100 : 0,
-        registrationConversion: totalScans > 0 ? Math.round((totalRegs / totalScans) * 100) / 100 : 0,
-        sessionCompletionByCampaign: campaigns.map(c => ({
-          campaign: c.name,
-          rate: c.scans > 0 ? Math.round((c.registrations / c.scans) * 100) : 0,
-        })),
-        avgRtByCampaign: [],
-        avgFocusByCampaign: [],
-        campaignRanking: campaigns.map(c => ({
-          campaign: c.name,
-          score: c.scans + c.registrations * 10,
-        })).sort((a, b) => b.score - a.score),
       };
     },
 

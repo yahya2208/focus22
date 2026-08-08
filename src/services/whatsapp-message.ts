@@ -3,9 +3,6 @@ import {
   openBuyRequest, openSellRequest, openExchangeRequest,
   openCustomMessage, WHATSAPP_PHONE,
 } from './whatsapp-service';
-import { getGlobalTelemetry } from '../core/telemetry';
-import { EventTypes } from '../core/analytics/events';
-import type { AnalyticsEventType } from '../core/analytics/events';
 
 export type CustomerAction = 'buy' | 'sell' | 'exchange';
 export type WhatsAppAction = 'buy' | 'sell' | 'exchange' | 'inquiry' | 'stock_check' | 'price_check';
@@ -145,20 +142,15 @@ export function generateMessage(
   });
 }
 
-export function openWhatsAppWithMessage(phone: string, message: string, analyticsEvent?: string): void {
-  if (analyticsEvent) {
-    getGlobalTelemetry().track(analyticsEvent as AnalyticsEventType, { phone: formatPhone(phone), has_message: true });
-  }
+export function openWhatsAppWithMessage(phone: string, message: string): void {
   openCustomMessage(phone, message);
 }
 
 export function openWhatsAppForAction(
-  phone: string,
+  _phone: string,
   action: CustomerAction,
   params: { brand: string; model: string; variant?: string; condition?: string; targetDevice?: { brand: string; model: string; variant?: string } },
 ): void {
-  getGlobalTelemetry().track(EventTypes.WHATSAPP_CLICKED, { action, phone: formatPhone(phone) });
-
   switch (action) {
     case 'buy':
       openBuyRequest({ brand: params.brand, model: params.model, variant: params.variant, condition: params.condition });

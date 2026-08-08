@@ -4,7 +4,6 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { createSessionService } from '../../core/session/service';
 import { createEventPublisher } from '../../core/events';
-import { initGlobalTelemetry, getGlobalTelemetry, resetGlobalTelemetry } from '../../core/telemetry';
 import { analyzeConsistency } from '../../core/engine/consistency';
 import { detectFatigue } from '../../core/engine/fatigue';
 import { calculateFocusScore } from '../../core/engine/scoring';
@@ -22,7 +21,8 @@ import { getVariantsForModel } from '../../data/phone-variants';
  *  PG-27  لا كاتب مخفي على مسار التشغيل (component → hook → service → provider → Supabase/RPC)
  *  PG-30  اللعبة تعمل  ·  PG-50 الإعلانات  ·  PG-51 المخزون  ·  PG-52 الكتالوج
  *  PG-13  WhatsApp المباشر  ·  PG-14 SSOT الكتالوج  ·  PG-15 تصفح→واتساب  ·  PG-54 لا مسارات ميتة
- *  PG-57  Hard-Stop: لا تعديل على ملفات الكتالوج/المخزون/الإعلانات/WhatsApp
+ *  PG-57  Hard-Stop: لا تعديل على ملفات الكتالوج/المخزون/الإعلانات
+ *         (قرار المالك D3 رخّص نزع التتبع فقط من ملفات showroom/whatsapp ضمن P5)
  */
 
 const SRC = path.resolve(__dirname, '../..');
@@ -71,7 +71,6 @@ const RUNTIME_PATH: string[] = [
   'App.tsx',
   'store/navigation.tsx',
   'core/session/service.ts',
-  'core/telemetry/index.ts',
   'core/navigation/back-dispatcher.ts',
   'core/navigation/BackProvider.tsx',
   'hooks/useSmartWhatsApp.ts',
@@ -93,15 +92,10 @@ const HARD_STOP_PREFIXES = [
   'src/catalog/',
   'src/components/catalog/',
   'src/components/ads/',
-  'src/components/showroom/',
-  'src/screens/showroom/',
   'src/services/inventory-service.ts',
   'src/services/inventory-seed.ts',
   'src/services/price-memory.ts',
   'src/services/ads-service.ts',
-  'src/services/whatsapp-service.ts',
-  'src/services/whatsapp-message.ts',
-  'src/hooks/useSmartWhatsApp.ts',
 ];
 
 describe('PG-01: لا signInAsGuest() تلقائياً لمجرد فتح التطبيق', () => {
@@ -138,29 +132,10 @@ describe('PG-02: لا كتابة sessions / devices / calibrations من شجرة
   });
 });
 
-describe('PG-04: لا analytics_events للتتبع (telemetry معطّل بلا مُرسِل Supabase)', () => {
-  it('الـ global telemetry معطّل افتراضياً بعد الإعداد', async () => {
-    resetGlobalTelemetry();
-    await initGlobalTelemetry();
-    const telemetry = getGlobalTelemetry();
-    expect(telemetry.getConfig().enabled).toBe(false);
-    telemetry.track('game_started', { game_mode: 'reaction-light' });
-    telemetry.track('screen_view', { screen: 'home' });
-    expect(telemetry.getQueue()).toHaveLength(0);
-  });
-
-  it('getGlobalTelemetry fallback (بدون init) يعيد خدمة معطّلة', () => {
-    resetGlobalTelemetry();
-    const telemetry = getGlobalTelemetry();
-    expect(telemetry.getConfig().enabled).toBe(false);
-  });
-
-  it('core/telemetry لا يحتوي أي مُرسِل كتابة إلى analytics_events', () => {
-    const telemetrySrc = read('core/telemetry/index.ts');
-    expect(telemetrySrc).not.toContain('trackEvent');
-    expect(telemetrySrc).not.toMatch(/from\('analytics_events'\)/);
-    expect(telemetrySrc).not.toContain('getDataService');
-    expect(telemetrySrc).not.toContain('data-service');
+describe('PG-04: لا analytics_events للتتبع (الـ telemetry أُزيل بالكامل ضمن P5)', () => {
+  it('core/telemetry لم يعد موجوداً (أُزيل، وليس معطّلاً)', () => {
+    const telemetryExists = fs.existsSync(path.join(SRC, 'core/telemetry/index.ts'));
+    expect(telemetryExists).toBe(false);
   });
 
   it('App.tsx لا يحتوي استدعاءات تتبع في مسار الإقلاع', () => {
@@ -219,7 +194,7 @@ describe('PG-30: اللعبة نفسها تعمل (بدون أي تخزين)', (
     const service = createSessionService(publisher);
     let created: string | null = null;
     publisher.subscribe<{ sessionId: string }>('session_created', (e) => { created = e.payload.sessionId; });
-    const id = service.startSession({ gameMode: 'reaction-light', campaignId: null });
+    const id = service.startSession({ gameMode: 'reaction-light' });
     expect(id).toBeTruthy();
     expect(created).toBe(id);
   });
@@ -272,7 +247,7 @@ describe('PG-54: لا مسارات ميتة — خريطة الشاشات سلي
   });
 });
 
-describe('PG-57: Hard-Stop — لا تعديل على الكتالوج/المخزون/الإعلانات/WhatsApp/Showroom', () => {
+describe('PG-57: Hard-Stop — لا تعديل على الكتالوج/المخزون/الإعلانات', () => {
   it('التغييرات في هذه المرحلة لا تمس أي ملف محمي', () => {
     const changed = getChangedFiles();
     const violations = changed.filter((f) => HARD_STOP_PREFIXES.some((p) => f.startsWith(p)));

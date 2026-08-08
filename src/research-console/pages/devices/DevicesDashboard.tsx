@@ -93,11 +93,6 @@ function DeviceCard({ device }: { readonly device: DeviceIntelligence }) {
             <span style={{ color: '#666' }}>Completion: <span style={{ color: '#22c55e' }}>{(device.health.completionRate * 100).toFixed(0)}%</span></span>
             <span style={{ color: '#666' }}>Abandon: <span style={{ color: '#ef4444' }}>{(device.health.abandonRate * 100).toFixed(0)}%</span></span>
           </div>
-          {device.campaigns.length > 0 && (
-            <div style={{ marginBottom: '0.5rem', color: '#888', fontSize: '0.8rem' }}>
-              Campaigns: {device.campaigns.join(', ')}
-            </div>
-          )}
           <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: '#666', marginBottom: '0.5rem' }}>
             <span>First: {formatDate(device.firstSeen)}</span>
             <span>Last: {formatDate(device.lastSeen)}</span>

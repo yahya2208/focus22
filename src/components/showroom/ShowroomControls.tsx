@@ -1,8 +1,6 @@
 import { memo } from 'react';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { getGlobalTelemetry } from '../../core/telemetry';
-import { EventTypes } from '../../core/analytics/events';
 import { Input } from '../../design-system/components/Input';
 import { Chip } from '../../design-system/components/Chip';
 import type { InventoryRecord } from '../../services/inventory-service';
@@ -42,20 +40,17 @@ export const ShowroomControls = memo(function ShowroomControls({
 
   const handleCondition = (value: ShowroomConditionFilter) => {
     if (value === state.condition) return;
-    getGlobalTelemetry().track(EventTypes.SHOWROOM_FILTER_CHANGED, { filter: 'condition', value });
     onChange({ condition: value });
   };
 
   const handleCity = (value: string) => {
     const next = state.city === value ? '' : value;
     if (next === state.city) return;
-    getGlobalTelemetry().track(EventTypes.SHOWROOM_FILTER_CHANGED, { filter: 'city', value: next || 'all' });
     onChange({ city: next });
   };
 
   const handleSort = (value: ShowroomSort) => {
     if (value === state.sort) return;
-    getGlobalTelemetry().track(EventTypes.SHOWROOM_SORT_CHANGED, { sort: value });
     onChange({ sort: value });
   };
 

@@ -5,7 +5,6 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Button } from '../../components/shared/Button';
 import { Card } from '../../components/shared/Card';
-import { trackLogin } from '../../core/analytics/tracker';
 
 export const LoginScreen = memo(function LoginScreen() {
   const dispatch = useAppDispatch();
@@ -26,7 +25,6 @@ export const LoginScreen = memo(function LoginScreen() {
     setError(null);
     try {
       await service.signInWithEmail(email, password);
-      trackLogin('email');
       dispatch({ type: 'NAVIGATE', screen: 'home' });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('login.failed'));
@@ -44,7 +42,6 @@ export const LoginScreen = memo(function LoginScreen() {
     setError(null);
     try {
       await service.signInWithMagicLink(email);
-      trackLogin('magic_link');
       setError(null);
       alert(t('login.magicLinkSent'));
     } catch (err) {
@@ -59,7 +56,6 @@ export const LoginScreen = memo(function LoginScreen() {
     setError(null);
     try {
       await service.signInAsGuest();
-      trackLogin('guest');
       dispatch({ type: 'NAVIGATE', screen: 'home' });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('login.failed'));

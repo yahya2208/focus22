@@ -29,23 +29,22 @@ describe('Session ID consistency (BUG 1 proof)', () => {
   });
 
   it('startSession generates a non-empty session ID', () => {
-    const id = service.startSession({ gameMode: 'reaction-light', campaignId: null });
+    const id = service.startSession({ gameMode: 'reaction-light' });
     expect(id).toBeTruthy();
     expect(typeof id).toBe('string');
     expect(id.length).toBeGreaterThan(0);
   });
 
   it('startSession publishes session_created with matching sessionId', () => {
-    const id = service.startSession({ gameMode: 'reaction-light', campaignId: 'camp-123' });
+    const id = service.startSession({ gameMode: 'reaction-light' });
     expect(createdPayload).not.toBeNull();
     expect(createdPayload!.sessionId).toBe(id);
     expect(createdPayload!.gameMode).toBe('reaction-light');
-    expect(createdPayload!.campaignId).toBe('camp-123');
     expect(createdPayload!.createdAt).toBeGreaterThan(0);
   });
 
   it('completeSession publishes session_completed with the SAME sessionId from start', () => {
-    const id = service.startSession({ gameMode: 'reaction-light', campaignId: 'camp-123' });
+    const id = service.startSession({ gameMode: 'reaction-light' });
     const results: SessionResults = {
       rawRts: [300, 250, 280],
       correctedRts: [275, 225, 255],
@@ -62,12 +61,11 @@ describe('Session ID consistency (BUG 1 proof)', () => {
     expect(completedPayload!.sessionId).toBe(id);
     expect(completedPayload!.sessionId).toBe(createdPayload!.sessionId);
     expect(completedPayload!.gameMode).toBe('reaction-light');
-    expect(completedPayload!.campaignId).toBe('camp-123');
     expect(completedPayload!.results.totalRounds).toBe(3);
   });
 
   it('publishes session_created BEFORE session_completed', () => {
-    const id = service.startSession({ gameMode: 'reaction-light', campaignId: null });
+    const id = service.startSession({ gameMode: 'reaction-light' });
     const results: SessionResults = {
       rawRts: [300], correctedRts: [275],
       totalRounds: 1, validRounds: 1,
@@ -102,8 +100,6 @@ describe('Persistence UPSERT idempotency (same session.id, not two rows)', () =>
     const payload: SessionCreatedPayload = {
       sessionId: 'fixed-session-abc-123',
       gameMode: 'reaction-light',
-      campaignId: 'camp-456',
-      placementId: null,
       createdAt: Date.now(),
     };
 
@@ -124,8 +120,6 @@ describe('Persistence UPSERT idempotency (same session.id, not two rows)', () =>
     const payload: SessionCompletedPayload = {
       sessionId: 'fixed-session-abc-123',
       gameMode: 'reaction-light',
-      campaignId: 'camp-456',
-      placementId: null,
       results,
       createdAt: Date.now(),
       endedReason: 'completed',
@@ -341,7 +335,7 @@ describe('Subscriber cleanup (StrictMode proof)', () => {
     unsubCompleted2();
   });
 
-  it('setupSessionTelemetry returns cleanup that unsubscribes both handlers', () => {
+  it('session telemetry subscribers cleanup after unmount (StrictMode proof)', () => {
     const publisher = createEventPublisher();
     let startTrackCalls = 0;
     let completeTrackCalls = 0;
@@ -358,8 +352,8 @@ describe('Subscriber cleanup (StrictMode proof)', () => {
     const unsubCreated2 = publisher.subscribe<SessionCreatedPayload>('session_created', () => { startTrackCalls++; });
     const unsubCompleted2 = publisher.subscribe<SessionCompletedPayload>('session_completed', () => { completeTrackCalls++; });
 
-    publisher.publish('session_created', { sessionId: 's1', gameMode: 'test', campaignId: null, createdAt: Date.now() }, 'test');
-    publisher.publish('session_completed', { sessionId: 's1', gameMode: 'test', campaignId: null, results: {} as SessionResults, createdAt: Date.now() }, 'test');
+    publisher.publish('session_created', { sessionId: 's1', gameMode: 'test', createdAt: Date.now() }, 'test');
+    publisher.publish('session_completed', { sessionId: 's1', gameMode: 'test', results: {} as SessionResults, createdAt: Date.now() }, 'test');
 
     expect(startTrackCalls).toBe(1);
     expect(completeTrackCalls).toBe(1);
@@ -377,66 +371,11 @@ describe('Subscriber cleanup (StrictMode proof)', () => {
     // Mount 2 — NO cleanup (duplicate subscription)
     publisher.subscribe<SessionCreatedPayload>('session_created', () => { callCount++; });
 
-    publisher.publish('session_created', { sessionId: 's1', gameMode: 'test', campaignId: null, createdAt: Date.now() }, 'test');
+    publisher.publish('session_created', { sessionId: 's1', gameMode: 'test', createdAt: Date.now() }, 'test');
 
     // PROOF: Without cleanup, we get 2 calls (duplicate subscribers!)
     expect(callCount).toBe(2);
 
     // This is why cleanup is critical — our implementation has it ✓
-  });
-});
-
-// ----------------------------------------------------------------
-// 6. CampaignAnalytics uses props only, no duplicate queries
-// ----------------------------------------------------------------
-describe('CampaignAnalytics props-only proof (no duplicate queries)', () => {
-  it('calculates stats from sessionStats and scanCount props, not from DB', () => {
-    // From CampaignAnalytics.tsx:
-    //   const stats = {
-    //     scans: scanCount,                   ← from props (event-derived, see Incident D2)
-    //     started: sessionStats.started,      ← from props
-    //     completed: sessionStats.completed,    ← from props
-    //     registered: qrCodes.reduce(...),
-    //   };
-    //
-    // PROOF: CampaignAnalytics does NOT query sessions or qr_codes tables.
-    // It only uses `campaign`, `qrCodes`, `sessionStats`, and `scanCount` props.
-
-    const qrCodes = [
-      { registration_count: 3, campaign_id: 'c1' },
-      { registration_count: 2, campaign_id: 'c1' },
-    ];
-
-    const sessionStats = { started: 8, completed: 5 };
-    const scanCount = 15;
-
-    const stats = {
-      scans: scanCount,
-      started: sessionStats.started,
-      completed: sessionStats.completed,
-      registered: qrCodes.reduce((s: number, q) => s + q.registration_count, 0),
-    };
-
-    expect(stats.scans).toBe(15);
-    expect(stats.started).toBe(8);
-    expect(stats.completed).toBe(5);
-    expect(stats.registered).toBe(5);
-  });
-
-  it('CampaignDetailView loads sessions ONCE and passes as prop', () => {
-    // From CampaignDetailView.tsx lines 44-58:
-    //   useEffect(() => {
-    //     const { data } = await client
-    //       .from('sessions')
-    //       .select('id, status')
-    //       .eq('campaign_id', c.id);
-    //     setSessionStats({ started: list.length, completed: ... });
-    //   }, [c.id]);
-    //
-    // PROOF: The query has [c.id] dependency — only re-runs when campaign changes.
-    // Results are stored in state, passed as prop to CampaignAnalytics.
-
-    const dependency = 'c.id'; // Only re-fetches when campaign.id changes
-    expect(dependency).toBe('c.id');
   });
 });

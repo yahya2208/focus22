@@ -1,32 +1,15 @@
-import { memo, useEffect } from 'react';
+import { memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
-import { parseDeepLinkFromCurrentUrl, createLandingSession } from '../../core/qr/deeplink';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Button } from '../../components/shared/Button';
 import { Card } from '../../components/shared/Card';
-import { getGlobalTelemetry } from '../../core/telemetry';
 import focusIcon from '../../assets/brand/focus-icon.svg';
 
 export const LandingScreen = memo(function LandingScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const colors = useThemeColors();
-
-  useEffect(() => {
-    const deepLink = parseDeepLinkFromCurrentUrl();
-    const session = createLandingSession(deepLink);
-    const telemetry = getGlobalTelemetry();
-
-    if (session.campaignDetected) {
-      telemetry.track('campaign_detected', { campaign: session.source });
-    }
-    telemetry.track('landing_loaded', {
-      source: session.source,
-      referral: session.referralDetected,
-      campaign: session.campaignDetected,
-    });
-  }, []);
 
   return (
     <nav aria-label="Landing page" style={{
@@ -90,7 +73,6 @@ export const LandingScreen = memo(function LandingScreen() {
           <div style={{ position: 'absolute', top: -24, right: -24, fontSize: '4rem', opacity: 0.05 }}>💡</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <Button onClick={() => {
-              getGlobalTelemetry().track('game_started', { source: 'landing' });
               dispatch({ type: 'NAVIGATE', screen: 'consent' });
             }}>
               {t('landing.startNow')}

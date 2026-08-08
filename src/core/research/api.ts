@@ -1,7 +1,5 @@
 import type { Session } from '../session';
 import type { DeviceProfile } from '../device';
-import type { CampaignRecord } from '../qr/campaign';
-import type { ReferralProfile } from '../qr/referral';
 import type { ResearchFilters } from './filters';
 
 export interface OverviewStats {
@@ -21,7 +19,6 @@ export interface OverviewStats {
   readonly avgCalibrationConfidence: number;
   readonly countries: number;
   readonly cities: number;
-  readonly campaigns: number;
   readonly devices: number;
   readonly currentOnline: number;
   readonly peakToday: number;
@@ -53,9 +50,6 @@ export interface UserAnalytics {
   readonly monthlyActiveUsers: number;
   readonly avgSessionsPerUser: number;
   readonly avgGamesPerUser: number;
-  readonly registrationFunnel: { readonly stage: string; readonly count: number; readonly rate: number }[];
-  readonly acquisitionSources: { readonly source: string; readonly count: number; readonly conversionRate: number }[];
-  readonly referralSuccess: { readonly code: string; readonly scans: number; readonly conversions: number; readonly rate: number }[];
 }
 
 export interface SessionAnalytics {
@@ -97,17 +91,6 @@ export interface SurveyAnalytics {
   readonly correlationMatrix: { readonly field1: string; readonly field2: string; readonly correlation: number }[];
 }
 
-export interface CampaignAnalytics {
-  readonly campaigns: CampaignRecord[];
-  readonly referralPerformance: ReferralProfile[];
-  readonly landingConversion: number;
-  readonly registrationConversion: number;
-  readonly sessionCompletionByCampaign: { readonly campaign: string; readonly rate: number }[];
-  readonly avgRtByCampaign: { readonly campaign: string; readonly avgRt: number }[];
-  readonly avgFocusByCampaign: { readonly campaign: string; readonly avgFocus: number }[];
-  readonly campaignRanking: { readonly campaign: string; readonly score: number }[];
-}
-
 export interface LiveEvent {
   readonly type: 'player_connected' | 'landing' | 'calibration' | 'countdown' | 'playing' | 'finished' | 'results' | 'registration' | 'synced';
   readonly timestamp: number;
@@ -138,7 +121,6 @@ export interface ResearchAPI {
   getSessionAnalytics(filters?: ResearchFilters): Promise<SessionAnalytics>;
   getDeviceAnalytics(filters?: ResearchFilters): Promise<DeviceAnalytics>;
   getSurveyAnalytics(filters?: ResearchFilters): Promise<SurveyAnalytics>;
-  getCampaignAnalytics(filters?: ResearchFilters): Promise<CampaignAnalytics>;
   getLiveEvents(): readonly LiveEvent[];
   addLiveEvent(event: LiveEvent): void;
   getSystemHealth(): Promise<SystemHealth>;
@@ -148,7 +130,7 @@ const EMPTY_OVERVIEW: OverviewStats = {
   totalUsers: 0, guestUsers: 0, registeredUsers: 0, conversionRate: 0,
   totalSessions: 0, gamesPlayed: 0, gamesToday: 0, gamesThisWeek: 0, gamesThisMonth: 0,
   avgReactionTime: 0, avgFocusScore: 0, avgConsistency: 0, avgFatigue: 0, avgCalibrationConfidence: 0,
-  countries: 0, cities: 0, campaigns: 0, devices: 0,
+  countries: 0, cities: 0, devices: 0,
   currentOnline: 0, peakToday: 0, retentionD1: 0, retentionD7: 0, retentionD30: 0,
 };
 
@@ -268,7 +250,6 @@ export function createResearchAPI(
         newUsers: 0, returningUsers,
         dailyActiveUsers: 0, weeklyActiveUsers: 0, monthlyActiveUsers: 0,
         avgSessionsPerUser: 0, avgGamesPerUser: 0,
-        registrationFunnel: [], acquisitionSources: [], referralSuccess: [],
       };
     },
 
@@ -296,14 +277,6 @@ export function createResearchAPI(
         ageDistribution: [], genderDistribution: [], educationDistribution: [],
         countryDistribution: [], sleepDistribution: [], coffeeDistribution: [],
         exerciseDistribution: [], completionRate: 0, correlationMatrix: [],
-      };
-    },
-
-    async getCampaignAnalytics(_filters?: ResearchFilters): Promise<CampaignAnalytics> {
-      return {
-        campaigns: [], referralPerformance: [], landingConversion: 0,
-        registrationConversion: 0, sessionCompletionByCampaign: [],
-        avgRtByCampaign: [], avgFocusByCampaign: [], campaignRanking: [],
       };
     },
 

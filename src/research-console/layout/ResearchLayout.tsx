@@ -11,33 +11,22 @@ const MOBILE_BREAKPOINT = 768;
 
 export type DashboardId =
   | 'overview' | 'scientific' | 'users' | 'sessions'
-  | 'devices' | 'surveys' | 'campaigns' | 'live' | 'system' | 'acquisition' | 'journey' | 'health'
-  | 'conversion' | 'comparator' | 'intelligence' | 'insights' | 'exchange' | 'inventory' | 'catalog-health' | 'variant-coverage' | 'inventory-health' | 'price-memory' | 'diagnostics' | 'ads';
+  | 'devices' | 'surveys' | 'system' | 'inventory'
+  | 'catalog-health' | 'variant-coverage' | 'inventory-health' | 'price-memory' | 'ads';
 
 const DASHBOARDS: { id: DashboardId; labelKey: TranslationKey; icon: string }[] = [
   { id: 'overview', labelKey: 'research.nav.overview', icon: '📊' },
-  { id: 'acquisition', labelKey: 'research.nav.acquisition', icon: '🎯' },
   { id: 'scientific', labelKey: 'research.nav.scientific', icon: '🔬' },
   { id: 'users', labelKey: 'research.nav.users', icon: '👥' },
   { id: 'sessions', labelKey: 'research.nav.sessions', icon: '⏱' },
   { id: 'devices', labelKey: 'research.nav.devices', icon: '💻' },
   { id: 'surveys', labelKey: 'research.nav.surveys', icon: '📋' },
-  { id: 'campaigns', labelKey: 'research.nav.campaigns', icon: '📣' },
-  { id: 'live', labelKey: 'research.nav.live', icon: '🟢' },
   { id: 'system', labelKey: 'research.nav.system', icon: '⚙' },
-  { id: 'journey', labelKey: 'research.nav.journey', icon: '🧭' },
-  { id: 'health', labelKey: 'research.nav.health', icon: '🩺' },
-  { id: 'conversion', labelKey: 'research.nav.conversion', icon: '🔄' },
-  { id: 'comparator', labelKey: 'research.nav.comparator', icon: '⚖️' },
-  { id: 'intelligence', labelKey: 'research.nav.intelligence', icon: '🧠' },
-  { id: 'insights', labelKey: 'research.nav.insights', icon: '💡' },
-  { id: 'exchange', labelKey: 'research.nav.exchange', icon: '🔁' },
   { id: 'inventory', labelKey: 'research.nav.inventory', icon: '📦' },
   { id: 'catalog-health', labelKey: 'research.nav.catalog-health', icon: '🗂' },
   { id: 'variant-coverage', labelKey: 'research.nav.variant-coverage', icon: '🧩' },
   { id: 'inventory-health', labelKey: 'research.nav.inventory-health', icon: '🗃' },
   { id: 'price-memory', labelKey: 'research.nav.price-memory', icon: '🏷' },
-  { id: 'diagnostics', labelKey: 'research.nav.diagnostics', icon: '🩻' },
   { id: 'ads', labelKey: 'research.nav.ads', icon: '📢' },
 ];
 

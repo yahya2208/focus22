@@ -63,8 +63,6 @@ function generateRecommendations(stats: OverviewStats, liveCounts: LiveCounts, t
   if (stats.totalSessions > 100 && retentionD1 < 30) recs.push({ type: 'warning', title: t('overview.rec.retentionGap'), description: `D1 retention is ${retentionD1.toFixed(0)}% but D7 is ${retentionD7.toFixed(0)}%. Users try once but don't return — improve first-time experience.` });
   if (fatigue > 50) recs.push({ type: 'warning', title: t('overview.rec.fatigueRisk'), description: `Fatigue index at ${fatigue.toFixed(0)}%. Consider shorter game sessions or mandatory rest periods.` });
   if (consistency > 70) recs.push({ type: 'success', title: t('overview.rec.consistentPerformance'), description: `Player consistency is ${consistency.toFixed(0)}% — system calibration is working well.` });
-  if (stats.campaigns === 0) recs.push({ type: 'info', title: t('overview.rec.noCampaigns'), description: 'Create campaigns to track marketing performance and segment player data.' });
-  else recs.push({ type: 'info', title: `${stats.campaigns} ${t('overview.rec.campaignsActive')}`, description: 'Track performance in the Campaign Analytics dashboard.' });
   if (liveCounts.staleCount > 10) recs.push({ type: 'warning', title: t('overview.rec.staleSessions'), description: `${liveCounts.staleCount} stale sessions detected. Auto-cleanup is running to prevent data issues.` });
 
   return recs;
@@ -196,7 +194,6 @@ export function OverviewDashboard() {
               { label: t('overview.retentionD7'), value: `${(stats.retentionD7 * 100).toFixed(0)}%`, key: 'retentionD7', color: '#3b82f6' },
               { label: t('overview.conversion'), value: `${(stats.conversionRate * 100).toFixed(1)}%`, key: 'conversionRate', color: '#8b5cf6' },
               { label: t('overview.devices'), value: stats.devices, key: 'devices', color: '' },
-              { label: t('overview.campaigns'), value: stats.campaigns, key: 'campaigns', color: '' },
               { label: t('overview.countries'), value: stats.countries, key: 'countries', color: '' },
               { label: t('overview.onlineNow'), value: stats.currentOnline, key: 'currentOnline', color: '#22c55e' },
               { label: t('overview.peakToday'), value: stats.peakToday, key: 'peakToday', color: '#f59e0b' },

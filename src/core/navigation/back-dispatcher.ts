@@ -14,7 +14,6 @@ export interface BackControllerDeps {
   getOverlays(): readonly BackOverlayHandle[];
   getGuards(screen: ScreenName): readonly (() => boolean)[];
   dispatch(action: NavigationAction): void;
-  track(type: string, payload: Record<string, unknown>): void;
   isDoubleExitArmed(): boolean;
   armDoubleExit(): void;
   disarmDoubleExit(): void;
@@ -26,7 +25,6 @@ export interface BackControllerDeps {
  * (the single source of truth, shared with Phase 5):
  *   1 dialog → 2 bottom sheet → 3 modal → 4 stepper → 5 tab →
  *   6 stack BACK → 7 home double-back exit.
- * Always emits `back_pressed`; emits `back_blocked` when a guard blocks.
  */
 export function createBackController(deps: BackControllerDeps) {
   return {
@@ -34,15 +32,12 @@ export function createBackController(deps: BackControllerDeps) {
       const screen = deps.getScreen();
       const stack = deps.getStack();
 
-      deps.track('back_pressed', { screen, stack_depth: stack.length });
-
       const open = [...deps.getOverlays()]
         .filter((o) => o.isOpen())
         .sort((a, b) => a.priority - b.priority)[0];
       if (open) {
         const closed = open.close();
         if (!closed) {
-          deps.track('back_blocked', { screen, reason: 'overlay-guard' });
           return { outcome: 'guard-blocked', reason: 'overlay-guard' };
         }
         return { outcome: 'overlay-closed', kind: open.kind };
@@ -50,7 +45,6 @@ export function createBackController(deps: BackControllerDeps) {
 
       for (const guard of deps.getGuards(screen)) {
         if (!guard()) {
-          deps.track('back_blocked', { screen, reason: 'beforeBack' });
           return { outcome: 'guard-blocked', reason: 'beforeBack' };
         }
       }

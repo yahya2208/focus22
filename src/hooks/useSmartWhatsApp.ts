@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getGlobalTelemetry } from '../core/telemetry';
 import { WHATSAPP_PHONE, buildWhatsAppUrl } from '../services/whatsapp-service';
 
 export const WHATSAPP_GUARD_TIMEOUT_MS = 1500;
@@ -21,7 +20,7 @@ export interface SmartWhatsAppApi {
   modal: WhatsAppModalState | null;
   /** "فتح واتساب" retry from the fallback modal — same-tab again. */
   retryOpen: () => void;
-  /** "نسخ الرسالة" from the fallback modal — clipboard + telemetry. */
+  /** "نسخ الرسالة" from the fallback modal — clipboard. */
   copyMessage: () => Promise<boolean>;
   closeModal: () => void;
 }
@@ -30,8 +29,8 @@ export interface SmartWhatsAppApi {
  * v5.1 §9.2 WhatsApp pipeline for the Product Details action bar.
  * Same-tab `wa.me` navigation (allowed native exit — NOT an internal SPA
  * navigation) guarded by a beforeunload/pagehide listener (~1.5s):
- *  - page actually leaves → `whatsapp_sent` + `exit_confirmed`
- *  - still on the page after the guard → fallback modal + `whatsapp_fallback_shown`
+ *  - page actually leaves → nothing further needed
+ *  - still on the page after the guard → fallback modal
  * No `window.open`, no new tabs. The nav stack is never touched by the handoff.
  */
 export function useSmartWhatsApp(): SmartWhatsAppApi {
@@ -52,9 +51,6 @@ export function useSmartWhatsApp(): SmartWhatsAppApi {
     if (leavingRef.current) return;
     leavingRef.current = true;
     clearGuard();
-    const telemetry = getGlobalTelemetry();
-    telemetry.track('whatsapp_sent', { ...contextRef.current });
-    telemetry.track('exit_confirmed', { target: 'whatsapp' });
   }, [clearGuard]);
 
   useEffect(() => {
@@ -71,13 +67,10 @@ export function useSmartWhatsApp(): SmartWhatsAppApi {
     (message: string, context: WhatsAppSendContext) => {
       messageRef.current = message;
       contextRef.current = context;
-      const telemetry = getGlobalTelemetry();
-      telemetry.track('exit_attempt', { target: 'whatsapp', ...context });
       leavingRef.current = false;
       clearGuard();
       guardRef.current = setTimeout(() => {
         if (!leavingRef.current) {
-          telemetry.track('whatsapp_fallback_shown', { ...contextRef.current });
           setModal({ open: true, message: messageRef.current });
         }
       }, WHATSAPP_GUARD_TIMEOUT_MS);
@@ -116,7 +109,6 @@ export function useSmartWhatsApp(): SmartWhatsAppApi {
       }
       document.body.removeChild(textarea);
     }
-    getGlobalTelemetry().track('whatsapp_message_copied', { ...contextRef.current });
     return true;
   }, [modal]);
 

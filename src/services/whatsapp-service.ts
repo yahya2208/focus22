@@ -1,6 +1,3 @@
-import { getGlobalTelemetry } from '../core/telemetry';
-import { EventTypes } from '../core/analytics/events';
-import type { AnalyticsEventType } from '../core/analytics/events';
 import { buildAppUrl } from '../core/base-path';
 import type { InventoryRecord } from './inventory-service';
 
@@ -20,17 +17,11 @@ function buildWhatsAppUrl(phone: string, message: string): string {
 
 export { buildWhatsAppUrl, formatPhone };
 
-export function openWhatsApp(phone: string, message: string, analyticsEvent?: string): void {
+export function openWhatsApp(phone: string, message: string): void {
   const url = buildWhatsAppUrl(phone, message);
-  const telemetry = getGlobalTelemetry();
-  if (analyticsEvent) {
-    telemetry.track(analyticsEvent as AnalyticsEventType, { phone: formatPhone(phone), has_message: true });
-  }
-  telemetry.track('exit_attempt', { target: 'whatsapp', phone: formatPhone(phone) });
   // Launch-blocker fix: open WhatsApp in a new window/tab (reliable for mobile
   // & in-app browsers), with a same-tab fallback if the popup is blocked.
   const win = window.open(url, '_blank', 'noopener');
-  telemetry.track('exit_confirmed', { target: 'whatsapp', same_tab: !win });
   if (!win) {
     window.location.href = url;
   }
@@ -49,7 +40,7 @@ export function openBuyRequest(params: { brand: string; model: string; variant?:
     '',
     'شكراً.',
   ].filter(Boolean).join('\n');
-  openWhatsApp(WHATSAPP_PHONE, message, EventTypes.BUY_FLOW_STARTED);
+  openWhatsApp(WHATSAPP_PHONE, message);
 }
 
 export function openSellRequest(params: { brand: string; model: string; variant?: string; condition?: string }): void {
@@ -65,7 +56,7 @@ export function openSellRequest(params: { brand: string; model: string; variant?
     '',
     'شكراً.',
   ].filter(Boolean).join('\n');
-  openWhatsApp(WHATSAPP_PHONE, message, EventTypes.SELL_FLOW_STARTED);
+  openWhatsApp(WHATSAPP_PHONE, message);
 }
 
 export function openExchangeRequest(params: { myBrand: string; myModel: string; myVariant?: string; wantBrand: string; wantModel: string; wantVariant?: string }): void {
@@ -84,7 +75,7 @@ export function openExchangeRequest(params: { myBrand: string; myModel: string; 
     '',
     'شكراً.',
   ].filter(Boolean).join('\n');
-  openWhatsApp(WHATSAPP_PHONE, message, EventTypes.EXCHANGE_FLOW_STARTED);
+  openWhatsApp(WHATSAPP_PHONE, message);
 }
 
 export function openRepairRequest(params: { brand: string; model: string; issue: string; description?: string; location?: string; code: string; condition?: string; customerPhone?: string }): void {
@@ -105,7 +96,7 @@ export function openRepairRequest(params: { brand: string; model: string; issue:
     '',
     'شكراً.',
   ].filter(Boolean).join('\n');
-  openWhatsApp(WHATSAPP_PHONE, message, 'repair_requested');
+  openWhatsApp(WHATSAPP_PHONE, message);
 }
 
 export function openRepairStatus(params: { brand: string; model: string; status: string; code: string }): void {
@@ -119,7 +110,7 @@ export function openRepairStatus(params: { brand: string; model: string; status:
     '',
     'شكراً.',
   ].filter(Boolean).join('\n');
-  openWhatsApp(WHATSAPP_PHONE, message, 'repair_status_notification');
+  openWhatsApp(WHATSAPP_PHONE, message);
 }
 
 export function openInventoryRequest(params: { brand: string; model: string; variant?: string; quantity?: number }): void {
@@ -214,16 +205,12 @@ export function buildPhoneActionMessage(action: PhoneActionId, device: Pick<Inve
 }
 
 /**
- * §9.2 pipeline entry: tracks the funnel events then returns the message for the
- * same-tab open (`useSmartWhatsApp`). Does NOT open anything itself.
+ * §9.2 pipeline entry: returns the message for the same-tab open
+ * (`useSmartWhatsApp`). Does NOT open anything itself.
  */
 export function sendPhoneActionWhatsApp(
   action: PhoneActionId,
   device: Pick<InventoryRecord, 'id' | 'brand' | 'model' | 'variant' | 'sellPrice' | 'city' | 'code'>,
 ): string {
-  const telemetry = getGlobalTelemetry();
-  const deviceId = device.id;
-  telemetry.track('whatsapp_template_selected' as AnalyticsEventType, { action, device_id: deviceId });
-  telemetry.track('whatsapp_clicked' as AnalyticsEventType, { action, device_id: deviceId });
   return buildPhoneActionMessage(action, device);
 }

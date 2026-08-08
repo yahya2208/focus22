@@ -4,7 +4,7 @@ import { parseDeviceBrandModel } from '../core/device/parser';
 import type {
   CommandCenterData, TodaySummary, Opportunity, CustomerProfile,
   TimelineEntry, CustomerSession, DeviceInsight,
-  DeviceModelInsight, CampaignInsight, CommerceFunnel, FunnelStage,
+  DeviceModelInsight, CommerceFunnel, FunnelStage,
   AIInsight, Prediction, HotDevice, TreasureModeData,
 } from './types';
 import type { BranchData } from './actions/types';
@@ -15,7 +15,6 @@ export interface BusinessAPI {
   getCustomerProfile(userId: string): Promise<CustomerProfile | null>;
   getCustomerList(): Promise<Opportunity[]>;
   getDeviceInsights(): Promise<DeviceInsight[]>;
-  getCampaignInsights(): Promise<CampaignInsight[]>;
   getCommerceFunnel(): Promise<CommerceFunnel>;
   getTreasureMode(): Promise<TreasureModeData>;
   getAIInsights(): Promise<AIInsight[]>;
@@ -33,29 +32,23 @@ export function createBusinessAPI(): BusinessAPI {
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
 
-      const [eventsResult, sessionsResult, tradeResult, whatsappResult, usersResult] = await Promise.all([
-        client.from('analytics_events').select('event_type, user_id, event_data, created_at').gte('created_at', todayStart),
-        client.from('sessions').select('id, user_id, device_id, status, campaign_id, created_at, measurements, scientific_results').gte('created_at', todayStart),
+      const [sessionsResult, tradeResult, usersResult] = await Promise.all([
+        client.from('sessions').select('id, user_id, device_id, status, created_at, scientific_results').gte('created_at', todayStart),
         client.from('trade_requests').select('id, user_id, device_id, created_at').gte('created_at', todayStart),
-        client.from('analytics_events').select('user_id, created_at').eq('event_type', 'whatsapp_clicked').gte('created_at', todayStart),
         client.from('users').select('id, display_name, role, created_at'),
       ]);
-      if (eventsResult.error) devError({ code: eventsResult.error.code, message: eventsResult.error.message, details: eventsResult.error.details, hint: eventsResult.error.hint });
       if (sessionsResult.error) devError({ code: sessionsResult.error.code, message: sessionsResult.error.message, details: sessionsResult.error.details, hint: sessionsResult.error.hint });
       if (tradeResult.error) devError({ code: tradeResult.error.code, message: tradeResult.error.message, details: tradeResult.error.details, hint: tradeResult.error.hint });
-      if (whatsappResult.error) devError({ code: whatsappResult.error.code, message: whatsappResult.error.message, details: whatsappResult.error.details, hint: whatsappResult.error.hint });
       if (usersResult.error) devError({ code: usersResult.error.code, message: usersResult.error.message, details: usersResult.error.details, hint: usersResult.error.hint });
 
-      const events = eventsResult.data ?? [];
       const sessions = sessionsResult.data ?? [];
       const trades = tradeResult.data ?? [];
-      const whatsappUsers = whatsappResult.data ?? [];
       const users = usersResult.data ?? [];
 
-      const uniqueVisitors = new Set(events.map(e => e.user_id).filter(Boolean)).size;
+      const uniqueVisitors = new Set(sessions.map(s => s.user_id).filter(Boolean)).size;
       const uniquePlayers = new Set(sessions.map(s => s.user_id).filter(Boolean)).size;
       const tradeCount = trades.length;
-      const whatsappCount = new Set(whatsappUsers.map(w => w.user_id).filter(Boolean)).size;
+      const whatsappCount = 0;
       const customers = users.filter(u => u.role !== 'guest').length - users.filter(u => u.role === 'guest').length + trades.length;
 
       const today: TodaySummary = {
@@ -84,68 +77,25 @@ export function createBusinessAPI(): BusinessAPI {
       const sortedDevices = Array.from(deviceCounts.values()).sort((a, b) => b.count - a.count);
       const topTradeInDevice = sortedDevices.length > 0 ? sortedDevices[0]! : null;
 
-      const campaignScores = new Map<string, { name: string; score: number; scans: number; trades: number }>();
-      for (const e of events) {
-        if (e.event_type === 'qr_scanned') {
-          const campaign = (e.event_data as Record<string, unknown>)?.campaign as string ?? (e.event_data as Record<string, unknown>)?.source as string ?? '';
-          if (campaign) {
-            const existing = campaignScores.get(campaign) ?? { name: campaign, score: 0, scans: 0, trades: 0 };
-            existing.scans++;
-            campaignScores.set(campaign, existing);
-          }
-        }
-      }
-      for (const t of trades) {
-        const sessionMatch = sessions.find(s => s.user_id === t.user_id);
-        if (sessionMatch?.campaign_id) {
-          const existing = campaignScores.get(sessionMatch.campaign_id) ?? { name: sessionMatch.campaign_id, score: 0, scans: 0, trades: 0 };
-          existing.trades++;
-          campaignScores.set(sessionMatch.campaign_id, existing);
-        }
-      }
-      for (const c of campaignScores.values()) {
-        c.score = c.scans + c.trades * 10;
-      }
-      const ranked = Array.from(campaignScores.values()).sort((a, b) => b.score - a.score);
-      const bestCampaign = ranked.length > 0 ? { name: ranked[0]!.name, score: ranked[0]!.score } : null;
-      const worstCampaign = ranked.length > 1 ? { name: ranked[ranked.length - 1]!.name, score: ranked[ranked.length - 1]!.score } : null;
-
       const visitCounts = new Map<string, number>();
-      const returningUsers = new Set<string>();
-      for (const e of events) {
-        if (e.user_id) {
-          const count = (visitCounts.get(e.user_id) ?? 0) + 1;
-          visitCounts.set(e.user_id, count);
-          if (count >= 3) returningUsers.add(e.user_id);
-        }
-      }
-
-      const allEvents = await client.from('analytics_events').select('user_id, event_type').not('user_id', 'is', null);
-      const allEventData = allEvents.data ?? [];
-      const allVisitCounts = new Map<string, number>();
-      for (const e of allEventData) {
-        if (e.user_id) {
-          allVisitCounts.set(e.user_id, (allVisitCounts.get(e.user_id) ?? 0) + 1);
+      for (const s of sessions) {
+        if (s.user_id) {
+          visitCounts.set(s.user_id, (visitCounts.get(s.user_id) ?? 0) + 1);
         }
       }
 
       const opportunities: Opportunity[] = [];
       const processed = new Set<string>();
-      for (const [uid, count] of allVisitCounts) {
+      for (const [uid, count] of visitCounts) {
         if (count >= 2 && !processed.has(uid)) {
           processed.add(uid);
           const userSessions = sessions.filter(s => s.user_id === uid);
           const userTrades = trades.filter(t => t.user_id === uid);
-          const userWhatsapp = whatsappUsers.filter(w => w.user_id === uid);
           const userObj = users.find(u => u.id === uid);
-          const userEvents = events.filter(e => e.user_id === uid);
-          const lastEvent = userEvents.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 
           const bestScore = userSessions.length > 0
             ? Math.max(...userSessions.map(s => (s.scientific_results?.focus_score as number) ?? 0))
             : 0;
-
-          const campaignSources = [...new Set(userSessions.map(s => s.campaign_id).filter(Boolean))];
 
           const lastSession = userSessions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
           let deviceInfo = '';
@@ -162,25 +112,24 @@ export function createBusinessAPI(): BusinessAPI {
             displayName: userObj?.display_name ?? 'Visitor',
             visitCount: count,
             gameCount: userSessions.length,
-            lastVisit: lastEvent?.created_at ?? '',
+            lastVisit: lastSession?.created_at ?? '',
             deviceInfo,
             tradeRequested: userTrades.length > 0,
-            whatsappClicked: userWhatsapp.length > 0,
+            whatsappClicked: false,
             bestFocusScore: bestScore,
-            campaignSource: campaignSources[0] ?? null,
+            campaignSource: null,
           });
         }
       }
 
       const hourlyData: { hour: number; visitors: number; players: number; trades: number }[] = [];
       for (let h = 0; h < 24; h++) {
-        const hourEvents = events.filter(e => new Date(e.created_at).getHours() === h);
-        const hourPlayers = sessions.filter(s => new Date(s.created_at).getHours() === h);
+        const hourSessions = sessions.filter(s => new Date(s.created_at).getHours() === h);
         const hourTrades = trades.filter(t => new Date(t.created_at).getHours() === h);
         hourlyData.push({
           hour: h,
-          visitors: new Set(hourEvents.map(e => e.user_id).filter(Boolean)).size,
-          players: new Set(hourPlayers.map(s => s.user_id).filter(Boolean)).size,
+          visitors: new Set(hourSessions.map(s => s.user_id).filter(Boolean)).size,
+          players: hourSessions.length,
           trades: hourTrades.length,
         });
       }
@@ -188,29 +137,25 @@ export function createBusinessAPI(): BusinessAPI {
       return {
         today,
         topTradeInDevice,
-        bestCampaign,
-        worstCampaign,
+        bestCampaign: null,
+        worstCampaign: null,
         opportunities: opportunities.sort((a, b) => b.visitCount - a.visitCount).slice(0, 50),
         hourlyDistribution: hourlyData,
       };
     },
 
     async getCustomerProfile(userId: string): Promise<CustomerProfile | null> {
-      const [userResult, sessionsResult, eventsResult, tradesResult, whatsappResult] = await Promise.all([
+      const [userResult, sessionsResult, tradesResult] = await Promise.all([
         client.from('users').select('*').eq('id', userId).single(),
         client.from('sessions').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        client.from('analytics_events').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         client.from('trade_requests').select('*').eq('user_id', userId),
-        client.from('analytics_events').select('*').eq('user_id', userId).eq('event_type', 'whatsapp_clicked'),
       ]);
 
       if (!userResult.data) return null;
 
       const user = userResult.data;
       const sessions = sessionsResult.data ?? [];
-      const events = eventsResult.data ?? [];
       const trades = tradesResult.data ?? [];
-      const whatsappEvents = whatsappResult.data ?? [];
 
       const completedSessions = sessions.filter(s => s.status === 'completed');
       const focusScores = completedSessions.map(s => s.focus_score as number).filter(s => typeof s === 'number');
@@ -228,12 +173,12 @@ export function createBusinessAPI(): BusinessAPI {
       }
       const { brand, model } = parseDeviceBrandModel(deviceUa);
 
-      const timeline: TimelineEntry[] = events.map(e => ({
-        timestamp: e.created_at,
-        eventType: e.event_type,
-        description: e.event_type,
-        metadata: e.event_data as Record<string, unknown>,
-      })).reverse();
+      const timeline: TimelineEntry[] = sessions.map(s => ({
+        timestamp: s.created_at,
+        eventType: 'session',
+        description: s.status,
+        metadata: s.metadata,
+      }));
 
       const customerSessions: CustomerSession[] = sessions.map(s => ({
         id: s.id,
@@ -252,16 +197,13 @@ export function createBusinessAPI(): BusinessAPI {
         ? (new Date(lastSession.created_at).getTime() - new Date(firstSession.created_at).getTime()) > 7 * 24 * 60 * 60 * 1000
         : false;
 
-      const tradeOfferViewEvents = events.filter(e => e.event_type === 'trade_offer_viewed');
-      const lastCampaign = lastSession?.campaign_id ?? null;
-
       return {
         userId: user.id,
         displayName: user.display_name ?? 'Visitor',
         role: user.role ?? 'guest',
         firstVisit: firstSession?.created_at ?? '',
         lastVisit: lastSession?.created_at ?? '',
-        totalVisits: events.length,
+        totalVisits: sessions.length,
         totalGames: completedSessions.length,
         bestFocusScore: focusScores.length > 0 ? Math.max(...focusScores) : 0,
         avgFocusScore: focusScores.length > 0 ? Math.round(focusScores.reduce((a, b) => a + b, 0) / focusScores.length * 10) / 10 : 0,
@@ -272,11 +214,11 @@ export function createBusinessAPI(): BusinessAPI {
         deviceModel: model,
         os: deviceUa ? 'Detected' : '',
         browser: deviceUa ? 'Detected' : '',
-        whatsappClickCount: whatsappEvents.length,
-        tradeOfferViewCount: tradeOfferViewEvents.length,
+        whatsappClickCount: 0,
+        tradeOfferViewCount: 0,
         tradeRequested: trades.length > 0,
         returnedAfterWeek,
-        lastCampaign: lastCampaign ?? null,
+        lastCampaign: null,
         timeline,
         sessions: customerSessions,
       };
@@ -290,13 +232,10 @@ export function createBusinessAPI(): BusinessAPI {
     async getDeviceInsights(): Promise<DeviceInsight[]> {
       const hierarchy = await researchAPI.getDeviceIntelligence();
 
-      const [tradeEvents, whatsappEvents] = await Promise.all([
-        client.from('trade_requests').select('device_id'),
-        client.from('analytics_events').select('event_data, user_id').eq('event_type', 'whatsapp_clicked'),
-      ]);
+      const tradeEvents = await client.from('trade_requests').select('device_id');
 
       const tradeDeviceIds = new Set((tradeEvents.data ?? []).map(t => t.device_id).filter(Boolean));
-      const whatsappUsers = new Set((whatsappEvents.data ?? []).map(w => w.user_id).filter(Boolean));
+      const whatsappUsers = new Set<string>();
 
       const insights: DeviceInsight[] = hierarchy.map(osGroup => ({
         os: osGroup.os,
@@ -310,7 +249,7 @@ export function createBusinessAPI(): BusinessAPI {
             const modelWhatsappCount = modelDevices.filter(d => whatsappUsers.has(d.id)).length;
             const focusScores = modelDevices.map(d => d.avgFocusScore).filter(s => s > 0);
             const rtValues = modelDevices.map(d => d.avgRt).filter(r => r > 0);
-            const deviceCampaigns = [...new Set(modelDevices.flatMap(d => d.campaigns))];
+            const deviceCampaigns: string[] = [];
             const lastSeenDates = modelDevices.map(d => d.lastSeen).filter(Boolean);
             const lastSeen = lastSeenDates.sort().reverse()[0] ?? '';
 
@@ -348,103 +287,30 @@ export function createBusinessAPI(): BusinessAPI {
       return insights;
     },
 
-    async getCampaignInsights(): Promise<CampaignInsight[]> {
-      const campaignAnalytics = await researchAPI.getCampaignAnalytics();
-      const { data: allEvents } = await client.from('analytics_events').select('event_type, user_id, event_data, created_at');
-      const events = allEvents ?? [];
-
-      const insights: CampaignInsight[] = [];
-
-      for (const c of campaignAnalytics.campaigns) {
-        const campaignEvents = events.filter(e => {
-          const data = e.event_data as Record<string, unknown> ?? {};
-          return data.campaign === c.name || data.source === c.name || data.campaign_id === c.id;
-        });
-        const campaignUsers = [...new Set(campaignEvents.map(e => e.user_id).filter(Boolean))];
-        const gameEvents = campaignEvents.filter(e => e.event_type === 'game_started' || e.event_type === 'game_completed');
-        const tradeEvents = campaignEvents.filter(e => e.event_type === 'trade_requested');
-        const whatsappEvents = campaignEvents.filter(e => e.event_type === 'whatsapp_clicked');
-        const completedGames = gameEvents.filter(e => e.event_type === 'game_completed').length;
-        const startedGames = gameEvents.filter(e => e.event_type === 'game_started').length;
-
-        const sessionsResult = await client.from('sessions')
-          .select('user_id, scientific_results')
-          .eq('campaign_id', c.id)
-          .not('scientific_results', 'is', null)
-          .limit(100);
-        const campaignSessions = sessionsResult.data ?? [];
-        const focusScores = campaignSessions.map(s => ((s.scientific_results as Record<string, unknown> | null)?.focus_score as number)).filter(s => typeof s === 'number');
-        const avgFocus = focusScores.length > 0
-          ? Math.round(focusScores.reduce((a, b) => a + b, 0) / focusScores.length * 10) / 10
-          : 0;
-
-        const uniqueReturning = [...new Set(campaignEvents.map(e => e.user_id).filter(Boolean))];
-        const returningVisitors = uniqueReturning.length;
-
-        const completionRate = startedGames > 0 ? Math.round((completedGames / startedGames) * 100) : 0;
-        const tradeCount = tradeEvents.length;
-        const whatsappCount = new Set(whatsappEvents.map(e => e.user_id).filter(Boolean)).size;
-        const conversionRate = campaignUsers.length > 0 ? Math.round((tradeCount / campaignUsers.length) * 100) : 0;
-
-        let aiSummary = '';
-        if (completionRate > 80) aiSummary = 'Ù‡Ø°Ù‡ Ø§Ù„Ø­Ù…Ù„Ø© ØªØ¬Ø°Ø¨ Ø²ÙˆØ§Ø±Ù‹Ø§ Ù…ØªÙØ§Ø¹Ù„ÙŠÙ† ÙŠÙƒÙ…Ù„ÙˆÙ† Ø§Ù„Ù„Ø¹Ø¨Ø© Ø¨Ù†Ø³Ø¨Ø© Ø¹Ø§Ù„ÙŠØ©.';
-        else if (completionRate < 50) aiSummary = 'Ù†Ø³Ø¨Ø© Ø¥ÙƒÙ…Ø§Ù„ Ù…Ù†Ø®ÙØ¶Ø© â€” Ù‚Ø¯ ÙŠØ­ØªØ§Ø¬ Ø¹Ø±Ø¶ Ø§Ù„Ù„Ø¹Ø¨Ø© Ø¥Ù„Ù‰ ØªØ­Ø³ÙŠÙ†.';
-        else aiSummary = 'Ø£Ø¯Ø§Ø¡ Ù…ØªÙˆØ³Ø· â€” ÙŠÙ…ÙƒÙ† ØªØ­Ø³ÙŠÙ†Ù‡ Ø¨ØªØ¹Ø¯ÙŠÙ„ Ø¹Ø±Ø¶ Ø§Ù„Ø­Ù…Ù„Ø©.';
-
-        if (avgFocus > 70) aiSummary += ' Ø§Ù„Ù„Ø§Ø¹Ø¨ÙˆÙ†Center Ø¹Ø§Ù„ÙŠØ© Ø§Ù„ØªØ±ÙƒÙŠØ².';
-        else if (avgFocus < 40) aiSummary += ' Ù…Ø³ØªÙˆÙ‰ Ø§Ù„ØªØ±ÙƒÙŠØ² Ù…Ù†Ø®ÙØ¶ â€” Ù‚Ø¯ ØªÙƒÙˆÙ† Ø§Ù„Ù„Ø¹Ø¨Ø© ØµØ¹Ø¨Ø© Ù„Ù‡Ø°Ù‡ Ø§Ù„ÙØ¦Ø©.';
-
-        insights.push({
-          id: c.id,
-          name: c.name,
-          isActive: c.is_active,
-          roi: tradeCount > 0 ? Math.round((tradeCount / campaignUsers.length) * 100) : 0,
-          visitors: campaignUsers.length,
-          games: startedGames,
-          completionRate,
-          tradeRequests: tradeCount,
-          whatsappClicks: whatsappCount,
-          conversionRate,
-          avgFocusScore: avgFocus,
-          avgDeviceAge: 0,
-          mostCommonPhones: [],
-          returningVisitors,
-          aiSummary,
-        });
-      }
-
-      return insights.sort((a, b) => b.visitors - a.visitors);
-    },
-
     async getCommerceFunnel(): Promise<CommerceFunnel> {
-      const { data: allEvents } = await client.from('analytics_events').select('event_type, user_id, created_at').order('created_at', { ascending: false });
-      const events = allEvents ?? [];
+      const [usersResult, sessionsResult, tradesResult] = await Promise.all([
+        client.from('users').select('id'),
+        client.from('sessions').select('status'),
+        client.from('trade_requests').select('id'),
+      ]);
 
-      const uniqueUsersByEvent = new Map<string, Set<string>>();
-      const funnelStages = [
-        'qr_scanned', 'landing_loaded', 'consent_granted', 'calibration_completed',
-        'game_started', 'game_completed', 'results_viewed', 'register_cta_clicked',
-        'phone_service_opened', 'trade_offer_viewed', 'trade_requested', 'whatsapp_clicked',
-      ];
+      const userCount = usersResult.data?.length ?? 0;
+      const sessionCount = sessionsResult.data?.length ?? 0;
+      const completedSessionCount = (sessionsResult.data ?? []).filter(s => s.status === 'completed').length;
+      const tradeCount = tradesResult.data?.length ?? 0;
 
-      for (const stage of funnelStages) {
-        uniqueUsersByEvent.set(stage, new Set());
-      }
-      for (const e of events) {
-        if (e.user_id && uniqueUsersByEvent.has(e.event_type)) {
-          uniqueUsersByEvent.get(e.event_type)!.add(e.user_id);
-        }
-      }
-
-      const firstStage = funnelStages[0];
-      const firstCount = firstStage ? (uniqueUsersByEvent.get(firstStage)?.size ?? 1) : 1;
-      const stages: FunnelStage[] = funnelStages.map((name, i) => {
-        const count = uniqueUsersByEvent.get(name)?.size ?? 0;
+      const stages: FunnelStage[] = [
+        { name: 'users', count: userCount },
+        { name: 'sessions', count: sessionCount },
+        { name: 'completed', count: completedSessionCount },
+        { name: 'trades', count: tradeCount },
+      ].map((stage, i, arr) => {
+        const firstCount = arr[0]?.count ?? 0;
+        const count = stage.count;
         const percentage = firstCount > 0 ? Math.round((count / firstCount) * 1000) / 10 : 0;
-        const prevStage = i > 0 ? funnelStages[i - 1] : undefined;
-        const prevCount = prevStage ? (uniqueUsersByEvent.get(prevStage)?.size ?? 0) : count;
+        const prevCount = i > 0 ? (arr[i - 1]?.count ?? count) : count;
         const dropFromPrevious = prevCount > 0 ? Math.round(((prevCount - count) / prevCount) * 100) : 0;
-        return { name, count, percentage, dropFromPrevious };
+        return { name: stage.name, count, percentage, dropFromPrevious };
       });
 
       let criticalDropOff: { from: string; to: string; dropRate: number } | null = null;
@@ -470,10 +336,9 @@ export function createBusinessAPI(): BusinessAPI {
     },
 
     async getTreasureMode(): Promise<TreasureModeData> {
-      const [cc, funnel, campaignInsights, deviceInsights] = await Promise.all([
+      const [cc, funnel, deviceInsights] = await Promise.all([
         this.getCommandCenter(),
         this.getCommerceFunnel(),
-        this.getCampaignInsights(),
         this.getDeviceInsights(),
       ]);
 
@@ -487,19 +352,6 @@ export function createBusinessAPI(): BusinessAPI {
           metric: cc.today.conversionRate,
           trend: 'down',
         });
-      }
-
-      for (const c of campaignInsights) {
-        if (c.conversionRate < 5 && c.visitors > 10) {
-          problems.push({
-            type: 'problem',
-            title: `Ø­Ù…Ù„Ø© Ø¶Ø¹ÙŠÙØ©: ${c.name}`,
-            description: `Ù†Ø³Ø¨Ø© ØªØ­ÙˆÙŠÙ„ ${c.conversionRate}% ÙÙ‚Ø· Ù…Ù† ${c.visitors} Ø²Ø§Ø¦Ø±.`,
-            severity: 'medium',
-            metric: c.conversionRate,
-            trend: 'down',
-          });
-        }
       }
 
       const alerts: AIInsight[] = [];

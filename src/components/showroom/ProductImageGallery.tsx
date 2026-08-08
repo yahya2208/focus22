@@ -1,7 +1,5 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { getGlobalTelemetry } from '../../core/telemetry';
-import { EventTypes } from '../../core/analytics/events';
 
 interface ProductImageGalleryProps {
   images: readonly string[];
@@ -10,8 +8,7 @@ interface ProductImageGalleryProps {
 
 /**
  * Product details gallery (§3.2): main image + counter badge, thumbnail strip,
- * touch/keyboard swipe, tap → fullscreen. Fires gallery telemetry:
- * `phone_gallery_swipe` (direction) + `phone_image_zoom` (index).
+ * touch/keyboard swipe, tap → fullscreen.
  */
 export const ProductImageGallery = memo(function ProductImageGallery({
   images,
@@ -27,15 +24,8 @@ export const ProductImageGallery = memo(function ProductImageGallery({
 
   const goTo = useCallback(
     (next: number) => {
-      setIndex((prev) => {
+      setIndex(() => {
         const clamped = Math.min(Math.max(next, 0), Math.max(count - 1, 0));
-        if (clamped !== prev && count > 1) {
-          getGlobalTelemetry().track(EventTypes.PHONE_GALLERY_SWIPE, {
-            from: prev,
-            to: clamped,
-            direction: clamped > prev ? 'next' : 'prev',
-          });
-        }
         return clamped;
       });
     },
@@ -44,9 +34,8 @@ export const ProductImageGallery = memo(function ProductImageGallery({
 
   const openFullscreen = useCallback(() => {
     if (!hasImages) return;
-    getGlobalTelemetry().track(EventTypes.PHONE_IMAGE_ZOOM, { index });
     setFullscreen(true);
-  }, [hasImages, index]);
+  }, [hasImages]);
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];

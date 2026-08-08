@@ -1,15 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
 import { PhoneShowroom } from '../../components/showroom/PhoneShowroom';
 import { ThemeProvider } from '../../design-system/use-theme';
 import { TranslationProvider } from '../../hooks/useTranslation';
 import type { InventoryRecord } from '../../services/inventory-service';
-
-const { track } = vi.hoisted(() => ({ track: vi.fn() }));
-
-vi.mock('../../core/telemetry', () => ({
-  getGlobalTelemetry: () => ({ track, setCampaignId: vi.fn(), setPlacementId: vi.fn(), flush: vi.fn() }),
-}));
 
 function makeDevice(overrides: Partial<InventoryRecord> = {}): InventoryRecord {
   return {
@@ -44,8 +38,6 @@ function renderGrid(devices: InventoryRecord[], onSelect: (d: InventoryRecord) =
 }
 
 describe('Phase 3B §3.1/§3.2 — PhoneShowroom card', () => {
-  beforeEach(() => track.mockClear());
-
   it('card shows name, price, condition badge, city, multi-image icon; image fills the card', () => {
     const device = makeDevice();
     renderGrid([device], () => {});
@@ -60,19 +52,12 @@ describe('Phase 3B §3.1/§3.2 — PhoneShowroom card', () => {
     expect(card.querySelector('img')).toBeTruthy(); // image fills the card
   });
 
-  it('tap always fires onSelect with the device + phone_card_clicked (gallery-only tap removed)', () => {
+  it('tap always fires onSelect with the device (gallery-only tap removed)', () => {
     const device = makeDevice();
     const onSelect = vi.fn();
     renderGrid([device], onSelect);
     fireEvent.click(screen.getByRole('button', { name: /Apple iPhone 13/ }));
     expect(onSelect).toHaveBeenCalledWith(device);
-    expect(track).toHaveBeenCalledWith('phone_card_clicked', {
-      device_id: 'd1',
-      brand: 'Apple',
-      model: 'iPhone 13',
-      price: 98000,
-      index: 0,
-    });
   });
 
   it('used condition renders the Used badge', () => {

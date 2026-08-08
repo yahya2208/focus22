@@ -4,7 +4,6 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Card } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
-import { getGlobalTelemetry } from '../../core/telemetry';
 
 export const PreGameMessageScreen = memo(function PreGameMessageScreen() {
   const dispatch = useAppDispatch();
@@ -21,7 +20,6 @@ export const PreGameMessageScreen = memo(function PreGameMessageScreen() {
           {t('message.subtitle')}
         </p>
         <Button onClick={() => {
-          getGlobalTelemetry().track('game_intro_shown', { source: 'pregame_continue' });
           dispatch({ type: 'NAVIGATE', screen: 'countdown' });
         }} style={{ width: '100%' }}>
           {t('landing.startNow')}

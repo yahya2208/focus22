@@ -35,21 +35,12 @@ export function CEOMode() {
     let cancelled = false;
     async function load() {
       try {
-        const [cc, customerList, campaignInsights, aiInsights] = await Promise.all([
+        const [cc, customerList, aiInsights] = await Promise.all([
           api.getCommandCenter(),
           api.getCustomerList(),
-          api.getCampaignInsights(),
           api.getAIInsights(),
         ]);
         if (cancelled) return;
-
-        const expectedRevenue = campaignInsights.reduce((sum, c) => {
-          return sum + c.visitors * (c.roi / 100) * 50000;
-        }, 0);
-
-        const bestCampaign = campaignInsights.length > 0
-          ? campaignInsights.reduce((best, c) => c.roi > best.roi ? c : best, campaignInsights[0]!)
-          : null;
 
         const problems = aiInsights.filter(i => i.type === 'problem');
         const biggestProblem = problems.length > 0
@@ -63,10 +54,10 @@ export function CEOMode() {
         const topOpportunity = sorted.length > 0 ? sorted[0]! : null;
 
         setData({
-          expectedRevenue,
+          expectedRevenue: 0,
           todayCustomers: cc.today.visitors,
           conversionRate: cc.today.conversionRate,
-          bestCampaign: bestCampaign ? { name: bestCampaign.name, roi: bestCampaign.roi } : null,
+          bestCampaign: null,
           biggestProblem,
           topOpportunity,
         });

@@ -90,37 +90,6 @@ export {
 } from './supabase/session-repository';
 
 export {
-  createTelemetryService, getGlobalTelemetry, resetGlobalTelemetry,
-  type TelemetryService, type TelemetryEvent, type TelemetryEventType, type TelemetryConfig,
-} from './telemetry';
-
-export {
-  generateQR, generateQRSvg, generateQRDataUrl, buildQrUrl, buildFocusQrUrl,
-  type QRGenerateOptions, type QRResult,
-} from './qr/generate';
-
-export {
-  parseCampaignParams, parseCampaignFromQueryString, serializeCampaignParams,
-  hasCampaign, createCampaignStore,
-  type CampaignParams, type CampaignRecord, type CampaignStore, type CampaignStats,
-} from './qr/campaign';
-
-export {
   buildShareUrl, createShareHandler, SHARE_PLATFORMS,
   type SharePlatform, type SharePayload, type ShareResult, type ShareConfig,
 } from './qr/share';
-
-export {
-  parseDeepLink, parseDeepLinkFromCurrentUrl, buildDeepLink, createLandingSession,
-  type DeepLink, type LandingSession,
-} from './qr/deeplink';
-
-export {
-  createReferralEngine,
-  type ReferralProfile, type ReferralStats, type ReferralScan, type ReferralEngine,
-} from './qr/referral';
-
-export {
-  createConsentService, CURRENT_CONSENT_VERSION,
-  type ConsentRecord, type ConsentService, type ConsentVersion,
-} from './qr/consent';

@@ -112,7 +112,7 @@ describe('ResearchAPI', () => {
     it('returns placeholder data', async () => {
       const api = createResearchAPI();
       const analytics = await api.getUserAnalytics();
-      expect(analytics.registrationFunnel).toEqual([]);
+      expect(analytics.newUsers).toBe(0);
       expect(analytics.returningUsers).toBe(0);
     });
 
@@ -141,14 +141,6 @@ describe('ResearchAPI', () => {
       const api = createResearchAPI();
       const analytics = await api.getSurveyAnalytics();
       expect(analytics.ageDistribution).toEqual([]);
-    });
-  });
-
-  describe('getCampaignAnalytics', () => {
-    it('returns empty campaigns', async () => {
-      const api = createResearchAPI();
-      const analytics = await api.getCampaignAnalytics();
-      expect(analytics.campaigns).toEqual([]);
     });
   });
 

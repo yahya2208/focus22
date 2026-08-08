@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createBusinessAPI, type BusinessAPI } from './api';
 import type {
-  CommandCenterData, DeviceInsight, CampaignInsight, CommerceFunnel,
+  CommandCenterData, DeviceInsight, CommerceFunnel,
 } from './types';
 import { useThemeColors } from '../hooks/useThemeColors';
 
@@ -20,7 +20,6 @@ export interface QualityCheck {
 interface AllData {
   commandCenter: CommandCenterData | null;
   deviceInsights: DeviceInsight[];
-  campaignInsights: CampaignInsight[];
   commerceFunnel: CommerceFunnel | null;
 }
 
@@ -41,10 +40,6 @@ function runNullCheck(data: AllData): QualityCheck {
         if (!model.lastSeen) issues.push(`Missing lastSeen for ${brand.brand || 'unknown'} ${model.model || 'unknown'}`);
       }
     }
-  }
-  for (const c of data.campaignInsights) {
-    if (!c.id) issues.push('Missing campaign ID');
-    if (!c.name) issues.push('Missing campaign name');
   }
   for (const s of data.commerceFunnel?.stages ?? []) {
     if (!s.name) issues.push('Missing funnel stage name');
@@ -70,9 +65,6 @@ function runNegativeDurationCheck(data: AllData): QualityCheck {
         if (model.avgFocusScore < 0) issues.push(`${brand.brand} ${model.model}: avgFocusScore = ${model.avgFocusScore}`);
       }
     }
-  }
-  for (const c of data.campaignInsights) {
-    if (c.avgFocusScore < 0) issues.push(`Campaign "${c.name}": avgFocusScore = ${c.avgFocusScore}`);
   }
   const n = issues.length;
   return {
@@ -154,9 +146,6 @@ function runSessionIntegrityCheck(data: AllData): QualityCheck {
     if (opp.gameCount > opp.visitCount) issues.push(`${opp.displayName}: ${opp.gameCount} games > ${opp.visitCount} visits`);
     if (opp.gameCount > 0 && opp.bestFocusScore === 0) issues.push(`${opp.displayName}: ${opp.gameCount} games but zero focus score`);
   }
-  for (const c of data.campaignInsights) {
-    if (c.games > 0 && c.avgFocusScore === 0) issues.push(`Campaign "${c.name}": ${c.games} games but zero avgFocusScore`);
-  }
   const stages = data.commerceFunnel?.stages ?? [];
   for (let i = 1; i < stages.length; i++) {
     const curr = stages[i];
@@ -181,10 +170,6 @@ function runZeroValueCheck(data: AllData): QualityCheck {
   if (today) {
     if (today.visitors > 0 && today.conversionRate === 0) issues.push(`conversionRate = 0 despite ${today.visitors} visitors`);
     if (today.players > 0 && today.tradeRequests === 0) issues.push(`tradeRequests = 0 despite ${today.players} players`);
-  }
-  for (const c of data.campaignInsights) {
-    if (c.visitors > 0 && c.conversionRate === 0) issues.push(`Campaign "${c.name}": 0% conversion with ${c.visitors} visitors`);
-    if (c.visitors > 0 && c.games === 0) issues.push(`Campaign "${c.name}": ${c.visitors} visitors but 0 games`);
   }
   for (const os of data.deviceInsights) {
     for (const brand of os.brands) {
@@ -235,14 +220,13 @@ export function DataQualityEngine() {
     let cancelled = false;
     async function run() {
       try {
-        const [cc, di, ci, cf] = await Promise.all([
+        const [cc, di, cf] = await Promise.all([
           api.getCommandCenter(),
           api.getDeviceInsights(),
-          api.getCampaignInsights(),
           api.getCommerceFunnel(),
         ]);
         if (cancelled) return;
-        const data: AllData = { commandCenter: cc, deviceInsights: di, campaignInsights: ci, commerceFunnel: cf };
+        const data: AllData = { commandCenter: cc, deviceInsights: di, commerceFunnel: cf };
         setChecks(CHECKS_RUNNERS.map(fn => fn(data)));
         setLoading(false);
       } catch (err) {

@@ -4,10 +4,9 @@ import { useState } from 'react';
 import { ResearchLayout, type DashboardId } from '../../research-console/layout/ResearchLayout';
 
 const ALL_DASHBOARDS: readonly DashboardId[] = [
-  'overview', 'acquisition', 'scientific', 'users', 'sessions', 'devices', 'surveys',
-  'campaigns', 'live', 'system', 'journey', 'health', 'conversion', 'comparator',
-  'intelligence', 'insights', 'exchange', 'inventory', 'catalog-health',
-  'variant-coverage', 'inventory-health', 'price-memory', 'diagnostics', 'ads',
+  'overview', 'scientific', 'users', 'sessions', 'devices', 'surveys', 'system',
+  'inventory', 'catalog-health', 'variant-coverage', 'inventory-health',
+  'price-memory', 'ads',
 ];
 
 function Harness({ availableDashboards = ALL_DASHBOARDS, onBack }: { availableDashboards?: readonly DashboardId[]; onBack?: () => void }) {
@@ -84,14 +83,14 @@ describe('research console sidebar navigation', () => {
     const navNode = nav;
 
     for (let i = 0; i < 3; i++) {
-      fireEvent.click(nav.querySelectorAll('button')[4]!); // 'sessions'
+      fireEvent.click(nav.querySelectorAll('button')[3]!); // 'sessions'
       expect(getByTestId('content').textContent).toBe('sessions');
-      fireEvent.click(nav.querySelectorAll('button')[8]!); // 'live'
-      expect(getByTestId('content').textContent).toBe('live');
+      fireEvent.click(nav.querySelectorAll('button')[8]!); // 'catalog-health'
+      expect(getByTestId('content').textContent).toBe('catalog-health');
     }
 
     // rapid-fire: 10 clicks with no await in between, then verify a stable final state
-    const rapid = ['overview', 'scientific', 'sessions', 'live', 'system', 'diagnostics', 'overview', 'price-memory', 'live', 'sessions'];
+    const rapid = ['overview', 'scientific', 'sessions', 'system', 'catalog-health', 'price-memory', 'overview', 'ads', 'devices', 'sessions'];
     for (const id of rapid) {
       const idx = ALL_DASHBOARDS.indexOf(id as DashboardId);
       fireEvent.click(nav.querySelectorAll('button')[idx]!);
@@ -109,7 +108,7 @@ describe('research console sidebar navigation', () => {
     const { container, getByTestId } = render(<Harness onBack={onBack} />);
     const nav = container.querySelector('nav[aria-label="Research console navigation"]')!;
 
-    fireEvent.click(nav.querySelectorAll('button')[2]!); // 'scientific'
+    fireEvent.click(nav.querySelectorAll('button')[1]!); // 'scientific'
     expect(getByTestId('content').textContent).toBe('scientific');
 
     const back = Array.from(nav.parentElement!.querySelectorAll('button')).find((b) => b.getAttribute('title') === 'research.back');
@@ -117,7 +116,7 @@ describe('research console sidebar navigation', () => {
     fireEvent.click(back!);
     expect(onBack).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(nav.querySelectorAll('button')[4]!); // 'sessions'
+    fireEvent.click(nav.querySelectorAll('button')[3]!); // 'sessions'
     expect(getByTestId('content').textContent).toBe('sessions');
   });
 });
