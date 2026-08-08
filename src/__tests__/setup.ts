@@ -21,7 +21,14 @@ Object.defineProperty(window, 'matchMedia', {
 // "running" Badge from the design-system snapshots failing a getByText).
 // Unmount any RTL tree and hard-reset the DOM after every test so each file
 // always starts from a clean document.
+//
+// The same single-fork reuse also persists `window.location` (pathname, search
+// and hash) between test files. `App`'s InitialRoute reads `location.hash` on
+// boot and REPLACEs to that screen, so a prior file leaving `#/showroom`
+// (e.g. useScrollPreservation) made an App-rendering test land on Showroom
+// instead of Home. Reset the URL to the bare path after every test too.
 afterEach(() => {
   cleanup();
   document.body.innerHTML = '';
+  window.history.replaceState({}, '', '/');
 });

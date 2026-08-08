@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { Suspense } from 'react';
 import App from '../../App';
@@ -8,6 +8,14 @@ function renderApp() {
 }
 describe('App', () => {
   const TEST_TIMEOUT = 20000;
+
+  // Single-fork jsdom reuse (vitest `pool: forks, singleFork: true`) persists
+  // window.location between test files. `InitialRoute` reads `location.hash`
+  // at boot, so a stale `#/showroom` from an earlier file would make App
+  // REPLACE into Showroom instead of Home. Always boot from a clean URL.
+  beforeEach(() => {
+    window.history.replaceState({}, '', '/');
+  });
 
   it('should render the home screen by default', async () => {
     renderApp();
