@@ -360,6 +360,8 @@ SPA ثابت (GitHub Pages)
 | `inventory_items`, `inventory_images`, `inventory_movements` | **KEEP (E-5)** | مخزون البائع — Commercial Core |
 | `users` + `system_settings`/`audit_log`/`job_assignments` (contract 00009) | **REASSESS (E-8/E-10)** | قرار قانوني أولاً (مصير auth/admin/contract) |
 
+> **E-9 status (2026-08-08):** **OPEN — REASSESSMENT ONLY.** Registered in `docs/audits/e9-repair-reassessment.md`. No DROP/RESTORE/MIGRATE and no code/data deletion authorized here. Independent of CR-00005 (closed as `NON-APPLICABLE / NEVER_DEPLOYED` — `docs/audits/p6-security-cr-00005-rls.md`).
+
 يُحذف عبر `DROP TABLE ... CASCADE` في migrations Decommission فقط بعد إثبات صفر كتابة/قراءة من الكود.
 
 ## 13. RPCs/Triggers (وظائف/مشغلات) — حالة كل منها وفق E-1…E-13
