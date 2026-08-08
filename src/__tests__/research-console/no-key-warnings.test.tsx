@@ -9,7 +9,6 @@ import { ScientificDashboard } from '../../research-console/pages/scientific/Sci
 import { UsersDashboard } from '../../research-console/pages/users/UsersDashboard';
 import { SessionsDashboard } from '../../research-console/pages/sessions/SessionsDashboard';
 import { DevicesDashboard } from '../../research-console/pages/devices/DevicesDashboard';
-import { SurveysDashboard } from '../../research-console/pages/surveys/SurveysDashboard';
 import { SystemDashboard } from '../../research-console/pages/system/SystemDashboard';
 import { CatalogInventoryScreen } from '../../screens/inventory/CatalogInventoryScreen';
 import { CatalogHealth } from '../../research-console/pages/catalog/CatalogHealth';
@@ -24,7 +23,6 @@ const dashboards = [
   ['users', UsersDashboard],
   ['sessions', SessionsDashboard],
   ['devices', DevicesDashboard],
-  ['surveys', SurveysDashboard],
   ['system', SystemDashboard],
   ['inventory', CatalogInventoryScreen],
   ['catalog-health', CatalogHealth],

@@ -99,20 +99,6 @@ export function openRepairRequest(params: { brand: string; model: string; issue:
   openWhatsApp(WHATSAPP_PHONE, message);
 }
 
-export function openRepairStatus(params: { brand: string; model: string; status: string; code: string }): void {
-  const message = [
-    'السلام عليكم.',
-    '',
-    `حالة طلب التصليح رقم ${params.code}:`,
-    '',
-    `📱 الهاتف: ${params.brand} ${params.model}`,
-    `📌 الحالة: ${params.status}`,
-    '',
-    'شكراً.',
-  ].filter(Boolean).join('\n');
-  openWhatsApp(WHATSAPP_PHONE, message);
-}
-
 export function openInventoryRequest(params: { brand: string; model: string; variant?: string; quantity?: number }): void {
   const message = [
     'السلام عليكم.',

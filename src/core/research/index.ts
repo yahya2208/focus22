@@ -32,9 +32,4 @@ export {
   type ExportFormat, type ExportOptions, type ExportResult, type ExportService,
 } from './export';
 
-export {
-  createResearchAPI,
-  type ResearchAPI, type OverviewStats, type ScientificMetrics,
-  type UserAnalytics, type SessionAnalytics, type DeviceAnalytics,
-  type SurveyAnalytics, type LiveEvent, type SystemHealth,
-} from './api';
+

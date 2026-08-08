@@ -1,6 +1,6 @@
 import type {
   RepairRequest, RepairQuote, RepairTimelineEvent,
-  CourierJob, RepairNotification, RepairPhoto,
+  CourierJob,
   RepairStatusHistoryEntry, RepairAuditEntry,
   Courier, Technician,
 } from './repair-types';
@@ -179,21 +179,6 @@ export async function getRepairRequestByCode(code: string): Promise<RepairReques
   return loadTable<RepairRequest>(REPAIR_TABLES.REPAIR_REQUESTS).find(r => r.repairCode === code) ?? null;
 }
 
-export async function getRepairRequestsByName(name: string): Promise<RepairRequest[]> {
-  if (isSupabaseAvailable()) {
-    try { return await getRepairDataService().getRepairRequestsByName(name); } catch { clearSupabaseCache(); }
-  }
-  const lower = name.toLowerCase();
-  return loadTable<RepairRequest>(REPAIR_TABLES.REPAIR_REQUESTS).filter(r => r.customerName.toLowerCase().includes(lower));
-}
-
-export async function getRepairRequestsByPhone(phone: string): Promise<RepairRequest[]> {
-  if (isSupabaseAvailable()) {
-    try { return await getRepairDataService().getRepairRequestsByPhone(phone); } catch { clearSupabaseCache(); }
-  }
-  return loadTable<RepairRequest>(REPAIR_TABLES.REPAIR_REQUESTS).filter(r => r.customerPhone === phone);
-}
-
 // ── Quotes ──────────────────────────────────────────────────────
 
 export async function getAllQuotes(): Promise<RepairQuote[]> {
@@ -264,44 +249,6 @@ export async function saveCourierJob(job: CourierJob): Promise<void> {
   const idx = all.findIndex(j => j.id === job.id);
   if (idx >= 0) all[idx] = job; else all.push(job);
   saveTable(REPAIR_TABLES.REPAIR_COURIER_JOBS, all);
-}
-
-// ── Notifications ───────────────────────────────────────────────
-
-export async function getAllNotifications(repairId?: string): Promise<RepairNotification[]> {
-  if (isSupabaseAvailable()) {
-    try { return await getRepairDataService().getAllNotifications(repairId); } catch { clearSupabaseCache(); }
-  }
-  const all = loadTable<RepairNotification>(REPAIR_TABLES.REPAIR_NOTIFICATIONS);
-  return repairId ? all.filter(n => n.repairId === repairId) : all;
-}
-
-export async function saveNotification(notification: RepairNotification): Promise<void> {
-  if (isSupabaseAvailable()) {
-    try { await getRepairDataService().saveNotification(notification); return; } catch { clearSupabaseCache(); }
-  }
-  const all = loadTable<RepairNotification>(REPAIR_TABLES.REPAIR_NOTIFICATIONS);
-  all.push(notification);
-  saveTable(REPAIR_TABLES.REPAIR_NOTIFICATIONS, all);
-}
-
-// ── Photos ──────────────────────────────────────────────────────
-
-export async function getAllPhotos(repairId?: string): Promise<RepairPhoto[]> {
-  if (isSupabaseAvailable()) {
-    try { return await getRepairDataService().getAllPhotos(repairId); } catch { clearSupabaseCache(); }
-  }
-  const all = loadTable<RepairPhoto>(REPAIR_TABLES.REPAIR_PHOTOS);
-  return repairId ? all.filter(p => p.repairId === repairId) : all;
-}
-
-export async function savePhoto(photo: RepairPhoto): Promise<void> {
-  if (isSupabaseAvailable()) {
-    try { return await getRepairDataService().savePhoto(photo); return; } catch { clearSupabaseCache(); }
-  }
-  const all = loadTable<RepairPhoto>(REPAIR_TABLES.REPAIR_PHOTOS);
-  all.push(photo);
-  saveTable(REPAIR_TABLES.REPAIR_PHOTOS, all);
 }
 
 // ── Status History ──────────────────────────────────────────

@@ -29,15 +29,7 @@ function rankingStars(r: DeviceIntelligence['health']['ranking']): string {
 
 function DeviceHardwarePanel({ device }: { readonly device: DeviceIntelligence }) {
   const rows: [string, string | number | null | boolean][] = [
-    ['Screen', device.screenWidth && device.screenHeight ? `${device.screenWidth}×${device.screenHeight}` : null],
-    ['Pixel Ratio', device.pixelRatio],
-    ['Refresh Rate', device.refreshRate ? `${device.refreshRate}Hz` : null],
-    ['Touch Support', device.touchSupport],
-    ['Pointer Type', device.pointerType],
-    ['CPU Cores', device.cpuCores],
-    ['Memory', device.memoryGb ? `${device.memoryGb}GB` : null],
     ['Language', device.language],
-    ['Timezone', device.timezone],
     ['Platform', device.platform],
     ['OS Version', device.osVersion],
     ['Browser Version', device.browserVersion],

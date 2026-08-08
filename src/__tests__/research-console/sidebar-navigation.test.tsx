@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ResearchLayout, type DashboardId } from '../../research-console/layout/ResearchLayout';
 
 const ALL_DASHBOARDS: readonly DashboardId[] = [
-  'overview', 'scientific', 'users', 'sessions', 'devices', 'surveys', 'system',
+  'overview', 'scientific', 'users', 'sessions', 'devices', 'system',
   'inventory', 'catalog-health', 'variant-coverage', 'inventory-health',
   'price-memory', 'ads',
 ];
@@ -85,7 +85,7 @@ describe('research console sidebar navigation', () => {
     for (let i = 0; i < 3; i++) {
       fireEvent.click(nav.querySelectorAll('button')[3]!); // 'sessions'
       expect(getByTestId('content').textContent).toBe('sessions');
-      fireEvent.click(nav.querySelectorAll('button')[8]!); // 'catalog-health'
+      fireEvent.click(nav.querySelectorAll('button')[7]!); // 'catalog-health'
       expect(getByTestId('content').textContent).toBe('catalog-health');
     }
 

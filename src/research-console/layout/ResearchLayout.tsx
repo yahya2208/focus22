@@ -11,7 +11,7 @@ const MOBILE_BREAKPOINT = 768;
 
 export type DashboardId =
   | 'overview' | 'scientific' | 'users' | 'sessions'
-  | 'devices' | 'surveys' | 'system' | 'inventory'
+  | 'devices' | 'system' | 'inventory'
   | 'catalog-health' | 'variant-coverage' | 'inventory-health' | 'price-memory' | 'ads';
 
 const DASHBOARDS: { id: DashboardId; labelKey: TranslationKey; icon: string }[] = [
@@ -20,7 +20,6 @@ const DASHBOARDS: { id: DashboardId; labelKey: TranslationKey; icon: string }[] 
   { id: 'users', labelKey: 'research.nav.users', icon: '👥' },
   { id: 'sessions', labelKey: 'research.nav.sessions', icon: '⏱' },
   { id: 'devices', labelKey: 'research.nav.devices', icon: '💻' },
-  { id: 'surveys', labelKey: 'research.nav.surveys', icon: '📋' },
   { id: 'system', labelKey: 'research.nav.system', icon: '⚙' },
   { id: 'inventory', labelKey: 'research.nav.inventory', icon: '📦' },
   { id: 'catalog-health', labelKey: 'research.nav.catalog-health', icon: '🗂' },

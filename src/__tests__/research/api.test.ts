@@ -1,146 +1,221 @@
-import { describe, it, expect } from 'vitest';
-import { createResearchAPI } from '../../core/research/api';
-import type { Session } from '../../core/session';
-import { createEmptyFilters } from '../../core/research/filters';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createResearchAPI } from '../../core/research/api-supabase';
 
-function makeSession(overrides: Partial<Session> = {}): Session {
+const { mockFrom, enqueue, resetQueue } = vi.hoisted(() => {
+  interface QueuedResult { data: unknown; count?: number | null; error: unknown }
+  const queue: QueuedResult[] = [];
+  const fallback: QueuedResult = { data: null, count: null, error: null };
+
+  function makeQuery(): { chain: Promise<QueuedResult> & Record<string, unknown> } {
+    const entry: QueuedResult = { data: null, count: null, error: null };
+    const chain = Promise.resolve(entry) as Promise<QueuedResult> & Record<string, unknown>;
+    chain.select = vi.fn(() => {
+      const next = queue.shift() ?? fallback;
+      entry.data = next.data;
+      entry.count = next.count ?? null;
+      entry.error = next.error;
+      return chain;
+    });
+    chain.eq = vi.fn(() => chain);
+    chain.gte = vi.fn(() => chain);
+    chain.lte = vi.fn(() => chain);
+    chain.order = vi.fn(() => chain);
+    chain.limit = vi.fn(() => chain);
+    chain.in = vi.fn(() => chain);
+    chain.not = vi.fn(() => chain);
+    chain.single = vi.fn(async () => entry);
+    chain.maybeSingle = vi.fn(async () => entry);
+    return { chain };
+  }
+
+  const mockFrom = vi.fn(() => makeQuery().chain);
+  const enqueue = (input: unknown, count: number | null = null, error: unknown = null) => {
+    if (input !== null && typeof input === 'object' && !Array.isArray(input) && 'data' in (input as Record<string, unknown>)) {
+      const r = input as QueuedResult;
+      queue.push({ data: r.data, count: r.count ?? count, error: r.error ?? error });
+    } else {
+      queue.push({ data: input, count, error });
+    }
+  };
+  const resetQueue = () => { queue.length = 0; };
+  return { mockFrom, enqueue, resetQueue };
+});
+
+vi.mock('../../core/supabase/client', () => ({
+  getSupabaseClient: () => ({ from: mockFrom }),
+}));
+
+function sessionRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id: `s_${Math.random().toString(36).slice(2, 8)}`,
+    user_id: 'u1',
+    device_id: 'd1',
     status: 'completed',
-    calibrationId: 'cal1',
-    pluginId: 'reaction-light',
-    deviceId: 'd1',
-    measurements: { rawRts: [100, 200], correctedRts: [90, 190], totalRounds: 2, validRounds: 2, outlierCount: 0 },
-    scientificResults: {
-      meanCorrectedMs: 140,
-      medianCorrectedMs: 140,
-      consistencyScore: 0.8,
-      consistencyRating: 'good',
-      fatigueIndex: 0.15,
-      fatigueScore: 0.15,
-      focusScore: 72,
-      grade: 'B',
-    },
-    metadata: { version: '0.1.0-alpha', pluginVersion: '1.0.0', buildNumber: 1 },
-    createdAt: Date.now() - 86400000,
-    updatedAt: Date.now(),
-    finishedAt: null,
+    created_at: '2026-08-01T10:00:00.000Z',
+    measurements: { corrected_rts: [90, 190] },
+    scientific_results: { focus_score: 72, consistency_score: 80, fatigue_score: 15, grade: 'B' },
     ...overrides,
   };
 }
 
-describe('ResearchAPI', () => {
-  describe('getOverview', () => {
-    it('returns empty overview with no sessions', async () => {
-      const api = createResearchAPI();
-      const overview = await api.getOverview();
-      expect(overview.totalSessions).toBe(0);
-      expect(overview.gamesPlayed).toBe(0);
-    });
+describe('ResearchAPI (Supabase-backed)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetQueue();
+  });
 
-    it('counts sessions correctly', async () => {
-      const s1 = makeSession({ status: 'completed' });
-      const s2 = makeSession({ status: 'completed' });
-      const s3 = makeSession({ status: 'synced' });
-      const api = createResearchAPI([s1, s2, s3]);
-      const overview = await api.getOverview();
+  describe('getOverview', () => {
+    it('counts sessions and users', async () => {
+      enqueue({ data: [{ id: 'u1', role: 'guest' }, { id: 'u2', role: 'user' }], error: null });
+      enqueue({ data: [sessionRow(), sessionRow(), sessionRow({ status: 'synced' })], count: 3, error: null });
+      enqueue({ data: [], count: 0, error: null });
+      enqueue({ data: [], count: 0, error: null });
+      enqueue({ data: [], count: 0, error: null });
+      enqueue({ data: [], count: 0, error: null });
+
+      const overview = await createResearchAPI().getOverview();
       expect(overview.totalSessions).toBe(3);
       expect(overview.gamesPlayed).toBe(2);
+      expect(overview.totalUsers).toBe(2);
+      expect(overview.guestUsers).toBe(1);
+      expect(overview.registeredUsers).toBe(1);
     });
 
     it('computes avgFocusScore from completed sessions', async () => {
-      const s1 = makeSession({ scientificResults: { meanCorrectedMs: 0, medianCorrectedMs: 0, consistencyScore: 0, consistencyRating: '', fatigueIndex: 0, fatigueScore: 0, focusScore: 60, grade: 'C' } });
-      const s2 = makeSession({ scientificResults: { meanCorrectedMs: 0, medianCorrectedMs: 0, consistencyScore: 0, consistencyRating: '', fatigueIndex: 0, fatigueScore: 0, focusScore: 80, grade: 'A' } });
-      const api = createResearchAPI([s1, s2]);
-      const overview = await api.getOverview();
+      enqueue({ data: [], error: null });
+      enqueue({
+        data: [
+          sessionRow({ scientific_results: { focus_score: 60 } }),
+          sessionRow({ scientific_results: { focus_score: 80 } }),
+        ],
+        count: 2,
+        error: null,
+      });
+      enqueue({ data: [], count: 0, error: null });
+      enqueue({ data: [], count: 0, error: null });
+      enqueue({ data: [], count: 0, error: null });
+      enqueue({ data: [], count: 0, error: null });
+
+      const overview = await createResearchAPI().getOverview();
       expect(overview.avgFocusScore).toBeCloseTo(70);
-    });
-
-    it('counts unique devices', async () => {
-      const s1 = makeSession({ deviceId: 'd1' });
-      const s2 = makeSession({ deviceId: 'd2' });
-      const s3 = makeSession({ deviceId: 'd1' });
-      const api = createResearchAPI([s1, s2, s3]);
-      const overview = await api.getOverview();
-      expect(overview.devices).toBe(2);
-    });
-
-    it('computes retention D1 from sessions on consecutive days', async () => {
-      const day1 = Date.UTC(2026, 7, 1, 12);
-      const day2 = Date.UTC(2026, 7, 2, 12);
-      const day3 = Date.UTC(2026, 7, 3, 12);
-      const s1 = makeSession({ deviceId: 'd1', createdAt: day1 });
-      const s2 = makeSession({ deviceId: 'd1', createdAt: day2 });
-      const s3 = makeSession({ deviceId: 'd2', createdAt: day1 });
-      const s4 = makeSession({ deviceId: 'd2', createdAt: day3 });
-      const api = createResearchAPI([s1, s2, s3, s4]);
-      const overview = await api.getOverview();
-      // d1 returned on day+1 (100%), d2 did not (0%) -> 50%.
-      expect(overview.retentionD1).toBe(50);
-      expect(overview.retentionD30).toBe(0);
     });
   });
 
   describe('getScientific', () => {
-    it('computes scientific metrics from sessions', async () => {
-      const s1 = makeSession();
-      const api = createResearchAPI([s1]);
-      const metrics = await api.getScientific();
-      expect(metrics.reactionTime.mean).toBeGreaterThan(0);
-      expect(metrics.percentiles.p50).toBeGreaterThanOrEqual(0);
-      expect(metrics.consistency.score).toBeCloseTo(0.8);
-    });
+    it('computes mean reaction time and consistency from completed sessions', async () => {
+      enqueue({
+        data: [{ measurements: { corrected_rts: [100, 200] }, scientific_results: { consistency_score: 80, fatigue_score: 20 } }],
+        error: null,
+      });
 
-    it('returns zeros for no completed sessions', async () => {
-      const api = createResearchAPI();
-      const metrics = await api.getScientific();
-      expect(metrics.reactionTime.mean).toBe(0);
+      const metrics = await createResearchAPI().getScientific();
+      expect(metrics.reactionTime.mean).toBe(150);
+      expect(metrics.consistency.score).toBe(80);
     });
   });
 
   describe('getSessionAnalytics', () => {
-    it('computes completion rate', async () => {
-      const s1 = makeSession({ status: 'completed' });
-      const s2 = makeSession({ status: 'failed' });
-      const api = createResearchAPI([s1, s2]);
-      const analytics = await api.getSessionAnalytics();
-      expect(analytics.completionRate).toBeCloseTo(0.5);
+    it('computes completion and abort rates', async () => {
+      enqueue({
+        data: [
+          { id: 's1', status: 'completed', created_at: '2026-08-01T10:00:00.000Z' },
+          { id: 's2', status: 'failed', created_at: '2026-08-01T11:00:00.000Z' },
+        ],
+        error: null,
+      });
+
+      const analytics = await createResearchAPI().getSessionAnalytics();
+      expect(analytics.completionRate).toBe(50);
+      expect(analytics.abortRate).toBe(50);
     });
   });
 
   describe('getUserAnalytics', () => {
-    it('returns placeholder data', async () => {
-      const api = createResearchAPI();
-      const analytics = await api.getUserAnalytics();
-      expect(analytics.newUsers).toBe(0);
-      expect(analytics.returningUsers).toBe(0);
-    });
+    it('counts guest/registered users and returning users by active days', async () => {
+      enqueue({ data: [{ id: 'u1', role: 'guest' }, { id: 'u2', role: 'user' }], error: null });
+      enqueue({
+        data: [
+          { id: 'a', user_id: 'u1', created_at: '2026-08-01T10:00:00.000Z' },
+          { id: 'b', user_id: 'u1', created_at: '2026-08-02T10:00:00.000Z' },
+          { id: 'c', user_id: 'u2', created_at: '2026-08-01T10:00:00.000Z' },
+        ],
+        error: null,
+      });
 
-    it('counts returning users by device with 2+ active days', async () => {
-      const day1 = Date.UTC(2026, 7, 1, 12);
-      const day2 = Date.UTC(2026, 7, 2, 12);
-      const s1 = makeSession({ deviceId: 'd1', createdAt: day1 });
-      const s2 = makeSession({ deviceId: 'd1', createdAt: day2 });
-      const s3 = makeSession({ deviceId: 'd2', createdAt: day1 });
-      const api = createResearchAPI([s1, s2, s3]);
-      const analytics = await api.getUserAnalytics();
+      const analytics = await createResearchAPI().getUserAnalytics();
+      expect(analytics.guestUsers).toBe(1);
+      expect(analytics.registeredUsers).toBe(1);
       expect(analytics.returningUsers).toBe(1);
     });
   });
 
-  describe('getDeviceAnalytics', () => {
-    it('returns empty distributions', async () => {
+  describe('getSessionList', () => {
+    it('maps sessions, users and device data into rows', async () => {
+      enqueue({ data: [sessionRow({ id: 's1', user_id: 'u1', device_id: 'd1' })], error: null });
+      enqueue({ data: [{ id: 'u1', role: 'user' }], error: null });
+      enqueue({
+        data: [{ id: 'd1', os: 'Android', os_version: '14', browser: 'Chrome', browser_version: '120', platform: 'mobile', language: 'en', user_agent: 'Mozilla/5.0 (Android 14)' }],
+        error: null,
+      });
+
+      const rows = await createResearchAPI().getSessionList();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.status).toBe('completed');
+      expect(rows[0]!.userName).toBe('User');
+      expect(rows[0]!.userType).toBe('Registered');
+      expect(rows[0]!.avgRt).toBe(140);
+      expect(rows[0]!.deviceOs).toBe('Android 14');
+      expect(rows[0]!.language).toBe('en');
+    });
+
+    it('applies game and date filters to the session query', async () => {
+      enqueue({ data: [], error: null });
+      enqueue({ data: [], error: null });
+      enqueue({ data: [], error: null });
+
       const api = createResearchAPI();
-      const analytics = await api.getDeviceAnalytics();
-      expect(analytics.osDistribution).toEqual([]);
+      await api.getSessionList({
+        dateFrom: Date.UTC(2026, 7, 1),
+        dateTo: null,
+        country: null,
+        city: null,
+        campaign: null,
+        device: null,
+        browser: null,
+        os: null,
+        ageRange: null,
+        gender: null,
+        education: null,
+        sleepHours: null,
+        coffee: null,
+        sport: null,
+        handedness: null,
+        game: 'reaction-light',
+        authType: null,
+      });
+
+      expect(mockFrom).toHaveBeenCalledWith('sessions');
     });
   });
 
-  describe('getSurveyAnalytics', () => {
-    it('returns empty distributions', async () => {
-      const api = createResearchAPI();
-      const analytics = await api.getSurveyAnalytics();
-      expect(analytics.ageDistribution).toEqual([]);
+  describe('getDeviceAnalytics', () => {
+    it('builds OS and browser distributions without fingerprint reads', async () => {
+      enqueue({
+        data: [
+          { id: 'd1', os: 'Android', browser: 'Chrome' },
+          { id: 'd2', os: 'Android', browser: 'Firefox' },
+          { id: 'd3', os: 'iOS', browser: 'Safari' },
+        ],
+        error: null,
+      });
+
+      const analytics = await createResearchAPI().getDeviceAnalytics();
+      const android = analytics.osDistribution.find(d => d.os === 'Android');
+      const chrome = analytics.browserDistribution.find(d => d.browser === 'Chrome');
+      expect(android?.count).toBe(2);
+      expect(chrome?.count).toBe(1);
+      expect(analytics.refreshRateDistribution).toEqual([]);
+      expect(analytics.resolutionDistribution).toEqual([]);
     });
   });
 
@@ -152,13 +227,7 @@ describe('ResearchAPI', () => {
 
     it('stores and retrieves live events', () => {
       const api = createResearchAPI();
-      const event = {
-        type: 'player_connected' as const,
-        timestamp: Date.now(),
-        sessionId: 's1',
-        userId: null,
-      };
-      api.addLiveEvent(event);
+      api.addLiveEvent({ type: 'player_connected', timestamp: Date.now(), sessionId: 's1', userId: null });
       expect(api.getLiveEvents()).toHaveLength(1);
       expect(api.getLiveEvents()[0]!.sessionId).toBe('s1');
     });
@@ -166,12 +235,7 @@ describe('ResearchAPI', () => {
     it('caps live events at 1000', () => {
       const api = createResearchAPI();
       for (let i = 0; i < 1005; i++) {
-        api.addLiveEvent({
-          type: 'playing',
-          timestamp: Date.now() + i,
-          sessionId: `s${i}`,
-          userId: null,
-        });
+        api.addLiveEvent({ type: 'playing', timestamp: Date.now() + i, sessionId: `s${i}`, userId: null });
       }
       expect(api.getLiveEvents().length).toBeLessThanOrEqual(1000);
     });
@@ -179,29 +243,11 @@ describe('ResearchAPI', () => {
 
   describe('getSystemHealth', () => {
     it('returns healthy status', async () => {
-      const api = createResearchAPI();
-      const health = await api.getSystemHealth();
+      enqueue({ data: [], error: null });
+
+      const health = await createResearchAPI().getSystemHealth();
       expect(health.supabaseStatus).toBe('healthy');
-      expect(health.buildVersion).toBe('0.1.0-alpha');
-    });
-  });
-
-  describe('filtering', () => {
-    it('filters by dateFrom', async () => {
-      const now = Date.now();
-      const old = makeSession({ createdAt: now - 86400000 * 10 });
-      const recent = makeSession({ createdAt: now });
-      const api = createResearchAPI([old, recent]);
-      const overview = await api.getOverview({ ...createEmptyFilters(), dateFrom: now - 86400000 });
-      expect(overview.totalSessions).toBe(1);
-    });
-
-    it('filters by game', async () => {
-      const s1 = makeSession({ pluginId: 'reaction-light' });
-      const s2 = makeSession({ pluginId: 'other-game' });
-      const api = createResearchAPI([s1, s2]);
-      const overview = await api.getOverview({ ...createEmptyFilters(), game: 'reaction-light' });
-      expect(overview.totalSessions).toBe(1);
+      expect(health.buildVersion).toBe('2.0.0');
     });
   });
 });

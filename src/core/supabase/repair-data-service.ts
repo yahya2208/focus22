@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from './schema';
 import type {
   RepairRequest, RepairQuote, RepairTimelineEvent,
-  CourierJob, RepairNotification, RepairPhoto,
+  CourierJob,
   RepairStatusHistoryEntry, RepairAuditEntry,
 } from '../../services/repair/repair-types';
 
@@ -11,8 +11,6 @@ const reqFields = 'id,repair_code,customer_name,customer_phone,brand_name,model_
 const quoteFields = 'id,repair_id,estimated_price,estimated_days,admin_notes,recommended_action,recommendation_reason,sent_at,approved_at,rejected_at,created_at';
 const timelineFields = 'id,repair_id,status,note,created_at,actor';
 const courierFields = 'id,repair_id,courier_id,courier_name,customer_name,customer_phone,customer_address,latitude,longitude,google_maps_link,distance,status,notes,created_at,updated_at';
-const notifFields = 'id,repair_id,type,recipient,title,message,sent_at,read_at';
-const photoFields = 'id,repair_id,path,uploaded_at';
 
 function mapRepairRequest(row: Database['repair_requests']['Row']): RepairRequest {
   return {
@@ -66,22 +64,6 @@ function mapCourierJob(row: Database['repair_courier_jobs']['Row']): CourierJob 
     distance: row.distance, status: row.status as CourierJob['status'],
     notes: row.notes ?? '',
     createdAt: row.created_at, updatedAt: row.updated_at,
-  };
-}
-
-function mapNotification(row: Database['repair_notifications']['Row']): RepairNotification {
-  return {
-    id: row.id, repairId: row.repair_id,
-    type: row.type as RepairNotification['type'], recipient: row.recipient as RepairNotification['recipient'],
-    title: row.title, message: row.message,
-    sentAt: row.sent_at, readAt: row.read_at,
-  };
-}
-
-function mapPhoto(row: Database['repair_photos']['Row']): RepairPhoto {
-  return {
-    id: row.id, repairId: row.repair_id,
-    path: row.path, uploadedAt: row.uploaded_at,
   };
 }
 
@@ -155,18 +137,6 @@ export class RepairDataService {
     return data ? mapRepairRequest(data) : null;
   }
 
-  async getRepairRequestsByName(name: string): Promise<RepairRequest[]> {
-    const { data, error } = await this.client.from('repair_requests').select(reqFields).ilike('customer_name', `%${name}%`).order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map(mapRepairRequest);
-  }
-
-  async getRepairRequestsByPhone(phone: string): Promise<RepairRequest[]> {
-    const { data, error } = await this.client.from('repair_requests').select(reqFields).eq('customer_phone', phone).order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map(mapRepairRequest);
-  }
-
   async getAllQuotes(): Promise<RepairQuote[]> {
     const { data, error } = await this.client.from('repair_quotes').select(quoteFields).order('created_at', { ascending: false });
     if (error) throw error;
@@ -237,40 +207,6 @@ export class RepairDataService {
     if (error) throw error;
   }
 
-  async getAllNotifications(repairId?: string): Promise<RepairNotification[]> {
-    let query = this.client.from('repair_notifications').select(notifFields);
-    if (repairId) query = query.eq('repair_id', repairId);
-    const { data, error } = await query.order('sent_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map(mapNotification);
-  }
-
-  async saveNotification(notification: RepairNotification): Promise<void> {
-    const { error } = await this.client.from('repair_notifications').insert({
-      id: notification.id, repair_id: notification.repairId,
-      type: notification.type, recipient: notification.recipient,
-      title: notification.title, message: notification.message,
-      sent_at: notification.sentAt, read_at: notification.readAt,
-    });
-    if (error) throw error;
-  }
-
-  async getAllPhotos(repairId?: string): Promise<RepairPhoto[]> {
-    let query = this.client.from('repair_photos').select(photoFields);
-    if (repairId) query = query.eq('repair_id', repairId);
-    const { data, error } = await query.order('uploaded_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map(mapPhoto);
-  }
-
-  async savePhoto(photo: RepairPhoto): Promise<void> {
-    const { error } = await this.client.from('repair_photos').insert({
-      id: photo.id, repair_id: photo.repairId,
-      path: photo.path, uploaded_at: photo.uploadedAt,
-    });
-    if (error) throw error;
-  }
-
   // ── Code collision check ──────────────────────────────────
   async getRepairCodeExists(code: string): Promise<boolean> {
     const { data, error } = await this.client.from('repair_requests').select('id').eq('repair_code', code).maybeSingle();
@@ -284,24 +220,22 @@ export class RepairDataService {
       id: entry.id, repair_id: entry.repairId,
       from_status: entry.fromStatus, to_status: entry.toStatus,
       changed_by: entry.changedBy, changed_by_id: entry.changedById,
-      note: entry.note, ip_address: entry.ipAddress,
-      device_info: entry.deviceInfo, created_at: entry.createdAt,
+      note: entry.note, created_at: entry.createdAt,
     });
     if (error) throw error;
   }
 
   async getStatusHistory(repairId: string): Promise<RepairStatusHistoryEntry[]> {
     const { data, error } = await this.client.from('repair_status_history')
-      .select('id,repair_id,from_status,to_status,changed_by,changed_by_id,note,ip_address,device_info,created_at')
+      .select('id,repair_id,from_status,to_status,changed_by,changed_by_id,note,created_at')
       .eq('repair_id', repairId)
       .order('created_at', { ascending: true });
     if (error) throw error;
-    return (data ?? []).map((r: Database['repair_status_history']['Row']) => ({
+    return (data ?? []).map((r) => ({
       id: r.id, repairId: r.repair_id,
       fromStatus: r.from_status, toStatus: r.to_status,
       changedBy: r.changed_by, changedById: r.changed_by_id,
-      note: r.note, ipAddress: r.ip_address,
-      deviceInfo: r.device_info, createdAt: r.created_at,
+      note: r.note, createdAt: r.created_at,
     }));
   }
 
@@ -311,22 +245,20 @@ export class RepairDataService {
       id: entry.id, repair_id: entry.repairId,
       action: entry.action, details: entry.details,
       performed_by: entry.performedBy, performed_by_id: entry.performedById,
-      ip_address: entry.ipAddress, user_agent: entry.userAgent,
       created_at: entry.createdAt,
     });
     if (error) throw error;
   }
 
   async getAuditLog(repairId?: string): Promise<RepairAuditEntry[]> {
-    let query = this.client.from('repair_audit_log').select('id,repair_id,action,details,performed_by,performed_by_id,ip_address,user_agent,created_at');
+    let query = this.client.from('repair_audit_log').select('id,repair_id,action,details,performed_by,performed_by_id,created_at');
     if (repairId) query = query.eq('repair_id', repairId);
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((r: Database['repair_audit_log']['Row']) => ({
+    return (data ?? []).map((r) => ({
       id: r.id, repairId: r.repair_id,
       action: r.action, details: r.details,
       performedBy: r.performed_by, performedById: r.performed_by_id,
-      ipAddress: r.ip_address, userAgent: r.user_agent,
       createdAt: r.created_at,
     }));
   }

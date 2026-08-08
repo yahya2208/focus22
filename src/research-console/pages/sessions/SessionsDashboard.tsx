@@ -131,15 +131,7 @@ function SessionDetail({ session: s }: { session: SessionRow }) {
             { label: 'Browser', value: s.deviceBrowser },
             { label: 'Brand', value: s.brand || '-' },
             { label: 'Model', value: s.marketingName || s.model || '-' },
-            { label: 'Screen', value: s.screenWidth && s.screenHeight ? `${s.screenWidth}×${s.screenHeight}` : '-' },
-            { label: 'Refresh Rate', value: s.refreshRate ? `${s.refreshRate}Hz` : '-' },
-            { label: 'Pixel Ratio', value: s.pixelRatio != null ? s.pixelRatio.toFixed(1) : '-' },
-            { label: 'RAM', value: s.memoryGb ? `${s.memoryGb}GB` : '-' },
-            { label: 'CPU Cores', value: s.cpuCores ? `${s.cpuCores} cores` : '-' },
-            { label: 'Pointer', value: s.pointerType || '-' },
-            { label: 'Touch', value: s.touchSupport ? 'Yes' : 'No' },
             { label: 'Language', value: s.language || '-' },
-            { label: 'Timezone', value: s.timezone || '-' },
             { label: 'Device', value: s.deviceInfo },
           ].map(({ label, value }) => (
             <div key={label}>
@@ -165,14 +157,11 @@ export function SessionsDashboard() {
   }, [filters]);
 
   const csvData = useMemo(() => {
-    const headers = ['Session ID', 'Created', 'Status', 'User', 'Type', 'Game', 'Avg (ms)', 'Best (ms)', 'Grade', 'Focus', 'Device', 'Brand', 'Model', 'OS', 'Browser', 'Screen', 'RAM', 'CPU', 'Refresh Rate'];
+    const headers = ['Session ID', 'Created', 'Status', 'User', 'Type', 'Game', 'Avg (ms)', 'Best (ms)', 'Grade', 'Focus', 'Device', 'Brand', 'Model', 'OS', 'Browser'];
     const rows = sessions.map(s => [
       s.id, s.createdAt, s.status, s.userName, s.userType, s.pluginId,
       String(s.avgRt), String(s.bestRt), s.grade, String(s.focusScore),
       s.deviceInfo, s.brand, s.marketingName, s.deviceOs, s.deviceBrowser,
-      s.screenWidth && s.screenHeight ? `${s.screenWidth}x${s.screenHeight}` : '',
-      s.memoryGb ? `${s.memoryGb}GB` : '', s.cpuCores ? `${s.cpuCores} cores` : '',
-      s.refreshRate ? `${s.refreshRate}Hz` : '',
     ]);
     return { headers, rows };
   }, [sessions]);

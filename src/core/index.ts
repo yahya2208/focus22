@@ -86,10 +86,6 @@ export {
 } from './offline';
 
 export {
-  createSupabaseSessionRepository,
-} from './supabase/session-repository';
-
-export {
   buildShareUrl, createShareHandler, SHARE_PLATFORMS,
   type SharePlatform, type SharePayload, type ShareResult, type ShareConfig,
 } from './qr/share';

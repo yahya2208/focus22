@@ -222,8 +222,6 @@ export interface RepairStatusHistoryEntry {
   changedBy: string;
   changedById: string | null;
   note: string;
-  ipAddress: string | null;
-  deviceInfo: string | null;
   createdAt: string;
 }
 
@@ -234,8 +232,6 @@ export interface RepairAuditEntry {
   details: string;
   performedBy: string;
   performedById: string | null;
-  ipAddress: string | null;
-  userAgent: string | null;
   createdAt: string;
 }
 

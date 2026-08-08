@@ -37,7 +37,7 @@ describe('maybeSingle() behavior on @supabase/supabase-js 2.110.8', () => {
     mockRestArray(200, []);
 
     const { data, error } = await makeClient()
-      .rpc('lookup_campaign_by_short_code', { p_code: 'missing' })
+      .rpc('lookup_by_code', { p_code: 'missing' })
       .maybeSingle();
 
     expect(error).toBeNull();
@@ -55,7 +55,7 @@ describe('maybeSingle() behavior on @supabase/supabase-js 2.110.8', () => {
     ]);
 
     const { data, error } = await makeClient()
-      .rpc('lookup_campaign_by_short_code', { p_code: 'AbC123' })
+      .rpc('lookup_by_code', { p_code: 'AbC123' })
       .maybeSingle();
 
     expect(error).toBeNull();
@@ -69,7 +69,7 @@ describe('maybeSingle() behavior on @supabase/supabase-js 2.110.8', () => {
     ]);
 
     const { data, error } = await makeClient()
-      .rpc('lookup_campaign_by_short_code', { p_code: 'dup123' })
+      .rpc('lookup_by_code', { p_code: 'dup123' })
       .maybeSingle();
 
     expect(data).toBeNull();
@@ -100,8 +100,8 @@ describe('maybeSingle() behavior on @supabase/supabase-js 2.110.8', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const client = makeClient();
-    await client.rpc('lookup_campaign_by_short_code', { p_code: 'x' }).maybeSingle();
-    await client.rpc('lookup_campaign_by_short_code', { p_code: 'x' }).single();
+    await client.rpc('lookup_by_code', { p_code: 'x' }).maybeSingle();
+    await client.rpc('lookup_by_code', { p_code: 'x' }).single();
 
     const maybe = requests[0]!;
     const single = requests[1]!;

@@ -10,7 +10,6 @@ import { ScientificDashboard } from './pages/scientific/ScientificDashboard';
 import { UsersDashboard } from './pages/users/UsersDashboard';
 import { SessionsDashboard } from './pages/sessions/SessionsDashboard';
 import { DevicesDashboard } from './pages/devices/DevicesDashboard';
-import { SurveysDashboard } from './pages/surveys/SurveysDashboard';
 import { SystemDashboard } from './pages/system/SystemDashboard';
 import { CatalogInventoryScreen } from '../screens/inventory/CatalogInventoryScreen';
 import { CatalogHealth } from './pages/catalog/CatalogHealth';
@@ -25,7 +24,6 @@ const DASHBOARD_RESOURCE_MAP: Record<DashboardId, string> = {
   users: 'users',
   sessions: 'sessions',
   devices: 'devices',
-  surveys: 'surveys',
   system: 'overview',
   inventory: 'overview',
   'catalog-health': 'overview',
@@ -41,7 +39,6 @@ const DASHBOARD_IDS: readonly DashboardId[] = [
   'users',
   'sessions',
   'devices',
-  'surveys',
   'inventory',
   'catalog-health',
   'variant-coverage',
@@ -57,7 +54,6 @@ const dashboardComponents: Record<DashboardId, React.FC> = {
   users: UsersDashboard,
   sessions: SessionsDashboard,
   devices: DevicesDashboard,
-  surveys: SurveysDashboard,
   inventory: CatalogInventoryScreen,
   'catalog-health': CatalogHealth,
   'variant-coverage': VariantCoverageScreen,

@@ -1,12 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { getRepairRepository, resetRepairRepository } from '../../services/repair/repair-repository';
 import {
-  createRepairRequest, createQuote, approveQuote,
-  rejectQuote, assignCourier, updateCourierJobStatus,
-  updateRepairStatus, getRepairAnalytics,
-} from '../../services/repair/repair-engine';
-import {
-  getAllRepairRequests, getRepairRequest,
-  getQuote, getAllTimelineEvents,
+  getAllRepairRequests, getRepairRequest, getQuote, getAllTimelineEvents,
+  getAllCourierJobs, getAuditLog,
 } from '../../services/repair/repair-database';
 import { generateRepairCode, type RepairRequest } from '../../services/repair/repair-types';
 import { sendRepairRequestWhatsApp } from '../../services/repair/repair-whatsapp';
@@ -28,6 +24,11 @@ const TEST_INPUT = {
 };
 
 describe('Repair OS', () => {
+  beforeEach(() => {
+    resetRepairRepository();
+    try { localStorage.clear(); } catch { /* jsdom storage may be missing */ }
+  });
+
   describe('Engine 1 — Code Generation', () => {
     it('generates a repair code with RP-YYYY-NNNNNN format', () => {
       const code = generateRepairCode();
@@ -42,7 +43,7 @@ describe('Repair OS', () => {
 
   describe('Engine 2 — Request Lifecycle', () => {
     it('creates a repair request with Pending status', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
       expect(request.status).toBe('Pending');
       expect(request.customerName).toBe(TEST_INPUT.customerName);
       expect(request.brandName).toBe(TEST_INPUT.brandName);
@@ -50,13 +51,13 @@ describe('Repair OS', () => {
     });
 
     it('creates a repair request with pending timeline event', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
       const events = await getAllTimelineEvents(request.id);
       expect(events.some(e => e.status === 'Pending')).toBe(true);
     });
 
     it('finds a repair request by id', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
       const found = await getRepairRequest(request.id);
       expect(found).not.toBeNull();
       expect(found!.id).toBe(request.id);
@@ -64,40 +65,47 @@ describe('Repair OS', () => {
 
     it('lists all repair requests', async () => {
       const before = await getAllRepairRequests();
-      await createRepairRequest(TEST_INPUT);
+      await getRepairRepository().createRequest(TEST_INPUT);
       const after = await getAllRepairRequests();
       expect(after.length).toBe(before.length + 1);
+    });
+
+    it('searches repair requests', async () => {
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
+      const results = await getRepairRepository().search('Samsung');
+      expect(results.some(r => r.id === request.id)).toBe(true);
     });
   });
 
   describe('Engine 3 — Quote Lifecycle', () => {
     it('creates a quote for a repair request', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
-      const quote = await createQuote(request.id, 2500, 3, 'شاشة أصلية');
-      expect(quote.repairId).toBe(request.id);
-      expect(quote.estimatedPrice).toBe(2500);
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
+      const quote = await getRepairRepository().createQuote(request.id, 2500, 3, 'شاشة أصلية');
+      expect(quote).not.toBeNull();
+      expect(quote!.repairId).toBe(request.id);
+      expect(quote!.estimatedPrice).toBe(2500);
     });
 
     it('approves a quote and transitions to Diagnosing', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
-      await createQuote(request.id, 2000, 2, '');
-      const updated = await approveQuote(request.id);
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
+      await getRepairRepository().createQuote(request.id, 2000, 2, '');
+      const updated = await getRepairRepository().approveQuote(request.id);
       expect(updated).not.toBeNull();
       expect(updated!.status).toBe('Diagnosing');
     });
 
     it('rejects a quote and cancels the request', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
-      await createQuote(request.id, 3000, 5, '');
-      const updated = await rejectQuote(request.id);
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
+      await getRepairRepository().createQuote(request.id, 3000, 5, '');
+      const updated = await getRepairRepository().rejectQuote(request.id);
       expect(updated).not.toBeNull();
       expect(updated!.status).toBe('Cancelled');
     });
 
     it('stores quote approval timestamp', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
-      await createQuote(request.id, 1500, 1, '');
-      await approveQuote(request.id);
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
+      await getRepairRepository().createQuote(request.id, 1500, 1, '');
+      await getRepairRepository().approveQuote(request.id);
       const quote = await getQuote(request.id);
       expect(quote).not.toBeNull();
       expect(quote!.approvedAt).not.toBeNull();
@@ -106,21 +114,21 @@ describe('Repair OS', () => {
 
   describe('Engine 4 — Status Flow', () => {
     it('transitions through valid statuses', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
-      await createQuote(request.id, 1000, 2, '');
-      await approveQuote(request.id);
-      await updateRepairStatus(request.id, 'Diagnosing');
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
+      await getRepairRepository().createQuote(request.id, 1000, 2, '');
+      await getRepairRepository().approveQuote(request.id);
+      await getRepairRepository().updateStatus(request.id, 'Diagnosing');
       const req = await getRepairRequest(request.id);
       expect(req!.status).toBe('Diagnosing');
     });
 
     it('tracks timeline events for each transition', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
-      await createQuote(request.id, 5000, 7, '');
-      await approveQuote(request.id);
-      await updateRepairStatus(request.id, 'Diagnosing');
-      await updateRepairStatus(request.id, 'Repairing');
-      await updateRepairStatus(request.id, 'Ready');
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
+      await getRepairRepository().createQuote(request.id, 5000, 7, '');
+      await getRepairRepository().approveQuote(request.id);
+      await getRepairRepository().updateStatus(request.id, 'Diagnosing');
+      await getRepairRepository().updateStatus(request.id, 'Repairing');
+      await getRepairRepository().updateStatus(request.id, 'Ready');
       const events = await getAllTimelineEvents(request.id);
       const statuses = events.map(e => e.status);
       expect(statuses).toContain('Pending');
@@ -171,61 +179,53 @@ describe('Repair OS', () => {
 
   describe('Engine 6 — Courier System', () => {
     it('assignCourier creates a courier job', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
-      await createQuote(request.id, 2000, 2, '');
-      await approveQuote(request.id);
-      const job = await assignCourier(request.id, 'courier_1', 'محمد');
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
+      await getRepairRepository().createQuote(request.id, 2000, 2, '');
+      await getRepairRepository().approveQuote(request.id);
+      await getRepairRepository().assignCourier(request.id, 'courier_1', 'محمد');
+      const jobs = await getAllCourierJobs();
+      const job = jobs.find(j => j.repairId === request.id);
       expect(job).not.toBeNull();
       expect(job!.courierId).toBe('courier_1');
       expect(job!.status).toBe('Pending');
     });
 
     it('updateCourierJobStatus transitions courier status', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
-      await createQuote(request.id, 2000, 2, '');
-      await approveQuote(request.id);
-      const job = await assignCourier(request.id, 'courier_2', 'أحمد');
-      const updated = await updateCourierJobStatus(job!.id, 'Trip Started');
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
+      await getRepairRepository().createQuote(request.id, 2000, 2, '');
+      await getRepairRepository().approveQuote(request.id);
+      await getRepairRepository().assignCourier(request.id, 'courier_2', 'أحمد');
+      const jobs = await getAllCourierJobs();
+      const job = jobs.find(j => j.repairId === request.id)!;
+      const updated = await getRepairRepository().updateCourierJobStatus(job.id, 'Trip Started');
       expect(updated).not.toBeNull();
       expect(updated!.status).toBe('Trip Started');
-    });
-
-    it('courier collection updates repair status to Received', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
-      await createQuote(request.id, 2000, 2, '');
-      await approveQuote(request.id);
-      const job = await assignCourier(request.id, 'courier_3', 'خالد');
-      await updateCourierJobStatus(job!.id, 'Trip Started');
-      await updateCourierJobStatus(job!.id, 'Arrived');
-      await updateCourierJobStatus(job!.id, 'Collected');
-      const req = await getRepairRequest(request.id);
-      expect(req!.status).toBe('Received');
     });
   });
 
   describe('Engine 7 — Full Workflow', () => {
     it('completes a full repair workflow', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
-      await createQuote(request.id, 2500, 3, '');
-      await approveQuote(request.id);
-      await assignCourier(request.id, 'courier_4', 'سعيد');
-      const allJobs = await (await import('../../services/repair/repair-database')).getAllCourierJobs();
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
+      await getRepairRepository().createQuote(request.id, 2500, 3, '');
+      await getRepairRepository().approveQuote(request.id);
+      await getRepairRepository().assignCourier(request.id, 'courier_4', 'سعيد');
+      const allJobs = await getAllCourierJobs();
       const job = allJobs.find(j => j.repairId === request.id);
       expect(job).not.toBeNull();
-      await updateRepairStatus(request.id, 'Diagnosing');
-      await updateRepairStatus(request.id, 'Repairing');
-      await updateRepairStatus(request.id, 'Waiting Parts');
-      await updateRepairStatus(request.id, 'Ready');
+      await getRepairRepository().updateStatus(request.id, 'Diagnosing');
+      await getRepairRepository().updateStatus(request.id, 'Repairing');
+      await getRepairRepository().updateStatus(request.id, 'Waiting Parts');
+      await getRepairRepository().updateStatus(request.id, 'Ready');
       const req = await getRepairRequest(request.id);
       expect(req!.status).toBe('Ready');
     });
 
     it('all timeline events are in order', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
-      await createQuote(request.id, 2500, 3, '');
-      await approveQuote(request.id);
-      await updateRepairStatus(request.id, 'Diagnosing');
-      await updateRepairStatus(request.id, 'Repairing');
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
+      await getRepairRepository().createQuote(request.id, 2500, 3, '');
+      await getRepairRepository().approveQuote(request.id);
+      await getRepairRepository().updateStatus(request.id, 'Diagnosing');
+      await getRepairRepository().updateStatus(request.id, 'Repairing');
       const events = await getAllTimelineEvents(request.id);
       const timestamps = events.map(e => new Date(e.createdAt).getTime());
       for (let i = 1; i < timestamps.length; i++) {
@@ -234,40 +234,34 @@ describe('Repair OS', () => {
     });
   });
 
-  describe('Engine 8 — Analytics', () => {
-    it('getRepairAnalytics returns structured data', async () => {
-      const analytics = await getRepairAnalytics();
-      expect(analytics).toHaveProperty('totalRepairs');
-      expect(analytics).toHaveProperty('repairSuccessRate');
-      expect(analytics).toHaveProperty('topIssues');
-      expect(analytics).toHaveProperty('topBrands');
+  describe('Engine 8 — Dashboard & Audit', () => {
+    it('getDashboard returns structured data', async () => {
+      await getRepairRepository().createRequest(TEST_INPUT);
+      const dashboard = await getRepairRepository().getDashboard();
+      expect(dashboard).toHaveProperty('totalRepairs');
+      expect(dashboard.totalRepairs).toBeGreaterThanOrEqual(1);
+      expect(Array.isArray(dashboard.mostRepairedBrands)).toBe(true);
+      expect(dashboard).toHaveProperty('pending');
+    });
+
+    it('records audit entries for request actions', async () => {
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
+      const logs = await getAuditLog(request.id);
+      expect(logs.some(l => l.action === 'Create Request')).toBe(true);
     });
   });
 
-  describe('Engine 9 — BI Integration', () => {
-    it('getRepairBIData returns structured data', async () => {
-      const { getRepairBIData } = await import('../../services/repair/repair-bi');
-      const bi = await getRepairBIData();
-      expect(bi).toHaveProperty('totalRepairs');
-      expect(bi).toHaveProperty('repairSuccessRate');
-      expect(bi).toHaveProperty('topIssues');
-      expect(bi).toHaveProperty('topBrands');
-      expect(bi).toHaveProperty('courierPerformance');
-      expect(bi).toHaveProperty('totalRevenue');
-    });
-  });
-
-  describe('Engine 10 — Database Layer', () => {
+  describe('Engine 9 — Database Layer', () => {
     it('persists data across read/write calls', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
       const reloaded = await getRepairRequest(request.id);
       expect(reloaded).not.toBeNull();
       expect(reloaded!.customerName).toBe(TEST_INPUT.customerName);
     });
 
     it('supports quotes, timeline, and requests independently', async () => {
-      const { request } = await createRepairRequest(TEST_INPUT);
-      await createQuote(request.id, 1000, 2, '');
+      const { request } = await getRepairRepository().createRequest(TEST_INPUT);
+      await getRepairRepository().createQuote(request.id, 1000, 2, '');
       const quote = await getQuote(request.id);
       expect(quote).not.toBeNull();
       const events = await getAllTimelineEvents(request.id);

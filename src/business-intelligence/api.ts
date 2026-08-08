@@ -35,7 +35,7 @@ export function createBusinessAPI(): BusinessAPI {
       const [sessionsResult, tradeResult, usersResult] = await Promise.all([
         client.from('sessions').select('id, user_id, device_id, status, created_at, scientific_results').gte('created_at', todayStart),
         client.from('trade_requests').select('id, user_id, device_id, created_at').gte('created_at', todayStart),
-        client.from('users').select('id, display_name, role, created_at'),
+        client.from('users').select('id, role, created_at'),
       ]);
       if (sessionsResult.error) devError({ code: sessionsResult.error.code, message: sessionsResult.error.message, details: sessionsResult.error.details, hint: sessionsResult.error.hint });
       if (tradeResult.error) devError({ code: tradeResult.error.code, message: tradeResult.error.message, details: tradeResult.error.details, hint: tradeResult.error.hint });
@@ -109,7 +109,7 @@ export function createBusinessAPI(): BusinessAPI {
 
           opportunities.push({
             userId: uid,
-            displayName: userObj?.display_name ?? 'Visitor',
+            displayName: userObj?.role === 'guest' ? 'Guest' : 'Customer',
             visitCount: count,
             gameCount: userSessions.length,
             lastVisit: lastSession?.created_at ?? '',
@@ -146,9 +146,9 @@ export function createBusinessAPI(): BusinessAPI {
 
     async getCustomerProfile(userId: string): Promise<CustomerProfile | null> {
       const [userResult, sessionsResult, tradesResult] = await Promise.all([
-        client.from('users').select('*').eq('id', userId).single(),
-        client.from('sessions').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        client.from('trade_requests').select('*').eq('user_id', userId),
+        client.from('users').select('id, display_name, created_at, role').eq('id', userId).single(),
+        client.from('sessions').select('id, user_id, device_id, status, created_at, focus_score, avg_rt, best_rt, grade, consistency_rating, campaign_id, metadata').eq('user_id', userId).order('created_at', { ascending: false }),
+        client.from('trade_requests').select('id').eq('user_id', userId),
       ]);
 
       if (!userResult.data) return null;
@@ -258,12 +258,10 @@ export function createBusinessAPI(): BusinessAPI {
               marketingName: modelGroup.marketingName,
               count: modelGroup.count,
               specs: {
-                ram: modelDevices[0]?.memoryGb ? `${modelDevices[0].memoryGb}GB` : 'Unknown',
-                cpuCores: modelDevices[0]?.cpuCores ?? null,
-                refreshRate: modelDevices[0]?.refreshRate ?? null,
-                resolution: modelDevices[0]?.screenWidth && modelDevices[0]?.screenHeight
-                  ? `${modelDevices[0].screenWidth}x${modelDevices[0].screenHeight}`
-                  : 'Unknown',
+                ram: 'Unknown',
+                cpuCores: null,
+                refreshRate: null,
+                resolution: 'Unknown',
                 browser: modelDevices[0]?.browser ?? 'Unknown',
               },
               avgFocusScore: focusScores.length > 0

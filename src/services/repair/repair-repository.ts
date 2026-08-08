@@ -22,13 +22,12 @@ import {
 
 function uid(): string { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 function now(): string { return new Date().toISOString(); }
-function collectDeviceInfo(): string { try { return navigator.userAgent || ''; } catch { return ''; } }
 
 async function logAudit(params: { repairId: string | null; action: string; details: string; performedBy: string }): Promise<void> {
   try {
     await addAuditLog({
       id: uid(), repairId: params.repairId, action: params.action, details: params.details,
-      performedBy: params.performedBy, performedById: null, ipAddress: '', userAgent: collectDeviceInfo(), createdAt: now(),
+      performedBy: params.performedBy, performedById: null, createdAt: now(),
     });
   } catch { /* Intentionally ignored. */ }
 }
@@ -37,7 +36,7 @@ async function logStatusChange(params: { repairId: string; fromStatus: string | 
   try {
     await addStatusHistory({
       id: uid(), repairId: params.repairId, fromStatus: params.fromStatus, toStatus: params.toStatus,
-      changedBy: params.changedBy, changedById: null, note: params.note, ipAddress: null, deviceInfo: null, createdAt: now(),
+      changedBy: params.changedBy, changedById: null, note: params.note, createdAt: now(),
     });
   } catch { /* Intentionally ignored. */ }
 }
