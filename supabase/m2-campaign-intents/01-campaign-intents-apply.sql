@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS public.campaign_intents (
   kind         TEXT NOT NULL CHECK (kind IN ('view', 'click', 'whatsapp_intent')),
   cta_type     TEXT CHECK (cta_type IN ('buy', 'exchange', 'installment', 'inquiry', 'ad_click')),
   campaign_id  UUID REFERENCES public.campaigns(id) ON DELETE CASCADE,
-  ad_placement TEXT CHECK (ad_placement IN ('home', 'phones', 'repair', 'results', 'exchange', 'phone-details')),
+  ad_placement TEXT CHECK (ad_placement IN ('home', 'phones', 'repair', 'results', 'exchange', 'phone-details', 'showroom')),
   device_id    TEXT CHECK (device_id IS NULL OR (char_length(device_id) BETWEEN 1 AND 32)),
   visitor_hash TEXT NOT NULL CHECK (visitor_hash ~ '^[a-f0-9]{16,64}$'),
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -146,7 +146,7 @@ BEGIN
     RAISE EXCEPTION 'device_id too long (max 32)';
   END IF;
   IF p_ad_placement IS NOT NULL
-     AND p_ad_placement NOT IN ('home', 'phones', 'repair', 'results', 'exchange', 'phone-details') THEN
+     AND p_ad_placement NOT IN ('home', 'phones', 'repair', 'results', 'exchange', 'phone-details', 'showroom') THEN
     RAISE EXCEPTION 'invalid ad_placement: %', p_ad_placement;
   END IF;
 

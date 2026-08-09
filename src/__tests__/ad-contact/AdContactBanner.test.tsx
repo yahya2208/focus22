@@ -215,6 +215,33 @@ describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', ()
     expect(screen.getByRole('banner')).toBeTruthy();
   });
 
+  it('BATCH 1 — showroom placement: view and click carry placement "showroom" and the phone id', async () => {
+    vi.useFakeTimers();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
+    mock.__setState(PHONE_AD);
+    render(<AdContactBanner placement="showroom" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const observer = MockIntersectionObserver.instances[0];
+    expect(observer).toBeTruthy();
+    act(() => {
+      observer!.trigger({ isIntersecting: true, intersectionRatio: 0.8 });
+    });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'view', placement: 'showroom', deviceId: DEVICE.id });
+
+    const overlay = screen.getByRole('button', { name: 'Contact for this phone' });
+    fireEvent.click(overlay);
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'click', ctaType: 'ad_click', placement: 'showroom', deviceId: DEVICE.id });
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockSend).toHaveBeenCalledWith(buildAdClickMessage(DEVICE));
+  });
+
   it('records a view only after the banner stays ≥ 0.6 visible for ≥ 1 s', async () => {
     vi.useFakeTimers();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

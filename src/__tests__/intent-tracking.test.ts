@@ -61,6 +61,20 @@ describe('M2 — recordIntent fire-and-forget contract', () => {
     expect(args[1]).toMatchObject({ p_kind: 'view', p_cta_type: null });
   });
 
+  it('BATCH 1 — dispatches showroom view and ad_click with the correct payload', () => {
+    recordIntent({ kind: 'view', placement: 'showroom' });
+    expect(mocks.mockRpc).toHaveBeenLastCalledWith(
+      'record_campaign_intent',
+      expect.objectContaining({ p_kind: 'view', p_cta_type: null, p_ad_placement: 'showroom' }),
+    );
+
+    recordIntent({ kind: 'click', ctaType: 'ad_click', placement: 'showroom', deviceId: 'rec_9' });
+    expect(mocks.mockRpc).toHaveBeenLastCalledWith(
+      'record_campaign_intent',
+      expect.objectContaining({ p_kind: 'click', p_cta_type: 'ad_click', p_ad_placement: 'showroom', p_device_id: 'rec_9' }),
+    );
+  });
+
   it('never throws and stays void when the RPC rejects (fire-and-forget)', () => {
     mocks.mockRpc.mockRejectedValue(new Error('boom'));
     expect(() =>
