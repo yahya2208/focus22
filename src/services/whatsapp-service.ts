@@ -195,12 +195,13 @@ export function openModelNotFoundRequest(brand: string, model: string): void {
 }
 
 /**
- * ── Phase 3B §9.1 — Phone action WhatsApp templates (v5, uniform 6 fields) ─────
- * Every message auto-fills: اسم الهاتف · الكود · السعر · المدينة · رابط الإعلان ·
- * نوع الطلب. The user types nothing. `بيع` is intentionally NOT part of the
- * details action bar (v5 §2); the sell template stays only in CustomerPhoneFlow.
+ * ── BATCH 3 — Single contact-owner WhatsApp template (Marketplace Mediator) ────
+ * FOCUS is a communication intermediary ONLY — it never sells, buys, exchanges,
+ * finances, or installments phones, and no transaction happens inside the app.
+ * The message is phrased as a user who wants to talk about the listed phone;
+ * only data that actually exists on the record is included (no invented
+ * installment price / duration / down payment / interest, no selling terms).
  */
-export type PhoneActionId = 'buy' | 'exchange' | 'installment' | 'inquiry';
 
 export interface PhoneActionContext {
   /** brand + model (variant) */
@@ -215,13 +216,6 @@ export interface PhoneActionContext {
   url: string;
 }
 
-const PHONE_ACTION_OPENERS: Record<PhoneActionId, string> = {
-  buy: 'أود شراء الهاتف التالي:',
-  exchange: 'أود استبدال هاتفي بهذا الجهاز:',
-  installment: 'أود الاستفسار عن إمكانية التقسيط لهذا الهاتف:',
-  inquiry: 'أود الاستفسار عن هذا الهاتف:',
-};
-
 export function getPhoneActionContext(device: Pick<InventoryRecord, 'id' | 'brand' | 'model' | 'variant' | 'sellPrice' | 'city' | 'code'>): PhoneActionContext {
   const name = `${device.brand} ${device.model}${device.variant ? ` (${device.variant})` : ''}`;
   const code = device.code && device.code.trim() ? device.code.trim() : device.id.slice(0, 8);
@@ -234,11 +228,13 @@ export function getPhoneActionContext(device: Pick<InventoryRecord, 'id' | 'bran
   };
 }
 
-export function buildPhoneActionMessage(action: PhoneActionId, device: Pick<InventoryRecord, 'id' | 'brand' | 'model' | 'variant' | 'sellPrice' | 'city' | 'code'>): string {
+export function buildContactOwnerMessage(
+  device: Pick<InventoryRecord, 'id' | 'brand' | 'model' | 'variant' | 'sellPrice' | 'city' | 'code'>,
+): string {
   const ctx = getPhoneActionContext(device);
   const lines = [
     'السلام عليكم،',
-    PHONE_ACTION_OPENERS[action],
+    'مرحبًا، أرغب في التواصل بخصوص الهاتف المعروض في FOCUS.',
     `اسم الهاتف: ${ctx.name}`,
     `الكود: ${ctx.code}`,
   ];
@@ -250,14 +246,13 @@ export function buildPhoneActionMessage(action: PhoneActionId, device: Pick<Inve
 }
 
 /**
- * §9.2 pipeline entry: returns the message for the same-tab open
+ * BATCH 3 — §9.2 pipeline entry: returns the message for the same-tab open
  * (`useSmartWhatsApp`). Does NOT open anything itself.
  */
-export function sendPhoneActionWhatsApp(
-  action: PhoneActionId,
+export function sendContactOwnerWhatsApp(
   device: Pick<InventoryRecord, 'id' | 'brand' | 'model' | 'variant' | 'sellPrice' | 'city' | 'code'>,
 ): string {
-  return buildPhoneActionMessage(action, device);
+  return buildContactOwnerMessage(device);
 }
 
 /**

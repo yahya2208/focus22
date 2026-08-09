@@ -7,7 +7,7 @@ import { Card } from '../../design-system/components/Card';
 import { Toast } from '../../design-system/components/Toast';
 import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 import { ProductImageGallery } from '../../components/showroom/ProductImageGallery';
-import { ProductActionBar } from '../../components/showroom/ProductActionBar';
+import { ContactOwnerAction } from '../../components/showroom/ContactOwnerAction';
 import { ProductNotFound } from '../../components/showroom/ProductNotFound';
 import { SimilarPhones } from '../../components/showroom/SimilarPhones';
 import { useProductDetails } from '../../hooks/useProductDetails';
@@ -15,12 +15,10 @@ import { useSimilarPhones } from '../../hooks/useSimilarPhones';
 import { useViewCounter } from '../../hooks/useViewCounter';
 import { useWhatsApp } from '../../providers/WhatsAppProvider';
 import { useFavorites } from '../../hooks/useFavorites';
-import { sendPhoneActionWhatsApp, type PhoneActionId } from '../../services/whatsapp-service';
+import { sendContactOwnerWhatsApp } from '../../services/whatsapp-service';
 import { recordIntent } from '../../services/intent-tracking';
 import { buildAppUrl } from '../../core/base-path';
 import type { InventoryRecord } from '../../services/inventory-service';
-
-const ACTION_IDS: readonly PhoneActionId[] = ['buy', 'exchange', 'installment', 'inquiry'];
 
 /** F-102 — the product-details surface keeps the `phone-details` placement key. */
 export const PRODUCT_DETAILS_AD_PLACEMENT = 'phone-details' as const;
@@ -53,10 +51,12 @@ const formatDate = (iso: string, locale: string): string => {
 };
 
 /**
- * Phone Details — the Phase 3B full sales page (§3.2) + not-available branch
- * (§3.3). Lazy-loaded, id via routeParams, record re-read from InventoryService.
- * Header: back · share · favorite(لاحقاً). Exactly 4 WhatsApp actions (no بيع).
- * Similar-phones carousel pushes NAVIGATE phone-details (stack preserved).
+ * Phone Details — the listing page (§3.2) + not-available branch (§3.3).
+ * Lazy-loaded, id via routeParams, record re-read from InventoryService.
+ * Header: back · share · favorite(لاحقاً). BATCH 3: exactly ONE contact CTA
+ * («تواصل مع صاحب الإعلان») — FOCUS is a mediator only; WhatsApp is opened
+ * exclusively from this page, never from the ad itself. Similar-phones
+ * carousel pushes NAVIGATE phone-details (stack preserved).
  */
 export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
   const dispatch = useAppDispatch();
@@ -98,19 +98,16 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
     favorites.save();
   }, [favorites]);
 
-  const handleAction = useCallback(
-    (action: PhoneActionId) => {
-      if (!device) return;
-      try {
-        recordIntent({ kind: 'whatsapp_intent', ctaType: action, placement: 'phone-details', deviceId: device.id });
-      } catch {
-        // fire-and-forget — WhatsApp continues regardless
-      }
-      const message = sendPhoneActionWhatsApp(action, device);
-      whatsapp.send(message, { action, deviceId: device.id });
-    },
-    [device, whatsapp],
-  );
+  const handleContact = useCallback(() => {
+    if (!device) return;
+    try {
+      recordIntent({ kind: 'whatsapp_intent', ctaType: 'inquiry', placement: 'phone-details', deviceId: device.id });
+    } catch {
+      // fire-and-forget — WhatsApp continues regardless
+    }
+    const message = sendContactOwnerWhatsApp(device);
+    whatsapp.send(message, { action: 'inquiry', deviceId: device.id });
+  }, [device, whatsapp]);
 
   const handleSimilarSelect = useCallback(
     (next: InventoryRecord) => {
@@ -212,7 +209,7 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
 
             <Divider />
 
-            <ProductActionBar actions={ACTION_IDS} device={device} onSelect={handleAction} />
+            <ContactOwnerAction device={device} onContact={handleContact} />
           </Stack>
         </Card>
 

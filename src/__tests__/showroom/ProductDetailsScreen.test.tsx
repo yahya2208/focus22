@@ -64,7 +64,7 @@ describe('Phase 3B §3.2/§3.3 — ProductDetailsScreen', () => {
     localStorage.clear();
   });
 
-  it('renders all sections: gallery, info, price, description, specs, 4 actions, similar carousel', async () => {
+  it('renders all sections: gallery, info, price, description, specs, single contact CTA, similar carousel', async () => {
     const target = InventoryService.getExchangeableDevices()[0]!;
     renderScreen(target.id);
 
@@ -76,10 +76,12 @@ describe('Phase 3B §3.2/§3.3 — ProductDetailsScreen', () => {
     expect(screen.getByText(`${target.sellPrice!.toLocaleString()} د.ج`)).toBeTruthy();
     expect(screen.getByText(/Specifications/i)).toBeTruthy();
     expect(screen.getByText(/Similar Phones/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Buy/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Exchange/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Installment/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Inquiry/i })).toBeTruthy();
+    // BATCH 3 — exactly ONE contact CTA; no buy/exchange/installment/inquiry/sell buttons.
+    expect(screen.getByRole('button', { name: /Contact the ad owner/i })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Buy/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Exchange/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Installment/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Inquiry/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /Sell/i })).toBeNull();
   });
 
@@ -110,7 +112,7 @@ describe('Phase 3B §3.2/§3.3 — ProductDetailsScreen', () => {
   it('favorite shows the قريباً toast', async () => {
     const target = InventoryService.getExchangeableDevices()[0]!;
     renderScreen(target.id);
-    await waitFor(() => expect(screen.getByText(/Buy/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('button', { name: /Contact the ad owner/i })).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: /Favorite/i }));
     await waitFor(() => expect(screen.getByText(/Coming soon/i)).toBeTruthy());
   });
@@ -134,19 +136,21 @@ describe('Phase 3B §3.2/§3.3 — ProductDetailsScreen', () => {
     });
   });
 
-  it('records a whatsapp_intent for the pressed action (M2 fire-and-forget)', async () => {
+  it('records whatsapp_intent exactly once with the correct deviceId and opens the existing WhatsApp path (BATCH 3)', async () => {
     const target = InventoryService.getExchangeableDevices()[0]!;
     renderScreen(target.id);
 
-    await waitFor(() => expect(screen.getByRole('button', { name: /Buy/i })).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: /Buy/i }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /Contact the ad owner/i })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: /Contact the ad owner/i }));
 
+    expect(mockRecordIntent).toHaveBeenCalledTimes(1);
     expect(mockRecordIntent).toHaveBeenCalledWith({
       kind: 'whatsapp_intent',
-      ctaType: 'buy',
+      ctaType: 'inquiry',
       placement: 'phone-details',
       deviceId: target.id,
     });
     expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockSend).toHaveBeenCalledWith(expect.stringContaining('FOCUS'), { action: 'inquiry', deviceId: target.id });
   });
 });

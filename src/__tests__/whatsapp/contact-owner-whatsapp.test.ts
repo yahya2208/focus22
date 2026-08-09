@@ -1,11 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   buildWhatsAppUrl,
-  buildPhoneActionMessage,
+  buildContactOwnerMessage,
   getPhoneActionContext,
-  sendPhoneActionWhatsApp,
+  sendContactOwnerWhatsApp,
   WHATSAPP_PHONE,
-  type PhoneActionId,
 } from '../../services/whatsapp-service';
 import type { InventoryRecord } from '../../services/inventory-service';
 
@@ -30,11 +29,11 @@ function makeDevice(overrides?: Partial<InventoryRecord>): InventoryRecord {
   };
 }
 
-describe('Phase 3B §9.1 — phone action WhatsApp templates', () => {
+describe('BATCH 3 — contact-owner WhatsApp template (mediator only)', () => {
   it('context auto-fills name/code/price/city/link from the record', () => {
     const ctx = getPhoneActionContext(makeDevice());
     expect(ctx.name).toBe('Apple iPhone 13 (128GB)');
-    expect(ctx.code).toBe('rec_abcd'); // short form of record.id
+    expect(ctx.code).toBe('rec_abcd');
     expect(ctx.price).toBe('98,000');
     expect(ctx.city).toBe('الجزائر');
     expect(ctx.url).toContain('#/phone-details?device=rec_abcdef12');
@@ -45,66 +44,64 @@ describe('Phase 3B §9.1 — phone action WhatsApp templates', () => {
     expect(ctx.code).toBe('IP13-1');
   });
 
-  it('formats the price with fixed en-US grouping (locale-independent message)', () => {
-    const ctx = getPhoneActionContext(makeDevice({ sellPrice: 105000 }));
-    expect(ctx.price).toBe('105,000');
-    const message = buildPhoneActionMessage('buy', makeDevice({ sellPrice: 105000 }));
-    expect(message).toContain('السعر: 105,000 دج');
-    expect(message).not.toContain('105.000');
+  it('is a neutral user request — FOCUS is NOT the seller', () => {
+    const message = buildContactOwnerMessage(makeDevice());
+    expect(message).toContain('مرحبًا، أرغب في التواصل بخصوص الهاتف المعروض في FOCUS.');
+    expect(message).not.toContain('أود شراء');
+    expect(message).not.toContain('أود استبدال');
+    expect(message).not.toContain('أود الاستفسار عن إمكانية التقسيط');
+    expect(message).not.toContain('بيع');
+  });
+
+  it('uses ONLY real available data — no invented installment/financing terms', () => {
+    const message = buildContactOwnerMessage(makeDevice());
+    expect(message).toContain('اسم الهاتف: Apple iPhone 13 (128GB)');
+    expect(message).toContain('السعر: 98,000 دج');
+    expect(message).toContain('المدينة: الجزائر');
+    expect(message).toContain('رابط الإعلان:');
+    expect(message).not.toContain('تقسيط');
+    expect(message).not.toContain('دفعة أولى');
+    expect(message).not.toContain('فائدة');
+    expect(message).not.toContain('ضمان');
+    expect(message).not.toContain('%');
   });
 
   it('omits price/city lines when the record lacks them', () => {
-    const message = buildPhoneActionMessage('buy', makeDevice({ sellPrice: undefined, city: undefined }));
+    const message = buildContactOwnerMessage(makeDevice({ sellPrice: undefined, city: undefined }));
     expect(message).toContain('اسم الهاتف: Apple iPhone 13 (128GB)');
     expect(message).not.toContain('السعر:');
     expect(message).not.toContain('المدينة:');
   });
 
-  it('builds the exact §9.1 buy message (6 uniform fields + greeting + thanks)', () => {
-    const message = buildPhoneActionMessage('buy', makeDevice());
+  it('builds the exact BATCH 3 contact message (neutral opener + only real fields)', () => {
+    const message = buildContactOwnerMessage(makeDevice());
     const lines = message.split('\n');
     expect(lines[0]).toBe('السلام عليكم،');
-    expect(lines[1]).toBe('أود شراء الهاتف التالي:');
+    expect(lines[1]).toBe('مرحبًا، أرغب في التواصل بخصوص الهاتف المعروض في FOCUS.');
     expect(lines[2]).toBe('اسم الهاتف: Apple iPhone 13 (128GB)');
     expect(lines[3]).toBe('الكود: rec_abcd');
     expect(lines[4]).toBe('السعر: 98,000 دج');
     expect(lines[5]).toBe('المدينة: الجزائر');
-    expect(lines[6]).toContain('رابط الإعلان: /#/phone-details?device=rec_abcdef12');
+    expect(lines[6]).toContain('رابط الإعلان:');
+    expect(lines[6]).toContain('rec_abcdef12');
     expect(lines[7]).toBe('شكراً.');
   });
 
-  it('builds distinct openers for all 4 actions', () => {
-    const openers: Record<PhoneActionId, string> = {
-      buy: 'أود شراء الهاتف التالي:',
-      exchange: 'أود استبدال هاتفي بهذا الجهاز:',
-      installment: 'أود الاستفسار عن إمكانية التقسيط لهذا الهاتف:',
-      inquiry: 'أود الاستفسار عن هذا الهاتف:',
-    };
-    for (const action of Object.keys(openers) as PhoneActionId[]) {
-      expect(buildPhoneActionMessage(action, makeDevice())).toContain(openers[action]);
-    }
-  });
-
-  it('sell is NOT part of the details action bar (no بيع template)', () => {
-    const all = buildPhoneActionMessage('buy', makeDevice());
-    expect(all).not.toContain('بيع');
-  });
-
   it('wa.me URL round-trips the exact message via encodeURIComponent', () => {
-    const message = buildPhoneActionMessage('inquiry', makeDevice());
+    const message = buildContactOwnerMessage(makeDevice());
     const url = buildWhatsAppUrl(WHATSAPP_PHONE, message);
-    expect(url.startsWith(`https://wa.me/213556254007?text=`)).toBe(true);
+    expect(url.startsWith('https://wa.me/213556254007?text=')).toBe(true);
     const decoded = decodeURIComponent(url.split('?text=')[1]!);
     expect(decoded).toBe(message);
   });
 });
 
-describe('Phase 3B §9.2 — sendPhoneActionWhatsApp funnel', () => {
+describe('BATCH 3 — sendContactOwnerWhatsApp funnel (§9.2)', () => {
   it('returns the message and opens nothing (pure pipeline entry, no telemetry)', () => {
     const openSpy = vi.spyOn(window, 'open');
-    const message = sendPhoneActionWhatsApp('installment', makeDevice());
+    const message = sendContactOwnerWhatsApp(makeDevice());
     expect(openSpy).not.toHaveBeenCalled();
-    expect(message).toContain('تقسيط');
+    expect(message).toContain('FOCUS');
     openSpy.mockRestore();
   });
 });
