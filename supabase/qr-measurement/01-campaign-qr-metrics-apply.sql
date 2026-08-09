@@ -368,8 +368,12 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.get_campaign_qr_metrics(UUID) FROM PUBLIC;
--- EXECUTE is granted to authenticated; the function body still requires
--- is_research_role() (anonymous has no path, ordinary authenticated is raised).
+-- Metrics RPC is authenticated-only. The REVOKE FROM anon is REQUIRED: Supabase
+-- default privileges grant EXECUTE to anon at function creation time, and that
+-- explicit grant is NOT removed by REVOKE FROM PUBLIC — without it a fresh apply
+-- leaves anon with EXECUTE (C2 FAIL). The function body still requires
+-- is_research_role(), so even authenticated callers are gated server-side.
+REVOKE EXECUTE ON FUNCTION public.get_campaign_qr_metrics(UUID) FROM anon;
 GRANT EXECUTE ON FUNCTION public.get_campaign_qr_metrics(UUID) TO authenticated;
 
 COMMENT ON FUNCTION public.get_campaign_qr_metrics(UUID) IS
