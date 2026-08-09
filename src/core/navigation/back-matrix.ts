@@ -30,7 +30,7 @@ export const BACK_MATRIX: Record<ScreenName, BackMatrixRow> = {
   countdown: { screen: 'countdown', backTarget: 'game-intro', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'fullscreen; 3s auto-advance — back = previous (confirm dialog deferred)' },
   game: { screen: 'game', backTarget: 'home', exitAllowed: false, browserBack: 'guard', androidBack: 'guard', hasInContentBackButton: false, note: 'back → Stop & Save / Resume dialog (beforeBack guard); stop → home (RESET)' },
   'game-intro': { screen: 'game-intro', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false },
-  results: { screen: 'results', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'back → home (beforeBack guard RESETs); Home/Save&Exit buttons also clear the stack' },
+  results: { screen: 'results', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'P0 Game→Showroom: result displays briefly then REPLACEs to showroom; back → home (beforeBack guard RESETs); Home button also clears the stack' },
   history: { screen: 'history', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true },
   settings: { screen: 'settings', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true },
   about: { screen: 'about', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true },

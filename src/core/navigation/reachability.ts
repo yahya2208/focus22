@@ -57,7 +57,7 @@ export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
   'sticker-studio': ['home'],
   'sticker-analytics': ['sticker-studio'],
   'sticker-scan': ['deep-link'],
-  showroom: ['home'],
+  showroom: ['home', 'results'],
   'phone-details': ['showroom', 'deep-link'],
   'design-system-playground': ['settings'],
 };

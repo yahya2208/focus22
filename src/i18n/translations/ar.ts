@@ -117,6 +117,8 @@ const ar: Record<TranslationKey, string> = {
   'results.coach': 'مدرب الأخطاء',
   'results.achievements': 'الإنجازات',
   'results.share': 'مشاركة النتائج',
+  'results.continueToShowroom': 'متابعة إلى صالة العرض',
+  'results.autoRedirectHint': 'سيتم تحويلك إلى صالة عرض الهواتف…',
 
   'history.title': 'سجل الجلسات',
   'history.noSessions': 'لا توجد جلسات بعد. أكمل قياساً لرؤية النتائج هنا.',

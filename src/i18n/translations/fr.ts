@@ -105,6 +105,8 @@ const fr: Record<string, string> = {
   'results.coach': 'Coach des erreurs',
   'results.achievements': 'Réalisations',
   'results.share': 'Partager les résultats',
+  'results.continueToShowroom': 'Continuer vers la vitrine',
+  'results.autoRedirectHint': 'Redirection vers la vitrine téléphonique…',
   'history.title': 'Historique des Sessions',
   'history.noSessions': 'Aucune session pour le moment. Effectuez une mesure pour voir les résultats.',
   'history.back': 'Retour',

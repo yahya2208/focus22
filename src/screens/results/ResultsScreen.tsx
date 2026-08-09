@@ -1,4 +1,4 @@
-import { useMemo, memo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useBackGuard } from '../../core/navigation/BackProvider';
 import { calculateFocusScore } from '../../core/engine/scoring';
@@ -12,9 +12,14 @@ import { Card } from '../../design-system/components/Card';
 import { Stack } from '../../design-system/components/Stack';
 import { Flex } from '../../design-system/components/Flex';
 import { Screen, Grid } from '../../design-system/layout';
-import { getGlobalSessionService } from '../../core/session/service';
-import { useAuth } from '../../core/auth/AuthProvider';
-import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
+
+/**
+ * P0 Game→Showroom: after the final result displays briefly, the user is taken
+ * directly to the phone showroom (single canonical continuation). The post-game
+ * persistence/commercial tree (save-and-exit, play again, register, ad banner)
+ * is removed; the useful options (coach / achievements / share) stay reachable.
+ */
+export const RESULTS_SHOWROOM_AUTO_ADVANCE_MS = 6000;
 
 function StatCard({ label, value, accent, colors }: { label: string; value: string; accent?: boolean; colors: ReturnType<typeof useThemeColors> }) {
   return (
@@ -94,10 +99,10 @@ function ScoreRing({ score, colors }: { score: number; colors: ReturnType<typeof
 
 export const ResultsScreen = memo(function ResultsScreen() {
   const dispatch = useAppDispatch();
-  const { results, currentSession } = useAppState();
+  const { results } = useAppState();
   const { t } = useTranslation();
   const colors = useThemeColors();
-  const { state: authState } = useAuth();
+  const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const analysis = useMemo(() => {
     if (!results) return null;
@@ -123,6 +128,31 @@ export const ResultsScreen = memo(function ResultsScreen() {
     },
   });
 
+  const goToShowroom = useCallback(() => {
+    if (autoAdvanceTimerRef.current) {
+      clearTimeout(autoAdvanceTimerRef.current);
+      autoAdvanceTimerRef.current = null;
+    }
+    dispatch({ type: 'REPLACE', screen: 'showroom' });
+  }, [dispatch]);
+
+  // P0 Game→Showroom: the final result displays briefly, then the user is
+  // taken directly to the phone showroom. Any manual action (Continue button
+  // or leaving the screen via coach/achievements/share/home/back) cancels the
+  // pending advance, so the results are never lost mid-read.
+  useEffect(() => {
+    if (!results) return;
+    autoAdvanceTimerRef.current = setTimeout(() => {
+      dispatch({ type: 'REPLACE', screen: 'showroom' });
+    }, RESULTS_SHOWROOM_AUTO_ADVANCE_MS);
+    return () => {
+      if (autoAdvanceTimerRef.current) {
+        clearTimeout(autoAdvanceTimerRef.current);
+        autoAdvanceTimerRef.current = null;
+      }
+    };
+  }, [results, dispatch]);
+
   if (!results || !analysis) {
     return (
       <Screen ariaLabel="Results">
@@ -145,28 +175,6 @@ export const ResultsScreen = memo(function ResultsScreen() {
     : null;
 
   const earlyTaps = results.totalRounds - results.validRounds;
-
-  const saveAndExit = () => {
-    const sessionService = getGlobalSessionService();
-    if (currentSession?.id && results) {
-      sessionService.completeSession(currentSession.id, {
-        rawRts: results.rawRts,
-        correctedRts: results.correctedRts,
-        totalRounds: results.totalRounds,
-        validRounds: results.validRounds,
-        calibration: results.calibration,
-        sessionStart: results.sessionStart ?? Date.now(),
-        sessionEnd: results.sessionEnd ?? Date.now(),
-      });
-    }
-    dispatch({ type: 'SAVE_SESSION' });
-    dispatch({ type: 'RESET' });
-  };
-
-  const playAgain = () => {
-    dispatch({ type: 'SELECT_GAME', gameMode: 'reaction-light' });
-    dispatch({ type: 'NAVIGATE', screen: 'countdown' });
-  };
 
   return (
     <Screen ariaLabel="Measurement results">
@@ -192,7 +200,6 @@ export const ResultsScreen = memo(function ResultsScreen() {
         </Card>
 
         {/* Quick Stats */}
-        <AdContactBanner placement="results" />
         <Grid columns={2} gap="md">
           <StatCard label={t('results.best')} value={`${Math.round(bestRt)}ms`} accent colors={colors} />
           <StatCard label={t('results.average')} value={`${Math.round(avgRt)}ms`} colors={colors} />
@@ -316,11 +323,8 @@ export const ResultsScreen = memo(function ResultsScreen() {
 
         {/* Actions */}
         <Stack gap="sm" style={{ paddingBottom: '1rem' }}>
-          <Button variant="primary" onClick={playAgain} fullWidth>
-            {t('results.playAgain')}
-          </Button>
-          <Button variant="secondary" onClick={saveAndExit} fullWidth>
-            {t('results.saveAndExit')}
+          <Button variant="primary" onClick={goToShowroom} fullWidth>
+            {t('results.continueToShowroom')}
           </Button>
           <Button variant="secondary" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'coach' })} fullWidth>
             {t('results.coach')}
@@ -331,14 +335,12 @@ export const ResultsScreen = memo(function ResultsScreen() {
           <Button variant="secondary" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'share' })} fullWidth>
             {t('results.share')}
           </Button>
-          {authState.status !== 'authenticated' && (
-            <Button variant="outline" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'register' })} fullWidth>
-              {t('results.register')}
-            </Button>
-          )}
           <Button variant="ghost" onClick={() => dispatch({ type: 'RESET' })} fullWidth>
             {t('results.home')}
           </Button>
+          <p style={{ color: colors.textMuted, fontSize: '0.7rem', textAlign: 'center', margin: '0.25rem 0 0' }}>
+            {t('results.autoRedirectHint')}
+          </p>
         </Stack>
       </Stack>
     </Screen>

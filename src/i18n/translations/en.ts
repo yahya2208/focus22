@@ -123,6 +123,8 @@ const en = {
   'results.coach': 'Mistakes Coach',
   'results.achievements': 'Achievements',
   'results.share': 'Share Results',
+  'results.continueToShowroom': 'Continue to Showroom',
+  'results.autoRedirectHint': 'Continuing to the phone showroom…',
 
   // History
   'history.title': 'Session History',

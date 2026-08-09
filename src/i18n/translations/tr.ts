@@ -117,6 +117,8 @@ const tr: Record<TranslationKey, string> = {
   'results.coach': 'Hata Koçu',
   'results.achievements': 'Başarılar',
   'results.share': 'Sonuçları Paylaş',
+  'results.continueToShowroom': 'Vitrine Devam Et',
+  'results.autoRedirectHint': 'Telefon vitrinine yönlendiriliyorsunuz…',
 
   'history.title': 'Oturum Geçmişi',
   'history.noSessions': 'Henüz oturum yok. Sonuçları görmek için bir ölçüm tamamlayın.',
