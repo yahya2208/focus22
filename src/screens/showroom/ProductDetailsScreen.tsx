@@ -10,11 +10,10 @@ import { ProductImageGallery } from '../../components/showroom/ProductImageGalle
 import { ProductActionBar } from '../../components/showroom/ProductActionBar';
 import { ProductNotFound } from '../../components/showroom/ProductNotFound';
 import { SimilarPhones } from '../../components/showroom/SimilarPhones';
-import { WhatsAppFallbackModal } from '../../components/showroom/WhatsAppFallbackModal';
 import { useProductDetails } from '../../hooks/useProductDetails';
 import { useSimilarPhones } from '../../hooks/useSimilarPhones';
 import { useViewCounter } from '../../hooks/useViewCounter';
-import { useSmartWhatsApp } from '../../hooks/useSmartWhatsApp';
+import { useWhatsApp } from '../../providers/WhatsAppProvider';
 import { useFavorites } from '../../hooks/useFavorites';
 import { sendPhoneActionWhatsApp, type PhoneActionId } from '../../services/whatsapp-service';
 import { recordIntent } from '../../services/intent-tracking';
@@ -66,11 +65,10 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
   const { device, notFound } = useProductDetails(deviceId);
   const similar = useSimilarPhones(device);
   const { count: views } = useViewCounter(deviceId);
-  const whatsapp = useSmartWhatsApp();
+  const whatsapp = useWhatsApp();
   const favorites = useFavorites();
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const handleBack = useCallback(() => {
     dispatch({ type: 'BACK' });
@@ -117,11 +115,6 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
     },
     [dispatch],
   );
-
-  const handleCopyInFallback = useCallback(async () => {
-    const ok = await whatsapp.copyMessage();
-    if (ok) setCopied(true);
-  }, [whatsapp]);
 
   if (notFound) {
     return (
@@ -260,15 +253,6 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
           <Toast type="success" message={toast.message} onDismiss={() => setToast(null)} />
         </div>
       )}
-
-      <WhatsAppFallbackModal
-        open={whatsapp.modal?.open ?? false}
-        message={whatsapp.modal?.message ?? ''}
-        copied={copied}
-        onCopy={handleCopyInFallback}
-        onRetry={whatsapp.retryOpen}
-        onClose={whatsapp.closeModal}
-      />
     </Screen>
   );
 });

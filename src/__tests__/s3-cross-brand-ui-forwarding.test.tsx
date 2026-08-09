@@ -57,9 +57,22 @@ vi.mock('../core/analytics/tracker', () => ({
 
 vi.mock('../services/whatsapp-service', () => ({
   WHATSAPP_PHONE: '+213556254007',
+  buildWhatsAppForActionMessage: vi.fn(() => ''),
+  buildModelNotFoundMessage: vi.fn(() => ''),
   openModelNotFoundRequest: vi.fn(),
   openWhatsAppForAction: vi.fn(),
   openPhoneAdWhatsApp: vi.fn(),
+}));
+
+vi.mock('../providers/WhatsAppProvider', () => ({
+  WhatsAppProvider: ({ children }: { children: React.ReactNode }) => children,
+  useWhatsApp: () => ({
+    send: vi.fn(),
+    modal: null,
+    retryOpen: vi.fn(),
+    copyMessage: vi.fn(async () => true),
+    closeModal: vi.fn(),
+  }),
 }));
 
 vi.mock('../components/ads/AdSpot', () => ({

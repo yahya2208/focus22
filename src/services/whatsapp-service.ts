@@ -27,8 +27,8 @@ export function openWhatsApp(phone: string, message: string): void {
   }
 }
 
-export function openBuyRequest(params: { brand: string; model: string; variant?: string; condition?: string }): void {
-  const message = [
+export function buildBuyRequestMessage(params: { brand: string; model: string; variant?: string; condition?: string }): string {
+  return [
     'السلام عليكم.',
     '',
     'أرغب في شراء الهاتف التالي.',
@@ -40,11 +40,14 @@ export function openBuyRequest(params: { brand: string; model: string; variant?:
     '',
     'شكراً.',
   ].filter(Boolean).join('\n');
-  openWhatsApp(WHATSAPP_PHONE, message);
 }
 
-export function openSellRequest(params: { brand: string; model: string; variant?: string; condition?: string }): void {
-  const message = [
+export function openBuyRequest(params: { brand: string; model: string; variant?: string; condition?: string }): void {
+  openWhatsApp(WHATSAPP_PHONE, buildBuyRequestMessage(params));
+}
+
+export function buildSellRequestMessage(params: { brand: string; model: string; variant?: string; condition?: string }): string {
+  return [
     'السلام عليكم.',
     '',
     'أرغب في بيع الهاتف التالي.',
@@ -56,11 +59,14 @@ export function openSellRequest(params: { brand: string; model: string; variant?
     '',
     'شكراً.',
   ].filter(Boolean).join('\n');
-  openWhatsApp(WHATSAPP_PHONE, message);
 }
 
-export function openExchangeRequest(params: { myBrand: string; myModel: string; myVariant?: string; wantBrand: string; wantModel: string; wantVariant?: string }): void {
-  const message = [
+export function openSellRequest(params: { brand: string; model: string; variant?: string; condition?: string }): void {
+  openWhatsApp(WHATSAPP_PHONE, buildSellRequestMessage(params));
+}
+
+export function buildExchangeRequestMessage(params: { myBrand: string; myModel: string; myVariant?: string; wantBrand: string; wantModel: string; wantVariant?: string }): string {
+  return [
     'السلام عليكم.',
     '',
     'أرغب في استبدال هاتفي.',
@@ -75,7 +81,10 @@ export function openExchangeRequest(params: { myBrand: string; myModel: string; 
     '',
     'شكراً.',
   ].filter(Boolean).join('\n');
-  openWhatsApp(WHATSAPP_PHONE, message);
+}
+
+export function openExchangeRequest(params: { myBrand: string; myModel: string; myVariant?: string; wantBrand: string; wantModel: string; wantVariant?: string }): void {
+  openWhatsApp(WHATSAPP_PHONE, buildExchangeRequestMessage(params));
 }
 
 export function openRepairRequest(params: { brand: string; model: string; issue: string; description?: string; location?: string; code: string; condition?: string; customerPhone?: string }): void {
@@ -125,6 +134,33 @@ export function openCustomMessage(phone: string, message: string): void {
  * The `phone` argument is accepted for interface compatibility; all flows send
  * to the single business number.
  */
+export function buildWhatsAppForActionMessage(
+  action: 'buy' | 'sell' | 'exchange',
+  params: {
+    brand: string;
+    model: string;
+    variant?: string;
+    condition?: string;
+    targetDevice?: { brand: string; model: string; variant?: string };
+  },
+): string {
+  switch (action) {
+    case 'buy':
+      return buildBuyRequestMessage({ brand: params.brand, model: params.model, variant: params.variant, condition: params.condition });
+    case 'sell':
+      return buildSellRequestMessage({ brand: params.brand, model: params.model, variant: params.variant, condition: params.condition });
+    case 'exchange':
+      return buildExchangeRequestMessage({
+        myBrand: params.brand,
+        myModel: params.model,
+        myVariant: params.variant,
+        wantBrand: params.targetDevice?.brand ?? '',
+        wantModel: params.targetDevice?.model ?? '',
+        wantVariant: params.targetDevice?.variant,
+      });
+  }
+}
+
 export function openWhatsAppForAction(
   _phone: string,
   action: 'buy' | 'sell' | 'exchange',
@@ -136,28 +172,11 @@ export function openWhatsAppForAction(
     targetDevice?: { brand: string; model: string; variant?: string };
   },
 ): void {
-  switch (action) {
-    case 'buy':
-      openBuyRequest({ brand: params.brand, model: params.model, variant: params.variant, condition: params.condition });
-      break;
-    case 'sell':
-      openSellRequest({ brand: params.brand, model: params.model, variant: params.variant, condition: params.condition });
-      break;
-    case 'exchange':
-      openExchangeRequest({
-        myBrand: params.brand,
-        myModel: params.model,
-        myVariant: params.variant,
-        wantBrand: params.targetDevice?.brand ?? '',
-        wantModel: params.targetDevice?.model ?? '',
-        wantVariant: params.targetDevice?.variant,
-      });
-      break;
-  }
+  openWhatsApp(WHATSAPP_PHONE, buildWhatsAppForActionMessage(action, params));
 }
 
-export function openModelNotFoundRequest(brand: string, model: string): void {
-  const message = [
+export function buildModelNotFoundMessage(brand: string, model: string): string {
+  return [
     'السلام عليكم.',
     '',
     'الهاتف الذي أبحث عنه غير موجود في موقعكم.',
@@ -169,7 +188,10 @@ export function openModelNotFoundRequest(brand: string, model: string): void {
     '',
     'شكراً.',
   ].filter(Boolean).join('\n');
-  openWhatsApp(WHATSAPP_PHONE, message);
+}
+
+export function openModelNotFoundRequest(brand: string, model: string): void {
+  openWhatsApp(WHATSAPP_PHONE, buildModelNotFoundMessage(brand, model));
 }
 
 /**

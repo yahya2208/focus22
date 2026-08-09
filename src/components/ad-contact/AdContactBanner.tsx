@@ -2,7 +2,8 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { ensureAdsLoaded, getAd, subscribeAds, type AdPlacement } from '../../services/ads-service';
 import { AdSpot } from '../ads/AdSpot';
 import { resolveAdDevice } from '../../services/ad-device-resolver';
-import { openPhoneAdWhatsApp } from '../../services/whatsapp-service';
+import { buildAdClickMessage } from '../../services/whatsapp-service';
+import { useWhatsApp } from '../../providers/WhatsAppProvider';
 import { recordIntent } from '../../services/intent-tracking';
 import type { InventoryRecord } from '../../services/inventory-service';
 
@@ -37,6 +38,7 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
   const [ad, setAd] = useState<ResolvedAd | null>(() => resolve(placement));
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewedRef = useRef(false);
+  const whatsapp = useWhatsApp();
 
   const device: InventoryRecord | null = ad?.link ? resolveAdDevice(ad.link) : null;
   const deviceId = device?.id;
@@ -113,7 +115,7 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
             } catch {
               // fire-and-forget: tracking must never block WhatsApp
             }
-            openPhoneAdWhatsApp(device);
+            whatsapp.send(buildAdClickMessage(device));
           }}
           style={{
             position: 'absolute',

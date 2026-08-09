@@ -11,6 +11,7 @@ import { isScreenName, type ScreenName } from './store/navigation';
 import { useThemeColors } from './hooks/useThemeColors';
 import { AppShell } from './components/layout/AppShell';
 import { BackProvider } from './core/navigation/BackProvider';
+import { WhatsAppProvider } from './providers/WhatsAppProvider';
 import { runSilentCalibration } from './core/calibration/silent';
 import { extractCampaignShortCodeFromLocation, lookupCampaign } from './services/campaign-lookup';
 import focusIcon from './assets/brand/focus-icon.svg';
@@ -268,7 +269,9 @@ export default function App() {
                 <HtmlSync />
                 <InitialRoute />
                 <BackProvider>
-                  <AppShell><ScreenRouter /></AppShell>
+                  <WhatsAppProvider>
+                    <AppShell><ScreenRouter /></AppShell>
+                  </WhatsAppProvider>
                 </BackProvider>
               </AppProvider>
             </AuthProvider>

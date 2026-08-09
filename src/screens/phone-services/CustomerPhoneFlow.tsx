@@ -7,7 +7,8 @@ import type { PhoneVariant } from '../../data/phone-variants';
 import { ALL_CONDITIONS, type DeviceCondition } from '../../services/price-memory';
 import { InventoryService } from '../../services/inventory-service';
 import type { InventoryRecord } from '../../services/inventory-service';
-import { openWhatsAppForAction, openModelNotFoundRequest, WHATSAPP_PHONE as WHATSAPP_BUSINESS_PHONE } from '../../services/whatsapp-service';
+import { buildWhatsAppForActionMessage, buildModelNotFoundMessage } from '../../services/whatsapp-service';
+import { useWhatsApp } from '../../providers/WhatsAppProvider';
 import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 
 type FlowStep = 'search' | 'variant' | 'condition' | 'action' | 'whatsapp';
@@ -19,6 +20,7 @@ export interface CustomerPhoneFlowProps {
 
 export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: CustomerPhoneFlowProps) {
   const colors = useThemeColors();
+  const whatsapp = useWhatsApp();
 
   const [step, setStep] = useState<FlowStep>('search');
   const [selectedResult, setSelectedResult] = useState<CatalogSearchResult | null>(null);
@@ -39,13 +41,14 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
 
   const handleSendWhatsApp = () => {
     if (!selectedResult || !selectedVariant || !action) return;
-    openWhatsAppForAction(WHATSAPP_BUSINESS_PHONE, action, {
+    const message = buildWhatsAppForActionMessage(action, {
       brand: selectedResult.brand,
       model: selectedResult.model,
       variant: selectedVariant.label,
       condition: selectedCondition,
       targetDevice: action !== 'sell' && targetDevice ? { brand: targetDevice.brand, model: targetDevice.model, variant: targetDevice.variant } : undefined,
     });
+    whatsapp.send(message);
   };
 
   const handleSearchSelect = (result: CatalogSearchResult) => {
@@ -204,7 +207,7 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
           placeholder="ابحث عن هاتف..."
           autoFocus
           label="اسم الموديل أو العلامة"
-          onModelNotFound={(brand, model) => openModelNotFoundRequest(brand, model)}
+          onModelNotFound={(brand, model) => whatsapp.send(buildModelNotFoundMessage(brand, model))}
         />
       </div>
     </div>

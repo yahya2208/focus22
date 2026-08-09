@@ -4,6 +4,12 @@ import {
   openBuyRequest,
   openSellRequest,
   openExchangeRequest,
+  openModelNotFoundRequest,
+  buildBuyRequestMessage,
+  buildSellRequestMessage,
+  buildExchangeRequestMessage,
+  buildModelNotFoundMessage,
+  buildWhatsAppForActionMessage,
   WHATSAPP_PHONE,
 } from '../../services/whatsapp-service';
 import { sendRepairRequestWhatsApp } from '../../services/repair/repair-whatsapp';
@@ -126,5 +132,45 @@ describe('WhatsApp unified send path (launch-blocker fix)', () => {
     expect(messages[1]).toContain('أرغب في بيع الهاتف التالي.');
     expect(messages[2]).toContain('أرغب في استبدال هاتفي.');
     expect(messages[3]).toContain('أرغب في إصلاح الهاتف التالي.');
+  });
+
+  it('pure builders match the legacy openers byte-for-byte (message contract preserved)', () => {
+    const buyParams = { brand: 'Samsung', model: 'A52', variant: '8/128', condition: 'New' };
+    const sellParams = { brand: 'Samsung', model: 'A52', variant: '8/128', condition: 'Used' };
+    const exchangeParams = { myBrand: 'Samsung', myModel: 'A52', myVariant: '8/128', wantBrand: 'Apple', wantModel: 'iPhone 13', wantVariant: '128GB' };
+
+    openBuyRequest(buyParams);
+    openSellRequest(sellParams);
+    openExchangeRequest(exchangeParams);
+    openModelNotFoundRequest('Samsung', 'A52');
+
+    const messages = opened.map((call) => messageFromUrl(call.url));
+    expect(messages[0]).toBe(buildBuyRequestMessage(buyParams));
+    expect(messages[1]).toBe(buildSellRequestMessage(sellParams));
+    expect(messages[2]).toBe(buildExchangeRequestMessage(exchangeParams));
+    expect(messages[3]).toBe(buildModelNotFoundMessage('Samsung', 'A52'));
+  });
+
+  it('buildWhatsAppForActionMessage routes buy/sell/exchange to the same templates as the openers', () => {
+    const buyParams = { brand: 'Samsung', model: 'A52', variant: '8/128', condition: 'New' };
+    expect(buildWhatsAppForActionMessage('buy', buyParams)).toBe(buildBuyRequestMessage(buyParams));
+    expect(buildWhatsAppForActionMessage('sell', buyParams)).toBe(buildSellRequestMessage(buyParams));
+    expect(
+      buildWhatsAppForActionMessage('exchange', {
+        brand: 'Samsung',
+        model: 'A52',
+        variant: '8/128',
+        targetDevice: { brand: 'Apple', model: 'iPhone 13', variant: '128GB' },
+      }),
+    ).toBe(
+      buildExchangeRequestMessage({
+        myBrand: 'Samsung',
+        myModel: 'A52',
+        myVariant: '8/128',
+        wantBrand: 'Apple',
+        wantModel: 'iPhone 13',
+        wantVariant: '128GB',
+      }),
+    );
   });
 });

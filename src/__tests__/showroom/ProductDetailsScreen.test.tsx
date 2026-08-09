@@ -13,8 +13,8 @@ vi.mock('../../components/ads/AdSpot', () => ({ AdSpot: () => null }));
 const mockSend = vi.hoisted(() => vi.fn());
 const mockRecordIntent = vi.hoisted(() => vi.fn());
 
-vi.mock('../../hooks/useSmartWhatsApp', () => ({
-  useSmartWhatsApp: () => ({
+vi.mock('../../providers/WhatsAppProvider', () => ({
+  useWhatsApp: () => ({
     send: mockSend,
     modal: null,
     retryOpen: vi.fn(),

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, act, fireEvent } from '@testing-library/react';
 import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
+import { buildAdClickMessage } from '../../services/whatsapp-service';
 import type { InventoryRecord } from '../../services/inventory-service';
 
 interface MockAd {
@@ -26,10 +27,10 @@ const mock = vi.hoisted(() => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     }),
-    openPhoneAdWhatsApp: vi.fn(),
   };
 });
 
+const mockSend = vi.hoisted(() => vi.fn());
 const mockRecordIntent = vi.hoisted(() => vi.fn());
 
 vi.mock('../../services/ads-service', async () => {
@@ -42,8 +43,19 @@ vi.mock('../../services/ads-service', async () => {
   };
 });
 
-vi.mock('../../services/whatsapp-service', () => ({
-  openPhoneAdWhatsApp: mock.openPhoneAdWhatsApp,
+vi.mock('../../services/whatsapp-service', async () => {
+  const actual = await vi.importActual<typeof import('../../services/whatsapp-service')>('../../services/whatsapp-service');
+  return { ...actual };
+});
+
+vi.mock('../../providers/WhatsAppProvider', () => ({
+  useWhatsApp: () => ({
+    send: mockSend,
+    modal: null,
+    retryOpen: vi.fn(),
+    copyMessage: vi.fn(async () => true),
+    closeModal: vi.fn(),
+  }),
 }));
 
 vi.mock('../../services/intent-tracking', () => ({
@@ -159,7 +171,7 @@ describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', ()
     expect(screen.queryByRole('button')).toBeNull();
   });
 
-  it('turns a phone-linked ad into a contact CTA: click records intent and opens WhatsApp to the owner', async () => {
+  it('turns a phone-linked ad into a contact CTA: click records intent and sends the ad-click message via the canonical handoff', async () => {
     mock.__setState(PHONE_AD);
     render(<AdContactBanner placement="home" />);
     await act(async () => {
@@ -174,8 +186,24 @@ describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', ()
       placement: 'home',
       deviceId: DEVICE.id,
     });
-    expect(mock.openPhoneAdWhatsApp).toHaveBeenCalledTimes(1);
-    expect(mock.openPhoneAdWhatsApp).toHaveBeenCalledWith(DEVICE);
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockSend).toHaveBeenCalledWith(buildAdClickMessage(DEVICE));
+  });
+
+  it('tracking failure never blocks the WhatsApp handoff (fire-and-forget)', async () => {
+    mock.__setState(PHONE_AD);
+    mockRecordIntent.mockImplementation(() => {
+      throw new Error('tracking down');
+    });
+    render(<AdContactBanner placement="home" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const overlay = screen.getByRole('button', { name: 'Contact for this phone' });
+    expect(() => fireEvent.click(overlay)).not.toThrow();
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockSend).toHaveBeenCalledWith(buildAdClickMessage(DEVICE));
   });
 
   it('keeps the ad banner visible underneath the contact overlay', async () => {
