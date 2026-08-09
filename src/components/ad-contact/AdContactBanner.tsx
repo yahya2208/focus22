@@ -3,9 +3,8 @@ import { ensureAdsLoaded, getAd, subscribeAds, type AdPlacement } from '../../se
 import { AdSpot } from '../ads/AdSpot';
 import { AdBanner, type AdBannerStatus } from '../ads/AdBanner';
 import { resolveAdDevice } from '../../services/ad-device-resolver';
-import { buildAdClickMessage } from '../../services/whatsapp-service';
-import { useWhatsApp } from '../../providers/WhatsAppProvider';
 import { recordIntent } from '../../services/intent-tracking';
+import { useAppDispatch } from '../../store/navigation';
 import type { InventoryRecord } from '../../services/inventory-service';
 
 interface AdContactBannerProps {
@@ -25,23 +24,28 @@ function resolve(placement: AdPlacement): ResolvedAd | null {
 }
 
 /**
- * M1/M2 — Ad Contact Banner (Marketplace Mediator model §10, §17):
- * Deploys the standard AdSpot, but when the configured ad links to a phone
- * (`#/phone-details?device=<id>`), the whole banner becomes a contact CTA:
- * click → fire-and-forget intent → WhatsApp to the owner with the phone data.
- * Any other ad link keeps its normal anchor behaviour.
+ * Ad Contact Banner — device-linked ads (Marketplace Mediator model §10, §17):
+ * When the configured ad links to a phone (`#/phone-details?device=<id>`), the
+ * whole banner becomes a single-target click: click → fire-and-forget intent →
+ * navigate to the phone's details page (`phone-details?device=<id>`). The user
+ * then chooses a WhatsApp action (شراء/استبدال/تقسيط/استفسار) or Back/Cancel
+ * on the details page. Any other ad link keeps its normal anchor behaviour.
  *
  * M2 — View counting (§17): a view is recorded when the banner stays inside
  * the viewport at ≥ 0.6 visibility for ≥ 1 s (IntersectionObserver). NOT
  * counted: hidden render, preload, DOM creation, off-screen mount. Click and
- * view tracking are fire-and-forget and can never block or delay WhatsApp.
+ * view tracking are fire-and-forget and can never block navigation.
+ *
+ * BATCH 2 — WhatsApp is ONLY initiated from the phone details page (with
+ * `whatsapp_intent` tied to `deviceId`); the ad itself never opens WhatsApp
+ * and never opens an image viewer/zoom.
  */
 export const AdContactBanner = memo(function AdContactBanner({ placement }: AdContactBannerProps) {
   const [ad, setAd] = useState<ResolvedAd | null>(() => resolve(placement));
   const [failed, setFailed] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewedRef = useRef(false);
-  const whatsapp = useWhatsApp();
+  const dispatch = useAppDispatch();
 
   const device: InventoryRecord | null = ad?.link ? resolveAdDevice(ad.link) : null;
   const deviceId = device?.id;
@@ -110,10 +114,11 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
 
   if (!ad || failed) return null;
 
-  // F-105 — a phone-linked ad is a single-target contact CTA: the banner is
-  // rendered non-interactively (no focusable anchor underneath) and the
-  // overlay button is the ONLY focusable/actionable target. Non-phone ads
-  // keep their normal AdSpot anchor behaviour unchanged.
+  // A phone-linked ad is a single-target click: the banner is rendered
+  // non-interactively (no focusable anchor underneath) and the overlay button
+  // is the ONLY focusable/actionable target. Clicking navigates to the phone's
+  // details page carrying `deviceId` — never to WhatsApp directly, never to an
+  // image viewer. Non-phone ads keep their normal AdSpot anchor behaviour.
   const isContact = Boolean(device);
 
   return (
@@ -133,9 +138,9 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
             try {
               recordIntent({ kind: 'click', ctaType: 'ad_click', placement, deviceId: device!.id });
             } catch {
-              // fire-and-forget: tracking must never block WhatsApp
+              // fire-and-forget: tracking must never block navigation
             }
-            whatsapp.send(buildAdClickMessage(device!));
+            dispatch({ type: 'NAVIGATE', screen: 'phone-details', params: { device: device!.id } });
           }}
           style={{
             position: 'absolute',

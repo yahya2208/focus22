@@ -27,7 +27,7 @@ describe('AdBanner (V-1 — loading / loaded / failed)', () => {
     expect(container.textContent).not.toMatch(/broken/i);
   });
 
-  it('renders the image normally after a successful load with the adaptive ratio', () => {
+  it('renders the image normally after a successful load with the adaptive ratio — fully static (no auto-motion)', () => {
     const { container } = renderBanner();
 
     const img = screen.getByRole('img');
@@ -40,8 +40,10 @@ describe('AdBanner (V-1 — loading / loaded / failed)', () => {
     expect(screen.getByTestId('adspot-frame').getAttribute('data-status')).toBe('loaded');
     expect(img.style.opacity).toBe('1');
     expect(onStateChange).toHaveBeenCalledWith('loaded');
-    // shine sweep appears only after load
-    expect(container.textContent).not.toBeNull();
+    // BATCH 2 — the loaded ad is static: no breathing, no shine sweep.
+    expect(img.style.animation).toBe('');
+    expect(container.querySelector('[style*="adspot-shine"]')).toBeNull();
+    expect(container.querySelector('[style*="adspot-breathe"]')).toBeNull();
   });
 
   it('collapses cleanly on a broken image: no frame, no shine, no throw, no retry loop', () => {

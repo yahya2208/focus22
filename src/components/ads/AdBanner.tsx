@@ -15,10 +15,11 @@ interface AdBannerProps {
 
 /**
  * Adaptive ad frame (M1) with hardened image states (V-1):
- * - loading: intentional pulsing placeholder inside a stable frame, no shine.
- * - loaded: full image, adaptive ratio, existing breathing + shine sweep.
+ * - loading: intentional static placeholder inside a stable frame.
+ * - loaded: full image, adaptive ratio, fully static (BATCH 2 — no breathing,
+ *   no shine sweep, no auto-motion).
  * - failed: collapses to nothing (null) — no empty advertising frame, no
- *   broken-image icon, no shine, no retry loop. `onStateChange` lets the parent
+ *   broken-image icon, no retry loop. `onStateChange` lets the parent
  *   collapse its interactive wrapper too.
  */
 export const AdBanner = memo(function AdBanner({ image, alt, onStateChange }: AdBannerProps) {
@@ -76,7 +77,6 @@ export const AdBanner = memo(function AdBanner({ image, alt, onStateChange }: Ad
           height: '100%',
           objectFit: 'contain',
           opacity: status === 'loaded' ? 1 : 0,
-          animation: status === 'loaded' ? 'adspot-breathe 8s ease-in-out infinite' : undefined,
         }}
       />
       {status === 'loading' && (
@@ -92,25 +92,8 @@ export const AdBanner = memo(function AdBanner({ image, alt, onStateChange }: Ad
             color: colors.textFaint,
           }}
         >
-          <span style={{ fontSize: '1.6rem', lineHeight: 1, animation: 'adspot-breathe 1.4s ease-in-out infinite' }}>
-            ⌛
-          </span>
+          <span style={{ fontSize: '1.6rem', lineHeight: 1 }}>⌛</span>
         </div>
-      )}
-      {/* Decorative shine sweep — pointer-events none, only after the image loads */}
-      {status === 'loaded' && (
-        <div
-          aria-hidden
-          style={{
-            position: 'absolute',
-            inset: 0,
-            pointerEvents: 'none',
-            background: 'linear-gradient(115deg, transparent 42%, rgba(255,255,255,0.10) 50%, transparent 58%)',
-            backgroundSize: '250% 100%',
-            backgroundPosition: '220% 0',
-            animation: 'adspot-shine 11s ease-in-out infinite alternate',
-          }}
-        />
       )}
     </div>
   );

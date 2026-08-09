@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, act, fireEvent } from '@testing-library/react';
+import { AppProvider, useAppState } from '../../store/navigation';
 import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
-import { buildAdClickMessage } from '../../services/whatsapp-service';
 import type { InventoryRecord } from '../../services/inventory-service';
 
 interface MockAd {
@@ -41,11 +41,6 @@ vi.mock('../../services/ads-service', async () => {
     ensureAdsLoaded: mock.ensureAdsLoaded,
     subscribeAds: mock.subscribeAds,
   };
-});
-
-vi.mock('../../services/whatsapp-service', async () => {
-  const actual = await vi.importActual<typeof import('../../services/whatsapp-service')>('../../services/whatsapp-service');
-  return { ...actual };
 });
 
 vi.mock('../../providers/WhatsAppProvider', () => ({
@@ -136,13 +131,32 @@ const EXTERNAL_AD: MockAd = {
   alt: 'Special offer',
 };
 
+function ParamProbe() {
+  const state = useAppState();
+  return (
+    <div>
+      <span data-testid="probe-screen">{state.screen}</span>
+      <span data-testid="probe-device">{state.routeParams.device ?? ''}</span>
+    </div>
+  );
+}
+
+function renderBanner(placement: 'home' | 'showroom') {
+  return render(
+    <AppProvider>
+      <ParamProbe />
+      <AdContactBanner placement={placement} />
+    </AppProvider>,
+  );
+}
+
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
   MockIntersectionObserver.instances = [];
 });
 
-describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', () => {
+describe('AdContactBanner (BATCH 2 — Ad Click → Phone Details + view counting)', () => {
   beforeEach(() => {
     mock.__setState(DISABLED);
     vi.clearAllMocks();
@@ -150,7 +164,7 @@ describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', ()
   });
 
   it('renders nothing when the ad is disabled', async () => {
-    render(<AdContactBanner placement="home" />);
+    renderBanner('home');
     await act(async () => {
       await Promise.resolve();
     });
@@ -160,7 +174,7 @@ describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', ()
 
   it('renders a normal ad anchor for a non-phone link (no WhatsApp overlay)', async () => {
     mock.__setState(EXTERNAL_AD);
-    render(<AdContactBanner placement="home" />);
+    renderBanner('home');
     await act(async () => {
       await Promise.resolve();
     });
@@ -171,9 +185,9 @@ describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', ()
     expect(screen.queryByRole('button')).toBeNull();
   });
 
-  it('turns a phone-linked ad into a contact CTA: click records intent and sends the ad-click message via the canonical handoff', async () => {
+  it('BATCH 2 — phone-linked ad click navigates to phone-details with deviceId and never opens WhatsApp', async () => {
     mock.__setState(PHONE_AD);
-    render(<AdContactBanner placement="home" />);
+    renderBanner('home');
     await act(async () => {
       await Promise.resolve();
     });
@@ -186,41 +200,63 @@ describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', ()
       placement: 'home',
       deviceId: DEVICE.id,
     });
-    expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(mockSend).toHaveBeenCalledWith(buildAdClickMessage(DEVICE));
+    // Navigation contract: Advertisement → Phone Details carrying the deviceId.
+    expect(screen.getByTestId('probe-screen').textContent).toBe('phone-details');
+    expect(screen.getByTestId('probe-device').textContent).toBe(DEVICE.id);
+    // WhatsApp is ONLY initiated from the phone details page — never from the ad.
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
-  it('tracking failure never blocks the WhatsApp handoff (fire-and-forget)', async () => {
+  it('BATCH 2 — tracking failure never blocks navigation (fire-and-forget)', async () => {
     mock.__setState(PHONE_AD);
     mockRecordIntent.mockImplementation(() => {
       throw new Error('tracking down');
     });
-    render(<AdContactBanner placement="home" />);
+    renderBanner('home');
     await act(async () => {
       await Promise.resolve();
     });
 
     const overlay = screen.getByRole('button', { name: 'Contact for this phone' });
     expect(() => fireEvent.click(overlay)).not.toThrow();
-    expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(mockSend).toHaveBeenCalledWith(buildAdClickMessage(DEVICE));
+    expect(screen.getByTestId('probe-screen').textContent).toBe('phone-details');
+    expect(screen.getByTestId('probe-device').textContent).toBe(DEVICE.id);
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
-  it('keeps the ad banner visible underneath the contact overlay', async () => {
+  it('keeps the ad banner visible underneath the navigation overlay', async () => {
     mock.__setState(PHONE_AD);
-    render(<AdContactBanner placement="home" />);
+    renderBanner('home');
     await act(async () => {
       await Promise.resolve();
     });
     expect(screen.getByRole('banner')).toBeTruthy();
   });
 
-  it('BATCH 1 — showroom placement: view and click carry placement "showroom" and the phone id', async () => {
+  it('BATCH 2 — the phone-linked ad renders NO zoom / NO image viewer / NO lightbox', async () => {
+    mock.__setState(PHONE_AD);
+    const { container } = renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[style*="zoom-in"]')).toBeNull();
+    expect(container.querySelector('[style*="zoom-out"]')).toBeNull();
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(container.textContent).not.toMatch(/lightbox|viewer|magnif/i);
+    // The image is NOT an independent control: the ONLY interactive element is
+    // the overlay button, and clicking it navigates — it cannot open zoom.
+    const interactive = container.querySelectorAll('a, button, [role="link"], [tabindex]:not([tabindex="-1"])');
+    expect(interactive.length).toBe(1);
+    expect(interactive[0]!.tagName).toBe('BUTTON');
+  });
+
+  it('BATCH 1 — showroom placement: view and click carry placement "showroom" and the phone id; click navigates', async () => {
     vi.useFakeTimers();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
     mock.__setState(PHONE_AD);
-    render(<AdContactBanner placement="showroom" />);
+    renderBanner('showroom');
     await act(async () => {
       await Promise.resolve();
     });
@@ -238,8 +274,9 @@ describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', ()
     const overlay = screen.getByRole('button', { name: 'Contact for this phone' });
     fireEvent.click(overlay);
     expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'click', ctaType: 'ad_click', placement: 'showroom', deviceId: DEVICE.id });
-    expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(mockSend).toHaveBeenCalledWith(buildAdClickMessage(DEVICE));
+    expect(screen.getByTestId('probe-screen').textContent).toBe('phone-details');
+    expect(screen.getByTestId('probe-device').textContent).toBe(DEVICE.id);
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   it('records a view only after the banner stays ≥ 0.6 visible for ≥ 1 s', async () => {
@@ -247,7 +284,7 @@ describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', ()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
     mock.__setState(PHONE_AD);
-    render(<AdContactBanner placement="home" />);
+    renderBanner('home');
     await act(async () => {
       await Promise.resolve();
     });
@@ -275,7 +312,7 @@ describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', ()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
     mock.__setState(PHONE_AD);
-    render(<AdContactBanner placement="home" />);
+    renderBanner('home');
     await act(async () => {
       await Promise.resolve();
     });
@@ -297,9 +334,9 @@ describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', ()
     expect(mockRecordIntent).not.toHaveBeenCalled();
   });
 
-  it('F-105 — phone-linked contact CTA exposes exactly ONE focusable target (no duplicate link/button)', async () => {
+  it('phone-linked ad exposes exactly ONE focusable target (no duplicate link/button)', async () => {
     mock.__setState(PHONE_AD);
-    render(<AdContactBanner placement="home" />);
+    renderBanner('home');
     await act(async () => {
       await Promise.resolve();
     });
@@ -312,9 +349,9 @@ describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', ()
     expect(screen.getByRole('button', { name: 'Contact for this phone' })).toBeTruthy();
   });
 
-  it('F-105 — the single focusable target receives keyboard focus and fires WhatsApp exactly once', async () => {
+  it('the single focusable target receives keyboard focus and navigates exactly once', async () => {
     mock.__setState(PHONE_AD);
-    render(<AdContactBanner placement="home" />);
+    renderBanner('home');
     await act(async () => {
       await Promise.resolve();
     });
@@ -324,7 +361,8 @@ describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', ()
     expect(document.activeElement).toBe(overlay);
     fireEvent.click(overlay);
     expect(mockRecordIntent).toHaveBeenCalledTimes(1);
-    expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(mockSend).toHaveBeenCalledWith(buildAdClickMessage(DEVICE));
+    expect(screen.getByTestId('probe-screen').textContent).toBe('phone-details');
+    expect(screen.getByTestId('probe-device').textContent).toBe(DEVICE.id);
+    expect(mockSend).not.toHaveBeenCalled();
   });
 });
