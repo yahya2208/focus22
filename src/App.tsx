@@ -12,6 +12,7 @@ import { useThemeColors } from './hooks/useThemeColors';
 import { AppShell } from './components/layout/AppShell';
 import { BackProvider } from './core/navigation/BackProvider';
 import { runSilentCalibration } from './core/calibration/silent';
+import { extractCampaignShortCodeFromLocation, lookupCampaign } from './services/campaign-lookup';
 import focusIcon from './assets/brand/focus-icon.svg';
 
 // Small/critical screens — lazy loaded to reduce initial bundle size
@@ -125,6 +126,21 @@ function InitialRoute() {
     // read, so no lookupScanContext / analytics_events / START_QR_FLOW.
     if (initialRoutingHandledRef.current) return;
     initialRoutingHandledRef.current = true;
+
+    const shortCode = extractCampaignShortCodeFromLocation(
+      window.location.pathname,
+      window.location.search,
+    );
+    if (shortCode) {
+      lookupCampaign(shortCode)
+        .then((entry) => {
+          if (entry) {
+            dispatch({ type: 'REPLACE', screen: 'game-intro' });
+          }
+        })
+        .catch(() => {});
+      return;
+    }
 
     const hash = window.location.hash;
     if (hash.startsWith('#/')) {
