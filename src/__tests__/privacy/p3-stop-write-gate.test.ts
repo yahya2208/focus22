@@ -98,6 +98,30 @@ const HARD_STOP_PREFIXES = [
   'src/services/ads-service.ts',
 ];
 
+/**
+ * CONTROLLED CARVE-OUT — owner-authorized 2026-08-09.
+ * Authorization source: FOCUS v2 CONTROLLED PRODUCT FIX EXECUTION DIRECTIVE v1.0
+ * Authorized phases: V-1 and V-4 only.
+ * Authorized files (EXACT paths only — no directory exception, no wildcard):
+ *   - src/components/ads/AdBanner.tsx  (V-1)
+ *   - src/components/ads/AdSpot.tsx    (V-1)
+ *   - src/services/ads-service.ts      (V-4)
+ * Reason: historical path-only protection gate conflicts with explicitly
+ *         authorized product fixes (V-1/V-4) for this controlled execution.
+ * Scope/expiration: this controlled execution only. Every other protected
+ *         path below remains a HARD STOP — including any other file under
+ *         src/components/ads/ and every catalog/inventory/price-memory path.
+ */
+const AUTHORIZED_CHANGES = [
+  'src/components/ads/AdBanner.tsx',
+  'src/components/ads/AdSpot.tsx',
+  'src/services/ads-service.ts',
+];
+
+function findProtectedViolations(changed: string[], prefixes: string[], authorized: string[]): string[] {
+  return changed.filter((f) => prefixes.some((p) => f.startsWith(p)) && !authorized.includes(f));
+}
+
 describe('PG-01: لا signInAsGuest() تلقائياً لمجرد فتح التطبيق', () => {
   it('AuthProvider boot effect لا يستدعي signInAsGuest تلقائياً', () => {
     const auth = codeOnly(read('core/auth/AuthProvider.tsx'));
@@ -250,9 +274,43 @@ describe('PG-54: لا مسارات ميتة — خريطة الشاشات سلي
 });
 
 describe('PG-57: Hard-Stop — لا تعديل على الكتالوج/المخزون/الإعلانات', () => {
-  it('التغييرات في هذه المرحلة لا تمس أي ملف محمي', () => {
+  it('التغييرات في هذه المرحلة لا تمس أي ملف محمي (عدا المسارات المخوّلة صراحةً)', () => {
     const changed = getChangedFiles();
-    const violations = changed.filter((f) => HARD_STOP_PREFIXES.some((p) => f.startsWith(p)));
+    const violations = findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES);
     expect(violations, `ملفات محمية تم تعديلها: ${violations.join(', ')}`).toEqual([]);
+  });
+
+  it('carve-out regression: الملفات المخوّلة (V-1/V-4) لا تُفشل لمجرد تغييرها', () => {
+    const changed = [
+      'src/components/ads/AdBanner.tsx',
+      'src/components/ads/AdSpot.tsx',
+      'src/services/ads-service.ts',
+    ];
+    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([]);
+  });
+
+  it('carve-out regression: أي ملف غير مخوّل تحت src/components/ads/ يُفشل', () => {
+    const changed = ['src/components/ads/AdBanner.tsx', 'src/components/ads/FutureBanner.tsx'];
+    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([
+      'src/components/ads/FutureBanner.tsx',
+    ]);
+  });
+
+  it('carve-out regression: catalog/inventory/price-memory ما زالت ممنوعة', () => {
+    const changed = [
+      'src/catalog/cat.ts',
+      'src/components/catalog/CatalogView.tsx',
+      'src/services/inventory-service.ts',
+      'src/services/inventory-seed.ts',
+      'src/services/price-memory.ts',
+    ];
+    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual(changed);
+  });
+
+  it('carve-out regression: ملف مخوّل لا يبرئ ملفات محمية أخرى في نفس الشجرة', () => {
+    const changed = ['src/components/ads/AdBanner.tsx', 'src/services/price-memory.ts'];
+    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([
+      'src/services/price-memory.ts',
+    ]);
   });
 });

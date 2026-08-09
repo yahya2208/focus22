@@ -26,6 +26,19 @@ import { execSync } from 'child_process';
  *         (owner decision D3 explicitly authorized track-stripping in the
  *          showroom/whatsapp feature files; their functional KEEP behaviour is
  *          covered by PG-58/PG-59)
+ *
+ * CONTROLLED CARVE-OUT — owner-authorized 2026-08-09.
+ * Authorization source: FOCUS v2 CONTROLLED PRODUCT FIX EXECUTION DIRECTIVE v1.0
+ * Authorized phases: V-1 and V-4 only.
+ * Authorized files (EXACT paths only — no directory exception, no wildcard):
+ *   - src/components/ads/AdBanner.tsx  (V-1)
+ *   - src/components/ads/AdSpot.tsx    (V-1)
+ *   - src/services/ads-service.ts      (V-4)
+ * Reason: historical path-only protection gate conflicts with explicitly
+ *         authorized product fixes (V-1/V-4) for this controlled execution.
+ * Scope/expiration: this controlled execution only. Every other protected
+ *         path below remains a HARD STOP — including any other file under
+ *         src/components/ads/ and every catalog/inventory/price-memory path.
  */
 
 const SRC = path.resolve(__dirname, '../..');
@@ -183,9 +196,57 @@ describe('PG-61: KEEP — catalog/inventory/ads untouched by P5 (D3)', () => {
     'src/services/ads-service.ts',
   ];
 
-  it('P5 changes do not touch protected feature files', () => {
+  // CONTROLLED CARVE-OUT — owner-authorized 2026-08-09 (FOCUS v2 CONTROLLED
+  // PRODUCT FIX EXECUTION DIRECTIVE v1.0). Exact authorized files only; no
+  // directory exception, no wildcard. Scope: V-1 and V-4 of this controlled
+  // execution only. Every other protected path below remains a HARD STOP.
+  const AUTHORIZED_CHANGES = [
+    'src/components/ads/AdBanner.tsx',
+    'src/components/ads/AdSpot.tsx',
+    'src/services/ads-service.ts',
+  ];
+
+  function findProtectedViolations(changed: string[], prefixes: string[], authorized: string[]): string[] {
+    return changed.filter((f) => prefixes.some((p) => f.startsWith(p)) && !authorized.includes(f));
+  }
+
+  it('P5 changes do not touch protected feature files (except the explicitly authorized paths above)', () => {
     const changed = getChangedFiles();
-    const violations = changed.filter((f) => HARD_STOP_PREFIXES.some((p) => f.startsWith(p)));
+    const violations = findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES);
     expect(violations, `protected files changed: ${violations.join(', ')}`).toEqual([]);
+  });
+
+  it('carve-out regression: authorized V-1/V-4 files do NOT fail solely because they are changed', () => {
+    const changed = [
+      'src/components/ads/AdBanner.tsx',
+      'src/components/ads/AdSpot.tsx',
+      'src/services/ads-service.ts',
+    ];
+    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([]);
+  });
+
+  it('carve-out regression: an unauthorized file under src/components/ads/ STILL fails', () => {
+    const changed = ['src/components/ads/AdBanner.tsx', 'src/components/ads/FutureBanner.tsx'];
+    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([
+      'src/components/ads/FutureBanner.tsx',
+    ]);
+  });
+
+  it('carve-out regression: catalog/inventory/price-memory paths STILL fail', () => {
+    const changed = [
+      'src/catalog/cat.ts',
+      'src/components/catalog/CatalogView.tsx',
+      'src/services/inventory-service.ts',
+      'src/services/inventory-seed.ts',
+      'src/services/price-memory.ts',
+    ];
+    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual(changed);
+  });
+
+  it('carve-out regression: an authorized file does not exempt other protected files in the same tree', () => {
+    const changed = ['src/components/ads/AdSpot.tsx', 'src/services/inventory-service.ts'];
+    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([
+      'src/services/inventory-service.ts',
+    ]);
   });
 });
