@@ -55,13 +55,11 @@ vi.mock('../core/analytics/tracker', () => ({
   trackExchangeFlowStarted: vi.fn(),
 }));
 
-vi.mock('../services/whatsapp-message', () => ({
-  openWhatsAppForAction: vi.fn(),
-}));
-
 vi.mock('../services/whatsapp-service', () => ({
   WHATSAPP_PHONE: '+213556254007',
   openModelNotFoundRequest: vi.fn(),
+  openWhatsAppForAction: vi.fn(),
+  openPhoneAdWhatsApp: vi.fn(),
 }));
 
 vi.mock('../components/ads/AdSpot', () => ({

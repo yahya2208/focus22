@@ -5,7 +5,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { Screen, Stack, Divider } from '../../design-system/layout';
 import { Card } from '../../design-system/components/Card';
 import { Toast } from '../../design-system/components/Toast';
-import { AdSpot } from '../../components/ads/AdSpot';
+import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 import { ProductImageGallery } from '../../components/showroom/ProductImageGallery';
 import { ProductActionBar } from '../../components/showroom/ProductActionBar';
 import { ProductNotFound } from '../../components/showroom/ProductNotFound';
@@ -239,7 +239,7 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
           </div>
         </Card>
 
-        <AdSpot placement="phone-details" />
+        <AdContactBanner placement="phone-details" />
 
         <SimilarPhones devices={similar} onSelect={handleSimilarSelect} />
       </Stack>

@@ -12,7 +12,7 @@ import { layout } from '../../design-system/tokens';
 import { Button } from '../../design-system/components/Button';
 import { Card } from '../../design-system/components/Card';
 import { Flex } from '../../design-system/components/Flex';
-import { AdSpot } from '../../components/ads/AdSpot';
+import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 import { InventoryService, type InventoryRecord } from '../../services/inventory-service';
 
 function getGreetingKey() {
@@ -338,7 +338,7 @@ export const HomeScreen = memo(function HomeScreen() {
         </div>
 
         {/* Featured ad — renders nothing when no published ad, so no space is reserved */}
-        <AdSpot placement="home" />
+        <AdContactBanner placement="home" />
 
         {/* Latest devices — live data source, count adapts to screen */}
         <div>

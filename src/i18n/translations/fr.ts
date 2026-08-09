@@ -487,6 +487,7 @@ const fr: Record<string, string> = {
   'phoneDetails.actions.exchange': 'Échanger',
   'phoneDetails.actions.installment': 'Paiement échelonné',
   'phoneDetails.actions.inquiry': 'Demande',
+  'phoneDetails.actions.whatsappNote': 'Ces actions envoient une demande au propriétaire via WhatsApp pour discuter du téléphone. Nous sommes un marketplace — les échanges se font directement entre vous et le propriétaire.',
   'phoneDetails.notFoundTitle': 'Cette annonce n\'est pas disponible',
   'phoneDetails.notFoundMessage': 'Elle a peut-être été supprimée ou a expiré.',
   'phoneDetails.backToShowroom': 'Retour à la vitrine',

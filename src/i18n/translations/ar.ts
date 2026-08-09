@@ -1016,6 +1016,7 @@ const ar: Record<TranslationKey, string> = {
   'phoneDetails.actions.exchange': 'استبدال',
   'phoneDetails.actions.installment': 'تقسيط',
   'phoneDetails.actions.inquiry': 'استفسار',
+  'phoneDetails.actions.whatsappNote': 'هذه الإجراءات ترسل طلباً إلى المالك عبر واتساب للتفاوض حول الهاتف. نحن سوق وسيط — تتم الصفقات مباشرة بينك وبين المالك.',
   'phoneDetails.notFoundTitle': 'هذا الإعلان غير متوفر',
   'phoneDetails.notFoundMessage': 'ربما حُذف أو انتهى هذا الإعلان.',
   'phoneDetails.backToShowroom': 'العودة للمعرض',

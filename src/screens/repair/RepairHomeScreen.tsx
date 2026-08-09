@@ -5,7 +5,7 @@ import { permissionGuard } from '../../core/research/permissions';
 import { Screen, Stack, Grid } from '../../design-system/layout';
 import { Card } from '../../design-system/components/Card';
 import { Button } from '../../design-system/components/Button';
-import { AdSpot } from '../../components/ads/AdSpot';
+import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 
 const REPAIR_MENU_ITEMS = [
   { key: 'request', emoji: '🔧', screen: 'repair-request' as const, requiresAuth: false },
@@ -44,7 +44,7 @@ export const RepairHomeScreen = memo(function RepairHomeScreen() {
           </p>
         </Card>
 
-        <AdSpot placement="repair" />
+        <AdContactBanner placement="repair" />
 
         <Grid columns={2} gap="md">
           {REPAIR_MENU_ITEMS.filter(item => !item.requiresAuth || canManage).map((item) => (

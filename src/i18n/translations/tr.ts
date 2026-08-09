@@ -1016,6 +1016,7 @@ const tr: Record<TranslationKey, string> = {
   'phoneDetails.actions.exchange': 'Takas',
   'phoneDetails.actions.installment': 'Taksit',
   'phoneDetails.actions.inquiry': 'Bilgi Al',
+  'phoneDetails.actions.whatsappNote': 'Bu eylemler telefonu görüşmek için WhatsApp üzerinden sahibine bir istek gönderir. Biz bir pazaryeriyiz — anlaşmalar sizinle sahip arasında doğrudan yapılır.',
   'phoneDetails.notFoundTitle': 'Bu ilan mevcut değil',
   'phoneDetails.notFoundMessage': 'Silinmiş veya süresi dolmuş olabilir.',
   'phoneDetails.backToShowroom': 'Vitrine Dön',

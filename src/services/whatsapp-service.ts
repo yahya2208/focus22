@@ -119,6 +119,43 @@ export function openCustomMessage(phone: string, message: string): void {
   openWhatsApp(phone, message);
 }
 
+/**
+ * Central contact layer adapter (formerly in whatsapp-message.ts): routes a
+ * customer-flow action (sell / buy / exchange) to the matching request opener.
+ * The `phone` argument is accepted for interface compatibility; all flows send
+ * to the single business number.
+ */
+export function openWhatsAppForAction(
+  _phone: string,
+  action: 'buy' | 'sell' | 'exchange',
+  params: {
+    brand: string;
+    model: string;
+    variant?: string;
+    condition?: string;
+    targetDevice?: { brand: string; model: string; variant?: string };
+  },
+): void {
+  switch (action) {
+    case 'buy':
+      openBuyRequest({ brand: params.brand, model: params.model, variant: params.variant, condition: params.condition });
+      break;
+    case 'sell':
+      openSellRequest({ brand: params.brand, model: params.model, variant: params.variant, condition: params.condition });
+      break;
+    case 'exchange':
+      openExchangeRequest({
+        myBrand: params.brand,
+        myModel: params.model,
+        myVariant: params.variant,
+        wantBrand: params.targetDevice?.brand ?? '',
+        wantModel: params.targetDevice?.model ?? '',
+        wantVariant: params.targetDevice?.variant,
+      });
+      break;
+  }
+}
+
 export function openModelNotFoundRequest(brand: string, model: string): void {
   const message = [
     'السلام عليكم.',
@@ -199,4 +236,32 @@ export function sendPhoneActionWhatsApp(
   device: Pick<InventoryRecord, 'id' | 'brand' | 'model' | 'variant' | 'sellPrice' | 'city' | 'code'>,
 ): string {
   return buildPhoneActionMessage(action, device);
+}
+
+/**
+ * M1 — Ad Click → WhatsApp (§10): clicking an ad that points to a phone builds a
+ * contact message with the available phone data and opens WhatsApp to the owner.
+ * Same 6-field contract as the details action bar (name/code/price/city/link).
+ */
+export function buildAdClickMessage(
+  device: Pick<InventoryRecord, 'id' | 'brand' | 'model' | 'variant' | 'sellPrice' | 'city' | 'code'>,
+): string {
+  const ctx = getPhoneActionContext(device);
+  const lines = [
+    'السلام عليكم،',
+    'أود الاستفسار عن الهاتف الذي شاهدت إعلانه:',
+    `اسم الهاتف: ${ctx.name}`,
+    `الكود: ${ctx.code}`,
+  ];
+  if (ctx.price != null) lines.push(`السعر: ${ctx.price} دج`);
+  if (ctx.city) lines.push(`المدينة: ${ctx.city}`);
+  lines.push(`رابط الإعلان: ${ctx.url}`);
+  lines.push('شكراً.');
+  return lines.join('\n');
+}
+
+export function openPhoneAdWhatsApp(
+  device: Pick<InventoryRecord, 'id' | 'brand' | 'model' | 'variant' | 'sellPrice' | 'city' | 'code'>,
+): void {
+  openWhatsApp(WHATSAPP_PHONE, buildAdClickMessage(device));
 }

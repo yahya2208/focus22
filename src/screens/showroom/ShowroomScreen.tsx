@@ -6,7 +6,7 @@ import { Card } from '../../design-system/components/Card';
 import { Button } from '../../design-system/components/Button';
 import { PhoneShowroom } from '../../components/showroom/PhoneShowroom';
 import { ShowroomControls } from '../../components/showroom/ShowroomControls';
-import { AdSpot } from '../../components/ads/AdSpot';
+import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 import { InventoryService } from '../../services/inventory-service';
 import type { InventoryRecord } from '../../services/inventory-service';
 import { useShowroomState, filterAndSortDevices } from '../../hooks/useShowroomState';
@@ -42,7 +42,7 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
           </p>
         </Card>
 
-        <AdSpot placement="phone-details" />
+        <AdContactBanner placement="phone-details" />
 
         <ShowroomControls devices={devices} state={state} onChange={update} />
 

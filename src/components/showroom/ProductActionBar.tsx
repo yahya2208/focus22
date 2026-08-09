@@ -11,15 +11,17 @@ interface ProductActionBarProps {
 }
 
 const ACTION_META: Record<PhoneActionId, { icon: string; labelKey: string; color: keyof Pick<import('../../hooks/useThemeColors').ThemeColors, 'success' | 'accent' | 'info' | 'warning'> }> = {
-  buy: { icon: '🛒', labelKey: 'phoneDetails.actions.buy', color: 'success' },
+  buy: { icon: '💬', labelKey: 'phoneDetails.actions.buy', color: 'success' },
   exchange: { icon: '🔄', labelKey: 'phoneDetails.actions.exchange', color: 'accent' },
-  installment: { icon: '💳', labelKey: 'phoneDetails.actions.installment', color: 'info' },
+  installment: { icon: '📩', labelKey: 'phoneDetails.actions.installment', color: 'info' },
   inquiry: { icon: '❓', labelKey: 'phoneDetails.actions.inquiry', color: 'warning' },
 };
 
 /**
  * Product details action bar (§3.2): exactly 4 actions — شراء / استبدال /
  * تقسيط / استفسار. No "بيع". Buttons carry `data-action` for CDP evidence.
+ * M1 (Option A): contact-neutral icons + a clarifying note that the action is a
+ * request to contact the owner via WhatsApp — not a platform transaction.
  */
 export const ProductActionBar = memo(function ProductActionBar({
   actions,
@@ -71,6 +73,18 @@ export const ProductActionBar = memo(function ProductActionBar({
           </button>
         );
       })}
+      <p
+        style={{
+          gridColumn: `span ${actions.length}`,
+          margin: 0,
+          textAlign: 'center',
+          color: colors.textMuted,
+          fontSize: '0.66rem',
+          lineHeight: 1.5,
+        }}
+      >
+        {t('phoneDetails.actions.whatsappNote' as never)}
+      </p>
     </div>
   );
 });

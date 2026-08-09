@@ -1036,6 +1036,7 @@ const en = {
   'phoneDetails.actions.exchange': 'Exchange',
   'phoneDetails.actions.installment': 'Installment',
   'phoneDetails.actions.inquiry': 'Inquiry',
+  'phoneDetails.actions.whatsappNote': 'These actions send a request to the owner via WhatsApp to discuss the phone. We are a marketplace — deals happen directly between you and the owner.',
   'phoneDetails.notFoundTitle': 'This listing is not available',
   'phoneDetails.notFoundMessage': 'It may have been deleted or has expired.',
   'phoneDetails.backToShowroom': 'Back to Showroom',

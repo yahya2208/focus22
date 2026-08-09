@@ -7,14 +7,11 @@ import type { PhoneVariant } from '../../data/phone-variants';
 import { ALL_CONDITIONS, type DeviceCondition } from '../../services/price-memory';
 import { InventoryService } from '../../services/inventory-service';
 import type { InventoryRecord } from '../../services/inventory-service';
-import { openWhatsAppForAction } from '../../services/whatsapp-message';
-import { openModelNotFoundRequest } from '../../services/whatsapp-service';
-import { AdSpot } from '../../components/ads/AdSpot';
+import { openWhatsAppForAction, openModelNotFoundRequest, WHATSAPP_PHONE as WHATSAPP_BUSINESS_PHONE } from '../../services/whatsapp-service';
+import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 
 type FlowStep = 'search' | 'variant' | 'condition' | 'action' | 'whatsapp';
 type CustomerAction = 'sell' | 'buy' | 'exchange';
-
-import { WHATSAPP_PHONE as WHATSAPP_BUSINESS_PHONE } from '../../services/whatsapp-service';
 
 export interface CustomerPhoneFlowProps {
   onBack?: () => void;
@@ -330,7 +327,7 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
           'شراء فقط'
         )}
 
-        {action === 'exchange' && <AdSpot placement="exchange" />}
+        {action === 'exchange' && <AdContactBanner placement="exchange" />}
 
         {showInventory && (
           <div>
