@@ -5,6 +5,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Button } from '../../components/shared/Button';
 import { Card } from '../../components/shared/Card';
+import { recordFunnel, getActiveCampaignId } from '../../services/qr-measurement';
 
 export const RegisterScreen = memo(function RegisterScreen() {
   const dispatch = useAppDispatch();
@@ -34,6 +35,7 @@ export const RegisterScreen = memo(function RegisterScreen() {
     setError(null);
     try {
       await service.signUpWithEmail(email, password, displayName || undefined);
+      recordFunnel(getActiveCampaignId() ?? '', 'registration');
       dispatch({ type: 'NAVIGATE', screen: 'home' });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('register.failed'));

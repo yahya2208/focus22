@@ -69,6 +69,7 @@ const RUNTIME_PATH: string[] = [
   'hooks/useSmartWhatsApp.ts',
   'services/whatsapp-service.ts',
   'services/whatsapp-message.ts',
+  'services/qr-measurement.ts',
   'screens/game/GameScreen.tsx',
   'screens/countdown/CountdownScreen.tsx',
   'screens/game-intro/GameIntroScreen.tsx',

@@ -76,6 +76,7 @@ const RUNTIME_PATH: string[] = [
   'hooks/useSmartWhatsApp.ts',
   'services/whatsapp-service.ts',
   'services/whatsapp-message.ts',
+  'services/qr-measurement.ts',
   'screens/game/GameScreen.tsx',
   'screens/countdown/CountdownScreen.tsx',
   'screens/game-intro/GameIntroScreen.tsx',
@@ -117,6 +118,17 @@ const AUTHORIZED_CHANGES = [
   'src/components/ads/AdSpot.tsx',
   'src/services/ads-service.ts',
 ];
+
+/**
+ * QR MEASUREMENT RPC CARVE-OUT — owner-approved execution 2026-08-09
+ * (Anonymous QR Measurement directive, §20 PG-27).
+ * Exactly ONE runtime file may call the two sanctioned measurement RPCs
+ * (record_campaign_qr_scan / record_campaign_funnel) via .rpc(): the isolated,
+ * fire-and-forget, P7-clean sender `services/qr-measurement.ts`. No other
+ * runtime file may gain arbitrary .rpc() access. Direct table writes remain
+ * forbidden in EVERY runtime file, including the carve-out.
+ */
+const RPC_ALLOWLIST: string[] = ['services/qr-measurement.ts'];
 
 function findProtectedViolations(changed: string[], prefixes: string[], authorized: string[]): string[] {
   return changed.filter((f) => prefixes.some((p) => f.startsWith(p)) && !authorized.includes(f));
@@ -186,8 +198,24 @@ describe('PG-05: لا QR/campaign attribution في مسار الإقلاع', () 
 });
 
 describe('PG-27: لا كاتب مخفي على مسار التشغيل (component→hook→service→provider→Supabase/RPC)', () => {
-  it('ملفات مسار التشغيل لا تلمس Supabase كتابةً إطلاقاً (.from + insert/update/upsert/delete أو rpc)', () => {
+  it('لا كتابة مباشرة (.from + insert/upsert/update/delete) في أي ملف مسار تشغيل — بما فيها خدمة القياس', () => {
     const writeChain = /\.from\([^)]*\)\s*\.\s*(insert|upsert|update|delete)\b/;
+    const offenders: string[] = [];
+    for (const rel of RUNTIME_PATH) {
+      let content: string;
+      try {
+        content = read(rel);
+      } catch {
+        continue;
+      }
+      if (writeChain.test(content)) {
+        offenders.push(rel);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('استدعاء .rpc مسموح في ملف القياس المخوَّل فقط — لا كاتب RPC مخفي آخر', () => {
     const rpcCall = /\.rpc\(/;
     const offenders: string[] = [];
     for (const rel of RUNTIME_PATH) {
@@ -197,11 +225,20 @@ describe('PG-27: لا كاتب مخفي على مسار التشغيل (componen
       } catch {
         continue;
       }
-      if (writeChain.test(content) || rpcCall.test(content)) {
+      if (rpcCall.test(content) && !RPC_ALLOWLIST.includes(rel)) {
         offenders.push(rel);
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it('regression: القائمة البيضاء تحتوي الملف المعزول الوحيد فقط', () => {
+    expect(RPC_ALLOWLIST).toEqual(['services/qr-measurement.ts']);
+  });
+
+  it('regression: خدمة القياس تبقى داخل مسار التشغيل (لا يمكن إخفاؤها خارج الفحص)', () => {
+    expect(RUNTIME_PATH).toContain('services/qr-measurement.ts');
+    expect(fs.existsSync(path.join(SRC, 'services/qr-measurement.ts'))).toBe(true);
   });
 
   it('غلاف الحماية متكامل: telemetry معطّل + لا PersistenceProvider + لا ضيف تلقائي + لا QR', () => {

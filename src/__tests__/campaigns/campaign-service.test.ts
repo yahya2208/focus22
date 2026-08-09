@@ -19,6 +19,11 @@ const mock = vi.hoisted(() => {
     };
   }
 
+  builder.rpc = (...args: unknown[]) => {
+    state.calls.push(`rpc(${args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(',')})`);
+    return { then: (resolve: (v: unknown) => void) => resolve(state.result) };
+  };
+
   return {
     state,
     client: () => ({
@@ -27,6 +32,7 @@ const mock = vi.hoisted(() => {
         state.calls.push(`from(${table})`);
         return builder;
       },
+      rpc: builder.rpc,
     }),
   };
 });
@@ -45,6 +51,8 @@ import {
   deleteCampaign,
   restoreCampaign,
   addTimelineEntry,
+  getCampaignQrMetrics,
+  computeCampaignQrRates,
 } from '../../research-console/pages/campaigns/campaign-service';
 
 function stub(data: unknown, error: unknown = null, count: number | null = null) {
@@ -208,5 +216,53 @@ describe('addTimelineEntry', () => {
     const spy = vi.spyOn(mock.client(), 'from');
     await addTimelineEntry('c1', 'qr_design_updated');
     spy.mockRestore();
+  });
+});
+
+describe('getCampaignQrMetrics', () => {
+  it('22: calls the role-gated RPC and returns aggregate rows', async () => {
+    stub([
+      { campaign_id: 'c1', event_type: 'scan', total: 5, first_at: '2026-08-01T00:00:00Z', last_at: '2026-08-01T00:00:00Z' },
+      { campaign_id: 'c1', event_type: 'game_start', total: 3, first_at: '2026-08-01T00:00:00Z', last_at: '2026-08-01T00:00:00Z' },
+    ], null);
+    const rows = await getCampaignQrMetrics();
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.campaign_id).toBe('c1');
+    expect(rows[0]?.event_type).toBe('scan');
+    expect(rows[0]?.total).toBe(5);
+    expect(mock.state.calls.some((c) => c.startsWith('rpc(get_campaign_qr_metrics,'))).toBe(true);
+  });
+
+  it('23: returns [] on RPC error without throwing', async () => {
+    stub(null, { code: '42501' });
+    expect(await getCampaignQrMetrics()).toEqual([]);
+  });
+});
+
+describe('computeCampaignQrRates — zero-denominator safe funnel rates', () => {
+  it('24: computes rates from a healthy funnel', () => {
+    const rates = computeCampaignQrRates(100, 80, 60, 30);
+    expect(rates.startRate).toBeCloseTo(0.8);
+    expect(rates.completionRate).toBeCloseTo(0.75);
+    expect(rates.registrationRate).toBeCloseTo(0.5);
+  });
+
+  it('25: null denominators yield null rates (never NaN/Infinity)', () => {
+    const empty = computeCampaignQrRates(0, 0, 0, 0);
+    expect(empty.startRate).toBeNull();
+    expect(empty.completionRate).toBeNull();
+    expect(empty.registrationRate).toBeNull();
+
+    const noStarts = computeCampaignQrRates(10, 0, 0, 0);
+    expect(noStarts.startRate).toBe(0);
+    expect(noStarts.completionRate).toBeNull();
+    expect(noStarts.registrationRate).toBeNull();
+  });
+
+  it('26: completion/registration rates can be 0 without collapsing to null', () => {
+    const rates = computeCampaignQrRates(10, 5, 0, 0);
+    expect(rates.startRate).toBeCloseTo(0.5);
+    expect(rates.completionRate).toBe(0);
+    expect(rates.registrationRate).toBeNull();
   });
 });

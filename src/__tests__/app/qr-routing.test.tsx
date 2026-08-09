@@ -18,6 +18,18 @@ vi.mock('../../services/campaign-lookup', async (importOriginal) => {
   };
 });
 
+// The measurement sender is fire-and-forget; in routing tests it is mocked so
+// no real Supabase call is attempted, while still proving the call site fires.
+const qrMeasurementMock = vi.hoisted(() => ({
+  recordScan: vi.fn(),
+  recordFunnel: vi.fn(),
+  getActiveCampaignId: vi.fn(() => null),
+  setQrMeasurementSenderEnabled: vi.fn(),
+  resetQrMeasurementForTests: vi.fn(),
+}));
+
+vi.mock('../../services/qr-measurement', () => qrMeasurementMock);
+
 function renderApp() {
   return render(<Suspense fallback={<div>Loading...</div>}><App /></Suspense>);
 }
@@ -25,12 +37,16 @@ function renderApp() {
 describe('QR entry routing (Phase B)', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/');
+    qrMeasurementMock.recordScan.mockClear();
+    qrMeasurementMock.recordFunnel.mockClear();
+    qrMeasurementMock.getActiveCampaignId.mockReturnValue(null);
   });
 
   it('13: valid /c/ABC123 routes to game-intro', async () => {
     window.history.pushState({}, '', '/c/ABC123');
     renderApp();
     expect(await screen.findByRole('navigation', { name: 'Game intro' }, { timeout: 5000 })).toBeTruthy();
+    expect(qrMeasurementMock.recordScan).toHaveBeenCalledWith('ABC123');
   });
 
   it('14: invalid /c/ABC12 stays on the normal route', async () => {

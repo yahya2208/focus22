@@ -14,6 +14,7 @@ import { BackProvider } from './core/navigation/BackProvider';
 import { WhatsAppProvider } from './providers/WhatsAppProvider';
 import { runSilentCalibration } from './core/calibration/silent';
 import { extractCampaignShortCodeFromLocation, lookupCampaign } from './services/campaign-lookup';
+import { recordScan } from './services/qr-measurement';
 import focusIcon from './assets/brand/focus-icon.svg';
 
 // Small/critical screens — lazy loaded to reduce initial bundle size
@@ -136,6 +137,7 @@ function InitialRoute() {
       lookupCampaign(shortCode)
         .then((entry) => {
           if (entry) {
+            recordScan(shortCode);
             dispatch({ type: 'REPLACE', screen: 'game-intro' });
           }
         })

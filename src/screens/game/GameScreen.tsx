@@ -7,6 +7,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { getGlobalSessionService } from '../../core/session/service';
 import { emitDiagnosticLog } from '../../core/supabase/live-diagnostics';
+import { recordFunnel, getActiveCampaignId } from '../../services/qr-measurement';
 
 type Phase = 'waiting' | 'visible' | 'hit' | 'miss';
 
@@ -197,6 +198,7 @@ export const GameScreen = memo(function GameScreen() {
     const sessionId = sessionService.startSession({ gameMode });
     sessionIdRef.current = sessionId;
     dispatch({ type: 'START_SESSION', sessionId, gameMode });
+    recordFunnel(getActiveCampaignId() ?? '', 'game_start');
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Contract: every exit path must end in completeSession() or abandonSession().
@@ -253,6 +255,7 @@ export const GameScreen = memo(function GameScreen() {
         completedRef.current = true;
         emitDiagnosticLog({ service: 'game', action: 'game_completed', caller: 'game-screen', trigger: 'round7_reached', sessionId, detail: `rounds=${TOTAL_ROUNDS} valid=${validRounds}` });
         getGlobalSessionService().completeSession(sessionId, results);
+        recordFunnel(getActiveCampaignId() ?? '', 'game_complete');
       }
 
       dispatch({ type: 'SET_RESULTS', results });

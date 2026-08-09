@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { StatCard, DashboardHeader } from '../../layout/ResearchLayout';
-import { listCampaigns, deleteCampaign, restoreCampaign, type Campaign } from './campaign-service';
+import { listCampaigns, deleteCampaign, restoreCampaign, getCampaignQrMetrics, computeCampaignQrRates, type Campaign, type CampaignQrMetricsRow } from './campaign-service';
 import { CampaignWizard } from './CampaignWizard';
 import { CampaignDetailView } from './CampaignDetailView';
 import { useTranslation } from '../../../hooks/useTranslation';
@@ -18,6 +18,7 @@ const btnSmall: React.CSSProperties = { padding: '0.4rem 0.8rem', borderRadius: 
 export function CampaignsDashboard() {
   const { t } = useTranslation();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [metrics, setMetrics] = useState<CampaignQrMetricsRow[]>([]);
   const [showWizard, setShowWizard] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -25,6 +26,8 @@ export function CampaignsDashboard() {
   const loadData = useCallback(async () => {
     const result = await listCampaigns({ limit: 200 });
     setCampaigns(result.data);
+    const qr = await getCampaignQrMetrics();
+    setMetrics(qr);
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -44,6 +47,21 @@ export function CampaignsDashboard() {
   const selected = selectedId ? campaigns.find((c) => c.id === selectedId) ?? null : null;
   const filtered = statusFilter === 'all' ? campaigns : campaigns.filter((c) => (c.status ?? 'active') === statusFilter);
   const countBy = (s: string) => campaigns.filter((c) => (c.status ?? 'active') === s).length;
+
+  const metricsByCampaign = useMemo(() => {
+    const map = new Map<string, { scans: number; starts: number; completions: number; registrations: number }>();
+    for (const m of metrics) {
+      const entry = map.get(m.campaign_id) ?? { scans: 0, starts: 0, completions: 0, registrations: 0 };
+      if (m.event_type === 'scan') entry.scans = m.total;
+      else if (m.event_type === 'game_start') entry.starts = m.total;
+      else if (m.event_type === 'game_complete') entry.completions = m.total;
+      else if (m.event_type === 'registration') entry.registrations = m.total;
+      map.set(m.campaign_id, entry);
+    }
+    return map;
+  }, [metrics]);
+
+  const fmtPct = (v: number | null): string => (v === null ? '—' : `${(v * 100).toFixed(1)}%`);
 
   if (selected) {
     return <CampaignDetailView campaign={selected} onBack={() => setSelectedId(null)} onUpdate={loadData} />;
@@ -87,6 +105,13 @@ export function CampaignsDashboard() {
                 <th style={TH_STYLE}>{t('campaign.city')}</th>
                 <th style={TH_STYLE}>{t('campaign.shortUrl')}</th>
                 <th style={TH_STYLE}>{t('campaign.createdDate')}</th>
+                <th style={TH_STYLE}>{t('campaign.scans')}</th>
+                <th style={TH_STYLE}>{t('campaign.started')}</th>
+                <th style={TH_STYLE}>{t('campaign.completed')}</th>
+                <th style={TH_STYLE}>{t('campaign.registered')}</th>
+                <th style={TH_STYLE}>{t('campaign.startRate')}</th>
+                <th style={TH_STYLE}>{t('campaign.completionRate')}</th>
+                <th style={TH_STYLE}>{t('campaign.registrationRate')}</th>
                 <th style={TH_STYLE}>{t('campaign.status')}</th>
                 <th style={TH_STYLE}></th>
               </tr>
@@ -94,6 +119,8 @@ export function CampaignsDashboard() {
             <tbody>
               {filtered.map((c) => {
                 const status = c.status ?? 'active';
+                const q = metricsByCampaign.get(c.id!) ?? { scans: 0, starts: 0, completions: 0, registrations: 0 };
+                const rates = computeCampaignQrRates(q.scans, q.starts, q.completions, q.registrations);
                 return (
                   <tr key={c.id} style={{ cursor: 'pointer', background: selectedId === c.id ? '#1a1a2e' : 'transparent', transition: 'background 0.1s' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#16162a'; }}
@@ -104,6 +131,13 @@ export function CampaignsDashboard() {
                     <td style={ROW_STYLE} onClick={() => setSelectedId(c.id!)}>{[c.city, c.country].filter(Boolean).join(', ') || '-'}</td>
                     <td style={{ ...ROW_STYLE, color: '#22c55e', fontSize: '0.75rem' }} onClick={() => setSelectedId(c.id!)}>{c.short_code ? `c/${c.short_code}` : '-'}</td>
                     <td style={{ ...ROW_STYLE, fontSize: '0.75rem' }} onClick={() => setSelectedId(c.id!)}>{c.created_at ? new Date(c.created_at).toLocaleDateString() : '-'}</td>
+                    <td style={{ ...ROW_STYLE, textAlign: 'right' }} onClick={() => setSelectedId(c.id!)}>{q.scans}</td>
+                    <td style={{ ...ROW_STYLE, textAlign: 'right' }} onClick={() => setSelectedId(c.id!)}>{q.starts}</td>
+                    <td style={{ ...ROW_STYLE, textAlign: 'right' }} onClick={() => setSelectedId(c.id!)}>{q.completions}</td>
+                    <td style={{ ...ROW_STYLE, textAlign: 'right' }} onClick={() => setSelectedId(c.id!)}>{q.registrations}</td>
+                    <td style={{ ...ROW_STYLE, textAlign: 'right', fontSize: '0.75rem' }} onClick={() => setSelectedId(c.id!)}>{fmtPct(rates.startRate)}</td>
+                    <td style={{ ...ROW_STYLE, textAlign: 'right', fontSize: '0.75rem' }} onClick={() => setSelectedId(c.id!)}>{fmtPct(rates.completionRate)}</td>
+                    <td style={{ ...ROW_STYLE, textAlign: 'right', fontSize: '0.75rem' }} onClick={() => setSelectedId(c.id!)}>{fmtPct(rates.registrationRate)}</td>
                     <td style={ROW_STYLE}>
                       <span style={{ padding: '2px 6px', borderRadius: '4px', background: STATUS_COLORS[status] ?? '#333', color: '#fff', fontSize: '0.65rem', fontWeight: 600 }}>{status}</span>
                     </td>
@@ -120,7 +154,7 @@ export function CampaignsDashboard() {
                 );
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={8} style={{ padding: '2rem', textAlign: 'center', color: '#555' }}>{t('campaign.noCampaigns')}</td></tr>
+                <tr><td colSpan={15} style={{ padding: '2rem', textAlign: 'center', color: '#555' }}>{t('campaign.noCampaigns')}</td></tr>
               )}
             </tbody>
           </table>

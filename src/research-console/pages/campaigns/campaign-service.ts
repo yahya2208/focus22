@@ -101,6 +101,52 @@ export async function getCampaign(id: string): Promise<Campaign | null> {
   return data as Campaign;
 }
 
+// ---- Anonymous QR measurement (dashboard read, role-gated server-side) -----
+
+export type QrFunnelEventType = 'scan' | 'game_start' | 'game_complete' | 'registration';
+
+export interface CampaignQrMetricsRow {
+  campaign_id: string;
+  event_type: QrFunnelEventType;
+  total: number;
+  first_at?: string | null;
+  last_at?: string | null;
+}
+
+/**
+ * Reads the per-campaign QR funnel aggregates through the guarded RPC
+ * `get_campaign_qr_metrics` (is_research_role enforced server-side). Aggregates
+ * only — never raw rows, never nonces. Returns [] on any error.
+ */
+export async function getCampaignQrMetrics(): Promise<CampaignQrMetricsRow[]> {
+  const { data, error } = await getSupabaseClient().rpc('get_campaign_qr_metrics', {});
+  if (error) return [];
+  return (data ?? []) as CampaignQrMetricsRow[];
+}
+
+export interface CampaignQrRates {
+  startRate: number | null;
+  completionRate: number | null;
+  registrationRate: number | null;
+}
+
+/**
+ * Zero-denominator-safe funnel rates. Any null denominator yields null
+ * (rendered as "—"), never NaN/Infinity.
+ */
+export function computeCampaignQrRates(
+  scans: number,
+  starts: number,
+  completions: number,
+  registrations: number,
+): CampaignQrRates {
+  return {
+    startRate: scans > 0 ? starts / scans : null,
+    completionRate: starts > 0 ? completions / starts : null,
+    registrationRate: completions > 0 ? registrations / completions : null,
+  };
+}
+
 export type NewCampaign = Omit<Campaign, 'id' | 'short_code' | 'created_at' | 'updated_at'>;
 
 export async function createCampaign(input: NewCampaign): Promise<Campaign | null> {
