@@ -1,33 +1,98 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { recordIntent, setIntentSenderEnabled } from '../services/intent-tracking';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { recordIntent, setIntentSenderEnabled, getVisitorHash } from '../services/intent-tracking';
+
+const mocks = vi.hoisted(() => {
+  const mockRpc = vi.fn();
+  const getSupabaseClient = vi.fn(() => ({ rpc: mockRpc }));
+  return { mockRpc, getSupabaseClient };
+});
+
+vi.mock('../core/supabase/client', () => ({
+  getSupabaseClient: mocks.getSupabaseClient,
+}));
 
 /**
- * M1 contract (§11): recordIntent is fire-and-forget — it never throws, is never
- * awaited, and returns void so a tracking failure can never block WhatsApp.
+ * M2 contract (§11, §17–§20): recordIntent is fire-and-forget — it never
+ * throws, is never awaited, always returns void, and dispatches to the guarded
+ * counter RPC `record_campaign_intent` with the exact six-parameter contract.
+ * visitor_hash is non-PII, in-memory, 32-hex, stable per page load.
  */
 
-describe('M1 — recordIntent fire-and-forget contract', () => {
+describe('M2 — recordIntent fire-and-forget contract', () => {
   beforeEach(() => {
-    setIntentSenderEnabled(false);
+    vi.clearAllMocks();
+    setIntentSenderEnabled(true);
+    mocks.getSupabaseClient.mockImplementation(() => ({ rpc: mocks.mockRpc }));
+    mocks.mockRpc.mockResolvedValue({ data: null, error: null });
   });
   afterEach(() => {
+    setIntentSenderEnabled(true);
+  });
+
+  it('returns void synchronously and dispatches the RPC with the full payload', () => {
+    const result = recordIntent({
+      kind: 'whatsapp_intent',
+      ctaType: 'buy',
+      placement: 'phone-details',
+      deviceId: 'rec_1',
+    });
+    expect(result).toBeUndefined();
+    expect(mocks.mockRpc).toHaveBeenCalledTimes(1);
+    const args = mocks.mockRpc.mock.calls[0]!;
+    expect(args[0]).toBe('record_campaign_intent');
+    expect(args[1]).toMatchObject({
+      p_kind: 'whatsapp_intent',
+      p_cta_type: 'buy',
+      p_campaign_id: null,
+      p_ad_placement: 'phone-details',
+      p_device_id: 'rec_1',
+    });
+  });
+
+  it('records an ad click with kind click / cta_type ad_click', () => {
+    recordIntent({ kind: 'click', ctaType: 'ad_click', placement: 'home', deviceId: 'rec_2' });
+    const args = mocks.mockRpc.mock.calls[0]!;
+    expect(args[1]).toMatchObject({ p_kind: 'click', p_cta_type: 'ad_click', p_ad_placement: 'home' });
+  });
+
+  it('records a view with cta_type null', () => {
+    recordIntent({ kind: 'view', placement: 'home' });
+    const args = mocks.mockRpc.mock.calls[0]!;
+    expect(args[1]).toMatchObject({ p_kind: 'view', p_cta_type: null });
+  });
+
+  it('never throws and stays void when the RPC rejects (fire-and-forget)', () => {
+    mocks.mockRpc.mockRejectedValue(new Error('boom'));
+    expect(() =>
+      recordIntent({ kind: 'click', ctaType: 'ad_click', placement: 'home', deviceId: 'rec_1' }),
+    ).not.toThrow();
+    expect(() =>
+      recordIntent({ kind: 'whatsapp_intent', ctaType: 'inquiry', placement: 'phone-details' }),
+    ).not.toThrow();
+  });
+
+  it('never throws when the supabase client is unavailable (unconfigured env)', () => {
+    mocks.getSupabaseClient.mockImplementation(() => {
+      throw new Error('Supabase URL and anon key are required');
+    });
+    expect(() =>
+      recordIntent({ kind: 'click', ctaType: 'ad_click', placement: 'home', deviceId: 'rec_1' }),
+    ).not.toThrow();
+  });
+
+  it('does NOT dispatch when the sender is disabled (test seam)', () => {
     setIntentSenderEnabled(false);
+    recordIntent({ kind: 'view', placement: 'home' });
+    expect(mocks.mockRpc).not.toHaveBeenCalled();
+  });
+});
+
+describe('M2 — visitor_hash (non-PII, in-memory, per-page-load)', () => {
+  it('is 32 lowercase hex characters', () => {
+    expect(getVisitorHash()).toMatch(/^[a-f0-9]{32}$/);
   });
 
-  it('returns void synchronously when tracking is disabled', () => {
-    const result = recordIntent({ kind: 'ad_click', ctaType: 'ad_click', placement: 'home', deviceId: 'rec_1' });
-    expect(result).toBeUndefined();
-  });
-
-  it('returns void synchronously even with the (future) sender enabled', () => {
-    setIntentSenderEnabled(true);
-    const result = recordIntent({ kind: 'whatsapp_intent', ctaType: 'buy', placement: 'phone-details', deviceId: 'rec_1' });
-    expect(result).toBeUndefined();
-  });
-
-  it('never throws regardless of the event shape', () => {
-    setIntentSenderEnabled(true);
-    expect(() => recordIntent({ kind: 'ad_click', ctaType: 'ad_click' })).not.toThrow();
-    expect(() => recordIntent({ kind: 'whatsapp_intent', ctaType: 'inquiry' })).not.toThrow();
+  it('is stable across calls within the same page load', () => {
+    expect(getVisitorHash()).toBe(getVisitorHash());
   });
 });

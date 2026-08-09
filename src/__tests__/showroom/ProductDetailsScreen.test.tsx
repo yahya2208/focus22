@@ -10,6 +10,23 @@ import { ensureInventorySeeded } from '../../services/inventory-seed';
 
 vi.mock('../../components/ads/AdSpot', () => ({ AdSpot: () => null }));
 
+const mockSend = vi.hoisted(() => vi.fn());
+const mockRecordIntent = vi.hoisted(() => vi.fn());
+
+vi.mock('../../hooks/useSmartWhatsApp', () => ({
+  useSmartWhatsApp: () => ({
+    send: mockSend,
+    modal: null,
+    retryOpen: vi.fn(),
+    copyMessage: vi.fn(async () => true),
+    closeModal: vi.fn(),
+  }),
+}));
+
+vi.mock('../../services/intent-tracking', () => ({
+  recordIntent: mockRecordIntent,
+}));
+
 function GoTo({ id }: { id: string }) {
   const dispatch = useAppDispatch();
   useEffect(() => {
@@ -115,5 +132,21 @@ describe('Phase 3B §3.2/§3.3 — ProductDetailsScreen', () => {
       expect(param).not.toBe(target.id);
       expect(param).toBeTruthy();
     });
+  });
+
+  it('records a whatsapp_intent for the pressed action (M2 fire-and-forget)', async () => {
+    const target = InventoryService.getExchangeableDevices()[0]!;
+    renderScreen(target.id);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Buy/i })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: /Buy/i }));
+
+    expect(mockRecordIntent).toHaveBeenCalledWith({
+      kind: 'whatsapp_intent',
+      ctaType: 'buy',
+      placement: 'phone-details',
+      deviceId: target.id,
+    });
+    expect(mockSend).toHaveBeenCalledTimes(1);
   });
 });

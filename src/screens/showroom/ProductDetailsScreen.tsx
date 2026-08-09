@@ -17,6 +17,7 @@ import { useViewCounter } from '../../hooks/useViewCounter';
 import { useSmartWhatsApp } from '../../hooks/useSmartWhatsApp';
 import { useFavorites } from '../../hooks/useFavorites';
 import { sendPhoneActionWhatsApp, type PhoneActionId } from '../../services/whatsapp-service';
+import { recordIntent } from '../../services/intent-tracking';
 import { buildAppUrl } from '../../core/base-path';
 import type { InventoryRecord } from '../../services/inventory-service';
 
@@ -99,6 +100,11 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
   const handleAction = useCallback(
     (action: PhoneActionId) => {
       if (!device) return;
+      try {
+        recordIntent({ kind: 'whatsapp_intent', ctaType: action, placement: 'phone-details', deviceId: device.id });
+      } catch {
+        // fire-and-forget — WhatsApp continues regardless
+      }
       const message = sendPhoneActionWhatsApp(action, device);
       whatsapp.send(message, { action, deviceId: device.id });
     },
