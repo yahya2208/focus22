@@ -138,3 +138,85 @@ describe('ads-service (Supabase-backed)', () => {
     expect(result.url).toContain('ads-images');
   });
 });
+
+describe('F-204 — stale/broken ad URL resolution (ads-service)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetDefaults();
+    resetAdsService();
+  });
+
+  it('valid image_url is used as-is', async () => {
+    mockFrom().select.mockResolvedValue({
+      data: [{ placement: 'home', enabled: true, image_path: '', image_url: 'https://cdn/ok.jpg', link: '', alt: '' }],
+      error: null,
+    });
+
+    await ensureAdsLoaded();
+    expect(getAd('home')?.image).toBe('https://cdn/ok.jpg');
+  });
+
+  it('missing image_url + valid image_path resolves the public URL from the path', async () => {
+    mockFrom().select.mockResolvedValue({
+      data: [{ placement: 'results', enabled: true, image_path: 'ads/results/1.jpg', image_url: '', link: '', alt: '' }],
+      error: null,
+    });
+
+    await ensureAdsLoaded();
+    expect(getAd('results')?.image).toContain('ads-images/ads/results/1.jpg');
+  });
+
+  it('invalid image_url falls back to a valid image_path', async () => {
+    mockFrom().select.mockResolvedValue({
+      data: [{ placement: 'home', enabled: true, image_path: 'ads/home/1.jpg', image_url: 'not-a-url', link: '', alt: '' }],
+      error: null,
+    });
+
+    await ensureAdsLoaded();
+    expect(getAd('home')?.image).toContain('ads-images/ads/home/1.jpg');
+  });
+
+  it('invalid image_url + missing image_path resolves empty', async () => {
+    mockFrom().select.mockResolvedValue({
+      data: [{ placement: 'home', enabled: true, image_path: '', image_url: 'not-a-url', link: '', alt: '' }],
+      error: null,
+    });
+
+    await ensureAdsLoaded();
+    expect(getAd('home')?.image).toBe('');
+  });
+
+  it('stale/broken (malformed scheme) image_url with no path resolves empty', async () => {
+    mockFrom().select.mockResolvedValue({
+      data: [{ placement: 'phones', enabled: true, image_path: '', image_url: 'https://', link: '', alt: '' }],
+      error: null,
+    });
+
+    await ensureAdsLoaded();
+    expect(getAd('phones')?.image).toBe('');
+  });
+
+  it('whitespace-only image_url and image_path resolve empty', async () => {
+    mockFrom().select.mockResolvedValue({
+      data: [{ placement: 'repair', enabled: true, image_path: '   ', image_url: '  ', link: '', alt: '' }],
+      error: null,
+    });
+
+    await ensureAdsLoaded();
+    expect(getAd('repair')?.image).toBe('');
+  });
+
+  it('existing valid ads continue to render normally (regression)', async () => {
+    mockFrom().select.mockResolvedValue({
+      data: [
+        { placement: 'home', enabled: true, image_path: '', image_url: 'https://cdn/a.jpg', link: 'https://go', alt: 'A' },
+        { placement: 'phones', enabled: true, image_path: 'ads/phones/1.jpg', image_url: '', link: '', alt: 'B' },
+      ],
+      error: null,
+    });
+
+    await ensureAdsLoaded();
+    expect(getAd('home')?.image).toBe('https://cdn/a.jpg');
+    expect(getAd('phones')?.image).toContain('ads-images/ads/phones/1.jpg');
+  });
+});

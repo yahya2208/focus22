@@ -12,6 +12,9 @@ import type { InventoryRecord } from '../../services/inventory-service';
 import { useShowroomState, filterAndSortDevices } from '../../hooks/useShowroomState';
 import { useScrollPreservation } from '../../hooks/useScrollPreservation';
 
+/** F-102 — the Showroom listing surface has its own unique ad placement key. */
+export const SHOWROOM_AD_PLACEMENT = 'showroom' as const;
+
 export const ShowroomScreen = memo(function ShowroomScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
@@ -42,7 +45,7 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
           </p>
         </Card>
 
-        <AdContactBanner placement="phone-details" />
+        <AdContactBanner placement={SHOWROOM_AD_PLACEMENT} />
 
         <ShowroomControls devices={devices} state={state} onChange={update} />
 

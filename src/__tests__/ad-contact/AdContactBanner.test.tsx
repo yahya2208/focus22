@@ -269,4 +269,35 @@ describe('AdContactBanner (M1/M2 — Ad Click → WhatsApp + view counting)', ()
     });
     expect(mockRecordIntent).not.toHaveBeenCalled();
   });
+
+  it('F-105 — phone-linked contact CTA exposes exactly ONE focusable target (no duplicate link/button)', async () => {
+    mock.__setState(PHONE_AD);
+    render(<AdContactBanner placement="home" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // No link remains underneath the overlay — the banner is non-interactive.
+    expect(screen.queryByRole('link')).toBeNull();
+    const interactive = document.querySelectorAll('a, button, [role="link"], [tabindex]:not([tabindex="-1"])');
+    expect(interactive.length).toBe(1);
+    expect(interactive[0]!.tagName).toBe('BUTTON');
+    expect(screen.getByRole('button', { name: 'Contact for this phone' })).toBeTruthy();
+  });
+
+  it('F-105 — the single focusable target receives keyboard focus and fires WhatsApp exactly once', async () => {
+    mock.__setState(PHONE_AD);
+    render(<AdContactBanner placement="home" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const overlay = screen.getByRole('button', { name: 'Contact for this phone' });
+    overlay.focus();
+    expect(document.activeElement).toBe(overlay);
+    fireEvent.click(overlay);
+    expect(mockRecordIntent).toHaveBeenCalledTimes(1);
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockSend).toHaveBeenCalledWith(buildAdClickMessage(DEVICE));
+  });
 });

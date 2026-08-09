@@ -14,6 +14,7 @@ const PLACEMENT_LABELS: Record<AdPlacement, string> = {
   results: 'نتائج لعبة FOCUS',
   exchange: 'صفحة الاستبدال',
   'phone-details': 'صفحة تفاصيل الهاتف',
+  showroom: 'صفحة العرض (المعرض)',
 };
 
 function emptyConfig(): AdConfig {

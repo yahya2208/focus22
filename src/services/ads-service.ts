@@ -10,8 +10,14 @@
 
 import { getSupabaseClient } from '../core/supabase/client';
 
-export type AdPlacement = 'home' | 'phones' | 'repair' | 'results' | 'exchange' | 'phone-details';
+export type AdPlacement = 'home' | 'phones' | 'repair' | 'results' | 'exchange' | 'phone-details' | 'showroom';
 
+/**
+ * Every ad surface has a unique placement key (F-102): the Showroom listing
+ * surface uses `showroom` and the phone-details surface uses `phone-details`.
+ * Note: a new placement key produces no visible ad until a corresponding
+ * active `ads` row exists for it.
+ */
 export const AD_PLACEMENTS: readonly AdPlacement[] = [
   'home',
   'phones',
@@ -19,6 +25,7 @@ export const AD_PLACEMENTS: readonly AdPlacement[] = [
   'results',
   'exchange',
   'phone-details',
+  'showroom',
 ];
 
 export interface AdConfig {
@@ -62,19 +69,37 @@ function emptyMap(): Record<AdPlacement, AdConfig> {
 }
 
 function publicImageUrl(path: string): string {
-  if (!path) return '';
+  if (!path || !path.trim()) return '';
   try {
-    const { data } = getSupabaseClient().storage.from(ADS_BUCKET).getPublicUrl(path);
+    const { data } = getSupabaseClient().storage.from(ADS_BUCKET).getPublicUrl(path.trim());
     return data.publicUrl;
   } catch {
     return '';
   }
 }
 
+/**
+ * F-204 — a banner config must never intentionally resolve to a broken
+ * non-empty image. Only absolute http(s) URLs are treated as usable;
+ * anything else (empty, whitespace, malformed, non-http) is rejected so the
+ * config falls through to the storage-path resolution or stays empty.
+ * No network request is made to validate existence.
+ */
+function isValidImageUrl(value: string): boolean {
+  if (!value || !value.trim()) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function rowToConfig(row: AdRow): AdConfig {
+  const imageUrl = isValidImageUrl(row.image_url) ? row.image_url : '';
   return {
     enabled: row.enabled,
-    image: row.image_url || publicImageUrl(row.image_path),
+    image: imageUrl || publicImageUrl(row.image_path),
     link: row.link,
     alt: row.alt,
   };

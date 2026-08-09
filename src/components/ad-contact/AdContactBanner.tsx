@@ -1,6 +1,7 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { ensureAdsLoaded, getAd, subscribeAds, type AdPlacement } from '../../services/ads-service';
 import { AdSpot } from '../ads/AdSpot';
+import { AdBanner, type AdBannerStatus } from '../ads/AdBanner';
 import { resolveAdDevice } from '../../services/ad-device-resolver';
 import { buildAdClickMessage } from '../../services/whatsapp-service';
 import { useWhatsApp } from '../../providers/WhatsAppProvider';
@@ -12,6 +13,7 @@ interface AdContactBannerProps {
 }
 
 interface ResolvedAd {
+  image: string;
   link: string;
   alt: string;
 }
@@ -19,7 +21,7 @@ interface ResolvedAd {
 function resolve(placement: AdPlacement): ResolvedAd | null {
   const ad = getAd(placement);
   if (!ad || !ad.enabled || !ad.image) return null;
-  return { link: ad.link, alt: ad.alt };
+  return { image: ad.image, link: ad.link, alt: ad.alt };
 }
 
 /**
@@ -36,6 +38,7 @@ function resolve(placement: AdPlacement): ResolvedAd | null {
  */
 export const AdContactBanner = memo(function AdContactBanner({ placement }: AdContactBannerProps) {
   const [ad, setAd] = useState<ResolvedAd | null>(() => resolve(placement));
+  const [failed, setFailed] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewedRef = useRef(false);
   const whatsapp = useWhatsApp();
@@ -48,6 +51,7 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
     const update = () => {
       if (cancelled) return;
       setAd(resolve(placement));
+      setFailed(false);
     };
     ensureAdsLoaded().then(update).catch(() => {});
     const unsubscribe = subscribeAds(update);
@@ -56,6 +60,10 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
       unsubscribe();
     };
   }, [placement]);
+
+  const handleStateChange = useCallback((status: AdBannerStatus) => {
+    if (status === 'failed') setFailed(true);
+  }, []);
 
   useEffect(() => {
     if (!ad || viewedRef.current) return;
@@ -100,22 +108,34 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
     };
   }, [ad, placement, deviceId]);
 
-  if (!ad) return null;
+  if (!ad || failed) return null;
+
+  // F-105 — a phone-linked ad is a single-target contact CTA: the banner is
+  // rendered non-interactively (no focusable anchor underneath) and the
+  // overlay button is the ONLY focusable/actionable target. Non-phone ads
+  // keep their normal AdSpot anchor behaviour unchanged.
+  const isContact = Boolean(device);
 
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
-      <AdSpot placement={placement} />
-      {device ? (
+      {isContact ? (
+        <div role="banner" aria-label={ad.alt || placement}>
+          <AdBanner image={ad.image} alt={ad.alt || placement} onStateChange={handleStateChange} />
+        </div>
+      ) : (
+        <AdSpot placement={placement} />
+      )}
+      {isContact ? (
         <button
           type="button"
           aria-label={ad.alt || placement}
           onClick={() => {
             try {
-              recordIntent({ kind: 'click', ctaType: 'ad_click', placement, deviceId: device.id });
+              recordIntent({ kind: 'click', ctaType: 'ad_click', placement, deviceId: device!.id });
             } catch {
               // fire-and-forget: tracking must never block WhatsApp
             }
-            whatsapp.send(buildAdClickMessage(device));
+            whatsapp.send(buildAdClickMessage(device!));
           }}
           style={{
             position: 'absolute',

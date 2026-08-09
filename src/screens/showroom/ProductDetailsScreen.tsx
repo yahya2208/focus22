@@ -22,6 +22,9 @@ import type { InventoryRecord } from '../../services/inventory-service';
 
 const ACTION_IDS: readonly PhoneActionId[] = ['buy', 'exchange', 'installment', 'inquiry'];
 
+/** F-102 — the product-details surface keeps the `phone-details` placement key. */
+export const PRODUCT_DETAILS_AD_PLACEMENT = 'phone-details' as const;
+
 const copyToClipboard = async (text: string): Promise<boolean> => {
   try {
     await navigator.clipboard.writeText(text);
@@ -238,7 +241,7 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
           </div>
         </Card>
 
-        <AdContactBanner placement="phone-details" />
+        <AdContactBanner placement={PRODUCT_DETAILS_AD_PLACEMENT} />
 
         <SimilarPhones devices={similar} onSelect={handleSimilarSelect} />
       </Stack>
