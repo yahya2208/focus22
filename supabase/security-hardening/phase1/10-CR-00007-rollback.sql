@@ -1,42 +1,30 @@
 -- ============================================================================
 -- CR-00007 · campaigns anon direct-grant — ROLLBACK
 -- ----------------------------------------------------------------------------
--- Restores EXACTLY the privileges removed by the apply script, based on the
--- Round-2 LIVE pre-apply evidence (no guessing):
+-- ⚠️  DO NOT EXECUTE — NOT APPLICABLE (2026-08-09) ⚠️
+--   CR-00007 is ALREADY SATISFIED / NO-OP — HISTORICAL APPLY NOT ESTABLISHED:
+--   no reliable evidence exists that the REVOKE was ever executed on LIVE, and
+--   LIVE currently shows anon with NO ACL on public.campaigns. Executing the
+--   old rollback NOW would RE-GRANT the full anon ACL — the exact opposite of
+--   the security objective. The guard below therefore ABORTS unconditionally.
+--   Retained only as the historical rollback definition for the record.
+--
+-- Original intent (kept for the record): restore EXACTLY the privileges the
+-- apply script removed, based on the pre-apply evidence (no guessing):
 --   anon on public.campaigns: SELECT, INSERT, UPDATE, DELETE, REFERENCES,
 --                             TRIGGER, TRUNCATE   (no GRANT OPTION)
---
--- Guard (fail-closed): fails if anon already has any privilege on
--- public.campaigns (nothing to roll back; prevents a duplicate grant).
--- Single-application, fail-closed. No silent fallback.
 -- ============================================================================
 
 BEGIN;
 
 DO $$
-DECLARE
-  v_anon_sel BOOLEAN;
 BEGIN
-  SELECT has_table_privilege('anon', 'campaigns', 'SELECT') INTO v_anon_sel;
-
-  IF v_anon_sel IS DISTINCT FROM false THEN
-    RAISE EXCEPTION 'ABORT: anon already has privileges on public.campaigns; nothing to roll back.';
-  END IF;
+  RAISE EXCEPTION 'ABORT: rollback NOT APPLICABLE — CR-00007 is ALREADY SATISFIED / NO-OP — HISTORICAL APPLY NOT ESTABLISHED (2026-08-09). No apply is recorded, and current LIVE already has anon with NO ACL. This rollback would RE-OPEN anon direct access; it must not run.';
 END $$;
-
-GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES, TRIGGER, TRUNCATE
-  ON public.campaigns TO anon;
 
 COMMIT;
 
 -- ============================================================================
--- Post-rollback confirmation (read-only). Expected: anon → all TRUE.
+-- No confirmation query follows by design: the guard ABORTS before any GRANT.
+-- Nothing is ever executed from this file. CR-00007 remains a documented NO-OP.
 -- ============================================================================
-SELECT 'anon' AS role_name,
-       has_table_privilege('anon', 'campaigns', 'SELECT')  AS can_select,
-       has_table_privilege('anon', 'campaigns', 'INSERT')  AS can_insert,
-       has_table_privilege('anon', 'campaigns', 'UPDATE')  AS can_update,
-       has_table_privilege('anon', 'campaigns', 'DELETE')  AS can_delete,
-       has_table_privilege('anon', 'campaigns', 'REFERENCES') AS can_references,
-       has_table_privilege('anon', 'campaigns', 'TRIGGER') AS can_trigger,
-       has_table_privilege('anon', 'campaigns', 'TRUNCATE') AS can_truncate;

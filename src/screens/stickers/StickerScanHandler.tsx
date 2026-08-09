@@ -25,7 +25,7 @@ export const StickerScanHandler = memo(function StickerScanHandler() {
     }
     setSerialNumber(s);
     try {
-      logScanWithMetadata(s, 'direct', 'view_offers', undefined, undefined, navigator.userAgent, document.referrer);
+      logScanWithMetadata(s, 'direct', 'view_offers');
       setLogged(true);
     } catch {
       setError(t('sticker.scan.logError'));

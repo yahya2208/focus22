@@ -32,17 +32,15 @@ export function createBusinessAPI(): BusinessAPI {
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
 
-      const [sessionsResult, tradeResult, usersResult] = await Promise.all([
+      const [sessionsResult, usersResult] = await Promise.all([
         client.from('sessions').select('id, user_id, device_id, status, created_at, scientific_results').gte('created_at', todayStart),
-        client.from('trade_requests').select('id, user_id, device_id, created_at').gte('created_at', todayStart),
         client.from('users').select('id, role, created_at'),
       ]);
       if (sessionsResult.error) devError({ code: sessionsResult.error.code, message: sessionsResult.error.message, details: sessionsResult.error.details, hint: sessionsResult.error.hint });
-      if (tradeResult.error) devError({ code: tradeResult.error.code, message: tradeResult.error.message, details: tradeResult.error.details, hint: tradeResult.error.hint });
       if (usersResult.error) devError({ code: usersResult.error.code, message: usersResult.error.message, details: usersResult.error.details, hint: usersResult.error.hint });
 
       const sessions = sessionsResult.data ?? [];
-      const trades = tradeResult.data ?? [];
+      const trades: Array<{ id: string; user_id: string; device_id: string; created_at: string }> = [];
       const users = usersResult.data ?? [];
 
       const uniqueVisitors = new Set(sessions.map(s => s.user_id).filter(Boolean)).size;
@@ -145,17 +143,16 @@ export function createBusinessAPI(): BusinessAPI {
     },
 
     async getCustomerProfile(userId: string): Promise<CustomerProfile | null> {
-      const [userResult, sessionsResult, tradesResult] = await Promise.all([
+      const [userResult, sessionsResult] = await Promise.all([
         client.from('users').select('id, display_name, created_at, role').eq('id', userId).single(),
         client.from('sessions').select('id, user_id, device_id, status, created_at, focus_score, avg_rt, best_rt, grade, consistency_rating, campaign_id, metadata').eq('user_id', userId).order('created_at', { ascending: false }),
-        client.from('trade_requests').select('id').eq('user_id', userId),
       ]);
 
       if (!userResult.data) return null;
 
       const user = userResult.data;
       const sessions = sessionsResult.data ?? [];
-      const trades = tradesResult.data ?? [];
+      const trades: Array<{ id: string }> = [];
 
       const completedSessions = sessions.filter(s => s.status === 'completed');
       const focusScores = completedSessions.map(s => s.focus_score as number).filter(s => typeof s === 'number');
@@ -232,9 +229,7 @@ export function createBusinessAPI(): BusinessAPI {
     async getDeviceInsights(): Promise<DeviceInsight[]> {
       const hierarchy = await researchAPI.getDeviceIntelligence();
 
-      const tradeEvents = await client.from('trade_requests').select('device_id');
-
-      const tradeDeviceIds = new Set((tradeEvents.data ?? []).map(t => t.device_id).filter(Boolean));
+      const tradeDeviceIds = new Set<string>();
       const whatsappUsers = new Set<string>();
 
       const insights: DeviceInsight[] = hierarchy.map(osGroup => ({
@@ -286,16 +281,15 @@ export function createBusinessAPI(): BusinessAPI {
     },
 
     async getCommerceFunnel(): Promise<CommerceFunnel> {
-      const [usersResult, sessionsResult, tradesResult] = await Promise.all([
+      const [usersResult, sessionsResult] = await Promise.all([
         client.from('users').select('id'),
         client.from('sessions').select('status'),
-        client.from('trade_requests').select('id'),
       ]);
 
       const userCount = usersResult.data?.length ?? 0;
       const sessionCount = sessionsResult.data?.length ?? 0;
       const completedSessionCount = (sessionsResult.data ?? []).filter(s => s.status === 'completed').length;
-      const tradeCount = tradesResult.data?.length ?? 0;
+      const tradeCount = 0;
 
       const stages: FunnelStage[] = [
         { name: 'users', count: userCount },

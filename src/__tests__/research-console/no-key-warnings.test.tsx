@@ -1,6 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import { resetDataService } from '../../core/supabase/data-service';
 import { resetSupabaseClient } from '../../core/supabase/client';
 import { resetRepairDataService } from '../../core/supabase/repair-data-service';
 
@@ -35,7 +34,6 @@ const dashboards = [
 afterEach(() => {
   cleanup();
   document.body.innerHTML = '';
-  resetDataService();
   resetSupabaseClient();
   resetRepairDataService();
   vi.restoreAllMocks();

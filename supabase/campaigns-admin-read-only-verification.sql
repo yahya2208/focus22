@@ -6,11 +6,13 @@
 --   (2) the security posture is UNCHANGED — RLS "Admins manage campaigns" is the
 --       only campaigns policy, RLS is enabled, and the public lookup RPC
 --       (lookup_campaign_by_short_code) is intact and unmodified;
---   (3) NO new grants were introduced — anon/authenticated still reach
---       campaigns ONLY through the RPC, never by direct table access;
+--   (3) grants posture (corrected LIVE model 2026-08-09): anon has NO direct
+--       table ACL on campaigns (direct-access objective satisfied); the admin
+--       UI reaches campaigns ONLY through RLS "Admins manage campaigns"
+--       (authenticated's by-design grants are required for that policy);
 --   (4) behavior: anon still resolves an ACTIVE campaign via the RPC and gets
 --       zero rows for a non-existent code; anon CANNOT SELECT campaigns
---       directly (wrapped in BEGIN; ROLLBACK — nothing is written).
+--       directly (DENIED 42501, wrapped in EXCEPTION — nothing is written).
 --
 -- Reference implementation: src/research-console/pages/campaigns/campaign-service.ts
 -- Contract:                supabase/migrations/00007_lookup_campaign_by_short_code.sql
@@ -100,11 +102,11 @@ SELECT 'authenticated',
        has_function_privilege('authenticated', 'public.lookup_campaign_by_short_code(text)', 'EXECUTE');
 
 -- ============================================================================
--- SECTION D · NO new table-level grants (read-only)
---   EXPECTED: anon/authenticated have NO direct SELECT/INSERT/UPDATE/DELETE on
---   campaigns — the admin UI works ONLY through RLS "Admins manage campaigns"
---   (which gates on the DB role from the users table). FALSE for both rows
---   means the direct-table surface is still closed.
+-- SECTION D · table-level grants — corrected LIVE model (2026-08-09)
+--   EXPECTED: anon = FALSE for all four (no direct ACL — objective satisfied);
+--             authenticated = TRUE (by design — required for the RLS policy
+--             "Admins manage campaigns" TO authenticated · is_admin()).
+--   anon FALSE = the direct-table surface is closed for anonymous access.
 -- ============================================================================
 
 SELECT 'anon'          AS role_name,
@@ -144,12 +146,20 @@ FROM public.lookup_campaign_by_short_code('ZZZZZZ');
 ROLLBACK;
 RESET ROLE;
 
--- E3) anon DIRECT table read is BLOCKED by RLS (EXPECTED: 0 rows, even though
---     rows exist — proves the direct-table surface stayed closed).
+-- E3) anon DIRECT table read — DENIED at ACL level (EXPECTED: 42501
+--     permission denied for table campaigns; anon has NO table grant, so RLS
+--     is never evaluated). Proves the direct-table surface is closed.
 BEGIN;
-SET LOCAL ROLE anon;
-SELECT count(*) AS anon_direct_rows
-FROM public.campaigns;
+DO $$
+BEGIN
+  BEGIN
+    SET LOCAL ROLE anon;
+    PERFORM count(*) FROM public.campaigns;
+    RAISE NOTICE 'E3 UNEXPECTED: anon CAN read public.campaigns — anon ACL present?';
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'E3 EXPECTED: anon denied at ACL (permission denied for table campaigns)';
+  END;
+END $$;
 ROLLBACK;
 RESET ROLE;
 
@@ -176,9 +186,11 @@ FROM (
   ) AS c(column_name)
 ) g;
 
--- F2) security posture unchanged?
+-- F2) security posture unchanged? (corrected LIVE model 2026-08-09)
 --     TRUE = RLS enabled AND "Admins manage campaigns" present AND no broad
---     authenticated SELECT policy AND anon/authenticated have no direct grants.
+--     authenticated SELECT policy AND anon has no direct SELECT grant.
+--     (authenticated's by-design grants are EXPECTED — they are what makes the
+--     "Admins manage campaigns" RLS policy evaluable; not a posture change.)
 SELECT CASE WHEN
          (SELECT c.relrowsecurity FROM pg_class c WHERE c.oid = 'public.campaigns'::regclass)
      AND EXISTS (SELECT 1 FROM pg_policies p
@@ -188,7 +200,6 @@ SELECT CASE WHEN
                      WHERE p.schemaname='public' AND p.tablename='campaigns'
                        AND p.cmd = 'SELECT' AND 'authenticated' = ANY(p.roles))
      AND NOT has_table_privilege('anon', 'campaigns', 'SELECT')
-     AND NOT has_table_privilege('authenticated', 'campaigns', 'SELECT')
        THEN 'POSTURE_UNCHANGED'
        ELSE 'POSTURE_CHANGED — stop and review'
   END AS security_verdict;

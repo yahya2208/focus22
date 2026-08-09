@@ -99,9 +99,6 @@ export interface StickerScanEvent {
   campaign: string;
   scannedAt: string;
   location?: string;
-  ip?: string;
-  userAgent?: string;
-  referrer?: string;
   cta: StickerCTA;
 }
 

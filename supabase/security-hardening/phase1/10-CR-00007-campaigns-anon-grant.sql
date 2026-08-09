@@ -1,6 +1,17 @@
 -- ============================================================================
 -- CR-00007 · campaigns anon direct-grant — APPLY
 -- ----------------------------------------------------------------------------
+-- ⚠️  DO NOT EXECUTE — SUPERSEDED BY LIVE EVIDENCE (2026-08-09) ⚠️
+--   Owner decision: NO DATABASE CHANGE. LIVE shows anon already has NO ACL on
+--   public.campaigns (anon SELECT/INSERT/UPDATE/DELETE = false; raw ACL has no
+--   anon entries) ⇒ the direct-access security objective is ALREADY SATISFIED.
+--   Status: ALREADY SATISFIED / NO-OP — HISTORICAL APPLY NOT ESTABLISHED.
+--   Running this script on LIVE ABORTS at guard 4 (anon has no privileges) —
+--   fail-closed, so it is safe to run but changes nothing. It is retained only
+--   as the historical single-mutation definition of CR-00007. DO NOT execute it
+--   merely to flip documentation status.
+--
+-- Original intent (kept for the record):
 -- Type: Least-privilege hardening (single table ACL change). NOT an emergency
 -- exposure remediation — RLS already blocks anon (direct table grant + RLS ⇒
 -- effective access). This CR only removes the unnecessary legacy/default anon
@@ -16,6 +27,8 @@
 --   3. NO broad authenticated SELECT policy exists on public.campaigns
 --   4. anon currently HAS table privileges on public.campaigns (baseline match;
 --      abort if already revoked — nothing to do)
+--      NOTE (2026-08-09): LIVE falsified this baseline — anon has NO privileges,
+--      so guard 4 ABORTS. That is the CORRECT NO-OP behaviour.
 --   5. authenticated still HAS SELECT on public.campaigns (admin CRUD intact)
 --   6. lookup_campaign_by_short_code EXISTS
 --   7. RPC still SECURITY DEFINER
@@ -87,7 +100,7 @@ BEGIN
   END IF;
 
   IF v_anon_sel IS DISTINCT FROM true THEN
-    RAISE EXCEPTION 'ABORT: baseline mismatch — anon has NO direct privileges on public.campaigns (already revoked / state differs). Nothing to apply.';
+    RAISE EXCEPTION 'ABORT: baseline mismatch — anon has NO direct privileges on public.campaigns (already revoked / state differs). Nothing to apply. This is the EXPECTED outcome on current LIVE (2026-08-09): CR-00007 is ALREADY SATISFIED / NO-OP — HISTORICAL APPLY NOT ESTABLISHED.';
   END IF;
 
   IF v_auth_sel IS DISTINCT FROM true THEN

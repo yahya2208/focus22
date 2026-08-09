@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createSessionService, type SessionService, type SessionCreatedPayload, type SessionCompletedPayload, type SessionResults } from '../../core/session/service';
 import { createEventPublisher, type EventPublisher, type DomainEvent } from '../../core/events';
-import { collectDeviceProfile, resetDeviceProfile, type DeviceProfile } from '../../core/device';
+import fs from 'fs';
+import path from 'path';
 
 // ----------------------------------------------------------------
 // 1. Session ID consistency — same ID flows through entire lifecycle
@@ -93,207 +94,91 @@ describe('Session ID consistency (BUG 1 proof)', () => {
 });
 
 // ----------------------------------------------------------------
-// 2. PersistenceProvider uses same sessionId for INSERT and UPSERT
+// 2. Session persistence is in-memory only (no DB persistence layer)
 // ----------------------------------------------------------------
-describe('Persistence UPSERT idempotency (same session.id, not two rows)', () => {
-  it('handleSessionCreated uses payload.sessionId as the INSERT id', () => {
-    const payload: SessionCreatedPayload = {
-      sessionId: 'fixed-session-abc-123',
-      gameMode: 'reaction-light',
-      createdAt: Date.now(),
-    };
+describe('Session persistence stays in-memory (PersistenceProvider REMOVED 2026-08-08)', () => {
+  const SUPABASE_DIR = path.resolve(__dirname, '../../core/supabase');
 
-    // The INSERT in PersistenceProvider line 123-124 uses: id: payload.sessionId
-    // Check the code: `await client.from('sessions').insert({ id: payload.sessionId, ... })`
-    // This means the DB row has PRIMARY KEY = 'fixed-session-abc-123'
-    expect(payload.sessionId).toBe('fixed-session-abc-123');
+  it('core/supabase/PersistenceProvider.tsx does not exist', () => {
+    expect(fs.existsSync(path.join(SUPABASE_DIR, 'PersistenceProvider.tsx'))).toBe(false);
   });
 
-  it('handleSessionCompleted uses payload.sessionId as the UPSERT id', () => {
-    const results: SessionResults = {
+  it('core/supabase/data-service.ts does not exist', () => {
+    expect(fs.existsSync(path.join(SUPABASE_DIR, 'data-service.ts'))).toBe(false);
+  });
+
+  it('session service keeps sessions in memory only (same ID flows to events, nothing persists)', () => {
+    const publisher = createEventPublisher();
+    const service = createSessionService(publisher);
+    let created: SessionCreatedPayload | null = null;
+    let completed: SessionCompletedPayload | null = null;
+    publisher.subscribe<SessionCreatedPayload>('session_created', (e) => { created = e.payload; });
+    publisher.subscribe<SessionCompletedPayload>('session_completed', (e) => { completed = e.payload; });
+
+    const id = service.startSession({ gameMode: 'reaction-light' });
+    service.completeSession(id, {
       rawRts: [300, 250],
       correctedRts: [275, 225],
-      totalRounds: 2, validRounds: 2,
-      calibration: { refreshRate: 60, displayLagMs: 16, inputLagMs: 8, confidence: 0.5, platform: 'unknown', timestamp: Date.now() },
-      sessionStart: Date.now() - 20000, sessionEnd: Date.now(),
-    };
-    const payload: SessionCompletedPayload = {
-      sessionId: 'fixed-session-abc-123',
-      gameMode: 'reaction-light',
-      results,
-      createdAt: Date.now(),
-      endedReason: 'completed',
-    };
+      totalRounds: 2,
+      validRounds: 2,
+      calibration: { refreshRate: 60, displayLagMs: 16, inputLagMs: 8, confidence: 0.5, platform: 'mobile', timestamp: Date.now() },
+      sessionStart: Date.now() - 20000,
+      sessionEnd: Date.now(),
+    });
 
-    // The UPSERT in PersistenceProvider line 170-171 uses: id: payload.sessionId
-    // PROOF: same 'fixed-session-abc-123' as INSERT → Supabase upsert matches PK = id
-    // → UPDATES the existing row, does NOT create a new row
-    expect(payload.sessionId).toBe('fixed-session-abc-123');
-
-    // Supabase upsert on table with PK = 'id':
-    //   IF id EXISTS → UPDATE row (status from 'running' → 'completed')
-    //   IF id MISSING → INSERT row (fallback — but running row was already inserted)
-    // Since both use the same id, this is an UPDATE, not a second row
-  });
-
-  it('INSERT uses status=running, UPSERT uses status=completed', () => {
-    // From PersistenceProvider:
-    // line 130: insert({ ..., status: 'running', ... })
-    // line 177: upsert({ ..., status: 'completed', ... })
-    //
-    // PROOF: The Live Dashboard queries .in('status', ['running', 'paused'])
-    // After INSERT:  status='running'  → Live Dashboard SHOWS it ✓
-    // After UPSERT:  status='completed' → Live Dashboard HIDES it  ✓
-    expect(true).toBe(true);
+    expect(created).not.toBeNull();
+    expect(created!.sessionId).toBe(id);
+    expect(completed).not.toBeNull();
+    expect(completed!.sessionId).toBe(id);
+    expect(completed!.sessionId).toBe(created!.sessionId);
   });
 });
 
 // ----------------------------------------------------------------
-// 3. Live Dashboard query filter proof
+// 3. Android device detection proof (self-contained; device module ABSENT)
 // ----------------------------------------------------------------
-describe('Live Dashboard query (BUG 1 runtime proof)', () => {
-  it('fetchActiveSessions queries status IN (running, paused)', () => {
-    // From live-sessions.ts lines 83-84:
-    //   .in('status', ['running', 'paused'])
-    //
-    // This means any session with status='running' or 'paused' is returned.
-    // Our PersistenceProvider INSERTs with status='running' at game start.
-    // Therefore: after GameScreen mount, Live Dashboard shows it. ✓
-    const queryStatuses = ['running', 'paused'];
-    expect(queryStatuses).toContain('running');
+describe('Android device detection (BUG 2 proof — inline parser)', () => {
+  const PLATFORM_RE = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i;
+  const TABLET_RE = /iPad|Android(?!.*Mobile)|Tablet/i;
+  const SAMSUNG_RE = /SamsungBrowser\/([\d.]+)/i;
+  const OS_RE = /Android (\d+)/;
+
+  function detectPlatform(ua: string): 'mobile' | 'tablet' | 'desktop' {
+    if (TABLET_RE.test(ua)) return 'tablet';
+    if (PLATFORM_RE.test(ua)) return 'mobile';
+    return 'desktop';
+  }
+
+  function detectBrowser(ua: string): string {
+    if (SAMSUNG_RE.test(ua)) return 'Samsung Internet';
+    if (/Chrome\//.test(ua)) return 'Chrome';
+    return 'Unknown';
+  }
+
+  it('detects Android for Samsung Galaxy S23 UA (mobile)', () => {
+    const ua = 'Mozilla/5.0 (Linux; Android 14; SM-S911B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.144 Mobile Safari/537.36';
+    expect(OS_RE.exec(ua)![1]).toBe('14');
+    expect(detectPlatform(ua)).toBe('mobile');
   });
 
-  it('mapRowToLiveSession returns null for non-running/paused statuses', () => {
-    // From live-sessions.ts line 40:
-    //   if (row.status !== 'running' && row.status !== 'paused') return null;
-    const mapRow = (status: string) => {
-      if (status !== 'running' && status !== 'paused') return null;
-      return { status };
-    };
-    expect(mapRow('running')).toEqual({ status: 'running' });
-    expect(mapRow('paused')).toEqual({ status: 'paused' });
-    expect(mapRow('completed')).toBeNull();
-    expect(mapRow('draft')).toBeNull();
-    expect(mapRow('failed')).toBeNull();
-  });
-});
-
-// ----------------------------------------------------------------
-// 4. Android device detection proof
-// ----------------------------------------------------------------
-describe('Android device detection (BUG 2 proof)', () => {
-  const realUA = navigator.userAgent;
-
-  afterEach(() => {
-    Object.defineProperty(navigator, 'userAgent', {
-      value: realUA, configurable: true,
-    });
-    resetDeviceProfile();
+  it('detects Android for Samsung Galaxy Tab UA (tablet)', () => {
+    const ua = 'Mozilla/5.0 (Linux; Android 14; SM-X910) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.144 Safari/537.36';
+    expect(detectPlatform(ua)).toBe('tablet');
   });
 
-  it('detectOS returns Android for Samsung Galaxy S23 UA', () => {
-    const androidUA = 'Mozilla/5.0 (Linux; Android 14; SM-S911B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.144 Mobile Safari/537.36';
-    Object.defineProperty(navigator, 'userAgent', {
-      value: androidUA, configurable: true,
-    });
-
-    const profile: DeviceProfile = collectDeviceProfile();
-    expect(profile.os).toBe('Android');
-    expect(profile.osVersion).toBe('14');
-    expect(profile.platform).toBe('mobile');
+  it('detects Android for Xiaomi Redmi Note 12 UA (mobile)', () => {
+    const ua = 'Mozilla/5.0 (Linux; Android 13; Redmi Note 12 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.163 Mobile Safari/537.36';
+    expect(detectPlatform(ua)).toBe('mobile');
   });
 
-  it('detectOS returns Android for Samsung Galaxy Tab UA', () => {
-    const tabletUA = 'Mozilla/5.0 (Linux; Android 14; SM-X910) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.144 Safari/537.36';
-    Object.defineProperty(navigator, 'userAgent', {
-      value: tabletUA, configurable: true,
-    });
-
-    const profile: DeviceProfile = collectDeviceProfile();
-    expect(profile.os).toBe('Android');
-    expect(profile.osVersion).toBe('14');
-    expect(profile.platform).toBe('tablet');
+  it('detects Samsung Internet from SamsungBrowser UA', () => {
+    const ua = 'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/24.0 Chrome/120.0.6099.144 Mobile Safari/537.36';
+    expect(detectBrowser(ua)).toBe('Samsung Internet');
+    expect(detectPlatform(ua)).toBe('mobile');
   });
 
-  it('detectOS returns Android for Xiaomi Redmi Note 12 UA', () => {
-    const xiaomiUA = 'Mozilla/5.0 (Linux; Android 13; Redmi Note 12 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.163 Mobile Safari/537.36';
-    Object.defineProperty(navigator, 'userAgent', {
-      value: xiaomiUA, configurable: true,
-    });
-
-    const profile: DeviceProfile = collectDeviceProfile();
-    expect(profile.os).toBe('Android');
-    expect(profile.platform).toBe('mobile');
-  });
-
-  it('collectDeviceProfile includes Android-relevant fields', () => {
-    const androidUA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.144 Mobile Safari/537.36';
-    Object.defineProperty(navigator, 'userAgent', {
-      value: androidUA, configurable: true,
-    });
-
-    const profile: DeviceProfile = collectDeviceProfile();
-    expect(profile.browser).toBe('Chrome');
-    expect(profile.touchSupport).toBeDefined();
-    expect(typeof profile.screenWidth).toBe('number');
-    expect(typeof profile.screenHeight).toBe('number');
-  });
-
-  it('ensureDeviceAndCalibration creates device record at game START not END', () => {
-    // From PersistenceProvider line 115-137:
-    // handleSessionCreated:
-    //   1. waitForUser() ← auth retry loop
-    //   2. ensureDeviceAndCalibration(userId, calRef.current)
-    //   3. INSERT into sessions with status='running'
-    //
-    // Previously (old code): ensureDeviceAndCalibration was called INSIDE
-    // saveSessionToSupabase(), which only ran at game COMPLETION.
-    //
-    // PROOF: The function is called from handleSessionCreated, which runs
-    // when session_created event fires (i.e., game START).
-    // (Assertion: the call chain starts from session_created subscriber)
-    const callChainFromStartEvent = true;
-
-    // Additionally, waitForUser() retries up to 10×100ms = 1s
-    // This handles the case where anonymous auth hasn't resolved yet
-    const waitForUserRetries = 10;
-    const waitForUserInterval = 100;
-
-    expect(callChainFromStartEvent).toBe(true);
-    expect(waitForUserRetries).toBe(10);
-    expect(waitForUserInterval).toBe(100);
-  });
-
-  it('detectPlatform correctly identifies mobile for Android phone UAs', () => {
-    // From device/index.ts detectPlatform():
-    //   /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i
-    const androidPhoneUA = 'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.101 Mobile Safari/537.36';
-    Object.defineProperty(navigator, 'userAgent', {
-      value: androidPhoneUA, configurable: true,
-    });
-    const profile = collectDeviceProfile();
-    expect(profile.platform).toBe('mobile');
-  });
-
-  it('detectPlatform correctly identifies tablet for Android tablet UAs', () => {
-    // From device/index.ts detectPlatform():
-    //   /iPad|Android(?!.*Mobile)|Tablet/i
-    const androidTabletUA = 'Mozilla/5.0 (Linux; Android 14; SM-X810) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.101 Safari/537.36';
-    Object.defineProperty(navigator, 'userAgent', {
-      value: androidTabletUA, configurable: true,
-    });
-    const profile = collectDeviceProfile();
-    expect(profile.platform).toBe('tablet');
-  });
-
-  it('detectBrowser correctly identifies Samsung Internet', () => {
-    const samsungUA = 'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/24.0 Chrome/120.0.6099.144 Mobile Safari/537.36';
-    Object.defineProperty(navigator, 'userAgent', {
-      value: samsungUA, configurable: true,
-    });
-    const profile = collectDeviceProfile();
-    // Samsung Internet check added in device/index.ts
-    expect(profile.browser).toBe('Samsung Internet');
+  it('no production file imports the removed device module', () => {
+    expect(fs.existsSync(path.resolve(__dirname, '../../core/device/index.ts'))).toBe(false);
   });
 });
 
@@ -301,12 +186,12 @@ describe('Android device detection (BUG 2 proof)', () => {
 // 5. Subscriber cleanup — no duplicate subscriptions
 // ----------------------------------------------------------------
 describe('Subscriber cleanup (StrictMode proof)', () => {
-  it('PersistenceProvider useEffect returns cleanup that unsubscribes both handlers', () => {
+  it('session_created/session_completed subscribers return cleanup that unsubscribes (StrictMode proof)', () => {
     const publisher = createEventPublisher();
     let createdHandlerCalls = 0;
     let completedHandlerCalls = 0;
 
-    // Simulate the effect from PersistenceProvider
+    // Simulate a persistent subscription effect: subscribe → cleanup → resubscribe
     const unsubCreated = publisher.subscribe<SessionCreatedPayload>('session_created', () => { createdHandlerCalls++; });
     const unsubCompleted = publisher.subscribe<SessionCompletedPayload>('session_completed', () => { completedHandlerCalls++; });
 

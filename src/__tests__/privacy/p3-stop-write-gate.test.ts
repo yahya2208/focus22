@@ -121,14 +121,16 @@ describe('PG-02: لا كتابة sessions / devices / calibrations من شجرة
     expect(app).not.toMatch(/from\('calibrations'\)/);
   });
 
+  it('PersistenceProvider.tsx و data-service.ts أُزيلا كلياً (FOCUS v2، 2026-08-08)', () => {
+    expect(fs.existsSync(path.join(SRC, 'core/supabase/PersistenceProvider.tsx'))).toBe(false);
+    expect(fs.existsSync(path.join(SRC, 'core/supabase/data-service.ts'))).toBe(false);
+  });
+
   it('لا ملف تشغيل (خارج admin/research/BI) يستورد PersistenceProvider', () => {
     const importers = walkSrc()
       .filter((f) => /PersistenceProvider/.test(f.content))
       .map((f) => f.rel);
-    const allowedPrefixes = ['core/supabase/PersistenceProvider.tsx'];
-    for (const rel of importers) {
-      expect(allowedPrefixes.some((p) => rel.startsWith(p)) || rel.startsWith('__tests__')).toBe(true);
-    }
+    expect(importers, `files still referencing PersistenceProvider: ${importers.join(', ')}`).toEqual([]);
   });
 });
 

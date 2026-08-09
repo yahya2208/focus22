@@ -9,6 +9,9 @@
 | المنهج | evidence-based cross-check بين: (1) أقدم كود كتب/قرأ نفس جدول LIVE، (2) توثيق تفتيش LIVE الحديث، (3) migrations، (4) كود الحملات الجديد. لا يوجد وصول مباشر لقاعدة LIVE في هذه الجلسة |
 | **النتيجة النهائية** | **`HARD STOP — DIAGNOSIS COMPLETE`** (لا remediations طُبِّقت) |
 
+> ### ⚠️ FALSIFICATION NOTE (2026-08-09 — تشغيل `10-CR-00007-pre-apply-gates.sql` على LIVE)
+> **الاستنتاج في §E/§G بأن anon يملك ACL مباشرة على `public.campaigns` (Supabase default) — مُكذَّب بالفحص الحي.** LIVE يثبت: anon `has_table_privilege` = false للأربعة · raw ACL بلا أي صف لـ anon · قراءة مباشرة تحت anon → `42501 permission denied for table campaigns` (وليست «0 rows عبر RLS»). `DIRECT_GRANT_DETECTED` كان يتحقق بمجرد grants `authenticated` (by design). **CR-00007 = ALREADY SATISFIED / NO-OP — HISTORICAL APPLY NOT ESTABLISHED** (قرار مالك: NO DATABASE CHANGE). النموذج المصحَّح: anon = بلا ACL (هدف مُحقَّق) · authenticated/service_role = كاملة (by design).
+
 ---
 
 ## A) Executive Summary
@@ -119,7 +122,7 @@ UI: `CampaignDetailView.tsx` — عارض timeline + معاينة QR عبر `QRC
 
 | grantee | privilege (نموذجي) | التصنيف | الأساس |
 |---|---|---|---|
-| anon | ALL (default) | **Historical / Legacy** — غير ضروري (لا سياسة anon) | no policy → 0 rows; RPC بـ SECURITY DEFINER لا يمر عبر grants الجدول |
+| anon | **NONE** (لا ACL — مثبَّت حياً 2026-08-09) | **Historical assumption — FALSIFIED** (لم يملك ACL أصلاً؛ انظر FALSIFICATION NOTE) | قراءة مباشرة → `42501` (رفض ACL)؛ RPC SECURITY DEFINER لا يحتاج grants الجدول |
 | authenticated | ALL (default) | **Expected / By-design (Supabase default)** | مطلوب لكي يعمل RLS أصلاً؛ السياسة `Admins manage campaigns` (TO authenticated) هي التي تقرر الأثر |
 | service_role | ALL (default) | **Expected (by design)** | التطبيق لا يستخدم service_role للجدول |
 | Regression | — | **لا** | لا DDL/grants جديدة في هذا الفصل؛ static guard + tests تؤكد |
@@ -128,7 +131,7 @@ UI: `CampaignDetailView.tsx` — عارض timeline + معاينة QR عبر `QRC
 
 - **لا** اقتراح `REVOKE` الآن — بانتظار جولة الإثبات (Section D1/D2/D3 من السكربت الجديد `supabase/campaigns-grants-columns-evidence.sql`).
 - بعد الأدلة فقط يُقيَّم كـ **CR منفصل** (خارج نطاق Campaigns Admin) بموافقة مالك صريحة:
-  - `anon` direct grant موجود → المرشّح: `REVOKE ALL ON public.campaigns FROM anon;` (defense-in-depth، أثر صفري متوقع).
+  - `anon` direct grant = **لا يوجد (فحص حي 2026-08-09)** — الهدف مُحقَّق سلفاً. لا حاجة لأي REVOKE؛ **CR-00007 = ALREADY SATISFIED / NO-OP** (قرار مالك: NO DATABASE CHANGE).
   - `authenticated` direct grant = **By-design إلزامي** (مطلوب لكي تعمل `Admins manage campaigns` TO authenticated · `USING is_admin()` عبر JWT role) — **لا يُرفع**.
 - ملاحظة ديمومة (تسجيل فقط، لا اقتراح): لمنع إعادة ظهور grants مستقبلاً تُدعى `ALTER DEFAULT PRIVILEGES` — أثر واسع على كل الجداول الجديدة؛ CR منفصل مستقبلي بموافقة مالك إذا رُغب.
 - الـ checks الدورية `has_table_privilege` ستظل تُرجع true لـ authenticated دائماً — ضبط سكربت التحقق مستقبلاً ليعتبر `authenticated` By-design (انظر L).
@@ -150,7 +153,7 @@ UI: `CampaignDetailView.tsx` — عارض timeline + معاينة QR عبر `QRC
 
 | الدور | grants | سياسة RLS | صفوف قابلة للقراءة |
 |---|---|---|---|
-| anon | ALL (default) | لا سياسة | **0** |
+| anon | **NONE** (لا ACL — فحص حي 2026-08-09) | لا سياسة | **0** (رفض ACL: `42501`) |
 | user/guest/researcher | ALL (default) | `Admins manage campaigns` → `is_admin()=false` | **0** |
 | admin/super_admin | ALL (default) | `is_admin()=true` | كامل (متوقع) |
 | service_role | ALL (default) | bypass | غير مستخدم بالكود |

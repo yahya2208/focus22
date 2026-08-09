@@ -64,9 +64,6 @@ export function logScanWithMetadata(
   campaign: string,
   cta: StickerCTA,
   location?: string,
-  ip?: string,
-  userAgent?: string,
-  referrer?: string,
 ): StickerScanEvent {
   const event: StickerScanEvent = {
     id: `SC-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -74,18 +71,46 @@ export function logScanWithMetadata(
     campaign,
     scannedAt: new Date().toISOString(),
     location,
-    ip,
-    userAgent,
-    referrer,
     cta,
   };
   scanEvents.push(event);
   try {
-    const stored = JSON.parse(localStorage.getItem('sticker_scans') || '[]');
+    const stored = sanitizeStoredScans(JSON.parse(localStorage.getItem('sticker_scans') || '[]'));
     stored.push(event);
     localStorage.setItem('sticker_scans', JSON.stringify(stored));
   } catch { /* Intentionally ignored. */ }
   return event;
+}
+
+function sanitizeEvent(raw: Record<string, unknown>): StickerScanEvent | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  if (typeof raw.serialNumber !== 'string' || typeof raw.campaign !== 'string') return null;
+  const scannedAt = typeof raw.scannedAt === 'string' ? raw.scannedAt : new Date().toISOString();
+  const cta = typeof raw.cta === 'string' ? (raw.cta as StickerCTA) : 'view_offers';
+  const location = typeof raw.location === 'string' ? raw.location : undefined;
+  return { id: typeof raw.id === 'string' ? raw.id : `SC-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, serialNumber: raw.serialNumber, campaign: raw.campaign, scannedAt, location, cta };
+}
+
+export function sanitizeStoredScans(): void;
+export function sanitizeStoredScans(raw: unknown): StickerScanEvent[];
+export function sanitizeStoredScans(raw?: unknown): void | StickerScanEvent[] {
+  try {
+    if (raw !== undefined) {
+      if (!Array.isArray(raw)) return;
+      return sanitizeList(raw);
+    }
+    const original = localStorage.getItem('sticker_scans');
+    if (original === null) return;
+    const sanitized = sanitizeList(JSON.parse(original));
+    localStorage.setItem('sticker_scans', JSON.stringify(sanitized));
+  } catch { /* Intentionally ignored. */ }
+}
+
+function sanitizeList(stored: unknown): StickerScanEvent[] {
+  if (!Array.isArray(stored)) return [];
+  return stored
+    .map((e) => sanitizeEvent(e as Record<string, unknown>))
+    .filter((e): e is StickerScanEvent => e !== null);
 }
 
 export function getScansBySerial(serialNumber: string): StickerScanEvent[] {
@@ -179,6 +204,7 @@ export function getPrintBatch(id: string): StickerPrintBatch | undefined {
 
 export function loadStoredScans(): void {
   try {
+    sanitizeStoredScans();
     const stored = JSON.parse(localStorage.getItem('sticker_scans') || '[]');
     for (const event of stored) {
       const existing = scanEvents.some(e => e.id === event.id);

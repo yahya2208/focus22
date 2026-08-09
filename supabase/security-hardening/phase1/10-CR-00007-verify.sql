@@ -1,21 +1,28 @@
 -- ============================================================================
 -- CR-00007 · campaigns anon direct-grant — POST-APPLY VERIFY (READ-ONLY)
 -- ----------------------------------------------------------------------------
--- Run AFTER `10-CR-00007-campaigns-anon-grant.sql` completes. Read-only only.
+-- Originally written to run AFTER `10-CR-00007-campaigns-anon-grant.sql`.
 --
--- COMPATIBILITY NOTE (post-REVOKE state):
---   After REVOKE ALL ON public.campaigns FROM anon, anon has NO table ACL, so a
---   raw `SELECT FROM public.campaigns` under anon now raises
---   `permission denied for table campaigns` (correct end state). This script is
---   therefore catalog-only for grant/RLS/RPC checks, and its only anon
---   behavioral probe is wrapped in EXCEPTION handling (DO block) so it PROVES
---   the denial instead of aborting. NO GRANT is issued anywhere in this file.
+-- UPDATE 2026-08-09 — CR-00007 is ALREADY SATISFIED / NO-OP (owner decision):
+--   LIVE already shows anon with NO table ACL on public.campaigns
+--   (anon SELECT/INSERT/UPDATE/DELETE = false; raw ACL has no anon entries).
+--   No APPLY was executed and none is approved. This script is therefore used
+--   AS-IS as the READ-ONLY closure verification of the already-satisfied end
+--   state: §5.A anon = all FALSE, §5.C4 anon direct read DENIED (42501).
+--
+-- COMPATIBILITY NOTE (anon grant-free state):
+--   Because anon has NO table ACL, a raw `SELECT FROM public.campaigns` under
+--   anon raises `permission denied for table campaigns` (correct end state).
+--   This script is therefore catalog-only for grant/RLS/RPC checks, and its
+--   only anon behavioral probe is wrapped in EXCEPTION handling (DO block) so
+--   it PROVES the denial instead of aborting. NO GRANT is issued anywhere.
 -- ============================================================================
 
 -- ============================================================================
--- §5.A — Grants after APPLY
---   EXPECTED: anon = all FALSE · authenticated = full set (admin CRUD intact)
---             · service_role unchanged (full set).
+-- §5.A — Grants — current LIVE state (already matches the CR-00007 target)
+--   EXPECTED: anon = all FALSE (grant-free, objective satisfied) ·
+--             authenticated = full set (admin CRUD intact, by design) ·
+--             service_role = full set (unchanged).
 -- ============================================================================
 SELECT 'anon'          AS role_name,
        has_table_privilege('anon', 'campaigns', 'SELECT')  AS can_select,
@@ -36,7 +43,7 @@ SELECT 'service_role',
        has_table_privilege('service_role', 'campaigns', 'DELETE');
 
 -- ============================================================================
--- §5.B — RLS unchanged after APPLY
+-- §5.B — RLS state (matches the CR-00007 target; no change made)
 --   EXPECTED: relrowsecurity = true · relforcerowsecurity = false ·
 --             exactly ONE policy ("Admins manage campaigns" ALL {authenticated}).
 -- ============================================================================
@@ -50,7 +57,7 @@ WHERE schemaname = 'public' AND tablename = 'campaigns'
 ORDER BY policyname;
 
 -- ============================================================================
--- §5.C — RPC intact after APPLY + anon QR regression
+-- §5.C — RPC intact + anon QR regression (independent of anon table grants)
 -- ============================================================================
 
 -- C1) RPC posture unchanged
@@ -66,8 +73,9 @@ WHERE n.nspname = 'public'
   AND p.proname = 'lookup_campaign_by_short_code';
 
 -- C2) anon still resolves an ACTIVE campaign via the RPC (1 row) — the
---     public QR path must NOT depend on the (now revoked) anon table grant.
---     Works because the RPC is SECURITY DEFINER and anon still has EXECUTE.
+--     public QR path does NOT depend on any anon table grant (anon is
+--     grant-free on campaigns). Works because the RPC is SECURITY DEFINER and
+--     anon still has EXECUTE.
 BEGIN;
 SET LOCAL ROLE anon;
 SELECT id, short_code, name, is_active
@@ -83,9 +91,10 @@ FROM public.lookup_campaign_by_short_code('ZZZZZZ');
 ROLLBACK;
 RESET ROLE;
 
--- C4) anon DIRECT table access — now DENIED at ACL level (expected after
---     REVOKE). No raw anon `SELECT FROM public.campaigns` here (that would
---     raise permission denied and abort the script). Instead:
+-- C4) anon DIRECT table access — DENIED at ACL level (anon is grant-free on
+--     campaigns; RLS is never evaluated). No raw anon `SELECT FROM
+--     public.campaigns` here (that would raise permission denied and abort the
+--     script). Instead:
 --       · catalog proof (authoritative): every anon privilege = false
 --       · behavioral proof: an anonymous DO block attempts the read under
 --         `SET LOCAL ROLE anon` and EXPECTS insufficient_privilege (42501).

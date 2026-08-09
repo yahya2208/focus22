@@ -49,11 +49,6 @@ export {
 } from './session';
 
 export {
-  collectDeviceProfile, resetDeviceProfile, createDeviceProfileForTest,
-  type DeviceProfile,
-} from './device';
-
-export {
   createEventPublisher, getGlobalEventPublisher, resetGlobalEventPublisher,
   type EventPublisher, type DomainEvent, type EventType, type EventHandler,
 } from './events';

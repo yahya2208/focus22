@@ -6,6 +6,12 @@
 --   (1) columns_verdict = COLUMNS_MISSING (owner's expanded run)
 --   (2) grants_verdict  = DIRECT_GRANT_DETECTED (owner's expanded run)
 --
+-- MODEL CORRECTION (2026-08-09): DIRECT_GRANT_DETECTED is satisfied by
+-- authenticated's by-design grants alone — it never proved anon had grants.
+-- LIVE evidence (pre-apply gates run) confirms anon has NO table ACL on
+-- campaigns. Treat this script's D/F output accordingly: anon = none is the
+-- EXPECTED, already-satisfied end state (CR-00007 = ALREADY SATISFIED / NO-OP).
+--
 -- This script performs NO DDL, NO DML, NO REVOKE/GRANT, NO ROLE CHANGE.
 -- It is safe to run as-is on production in the Supabase SQL editor.
 --
@@ -70,11 +76,14 @@ WHERE NOT EXISTS (
 ORDER BY c.column_name;
 
 -- ============================================================================
--- SECTION D · campaigns GRANTS — the LIVE evidence for DIRECT_GRANT_DETECTED
+-- SECTION D · campaigns GRANTS — LIVE evidence (corrected model 2026-08-09)
+--   DIRECT_GRANT_DETECTED is satisfied by authenticated's by-design grants
+--   alone; it does NOT imply anon has grants. LIVE: anon = none.
 -- ============================================================================
 
 -- D1) role_table_grants for anon + authenticated (owner-required evidence).
---     EXPECTED (Supabase default-era table): ALL privilege types for both.
+--     EXPECTED (corrected LIVE 2026-08-09): anon = NONE · authenticated = ALL
+--     privilege types (by design — required for the Admins RLS policy).
 SELECT grantor, grantee, privilege_type, is_grantable
 FROM information_schema.role_table_grants
 WHERE table_schema = 'public' AND table_name = 'campaigns'

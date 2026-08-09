@@ -6,6 +6,14 @@
 -- on production in the Supabase SQL editor. Behavior probes use SET LOCAL ROLE
 -- inside BEGIN; ROLLBACK; — nothing is written.
 --
+-- EVIDENCE MODEL (corrected 2026-08-09, per owner LIVE run):
+--   LIVE shows anon has NO table ACL on public.campaigns
+--   (anon SELECT/INSERT/UPDATE/DELETE = false; raw ACL has no anon entries).
+--   Therefore anon's direct-table read (§3.F) is DENIED at ACL level (42501),
+--   NOT "0 rows via RLS". authenticated/service_role grants remain PRESENT
+--   (by design — required for the "Admins manage campaigns" RLS policy).
+--   CR-00007 is ALREADY SATISFIED / NO-OP — HISTORICAL APPLY NOT ESTABLISHED.
+--
 -- Reference: docs/security/operations/CR-00007-campaigns-anon-grant.md
 -- ============================================================================
 
@@ -34,9 +42,9 @@ ORDER BY policyname;
 -- §3.C — grants on public.campaigns for anon / authenticated / service_role
 -- ============================================================================
 
--- C1) raw ACL (definitive) — EXPECTED per Round-2 LIVE evidence:
---     anon/authenticated: SELECT, INSERT, UPDATE, DELETE, REFERENCES,
---     TRIGGER, TRUNCATE · service_role: full set.
+-- C1) raw ACL (definitive) — EXPECTED per corrected LIVE evidence (2026-08-09):
+--     anon: NONE · authenticated: full set (by-design, required for the
+--     "Admins manage campaigns" RLS policy) · service_role: full set.
 SELECT r.rolname AS grantee, a.privilege_type, a.is_grantable
 FROM aclexplode((SELECT c.relacl FROM pg_class c WHERE c.oid = 'public.campaigns'::regclass)) a
 JOIN pg_roles r ON r.oid = a.grantee
@@ -115,13 +123,22 @@ ROLLBACK;
 RESET ROLE;
 
 -- ============================================================================
--- §3.F — anon direct-table read MUST return zero rows under RLS (baseline)
---   EXPECTED: 0 rows even though campaigns has rows (proves RLS blocks anon).
+-- §3.F — anon direct-table read (behavioral; transaction + rollback)
+--   EXPECTED (corrected 2026-08-09): anon has NO table ACL → the read raises
+--   "permission denied for table campaigns" (42501). RLS is never evaluated.
+--   This ACL denial is the strongest proof of the direct-access objective.
 -- ============================================================================
 BEGIN;
-SET LOCAL ROLE anon;
-SELECT count(*) AS anon_direct_rows
-FROM public.campaigns;
+DO $$
+BEGIN
+  BEGIN
+    SET LOCAL ROLE anon;
+    PERFORM count(*) FROM public.campaigns;
+    RAISE NOTICE '§3.F UNEXPECTED: anon CAN read public.campaigns — anon ACL present?';
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE '§3.F EXPECTED: anon denied at ACL (permission denied for table campaigns)';
+  END;
+END $$;
 ROLLBACK;
 RESET ROLE;
 

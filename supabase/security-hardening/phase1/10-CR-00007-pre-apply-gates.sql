@@ -12,6 +12,15 @@
 -- How to run: paste the WHOLE script once in the Supabase SQL editor.
 --   · Statements A–H are the raw detail evidence (result-set tabs).
 --   · The LAST statement is the consolidated gate table — one row per check.
+--
+-- EVIDENCE MODEL (corrected 2026-08-09, per owner LIVE run):
+--   LIVE shows anon has NO table ACL on public.campaigns
+--   (anon SELECT/INSERT/UPDATE/DELETE = false; raw ACL has no anon entries).
+--   Therefore anon's direct-table read is DENIED at ACL level (42501) — RLS is
+--   never even evaluated. Block H proves the denial via exception handling
+--   instead of aborting. Expected gates on LIVE: anon ACL rows = ABSENT,
+--   anon direct SELECT = DENIED, authenticated/service_role = PRESENT (by
+--   design), RLS + RPC + QR = PASS. CR-00007 is ALREADY SATISFIED / NO-OP.
 -- ============================================================================
 
 -- ============================================================================
@@ -105,11 +114,22 @@ RESET ROLE;
 
 -- ============================================================================
 -- H · anon direct-table read (behavioral; transaction + rollback)
---     EXPECTED: 0 rows (RLS blocks anon even though the ACL grant is present)
+--   LIVE EVIDENCE MODEL (corrected 2026-08-09): anon has NO table ACL on
+--   campaigns → the read is DENIED at ACL level (permission denied for table
+--   campaigns, 42501). RLS is never evaluated. This is the strongest end state
+--   for the direct-access objective. EXPECTED: denial notice, not 0 rows.
 -- ============================================================================
 BEGIN;
-SET LOCAL ROLE anon;
-SELECT count(*) AS anon_direct_rows FROM public.campaigns;
+DO $$
+BEGIN
+  BEGIN
+    SET LOCAL ROLE anon;
+    PERFORM count(*) FROM public.campaigns;
+    RAISE NOTICE 'H UNEXPECTED: anon CAN read public.campaigns — anon ACL present?';
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'H EXPECTED: anon denied at ACL (permission denied for table campaigns)';
+  END;
+END $$;
 ROLLBACK;
 RESET ROLE;
 
@@ -169,7 +189,9 @@ UNION ALL SELECT 'kq7Iej resolution',
 UNION ALL SELECT 'ZZZZZZ resolution',
        (SELECT count(*)::text FROM public.lookup_campaign_by_short_code('ZZZZZZ'))
 UNION ALL SELECT 'anon direct SELECT (behavioral)',
-       '0 rows under anon — RLS blocks (see block H)'
+       CASE WHEN has_table_privilege('anon','campaigns','SELECT')
+            THEN 'ACL PRESENT — RLS-only expected (see block H)'
+            ELSE 'ACL ABSENT — direct read DENIED 42501 (see block H)' END
 ORDER BY check_name;
 
 -- ============================================================================
