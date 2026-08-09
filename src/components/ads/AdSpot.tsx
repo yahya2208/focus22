@@ -1,6 +1,6 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { ensureAdsLoaded, getAd, subscribeAds, type AdPlacement } from '../../services/ads-service';
-import { AdBanner } from './AdBanner';
+import { AdBanner, type AdBannerStatus } from './AdBanner';
 
 interface AdSpotProps {
   placement: AdPlacement;
@@ -16,16 +16,19 @@ function resolve(placement: AdPlacement): { image: string; link: string; alt: st
  * Renders the single configured banner for a placement (if any).
  * Reads from Supabase (ads table) and updates instantly via Realtime.
  * The image is displayed fully inside an adaptive frame — no Ken Burns zoom/crop
- * (see AdBanner for the no-crop motion).
+ * (see AdBanner for the no-crop motion). When the configured image fails to
+ * load the whole wrapper collapses (no empty interactive target / no empty frame).
  */
 export const AdSpot = memo(function AdSpot({ placement }: AdSpotProps) {
   const [ad, setAd] = useState<{ image: string; link: string; alt: string } | null>(() => resolve(placement));
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const update = () => {
       if (cancelled) return;
       setAd(resolve(placement));
+      setFailed(false);
     };
     ensureAdsLoaded().then(update).catch(() => {});
     const unsubscribe = subscribeAds(update);
@@ -35,7 +38,11 @@ export const AdSpot = memo(function AdSpot({ placement }: AdSpotProps) {
     };
   }, [placement]);
 
-  if (!ad) return null;
+  const handleStateChange = useCallback((status: AdBannerStatus) => {
+    if (status === 'failed') setFailed(true);
+  }, []);
+
+  if (!ad || failed) return null;
 
   return ad.link ? (
     <a
@@ -46,11 +53,11 @@ export const AdSpot = memo(function AdSpot({ placement }: AdSpotProps) {
       role="banner"
       style={{ display: 'block' }}
     >
-      <AdBanner image={ad.image} alt={ad.alt || placement} />
+      <AdBanner image={ad.image} alt={ad.alt || placement} onStateChange={handleStateChange} />
     </a>
   ) : (
     <div role="banner" aria-label={ad.alt || placement}>
-      <AdBanner image={ad.image} alt={ad.alt || placement} />
+      <AdBanner image={ad.image} alt={ad.alt || placement} onStateChange={handleStateChange} />
     </div>
   );
 });

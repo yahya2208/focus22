@@ -1,33 +1,56 @@
-import { memo, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
+
+export type AdBannerStatus = 'loading' | 'loaded' | 'failed';
 
 interface AdBannerProps {
   image: string;
   alt?: string;
+  /**
+   * Optional status signal so parents (AdSpot, AdContactBanner) can collapse
+   * their interactive wrapper when the image fails — never a broken/empty frame.
+   */
+  onStateChange?: (status: AdBannerStatus) => void;
 }
 
 /**
- * Adaptive ad frame (M1):
- * - Measures the uploaded image's natural dimensions once on load.
- * - Sizes the frame to the image's own aspect ratio (clamped to a sane banner
- *   range), so the whole image is visible without cropping.
- * - Images outside the clamp range are letterboxed with `contain` — the full
- *   image is still shown, never cropped.
- * - Frame height is capped responsively (see `.adspot-frame` in index.html):
- *   Desktop 420px → Laptop 360px → Tablet 320px → Mobile auto (natural size),
- *   so tall/portrait ads never dominate; `contain` keeps the full image visible.
- * - Motion is applied WITHOUT touching the image pixels: a subtle breathing
- *   opacity on the image plus a decorative shine sweep overlay. No scale/zoom
- *   that would hide parts of the image (kenburns removed).
+ * Adaptive ad frame (M1) with hardened image states (V-1):
+ * - loading: intentional pulsing placeholder inside a stable frame, no shine.
+ * - loaded: full image, adaptive ratio, existing breathing + shine sweep.
+ * - failed: collapses to nothing (null) — no empty advertising frame, no
+ *   broken-image icon, no shine, no retry loop. `onStateChange` lets the parent
+ *   collapse its interactive wrapper too.
  */
-export const AdBanner = memo(function AdBanner({ image, alt }: AdBannerProps) {
+export const AdBanner = memo(function AdBanner({ image, alt, onStateChange }: AdBannerProps) {
   const colors = useThemeColors();
   const [ratio, setRatio] = useState<number | null>(null);
+  const [status, setStatus] = useState<AdBannerStatus>('loading');
+
+  const handleLoad = useCallback(
+    (e: React.SyntheticEvent<HTMLImageElement>) => {
+      const el = e.currentTarget;
+      if (el.naturalWidth > 0 && el.naturalHeight > 0) {
+        setRatio(el.naturalWidth / el.naturalHeight);
+      }
+      setStatus('loaded');
+      onStateChange?.('loaded');
+    },
+    [onStateChange],
+  );
+
+  const handleError = useCallback(() => {
+    setStatus('failed');
+    onStateChange?.('failed');
+  }, [onStateChange]);
+
+  if (status === 'failed') return null;
 
   const frameRatio = ratio !== null ? clampRatio(ratio) : PLACEHOLDER_RATIO;
 
   return (
     <div
+      data-testid="adspot-frame"
+      data-status={status}
       className="adspot-frame"
       style={{
         position: 'relative',
@@ -44,34 +67,51 @@ export const AdBanner = memo(function AdBanner({ image, alt }: AdBannerProps) {
         src={image}
         alt={alt ?? ''}
         loading="lazy"
-        onLoad={(e) => {
-          const el = e.currentTarget;
-          if (el.naturalWidth > 0 && el.naturalHeight > 0) {
-            setRatio(el.naturalWidth / el.naturalHeight);
-          }
-        }}
+        onLoad={handleLoad}
+        onError={handleError}
         style={{
           position: 'absolute',
           inset: 0,
           width: '100%',
           height: '100%',
           objectFit: 'contain',
-          animation: 'adspot-breathe 8s ease-in-out infinite',
+          opacity: status === 'loaded' ? 1 : 0,
+          animation: status === 'loaded' ? 'adspot-breathe 8s ease-in-out infinite' : undefined,
         }}
       />
-      {/* Decorative shine sweep — pointer-events none, never covers the image */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          pointerEvents: 'none',
-          background: 'linear-gradient(115deg, transparent 42%, rgba(255,255,255,0.10) 50%, transparent 58%)',
-          backgroundSize: '250% 100%',
-          backgroundPosition: '220% 0',
-          animation: 'adspot-shine 11s ease-in-out infinite alternate',
-        }}
-      />
+      {status === 'loading' && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: colors.bgInput,
+            color: colors.textFaint,
+          }}
+        >
+          <span style={{ fontSize: '1.6rem', lineHeight: 1, animation: 'adspot-breathe 1.4s ease-in-out infinite' }}>
+            ⌛
+          </span>
+        </div>
+      )}
+      {/* Decorative shine sweep — pointer-events none, only after the image loads */}
+      {status === 'loaded' && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            background: 'linear-gradient(115deg, transparent 42%, rgba(255,255,255,0.10) 50%, transparent 58%)',
+            backgroundSize: '250% 100%',
+            backgroundPosition: '220% 0',
+            animation: 'adspot-shine 11s ease-in-out infinite alternate',
+          }}
+        />
+      )}
     </div>
   );
 });
