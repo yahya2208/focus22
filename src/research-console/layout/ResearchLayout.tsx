@@ -12,7 +12,8 @@ const MOBILE_BREAKPOINT = 768;
 export type DashboardId =
   | 'overview' | 'scientific' | 'users' | 'sessions'
   | 'devices' | 'system' | 'inventory'
-  | 'catalog-health' | 'variant-coverage' | 'inventory-health' | 'price-memory' | 'ads';
+  | 'catalog-health' | 'variant-coverage' | 'inventory-health' | 'price-memory' | 'ads'
+  | 'campaigns';
 
 const DASHBOARDS: { id: DashboardId; labelKey: TranslationKey; icon: string }[] = [
   { id: 'overview', labelKey: 'research.nav.overview', icon: '📊' },
@@ -27,6 +28,7 @@ const DASHBOARDS: { id: DashboardId; labelKey: TranslationKey; icon: string }[] 
   { id: 'inventory-health', labelKey: 'research.nav.inventory-health', icon: '🗃' },
   { id: 'price-memory', labelKey: 'research.nav.price-memory', icon: '🏷' },
   { id: 'ads', labelKey: 'research.nav.ads', icon: '📢' },
+  { id: 'campaigns', labelKey: 'research.nav.campaigns', icon: '🎯' },
 ];
 
 function useIsMobile(): boolean {

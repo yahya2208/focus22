@@ -17,6 +17,7 @@ import { VariantCoverageScreen } from '../screens/research/VariantCoverageScreen
 import { InventoryHealthScreen } from '../screens/research/InventoryHealthScreen';
 import { PriceMemoryCard } from '../components/research/PriceMemoryCard';
 import { AdsManager } from './pages/ads/AdsManager';
+import { CampaignsDashboard } from './pages/campaigns/CampaignsDashboard';
 
 const DASHBOARD_RESOURCE_MAP: Record<DashboardId, string> = {
   overview: 'overview',
@@ -31,6 +32,7 @@ const DASHBOARD_RESOURCE_MAP: Record<DashboardId, string> = {
   'inventory-health': 'overview',
   'price-memory': 'overview',
   'ads': 'overview',
+  'campaigns': 'campaigns',
 };
 
 const DASHBOARD_IDS: readonly DashboardId[] = [
@@ -46,6 +48,7 @@ const DASHBOARD_IDS: readonly DashboardId[] = [
   'price-memory',
   'system',
   'ads',
+  'campaigns',
 ];
 
 const dashboardComponents: Record<DashboardId, React.FC> = {
@@ -61,6 +64,7 @@ const dashboardComponents: Record<DashboardId, React.FC> = {
   'price-memory': PriceMemoryCard,
   system: SystemDashboard,
   ads: AdsManager,
+  campaigns: CampaignsDashboard,
 };
 
 export function ResearchConsole() {
