@@ -11,9 +11,12 @@ describe('reachability invariant (Phase 3A)', () => {
     }
   });
 
-  it('zero orphans: every screen has at least one inbound edge', () => {
-    expect(isEdgeComplete(EDGES)).toBe(true);
-    expect(assertNoOrphans(EDGES)).toEqual([]);
+  it('no orphans except the intentionally-unreachable post-game utility screens (coach/achievements/share)', () => {
+    // P0 Correction (Game→Showroom): coach / achievements / share were reachable
+    // ONLY from Results. With showroom as the sole post-game destination those
+    // edges are removed, making them documented orphans.
+    expect(isEdgeComplete(EDGES)).toBe(false);
+    expect(assertNoOrphans(EDGES).sort()).toEqual(['achievements', 'coach', 'share']);
   });
 
   it('zero dead-ends: every screen has a BACK_MATRIX row', () => {
@@ -24,15 +27,21 @@ describe('reachability invariant (Phase 3A)', () => {
   });
 
   it('the 3A wire-ups exist (orphan audit → real inbound edges)', () => {
-    expect(EDGES.coach).toContain('results');
-    expect(EDGES.achievements).toContain('results');
-    expect(EDGES.share).toContain('results');
     expect(EDGES.landing).toContain('deep-link');
     expect(EDGES.consent).toContain('landing');
     expect(EDGES.message).toContain('consent');
     expect(EDGES['repair-tracking']).toContain('deep-link');
     expect(EDGES['sticker-scan']).toContain('deep-link');
     expect(EDGES['design-system-playground']).toContain('settings');
+  });
+
+  it('P0 Correction: showroom is the ONLY destination after results — no results edges into coach/achievements/share/home/register/countdown', () => {
+    expect(EDGES.results).toContain('game');
+    expect(EDGES.showroom).toContain('results');
+    expect(EDGES.showroom).toContain('home');
+    for (const target of ['coach', 'achievements', 'share', 'home', 'register', 'countdown'] as const) {
+      expect(EDGES[target]).not.toContain('results');
+    }
   });
 
   it('back targets resolve (no dangling backTarget)', () => {

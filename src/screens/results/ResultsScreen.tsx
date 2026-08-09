@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useBackGuard } from '../../core/navigation/BackProvider';
 import { calculateFocusScore } from '../../core/engine/scoring';
@@ -7,19 +7,19 @@ import { detectFatigue } from '../../core/engine/fatigue';
 import { useTranslation } from '../../hooks/useTranslation';
 import type { TranslationKey } from '../../i18n';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { Button } from '../../design-system/components/Button';
 import { Card } from '../../design-system/components/Card';
 import { Stack } from '../../design-system/components/Stack';
 import { Flex } from '../../design-system/components/Flex';
 import { Screen, Grid } from '../../design-system/layout';
 
 /**
- * P0 Game→Showroom: after the final result displays briefly, the user is taken
- * directly to the phone showroom (single canonical continuation). The post-game
- * persistence/commercial tree (save-and-exit, play again, register, ad banner)
- * is removed; the useful options (coach / achievements / share) stay reachable.
+ * P0 Correction — Game → Showroom: after the final result displays very briefly,
+ * the user is taken DIRECTLY to the phone showroom (the only post-game
+ * destination). There are no intermediate choices (no coach / achievements /
+ * share / home / save / register / play again / ad banner) and no back exit;
+ * the funnel always converges on REPLACE → showroom.
  */
-export const RESULTS_SHOWROOM_AUTO_ADVANCE_MS = 6000;
+export const RESULTS_SHOWROOM_AUTO_ADVANCE_MS = 3000;
 
 function StatCard({ label, value, accent, colors }: { label: string; value: string; accent?: boolean; colors: ReturnType<typeof useThemeColors> }) {
   return (
@@ -102,7 +102,6 @@ export const ResultsScreen = memo(function ResultsScreen() {
   const { results } = useAppState();
   const { t } = useTranslation();
   const colors = useThemeColors();
-  const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const analysis = useMemo(() => {
     if (!results) return null;
@@ -118,40 +117,22 @@ export const ResultsScreen = memo(function ResultsScreen() {
     return { consistency, fatigue, score };
   }, [results]);
 
-  // Smart Back (Phase 2): results is a terminal screen — back clears the stack to
-  // home (never re-enters the stale game below). Matches matrix: results → home.
+  // P0 Correction: Results is a terminal funnel screen — there is NO back exit
+  // to any other screen. Back is fully blocked; the only way out is the brief
+  // result display followed by the auto-advance REPLACE → showroom.
   useBackGuard({
     screen: 'results',
-    beforeBack: () => {
-      dispatch({ type: 'RESET' });
-      return false;
-    },
+    beforeBack: () => false,
   });
 
-  const goToShowroom = useCallback(() => {
-    if (autoAdvanceTimerRef.current) {
-      clearTimeout(autoAdvanceTimerRef.current);
-      autoAdvanceTimerRef.current = null;
-    }
-    dispatch({ type: 'REPLACE', screen: 'showroom' });
-  }, [dispatch]);
-
-  // P0 Game→Showroom: the final result displays briefly, then the user is
-  // taken directly to the phone showroom. Any manual action (Continue button
-  // or leaving the screen via coach/achievements/share/home/back) cancels the
-  // pending advance, so the results are never lost mid-read.
+  // P0 Correction: single canonical exit — after a very short display window the
+  // user is taken straight to the phone showroom. No CTA, no waiting for a choice.
   useEffect(() => {
-    if (!results) return;
-    autoAdvanceTimerRef.current = setTimeout(() => {
+    const timer = setTimeout(() => {
       dispatch({ type: 'REPLACE', screen: 'showroom' });
     }, RESULTS_SHOWROOM_AUTO_ADVANCE_MS);
-    return () => {
-      if (autoAdvanceTimerRef.current) {
-        clearTimeout(autoAdvanceTimerRef.current);
-        autoAdvanceTimerRef.current = null;
-      }
-    };
-  }, [results, dispatch]);
+    return () => clearTimeout(timer);
+  }, [dispatch]);
 
   if (!results || !analysis) {
     return (
@@ -160,11 +141,10 @@ export const ResultsScreen = memo(function ResultsScreen() {
           <Card variant="outlined" padding="lg">
             <p style={{ color: colors.textMuted, margin: 0, fontSize: '0.9rem', textAlign: 'center' }}>{t('results.noResults')}</p>
           </Card>
-          <Button onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })}>{t('home.startMeasurement')}</Button>
         </Stack>
-    </Screen>
-  );
-}
+      </Screen>
+    );
+  }
 
   const bestRt = Math.min(...results.correctedRts);
   const avgRt = results.correctedRts.reduce((a, b) => a + b, 0) / results.correctedRts.length;
@@ -320,28 +300,6 @@ export const ResultsScreen = memo(function ResultsScreen() {
             );
           })()}
         </Card>
-
-        {/* Actions */}
-        <Stack gap="sm" style={{ paddingBottom: '1rem' }}>
-          <Button variant="primary" onClick={goToShowroom} fullWidth>
-            {t('results.continueToShowroom')}
-          </Button>
-          <Button variant="secondary" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'coach' })} fullWidth>
-            {t('results.coach')}
-          </Button>
-          <Button variant="secondary" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'achievements' })} fullWidth>
-            {t('results.achievements')}
-          </Button>
-          <Button variant="secondary" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'share' })} fullWidth>
-            {t('results.share')}
-          </Button>
-          <Button variant="ghost" onClick={() => dispatch({ type: 'RESET' })} fullWidth>
-            {t('results.home')}
-          </Button>
-          <p style={{ color: colors.textMuted, fontSize: '0.7rem', textAlign: 'center', margin: '0.25rem 0 0' }}>
-            {t('results.autoRedirectHint')}
-          </p>
-        </Stack>
       </Stack>
     </Screen>
   );

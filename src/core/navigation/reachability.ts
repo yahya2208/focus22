@@ -7,7 +7,10 @@ export type EdgeSource = ScreenName | 'deep-link' | 'protected-guard';
 /**
  * Inbound-edge table: for every screen, the set of sources that can navigate
  * INTO it (including special entry points). "Orphan" = screen with zero
- * inbound edges. Phase 3A eliminated the orphan condition for every screen.
+ * inbound edges. Phase 3A eliminated the orphan condition for every screen;
+ * the P0 Correction (Game→Showroom funnel) intentionally made coach /
+ * achievements / share unreachable — they are documented orphans with empty
+ * edge lists.
  *
  * Sources marked:
  *  - `deep-link`       → entered directly via a deep link / QR (InitialRoute REPLACE)
@@ -15,7 +18,7 @@ export type EdgeSource = ScreenName | 'deep-link' | 'protected-guard';
  */
 export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
   home: [
-    'results', 'about', 'achievements', 'access-denied', 'admin-setup', 'login',
+    'about', 'achievements', 'access-denied', 'admin-setup', 'login',
     'library', 'consent', 'register', 'settings', 'history', 'coach',
     'sticker-studio', 'sticker-scan', 'share', 'showroom', 'research',
     'business-intelligence', 'repair-home', 'repair-request', 'repair-tracking',
@@ -26,7 +29,7 @@ export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
   library: ['intro'],
   intro: ['library'],
   calibration: ['intro'],
-  countdown: ['home', 'results', 'message'],
+  countdown: ['home', 'message'],
   game: ['calibration', 'countdown', 'game-intro'],
   'game-intro': ['deep-link'],
   results: ['game'],
@@ -34,18 +37,18 @@ export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
   settings: ['home'],
   about: ['home'],
   landing: ['deep-link'],
-  share: ['results'],
-  register: ['results', 'login'],
+  share: [],
+  register: ['login'],
   consent: ['landing'],
   message: ['consent'],
   research: ['settings', 'home'],
   'business-intelligence': ['settings'],
-  coach: ['results'],
+  coach: [],
   login: ['settings', 'register', 'access-denied', 'home'],
   'admin-setup': ['settings'],
   'access-denied': ['protected-guard'],
   'phone-services': ['home'],
-  achievements: ['results'],
+  achievements: [],
   'repair-home': ['home', 'repair-request', 'repair-tracking', 'repair-admin', 'repair-courier', 'repair-customer-history', 'repair-diagnostics', 'repair-personnel'],
   'repair-request': ['repair-home'],
   'repair-tracking': ['repair-home', 'repair-request', 'deep-link'],

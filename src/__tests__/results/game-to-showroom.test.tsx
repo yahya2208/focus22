@@ -26,13 +26,14 @@ function SeedResults() {
   const dispatch = useAppDispatch();
   useEffect(() => {
     dispatch({ type: 'SET_RESULTS', results: SAMPLE_RESULTS });
+    dispatch({ type: 'REPLACE', screen: 'results' });
   }, [dispatch]);
   return null;
 }
 
 function NavProbe() {
-  const { screen } = useAppState();
-  return <div data-testid="screen">{screen}</div>;
+  const { screen: current } = useAppState();
+  return <div data-testid="screen">{current}</div>;
 }
 
 function BackTrigger() {
@@ -82,25 +83,14 @@ function codeOnly(content: string): string {
 }
 const RESULTS_SRC = codeOnly(read('screens/results/ResultsScreen.tsx'));
 
-describe('P0 Game→Showroom — ResultsScreen completion routing', () => {
-  it('renders the final result with the Continue → Showroom CTA', async () => {
-    renderScreen();
-    expect(await screen.findByRole('button', { name: /Continue to Showroom/ })).toBeTruthy();
-    expect(screen.getByRole('heading', { level: 1, name: 'Results' })).toBeTruthy();
-    expect(screen.getByText('/100')).toBeTruthy();
-  });
-
-  it('Continue → Showroom immediately REPLACEs to the showroom', async () => {
-    renderScreen();
-    fireEvent.click(await screen.findByRole('button', { name: /Continue to Showroom/ }));
-    expect(screen.getByTestId('screen').textContent).toBe('showroom');
-  });
-
-  it('auto-advances to the showroom after the brief result display', () => {
+describe('P0 Correction — Game→Results→Showroom (showroom is the ONLY post-game destination)', () => {
+  it('displays the final result very briefly, then auto-advances to the showroom without any CTA', () => {
     vi.useFakeTimers();
     try {
       renderScreen();
+      expect(screen.getByRole('heading', { level: 1, name: 'Results' })).toBeTruthy();
       expect(screen.getByText('/100')).toBeTruthy();
+      expect(screen.getByTestId('screen').textContent).toBe('results');
       act(() => {
         vi.advanceTimersByTime(RESULTS_SHOWROOM_AUTO_ADVANCE_MS);
       });
@@ -110,14 +100,29 @@ describe('P0 Game→Showroom — ResultsScreen completion routing', () => {
     }
   });
 
-  it('manual Continue cancels the pending auto-advance (single canonical exit)', () => {
+  it('renders NO interactive CTA — no Coach / Achievements / Share / Home / Save / Register / Play Again', () => {
+    renderScreen();
+    expect(screen.getByText('/100')).toBeTruthy();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByRole('banner')).toBeNull();
+    expect(screen.queryByText(/Continue to Showroom/i)).toBeNull();
+    expect(screen.queryByText(/Mistakes Coach/i)).toBeNull();
+    expect(screen.queryByText(/Achievements/i)).toBeNull();
+    expect(screen.queryByText(/Share Results/i)).toBeNull();
+    expect(screen.queryByText(/Home/i)).toBeNull();
+    expect(screen.queryByText(/Save & Exit/i)).toBeNull();
+    expect(screen.queryByText(/Register/i)).toBeNull();
+    expect(screen.queryByText(/Play Again/i)).toBeNull();
+  });
+
+  it('blocks back — there is no back exit path out of Results to any other screen', () => {
     vi.useFakeTimers();
     try {
-      renderScreen();
-      fireEvent.click(screen.getByRole('button', { name: /Continue to Showroom/ }));
-      expect(screen.getByTestId('screen').textContent).toBe('showroom');
+      renderScreen({ withBack: true });
+      fireEvent.click(screen.getByRole('button', { name: 'back' }));
+      expect(screen.getByTestId('screen').textContent).toBe('results');
       act(() => {
-        vi.advanceTimersByTime(RESULTS_SHOWROOM_AUTO_ADVANCE_MS + 10_000);
+        vi.advanceTimersByTime(RESULTS_SHOWROOM_AUTO_ADVANCE_MS);
       });
       expect(screen.getByTestId('screen').textContent).toBe('showroom');
     } finally {
@@ -125,69 +130,78 @@ describe('P0 Game→Showroom — ResultsScreen completion routing', () => {
     }
   });
 
-  it('back from results still routes home (RESET guard, no stale game below)', () => {
-    renderScreen({ withBack: true });
-    fireEvent.click(screen.getByRole('button', { name: 'back' }));
-    expect(screen.getByTestId('screen').textContent).toBe('home');
+  it('the user cannot remain on Results waiting to choose another CTA — the only outcome is the showroom', () => {
+    vi.useFakeTimers();
+    try {
+      renderScreen();
+      act(() => {
+        vi.advanceTimersByTime(RESULTS_SHOWROOM_AUTO_ADVANCE_MS);
+      });
+      expect(screen.getByTestId('screen').textContent).toBe('showroom');
+      act(() => {
+        vi.advanceTimersByTime(30_000);
+      });
+      expect(screen.getByTestId('screen').textContent).toBe('showroom');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
-describe('P0 Game→Showroom — post-game persistence/commercial tree removed', () => {
-  it('no Play Again / Save & Exit / Register buttons remain', async () => {
-    renderScreen();
-    await screen.findByRole('button', { name: /Continue to Showroom/ });
-    expect(screen.queryByRole('button', { name: /Play Again/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Save & Exit/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Register/ })).toBeNull();
+describe('P0 Correction — static source audit: the post-game tree is gone', () => {
+  it('single canonical exit: the only navigation dispatch in ResultsScreen is REPLACE → showroom', () => {
+    expect(RESULTS_SRC).toMatch(/'REPLACE', screen: 'showroom'/);
+    expect(RESULTS_SRC).not.toMatch(/'NAVIGATE'/);
+    expect(RESULTS_SRC).not.toMatch(/'RESET'/);
+    expect(RESULTS_SRC).not.toMatch(/'BACK'/);
   });
 
-  it('renders no ad banner on results (no post-game commercial CTA)', async () => {
-    renderScreen();
-    await screen.findByRole('button', { name: /Continue to Showroom/ });
-    expect(screen.queryByRole('banner')).toBeNull();
+  it('no coach / achievements / share / home / register / play-again targets remain', () => {
+    expect(RESULTS_SRC).not.toContain("screen: 'coach'");
+    expect(RESULTS_SRC).not.toContain("screen: 'achievements'");
+    expect(RESULTS_SRC).not.toContain("screen: 'share'");
+    expect(RESULTS_SRC).not.toContain("screen: 'home'");
+    expect(RESULTS_SRC).not.toContain("screen: 'register'");
+    expect(RESULTS_SRC).not.toContain("screen: 'playAgain'");
+    expect(RESULTS_SRC).not.toContain('AdContactBanner');
   });
 
-  it('keeps the useful options actually reachable (Coach / Achievements / Share)', async () => {
-    renderScreen();
-    await screen.findByRole('button', { name: /Continue to Showroom/ });
-    fireEvent.click(screen.getByRole('button', { name: /Mistakes Coach/ }));
-    expect(screen.getByTestId('screen').textContent).toBe('coach');
-    fireEvent.click(screen.getByRole('button', { name: /Achievements/ }));
-    expect(screen.getByTestId('screen').textContent).toBe('achievements');
-    fireEvent.click(screen.getByRole('button', { name: /Share Results/ }));
-    expect(screen.getByTestId('screen').textContent).toBe('share');
-  });
-
-  it('static: no window.open / no persistence / no internal commerce in ResultsScreen', () => {
-    expect(RESULTS_SRC).not.toContain('window.open');
+  it('no persistence / save-result logic inside ResultsScreen', () => {
     expect(RESULTS_SRC).not.toContain('SAVE_SESSION');
     expect(RESULTS_SRC).not.toContain('completeSession');
     expect(RESULTS_SRC).not.toMatch(/localStorage|sessionStorage/);
     expect(RESULTS_SRC).not.toMatch(/\.from\([^)]*\)\s*\.\s*(insert|upsert|update|delete)\b/);
-    expect(RESULTS_SRC).not.toMatch(/\b(checkout|cart|payment|wallet|financing)\b|سلة|الدفع|إتمام الشراء|شراء فوري|أود شراء|أرغب في شراء/);
   });
 
-  it('static: no register CTA / no ad banner, single canonical REPLACE exit to showroom', () => {
-    expect(RESULTS_SRC).not.toContain("screen: 'register'");
-    expect(RESULTS_SRC).not.toContain('AdContactBanner');
-    expect(RESULTS_SRC).toMatch(/'REPLACE', screen: 'showroom'/);
+  it('no internal commercial route and no window.open', () => {
+    expect(RESULTS_SRC).not.toContain('window.open');
+    expect(RESULTS_SRC).not.toMatch(/\b(checkout|cart|payment|wallet|financing)\b|سلة|الدفع|إتمام الشراء|شراء فوري|أود شراء|أرغب في شراء/);
   });
 });
 
-describe('P0 Game→Showroom — navigation model and completion contract', () => {
-  it('documents the canonical chain game → results → showroom (QR and direct converge)', () => {
+describe('P0 Correction — navigation model: showroom is the only destination after results', () => {
+  it('documents the canonical chain game → results → showroom', () => {
     expect(EDGES.results).toContain('game');
     expect(EDGES.showroom).toContain('results');
+    expect(EDGES.showroom).toContain('home');
+  });
+
+  it('results has NO route to coach / achievements / share / home / register / countdown — showroom only', () => {
+    for (const target of ['coach', 'achievements', 'share', 'home', 'register', 'countdown'] as const) {
+      expect(EDGES[target]).not.toContain('results');
+    }
+  });
+
+  it('QR → GAME → RESULTS → SHOWROOM and direct GAME → RESULTS → SHOWROOM converge on the same destination', () => {
     expect(EDGES['game-intro']).toContain('deep-link');
+    expect(EDGES.game).toContain('countdown');
+    expect(EDGES.results).toContain('game');
+    expect(EDGES.showroom).toContain('results');
+    const replaces = RESULTS_SRC.match(/'REPLACE', screen: '[^']+'/g) ?? [];
+    expect(replaces).toEqual(["'REPLACE', screen: 'showroom'"]);
   });
 
-  it('kept useful options remain documented as reachable from results (no orphans)', () => {
-    expect(EDGES.coach).toContain('results');
-    expect(EDGES.achievements).toContain('results');
-    expect(EDGES.share).toContain('results');
-  });
-
-  it('static: game completion still lands on results via SET_RESULTS + REPLACE', () => {
+  it('GameScreen still lands on results via SET_RESULTS + REPLACE + completeSession', () => {
     const game = codeOnly(read('screens/game/GameScreen.tsx'));
     expect(game).toMatch(/'SET_RESULTS'/);
     expect(game).toMatch(/'REPLACE', screen: 'results'/);
