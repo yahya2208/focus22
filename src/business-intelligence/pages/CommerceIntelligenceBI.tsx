@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { createBusinessAPI, type BusinessAPI } from '../api';
-import type { CommerceFunnel, AIInsight, Prediction } from '../types';
+import type { CommerceFunnel, AIInsight, Prediction, QrScanCount } from '../types';
 import { useThemeColors } from '../../hooks/useThemeColors';
 
 const api: BusinessAPI = createBusinessAPI();
 
 const stageLabels: Record<string, string> = {
-  qr_scanned: 'مسح QR',
   landing_loaded: 'فتح الصفحة',
   consent_granted: 'قبول الشروط',
   calibration_completed: 'المعايرة',
@@ -25,21 +24,48 @@ export function CommerceIntelligenceBI() {
   const [funnel, setFunnel] = useState<CommerceFunnel | null>(null);
   const [insights, setInsights] = useState<AIInsight[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [qrScans, setQrScans] = useState<QrScanCount>({ available: false, scans: 0 });
 
   useEffect(() => {
     Promise.all([
       api.getCommerceFunnel(),
       api.getAIInsights(),
       api.getPredictions(),
-    ]).then(([f, i, p]) => {
+      api.getQrScanCount(),
+    ]).then(([f, i, p, q]) => {
       setFunnel(f);
       setInsights(i);
       setPredictions(p);
+      setQrScans(q);
     });
   }, []);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* QR Scans — from the campaign QR funnel (Error ≠ Zero) */}
+      <div style={{
+        background: colors.bgCard, border: `1px solid ${colors.border}`,
+        borderRadius: '12px', padding: '16px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div>
+          <div style={{ color: colors.text, fontSize: '0.9rem', fontWeight: 700 }}>عدد مسحات QR</div>
+          <div style={{ color: colors.textSecondary, fontSize: '0.75rem', marginTop: '2px' }}>
+            من سجل الحملات (get_campaign_qr_metrics)
+          </div>
+        </div>
+        {qrScans.available ? (
+          <div style={{ color: colors.accent, fontSize: '1.6rem', fontWeight: 800 }}>{qrScans.scans}</div>
+        ) : (
+          <div style={{ color: colors.warning, fontSize: '1.2rem', fontWeight: 800 }} title="تعذر قراءة بيانات المسح من RPC — هذا ليس صفرًا">
+            —
+          </div>
+        )}
+        {!qrScans.available && (
+          <div style={{ color: colors.warning, fontSize: '0.7rem' }}>تعذر قراءة البيانات</div>
+        )}
+      </div>
+
       {/* Critical Drop-off Alert */}
       {funnel?.criticalDropOff && funnel.criticalDropOff.dropRate > 30 && (
         <div style={{

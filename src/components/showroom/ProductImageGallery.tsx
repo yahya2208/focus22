@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 
 interface ProductImageGalleryProps {
@@ -6,9 +6,27 @@ interface ProductImageGalleryProps {
   name: string;
 }
 
+/** Auto-play cadence (§ controlled-fix FIX-01): advance every 3s. */
+export const GALLERY_AUTOPLAY_MS = 3000;
+
+/** Minimum horizontal drag distance for a swipe/drag navigation. */
+export const GALLERY_SWIPE_THRESHOLD_PX = 40;
+
+/** Side-preview dimming so the center image stays the focus. */
+export const GALLERY_SIDE_OPACITY = 0.55;
+export const GALLERY_SIDE_BLUR_PX = 3;
+export const GALLERY_SIDE_SCALE = 0.9;
+
 /**
- * Product details gallery (§3.2): main image + counter badge, thumbnail strip,
- * touch/keyboard swipe, tap → fullscreen.
+ * FIX-01 — Product details gallery as a real carousel (hand-rolled, no library):
+ *  - center image is the focus (opacity 1, blur 0);
+ *  - prev/next images peek on the sides, dimmed + blurred + scaled;
+ *  - auto-play every 3s, circular wrap;
+ *  - smooth crossfade via stacked slides (no <img> jumps, no layout shift);
+ *  - touch swipe + pointer drag (RTL-aware logical direction);
+ *  - ArrowLeft/ArrowRight (RTL-aware);
+ *  - thumbnails + fullscreen preserved;
+ *  - pause/reset on any manual interaction; timers cleaned up on unmount.
  */
 export const ProductImageGallery = memo(function ProductImageGallery({
   images,
@@ -17,83 +35,192 @@ export const ProductImageGallery = memo(function ProductImageGallery({
   const colors = useThemeColors();
   const [index, setIndex] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [, setResetKey] = useState(0);
   const touchStartX = useRef<number | null>(null);
+  const pointerStartX = useRef<number | null>(null);
+  const draggedRef = useRef(false);
+  const regionRef = useRef<HTMLDivElement | null>(null);
 
   const count = images.length;
   const hasImages = count > 0;
 
+  const isRTL = useCallback((): boolean => {
+    const el = regionRef.current;
+    if (!el) return false;
+    return el.closest('[dir="rtl"]') != null;
+  }, []);
+
+  const restartAutoplay = useCallback(() => setResetKey((k) => k + 1), []);
+
+  const next = useCallback(() => {
+    setIndex((i) => (count > 0 ? (i + 1) % count : 0));
+  }, [count]);
+
+  const prev = useCallback(() => {
+    setIndex((i) => (count > 0 ? (i - 1 + count) % count : 0));
+  }, [count]);
+
   const goTo = useCallback(
-    (next: number) => {
-      setIndex(() => {
-        const clamped = Math.min(Math.max(next, 0), Math.max(count - 1, 0));
-        return clamped;
-      });
+    (target: number) => {
+      setIndex(() => Math.min(Math.max(target, 0), Math.max(count - 1, 0)));
     },
     [count],
   );
 
+  // Auto-play: single interval, circular wrap. Paused while the user is
+  // touching/dragging; any manual interaction restarts the 3s window.
+  useEffect(() => {
+    if (count <= 1 || paused) return;
+    const id = setInterval(next, GALLERY_AUTOPLAY_MS);
+    return () => clearInterval(id);
+  }, [count, paused, next, index, restartAutoplay]);
+
   const openFullscreen = useCallback(() => {
-    if (!hasImages) return;
+    if (!hasImages || draggedRef.current) return;
     setFullscreen(true);
   }, [hasImages]);
 
+  const commitHorizontal = useCallback(
+    (dx: number) => {
+      if (Math.abs(dx) < GALLERY_SWIPE_THRESHOLD_PX) {
+        setPaused(false);
+        restartAutoplay();
+        return;
+      }
+      draggedRef.current = true;
+      // Logical direction: in LTR swiping left moves forward; mirrored in RTL.
+      const forward = isRTL() ? dx > 0 : dx < 0;
+      if (forward) next();
+      else prev();
+      setPaused(false);
+      restartAutoplay();
+    },
+    [isRTL, next, prev, restartAutoplay],
+  );
+
   const onTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    if (!touch) return;
-    touchStartX.current = touch.clientX;
+    const t = e.touches[0];
+    if (!t) return;
+    touchStartX.current = t.clientX;
+    setPaused(true);
   }, []);
 
   const onTouchEnd = useCallback(
     (e: React.TouchEvent) => {
       if (touchStartX.current == null) return;
-      const touch = e.changedTouches[0];
-      if (!touch) return;
-      const dx = touch.clientX - touchStartX.current;
+      const t = e.changedTouches[0];
+      if (!t) return;
+      const dx = t.clientX - touchStartX.current;
       touchStartX.current = null;
-      if (Math.abs(dx) < 40) return;
-      goTo(dx < 0 ? index + 1 : index - 1);
+      commitHorizontal(dx);
     },
-    [goTo, index],
+    [commitHorizontal],
+  );
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    pointerStartX.current = e.clientX;
+    draggedRef.current = false;
+    setPaused(true);
+  }, []);
+
+  const onPointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      if (pointerStartX.current == null) return;
+      const dx = e.clientX - pointerStartX.current;
+      pointerStartX.current = null;
+      commitHorizontal(dx);
+    },
+    [commitHorizontal],
   );
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'ArrowRight') goTo(index + 1);
-      if (e.key === 'ArrowLeft') goTo(index - 1);
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const forward = e.key === 'ArrowRight' ? !isRTL() : isRTL();
+        if (forward) next();
+        else prev();
+        setPaused(false);
+        restartAutoplay();
+      }
     },
-    [goTo, index],
+    [isRTL, next, prev, restartAutoplay],
   );
 
-  const mainImg = useMemo(() => {
+  const prevIndex = count > 0 ? (index - 1 + count) % count : -1;
+  const nextIndex = count > 0 ? (index + 1) % count : -1;
+  const prevSrc = prevIndex >= 0 ? (images[prevIndex] ?? null) : null;
+  const nextSrc = nextIndex >= 0 ? (images[nextIndex] ?? null) : null;
+
+  const slideStyle = useCallback(
+    (active: boolean): React.CSSProperties => ({
+      position: 'absolute',
+      inset: 0,
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      display: 'block',
+      opacity: active ? 1 : 0,
+      filter: active ? 'blur(0px)' : 'blur(2px)',
+      transition: 'opacity 0.5s ease, filter 0.5s ease',
+      pointerEvents: active ? 'auto' : 'none',
+    }),
+    [],
+  );
+
+  const sidePeekStyle = useCallback(
+    (side: 'start' | 'end'): React.CSSProperties => ({
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      width: '26%',
+      height: '100%',
+      objectFit: 'cover',
+      display: 'block',
+      opacity: GALLERY_SIDE_OPACITY,
+      filter: `blur(${GALLERY_SIDE_BLUR_PX}px)`,
+      transform: `scale(${GALLERY_SIDE_SCALE})`,
+      borderRadius: '14px',
+      cursor: 'pointer',
+      zIndex: 3,
+      [side === 'start' ? 'insetInlineStart' : 'insetInlineEnd']: '0.4rem',
+    }),
+    [],
+  );
+
+  const arrowStyle = useCallback(
+    (side: 'start' | 'end'): React.CSSProperties => ({
+      position: 'absolute',
+      top: '50%',
+      transform: 'translateY(-50%)',
+      [side === 'start' ? 'insetInlineStart' : 'insetInlineEnd']: '0.5rem',
+      zIndex: 4,
+      width: 34,
+      height: 34,
+      borderRadius: '50%',
+      border: 'none',
+      background: 'rgba(0,0,0,0.45)',
+      color: '#fff',
+      fontSize: '1rem',
+      fontWeight: 700,
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }),
+    [],
+  );
+
+  const main = useMemo(() => {
     if (!hasImages) {
       return (
         <div
           role="img"
           aria-label={name}
           style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: colors.bgInput,
-            color: colors.textFaint,
-            fontSize: '3rem',
-          }}
-        >
-          📱
-        </div>
-      );
-    }
-    const src = images[Math.min(index, count - 1)];
-    if (!src) {
-      return (
-        <div
-          role="img"
-          aria-label={name}
-          style={{
-            width: '100%',
-            height: '100%',
+            position: 'absolute',
+            inset: 0,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -107,18 +234,83 @@ export const ProductImageGallery = memo(function ProductImageGallery({
       );
     }
     return (
-      <img
-        src={src}
-        alt={`${name} — ${index + 1}/${count}`}
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          display: 'block',
-        }}
-      />
+      <>
+        {images.map((src, i) =>
+          src ? (
+            <img
+              key={`slide-${i}`}
+              data-testid={i === index ? 'gallery-center' : `gallery-slide-${i}`}
+              src={src}
+              alt={i === index ? `${name} — ${index + 1}/${count}` : ''}
+              style={slideStyle(i === index)}
+            />
+          ) : null,
+        )}
+        {count > 1 && prevSrc && (
+          <img
+            data-testid="gallery-prev"
+            src={prevSrc}
+            alt=""
+            aria-hidden
+            style={sidePeekStyle('start')}
+            onClick={(e) => {
+              e.stopPropagation();
+              prev();
+              setPaused(false);
+              restartAutoplay();
+            }}
+          />
+        )}
+        {count > 1 && nextSrc && (
+          <img
+            data-testid="gallery-next"
+            src={nextSrc}
+            alt=""
+            aria-hidden
+            style={sidePeekStyle('end')}
+            onClick={(e) => {
+              e.stopPropagation();
+              next();
+              setPaused(false);
+              restartAutoplay();
+            }}
+          />
+        )}
+        {count > 1 && (
+          <>
+            <button
+              type="button"
+              data-testid="gallery-prev-arrow"
+              aria-label={`${name} — previous image`}
+              style={arrowStyle('start')}
+              onClick={(e) => {
+                e.stopPropagation();
+                prev();
+                setPaused(false);
+                restartAutoplay();
+              }}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              data-testid="gallery-next-arrow"
+              aria-label={`${name} — next image`}
+              style={arrowStyle('end')}
+              onClick={(e) => {
+                e.stopPropagation();
+                next();
+                setPaused(false);
+                restartAutoplay();
+              }}
+            >
+              ›
+            </button>
+          </>
+        )}
+      </>
     );
-  }, [hasImages, images, index, count, name, colors.bgInput, colors.textFaint]);
+  }, [hasImages, images, index, count, name, colors.bgInput, colors.textFaint, slideStyle, sidePeekStyle, arrowStyle, prev, next, restartAutoplay, prevSrc, nextSrc]);
 
   return (
     <div
@@ -130,10 +322,13 @@ export const ProductImageGallery = memo(function ProductImageGallery({
       }}
     >
       <div
+        ref={regionRef}
         role="region"
         aria-label="product gallery"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
         onKeyDown={onKeyDown}
         tabIndex={0}
         onClick={openFullscreen}
@@ -146,7 +341,7 @@ export const ProductImageGallery = memo(function ProductImageGallery({
           outline: 'none',
         }}
       >
-        {mainImg}
+        {main}
         {hasImages && (
           <span
             style={{
@@ -159,6 +354,7 @@ export const ProductImageGallery = memo(function ProductImageGallery({
               padding: '0.2rem 0.65rem',
               fontSize: '0.72rem',
               fontWeight: 700,
+              zIndex: 5,
             }}
           >
             {index + 1}/{count}
@@ -170,13 +366,15 @@ export const ProductImageGallery = memo(function ProductImageGallery({
         <div style={{ display: 'flex', gap: '0.4rem', padding: '0.5rem', overflowX: 'auto' }}>
           {images.map((src, i) => (
             <button
-              key={`${src}-${i}`}
+              key={`thumb-${i}`}
               type="button"
               aria-label={`${name} — thumbnail ${i + 1}`}
               aria-current={i === index}
               onClick={(e) => {
                 e.stopPropagation();
                 goTo(i);
+                setPaused(false);
+                restartAutoplay();
               }}
               style={{
                 flex: '0 0 auto',

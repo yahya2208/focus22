@@ -9,7 +9,7 @@ export interface WhatsAppModalState {
 }
 
 export interface WhatsAppSendContext {
-  action?: 'buy' | 'exchange' | 'installment' | 'inquiry';
+  action?: 'buy' | 'exchange' | 'inquiry';
   deviceId?: string;
 }
 

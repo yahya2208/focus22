@@ -52,6 +52,7 @@ import {
   restoreCampaign,
   addTimelineEntry,
   getCampaignQrMetrics,
+  getCampaignQrMetricsResult,
   computeCampaignQrRates,
 } from '../../research-console/pages/campaigns/campaign-service';
 
@@ -234,6 +235,39 @@ describe('getCampaignQrMetrics', () => {
   });
 
   it('23: returns [] on RPC error without throwing', async () => {
+    stub(null, { code: '42501' });
+    expect(await getCampaignQrMetrics()).toEqual([]);
+  });
+});
+
+describe('getCampaignQrMetricsResult — Error ≠ Zero (FIX-03)', () => {
+  it('23a: ok:true with aggregate rows on success', async () => {
+    stub([
+      { campaign_id: 'c1', event_type: 'scan', total: 5 },
+      { campaign_id: 'c1', event_type: 'game_start', total: 3 },
+    ], null);
+    const result = await getCampaignQrMetricsResult();
+    expect(result.ok).toBe(true);
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0]?.total).toBe(5);
+    expect(mock.state.calls.some((c) => c.startsWith('rpc(get_campaign_qr_metrics,'))).toBe(true);
+  });
+
+  it('23b: ok:true with an empty list for a genuine zero read', async () => {
+    stub([], null);
+    const result = await getCampaignQrMetricsResult();
+    expect(result.ok).toBe(true);
+    expect(result.rows).toEqual([]);
+  });
+
+  it('23c: ok:false on RPC error — distinguishable from a real zero', async () => {
+    stub(null, { code: '42501', message: 'permission denied for function get_campaign_qr_metrics' });
+    const result = await getCampaignQrMetricsResult();
+    expect(result.ok).toBe(false);
+    expect(result.rows).toEqual([]);
+  });
+
+  it('23d: legacy getCampaignQrMetrics still returns [] on error (unchanged contract)', async () => {
     stub(null, { code: '42501' });
     expect(await getCampaignQrMetrics()).toEqual([]);
   });

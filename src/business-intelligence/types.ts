@@ -123,6 +123,13 @@ export interface FunnelStage {
   dropFromPrevious: number;
 }
 
+/** QR scan count from the campaign QR funnel. `available:false` = read error,
+ *  must NOT be rendered as a zero (Error ≠ Zero). */
+export interface QrScanCount {
+  available: boolean;
+  scans: number;
+}
+
 export interface AIInsight {
   type: 'opportunity' | 'problem' | 'alert' | 'recommendation';
   title: string;

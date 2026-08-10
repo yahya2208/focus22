@@ -1,11 +1,12 @@
 import { createResearchAPI } from '../core/research/api-supabase';
 import { getSupabaseClient } from '../core/supabase/client';
 import { parseDeviceBrandModel } from '../core/device/parser';
+import { getCampaignQrMetricsResult } from '../research-console/pages/campaigns/campaign-service';
 import type {
   CommandCenterData, TodaySummary, Opportunity, CustomerProfile,
   TimelineEntry, CustomerSession, DeviceInsight,
   DeviceModelInsight, CommerceFunnel, FunnelStage,
-  AIInsight, Prediction, HotDevice, TreasureModeData,
+  AIInsight, Prediction, HotDevice, TreasureModeData, QrScanCount,
 } from './types';
 import type { BranchData } from './actions/types';
 import { devError } from '../core/logging';
@@ -16,6 +17,7 @@ export interface BusinessAPI {
   getCustomerList(): Promise<Opportunity[]>;
   getDeviceInsights(): Promise<DeviceInsight[]>;
   getCommerceFunnel(): Promise<CommerceFunnel>;
+  getQrScanCount(): Promise<QrScanCount>;
   getTreasureMode(): Promise<TreasureModeData>;
   getAIInsights(): Promise<AIInsight[]>;
   getHotDevices(): Promise<HotDevice[]>;
@@ -325,6 +327,15 @@ export function createBusinessAPI(): BusinessAPI {
         totalDropOff: stages.length > 0 ? 100 - (stages[stages.length - 1]?.percentage ?? 0) : 0,
         criticalDropOff,
       };
+    },
+
+    async getQrScanCount(): Promise<QrScanCount> {
+      const result = await getCampaignQrMetricsResult();
+      if (!result.ok) return { available: false, scans: 0 };
+      const scans = result.rows
+        .filter((r) => r.event_type === 'scan')
+        .reduce((sum, r) => sum + (typeof r.total === 'number' ? r.total : 0), 0);
+      return { available: true, scans };
     },
 
     async getTreasureMode(): Promise<TreasureModeData> {

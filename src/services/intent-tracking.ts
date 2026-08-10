@@ -24,7 +24,7 @@ import { getSupabaseClient } from '../core/supabase/client';
 
 export type IntentKind = 'view' | 'click' | 'whatsapp_intent' | 'whatsapp_handoff_started';
 
-export type IntentCtaType = 'buy' | 'exchange' | 'installment' | 'inquiry' | 'ad_click';
+export type IntentCtaType = 'buy' | 'exchange' | 'inquiry' | 'ad_click';
 
 export interface IntentEvent {
   kind: IntentKind;

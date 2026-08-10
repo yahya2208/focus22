@@ -114,14 +114,31 @@ export interface CampaignQrMetricsRow {
 }
 
 /**
- * Reads the per-campaign QR funnel aggregates through the guarded RPC
- * `get_campaign_qr_metrics` (is_research_role enforced server-side). Aggregates
- * only — never raw rows, never nonces. Returns [] on any error.
+ * Status-aware read of the per-campaign QR funnel aggregates through the
+ * guarded RPC `get_campaign_qr_metrics` (is_research_role enforced
+ * server-side). Distinguishes an RPC error ({ ok: false }) from a genuine
+ * zero-count read ({ ok: true, rows: [] }) — Error ≠ Zero. Aggregates only —
+ * never raw rows, never nonces.
+ */
+export async function getCampaignQrMetricsResult(): Promise<CampaignQrMetricsResult> {
+  const { data, error } = await getSupabaseClient().rpc('get_campaign_qr_metrics', {});
+  if (error) return { ok: false, rows: [] };
+  return { ok: true, rows: (data ?? []) as CampaignQrMetricsRow[] };
+}
+
+export interface CampaignQrMetricsResult {
+  ok: boolean;
+  rows: CampaignQrMetricsRow[];
+}
+
+/**
+ * Legacy convenience wrapper: returns rows only, [] on any error. Consumers
+ * that must tell an RPC error apart from a real zero must use
+ * `getCampaignQrMetricsResult` instead.
  */
 export async function getCampaignQrMetrics(): Promise<CampaignQrMetricsRow[]> {
-  const { data, error } = await getSupabaseClient().rpc('get_campaign_qr_metrics', {});
-  if (error) return [];
-  return (data ?? []) as CampaignQrMetricsRow[];
+  const result = await getCampaignQrMetricsResult();
+  return result.rows;
 }
 
 export interface CampaignQrRates {
