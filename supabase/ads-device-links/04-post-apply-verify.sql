@@ -5,7 +5,7 @@
 -- Purpose: close the evidence gaps AFTER the owner runs
 -- 01-ads-device-links-apply.sql. Verifies:
 --   A) device_id column exists (NOT NULL, default '');
---   B) the 4 constraints exist and are all NOT VALID (this cycle);
+--   B) the 5 constraints exist and are all NOT VALID (this cycle);
 --   C) the 7 live rows are untouched (row count + sample) — zero break;
 --   D) new-write enforcement probes (transaction-wrapped — nothing persists):
 --        enabled-without-link rejected · phone-link-without-device rejected ·
@@ -37,7 +37,8 @@ SELECT conname,
 FROM pg_constraint
 WHERE conrelid = 'public.ads'::regclass
   AND conname IN ('ads_enabled_requires_link', 'ads_phone_link_requires_device',
-                  'ads_device_id_format', 'ads_phone_link_matches_device')
+                  'ads_device_id_format', 'ads_phone_link_matches_device',
+                  'ads_device_requires_phone_link')
 ORDER BY conname;
 
 -- ============================================================================
@@ -124,11 +125,12 @@ SELECT
   count(*) FILTER (WHERE link LIKE '#/phone-details?device=%' AND btrim(device_id) = '')  AS rows_violate_phone_link_requires_device,
   count(*) FILTER (WHERE device_id <> '' AND char_length(device_id) NOT BETWEEN 1 AND 128) AS rows_violate_device_id_format,
   count(*) FILTER (WHERE link LIKE '#/phone-details?device=%'
-                        AND link <> '#/phone-details?device=' || device_id)                AS rows_violate_phone_link_matches_device
+                        AND link <> '#/phone-details?device=' || device_id)                AS rows_violate_phone_link_matches_device,
+  count(*) FILTER (WHERE device_id <> '' AND link <> '#/phone-details?device=' || device_id) AS rows_violate_device_requires_phone_link
 FROM public.ads;
 
 -- ============================================================================
--- Expected summary: A = device_id TEXT NOT NULL DEFAULT ''; B = 4 constraints,
+-- Expected summary: A = device_id TEXT NOT NULL DEFAULT ''; B = 5 constraints,
 -- each convalidated = f; C = the same 7 rows as pre-apply (device_id = '');
 -- D = PASS/PASS/PASS/PASS/PASS (rolled back); E = >0 only for the enabled→link
 -- rule until repaired — VALIDATE stays blocked while any count is > 0.

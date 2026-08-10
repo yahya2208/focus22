@@ -4,11 +4,15 @@
 -- Purpose: capture the read-only baseline BEFORE the owner executes
 -- 01-ads-device-links-apply.sql. Confirms:
 --   A) the ads table exists with its current columns (no device_id yet);
---   B) the 4 target constraint names are ABSENT (fresh apply, not a re-run);
+--   B) the 5 target constraint names are ABSENT (fresh apply, not a re-run);
 --   C) current ads rows — the compliance baseline the owner uses to decide
 --      when the later VALIDATE migration can run (NOT VALID in this cycle);
---   D) inventory id length precedent — the longest InventoryRecord id the app
---      can write (drives the 128-char device_id cap).
+--   D) the device_id length contract, proven from the DOCUMENTED app id
+--      generator (data-source.ts generateId) and NOT from any DB table —
+--      the app inventory is localStorage-scoped, the live DB has no
+--      inventory table (and none may be created), so DB-level resolvability
+--      is impossible by architecture (existence stays in the Ads Manager via
+--      InventoryService.getExchangeableDevices()).
 --
 -- SAFETY: SELECT / catalog-reads ONLY. No DML, no DDL. Safe on production.
 -- Run ONCE before applying.
@@ -29,7 +33,8 @@ SELECT conname, pg_get_constraintdef(oid) AS def
 FROM pg_constraint
 WHERE conrelid = 'public.ads'::regclass
   AND conname IN ('ads_enabled_requires_link', 'ads_phone_link_requires_device',
-                  'ads_device_id_format', 'ads_phone_link_matches_device');
+                  'ads_device_id_format', 'ads_phone_link_matches_device',
+                  'ads_device_requires_phone_link');
 
 -- ============================================================================
 -- SECTION C · current ads rows — compliance baseline for the LATER VALIDATE.
@@ -50,20 +55,31 @@ SELECT
 FROM public.ads;
 
 -- ============================================================================
--- SECTION D · inventory id length precedent (max device_id the app can write)
---   App-side writes: crypto.randomUUID() = 36 chars, or id_<ts>_<rand> ≈ 25
---   chars. The app's primary inventory is localStorage-scoped, so the DB table
---   may be empty or absent — the 128 cap holds regardless. This is evidence
---   only, so a missing/empty table must NOT error.
+-- SECTION D · device_id length contract (DOCUMENTED code contract — no DB).
+--   The app writes every inventory id through data-source.ts generateId():
+--     primary : crypto.randomUUID()            = 36 chars (fixed)
+--     fallback: `id_${Date.now()}_${rand36.slice(2,8)}`
+--               id_        = 3 chars
+--               Date.now() = decimal of ms epoch; upper bound is the max safe
+--                            integer 9007199254740991 = 16 chars
+--               _          = 1 char
+--               base36     = Math.random().toString(36).slice(2, 8)
+--                            → at most 6 chars
+--               fallback upper bound            = 3 + 16 + 1 + 6 = 26 chars
+--   device_id cap = 128  ≥ 36 and ≥ 26  ⇒  the contract holds (3.5× margin).
+--   NOTE: this block must NEVER reference a table that may not exist — a
+--   missing relation raises 42P01 at PLAN time even inside a guarded CASE
+--   (this is exactly the failure the previous Section D produced).
 -- ============================================================================
-SELECT CASE WHEN to_regclass('public.inventory_items') IS NULL
-            THEN 0
-            ELSE (SELECT max(length(id::text)) FROM public.inventory_items)
-       END AS max_inventory_id_length;
+SELECT 128 AS device_id_cap,
+       char_length('36be2ef7-2e28-4c18-8bf7-2c9f3e9d4a51') AS uuid_v4_length,
+       3 + char_length('9007199254740991') + 1 + 6          AS fallback_id_max_length,
+       (36 <= 128) AND (26 <= 128)                          AS cap_holds;
 
 -- ============================================================================
 -- Expected: A = current ads columns (no device_id); B = 0 rows; C = the 7 live
 -- rows with the enabled+empty-link violation flagged for the VALIDATE decision;
--- D = ≤ 128. If B is non-empty, STOP — the apply already ran or a previous
--- attempt left constraints behind.
+-- D = uuid_v4_length = 36, fallback_id_max_length = 26, cap_holds = t.
+-- If B is non-empty, STOP — the apply already ran or a previous attempt left
+-- constraints behind.
 -- ============================================================================

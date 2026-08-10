@@ -84,6 +84,20 @@ BEGIN
   END IF;
 END $$;
 
+-- 2.5) CONSISTENCY (reverse): device_id set → link MUST equal the derived
+--      phone link. Closes the D3 gap — without it, device_id='dev-x' with an
+--      external link passes checks 2.1–2.4, contradicting the rule documented
+--      in the header above. Together 2.4 + 2.5 make the device_id↔link
+--      relationship exact (iff). Existence of the id in inventory is NOT the
+--      DB's concern — that stays in the Ads Manager.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ads_device_requires_phone_link') THEN
+    ALTER TABLE public.ads ADD CONSTRAINT ads_device_requires_phone_link
+      CHECK (device_id = '' OR link = '#/phone-details?device=' || device_id) NOT VALID;
+  END IF;
+END $$;
+
 -- ============================================================================
 -- Done. Run 04-post-apply-verify.sql next (read-only). Do NOT run the
 -- VALIDATE migration until every existing ads row complies.
