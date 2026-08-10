@@ -4,7 +4,8 @@ import { AdSpot } from '../ads/AdSpot';
 import { AdBanner, type AdBannerStatus } from '../ads/AdBanner';
 import { resolveAdDevice, extractAdDeviceId } from '../../services/ad-device-resolver';
 import { recordIntent } from '../../services/intent-tracking';
-import { useAppDispatch } from '../../store/navigation';
+import { buildAdClickMessage } from '../../services/whatsapp-service';
+import { useWhatsApp } from '../../providers/WhatsAppProvider';
 import type { InventoryRecord } from '../../services/inventory-service';
 
 interface AdContactBannerProps {
@@ -26,26 +27,30 @@ function resolve(placement: AdPlacement): ResolvedAd | null {
 /**
  * Ad Contact Banner — device-linked ads (Marketplace Mediator model §10, §17):
  * When the configured ad links to a phone (`#/phone-details?device=<id>`), the
- * whole banner becomes a single-target click: click → fire-and-forget intent →
- * navigate to the phone's details page (`phone-details?device=<id>`). The user
- * then chooses a WhatsApp action (شراء/استبدال/تقسيط/استفسار) or Back/Cancel
- * on the details page. Any other ad link keeps its normal anchor behaviour.
+ * whole banner becomes a single-target click. PHASE C (owner-approved): the
+ * click starts a guarded same-tab WhatsApp handoff DIRECTLY to the fixed
+ * business number — it records `ad_click` then `whatsapp_handoff_started`
+ * (fire-and-forget), builds the ad-click message with the ad's image URL and
+ * placement, and sends via `useWhatsApp().send`. It NEVER navigates, NEVER
+ * opens a new tab, and never opens an image viewer/zoom. Any other ad link
+ * keeps its normal anchor behaviour.
  *
  * M2 — View counting (§17): a view is recorded when the banner stays inside
  * the viewport at ≥ 0.6 visibility for ≥ 1 s (IntersectionObserver). NOT
  * counted: hidden render, preload, DOM creation, off-screen mount. Click and
- * view tracking are fire-and-forget and can never block navigation.
+ * view tracking are fire-and-forget and can never block the handoff.
  *
- * BATCH 2 — WhatsApp is ONLY initiated from the phone details page (with
- * `whatsapp_intent` tied to `deviceId`); the ad itself never opens WhatsApp
- * and never opens an image viewer/zoom.
+ * BATCH 4A fallback: a phone-format link whose device is NOT resolvable in
+ * the current inventory renders as a NON-INTERACTIVE banner (never a dead
+ * <a>, never a handoff attempt). The repair placement is never part of this
+ * path — repair requests originate only from the repair flow.
  */
 export const AdContactBanner = memo(function AdContactBanner({ placement }: AdContactBannerProps) {
   const [ad, setAd] = useState<ResolvedAd | null>(() => resolve(placement));
   const [failed, setFailed] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewedRef = useRef(false);
-  const dispatch = useAppDispatch();
+  const whatsapp = useWhatsApp();
 
   const device: InventoryRecord | null = ad?.link ? resolveAdDevice(ad.link) : null;
   const deviceId = device?.id;
@@ -144,9 +149,17 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
             try {
               recordIntent({ kind: 'click', ctaType: 'ad_click', placement, deviceId: device!.id });
             } catch {
-              // fire-and-forget: tracking must never block navigation
+              // fire-and-forget: tracking must never block the handoff
             }
-            dispatch({ type: 'NAVIGATE', screen: 'phone-details', params: { device: device!.id } });
+            try {
+              recordIntent({ kind: 'whatsapp_handoff_started', ctaType: 'inquiry', placement, deviceId: device!.id });
+            } catch {
+              // fire-and-forget: tracking must never block the handoff
+            }
+            whatsapp.send(buildAdClickMessage(device!, { placement, imageUrl: ad.image }), {
+              action: 'inquiry',
+              deviceId: device!.id,
+            });
           }}
           style={{
             position: 'absolute',

@@ -156,7 +156,7 @@ afterEach(() => {
   MockIntersectionObserver.instances = [];
 });
 
-describe('AdContactBanner (BATCH 2 — Ad Click → Phone Details + view counting)', () => {
+describe('AdContactBanner (PHASE C — Ad Click → guarded WhatsApp handoff + view counting)', () => {
   beforeEach(() => {
     mock.__setState(DISABLED);
     vi.clearAllMocks();
@@ -185,7 +185,7 @@ describe('AdContactBanner (BATCH 2 — Ad Click → Phone Details + view countin
     expect(screen.queryByRole('button')).toBeNull();
   });
 
-  it('BATCH 2 — phone-linked ad click navigates to phone-details with deviceId and never opens WhatsApp', async () => {
+  it('PHASE C — phone-linked ad click starts the guarded WhatsApp handoff with the ad context and never navigates', async () => {
     mock.__setState(PHONE_AD);
     renderBanner('home');
     await act(async () => {
@@ -194,20 +194,42 @@ describe('AdContactBanner (BATCH 2 — Ad Click → Phone Details + view countin
 
     const overlay = screen.getByRole('button', { name: 'Contact for this phone' });
     fireEvent.click(overlay);
+
+    // Both fire-and-forget intents are recorded in order: ad_click then handoff.
     expect(mockRecordIntent).toHaveBeenCalledWith({
       kind: 'click',
       ctaType: 'ad_click',
       placement: 'home',
       deviceId: DEVICE.id,
     });
-    // Navigation contract: Advertisement → Phone Details carrying the deviceId.
-    expect(screen.getByTestId('probe-screen').textContent).toBe('phone-details');
-    expect(screen.getByTestId('probe-device').textContent).toBe(DEVICE.id);
-    // WhatsApp is ONLY initiated from the phone details page — never from the ad.
-    expect(mockSend).not.toHaveBeenCalled();
+    expect(mockRecordIntent).toHaveBeenCalledWith({
+      kind: 'whatsapp_handoff_started',
+      ctaType: 'inquiry',
+      placement: 'home',
+      deviceId: DEVICE.id,
+    });
+    expect(mockRecordIntent).toHaveBeenCalledTimes(2);
+
+    // WhatsApp send was invoked exactly once with the message + context.
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    const [message, context] = mockSend.mock.calls[0] as [string, unknown];
+    // The 6-field device contract is intact.
+    expect(message).toContain('Apple iPhone 13');
+    expect(message).toContain('الكود: rec_abcd');
+    expect(message).toContain('السعر: 98,000 دج');
+    expect(message).toContain('المدينة: الجزائر');
+    expect(message).toContain('رابط الإعلان:');
+    // The ad context is included: image + placement.
+    expect(message).toContain('صورة الإعلان: https://cdn/banner.png');
+    expect(message).toContain('الموضع: home');
+    expect(context).toEqual({ action: 'inquiry', deviceId: DEVICE.id });
+
+    // Navigation contract: NOTHING navigates — the handoff is same-tab wa.me.
+    expect(screen.getByTestId('probe-screen').textContent).toBe('home');
+    expect(screen.getByTestId('probe-device').textContent).toBe('');
   });
 
-  it('BATCH 2 — tracking failure never blocks navigation (fire-and-forget)', async () => {
+  it('PHASE C — tracking failure never blocks the WhatsApp handoff (fire-and-forget)', async () => {
     mock.__setState(PHONE_AD);
     mockRecordIntent.mockImplementation(() => {
       throw new Error('tracking down');
@@ -219,9 +241,10 @@ describe('AdContactBanner (BATCH 2 — Ad Click → Phone Details + view countin
 
     const overlay = screen.getByRole('button', { name: 'Contact for this phone' });
     expect(() => fireEvent.click(overlay)).not.toThrow();
-    expect(screen.getByTestId('probe-screen').textContent).toBe('phone-details');
-    expect(screen.getByTestId('probe-device').textContent).toBe(DEVICE.id);
-    expect(mockSend).not.toHaveBeenCalled();
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    const [message] = mockSend.mock.calls[0] as [string];
+    expect(message).toContain('الموضع: home');
+    expect(screen.getByTestId('probe-screen').textContent).toBe('home');
   });
 
   it('keeps the ad banner visible underneath the navigation overlay', async () => {
@@ -251,7 +274,7 @@ describe('AdContactBanner (BATCH 2 — Ad Click → Phone Details + view countin
     expect(interactive[0]!.tagName).toBe('BUTTON');
   });
 
-  it('BATCH 1 — showroom placement: view and click carry placement "showroom" and the phone id; click navigates', async () => {
+  it('PHASE C — showroom placement: view and click carry placement "showroom"; click hands off (no navigate)', async () => {
     vi.useFakeTimers();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
@@ -274,9 +297,13 @@ describe('AdContactBanner (BATCH 2 — Ad Click → Phone Details + view countin
     const overlay = screen.getByRole('button', { name: 'Contact for this phone' });
     fireEvent.click(overlay);
     expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'click', ctaType: 'ad_click', placement: 'showroom', deviceId: DEVICE.id });
-    expect(screen.getByTestId('probe-screen').textContent).toBe('phone-details');
-    expect(screen.getByTestId('probe-device').textContent).toBe(DEVICE.id);
-    expect(mockSend).not.toHaveBeenCalled();
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'whatsapp_handoff_started', ctaType: 'inquiry', placement: 'showroom', deviceId: DEVICE.id });
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    const [message] = mockSend.mock.calls[0] as [string];
+    expect(message).toContain('الموضع: showroom');
+    // No navigation happened — the app screen is untouched.
+    expect(screen.getByTestId('probe-screen').textContent).not.toBe('phone-details');
+    expect(screen.getByTestId('probe-device').textContent).toBe('');
   });
 
   it('records a view only after the banner stays ≥ 0.6 visible for ≥ 1 s', async () => {
@@ -349,7 +376,7 @@ describe('AdContactBanner (BATCH 2 — Ad Click → Phone Details + view countin
     expect(screen.getByRole('button', { name: 'Contact for this phone' })).toBeTruthy();
   });
 
-  it('the single focusable target receives keyboard focus and navigates exactly once', async () => {
+  it('the single focusable target receives keyboard focus and hands off exactly once', async () => {
     mock.__setState(PHONE_AD);
     renderBanner('home');
     await act(async () => {
@@ -360,10 +387,11 @@ describe('AdContactBanner (BATCH 2 — Ad Click → Phone Details + view countin
     overlay.focus();
     expect(document.activeElement).toBe(overlay);
     fireEvent.click(overlay);
-    expect(mockRecordIntent).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('probe-screen').textContent).toBe('phone-details');
-    expect(screen.getByTestId('probe-device').textContent).toBe(DEVICE.id);
-    expect(mockSend).not.toHaveBeenCalled();
+    // Exactly one click → exactly one pair of intents + exactly one WhatsApp send.
+    expect(mockRecordIntent).toHaveBeenCalledTimes(2);
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('probe-screen').textContent).toBe('home');
+    expect(screen.getByTestId('probe-device').textContent).toBe('');
   });
 
   it('BATCH 4A — phone link with an unresolvable device renders a NON-interactive banner (no dead link, no navigation)', async () => {

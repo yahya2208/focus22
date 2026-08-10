@@ -22,13 +22,13 @@
 
 import { getSupabaseClient } from '../core/supabase/client';
 
-export type IntentKind = 'view' | 'click' | 'whatsapp_intent';
+export type IntentKind = 'view' | 'click' | 'whatsapp_intent' | 'whatsapp_handoff_started';
 
 export type IntentCtaType = 'buy' | 'exchange' | 'installment' | 'inquiry' | 'ad_click';
 
 export interface IntentEvent {
   kind: IntentKind;
-  /** Required for click ('ad_click') and whatsapp_intent; always null for view. */
+  /** Required for click ('ad_click'), whatsapp_intent, and whatsapp_handoff_started ('inquiry'); always null for view. */
   ctaType?: IntentCtaType;
   placement?: string;
   deviceId?: string;

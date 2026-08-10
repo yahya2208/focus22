@@ -61,6 +61,19 @@ describe('M2 — recordIntent fire-and-forget contract', () => {
     expect(args[1]).toMatchObject({ p_kind: 'view', p_cta_type: null });
   });
 
+  it('PHASE C — records whatsapp_handoff_started with cta_type inquiry and the ad target', () => {
+    recordIntent({ kind: 'whatsapp_handoff_started', ctaType: 'inquiry', placement: 'home', deviceId: 'rec_3' });
+    const args = mocks.mockRpc.mock.calls[0]!;
+    expect(args[0]).toBe('record_campaign_intent');
+    expect(args[1]).toMatchObject({
+      p_kind: 'whatsapp_handoff_started',
+      p_cta_type: 'inquiry',
+      p_campaign_id: null,
+      p_ad_placement: 'home',
+      p_device_id: 'rec_3',
+    });
+  });
+
   it('BATCH 1 — dispatches showroom view and ad_click with the correct payload', () => {
     recordIntent({ kind: 'view', placement: 'showroom' });
     expect(mocks.mockRpc).toHaveBeenLastCalledWith(

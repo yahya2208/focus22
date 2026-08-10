@@ -10,6 +10,7 @@ import {
   buildExchangeRequestMessage,
   buildModelNotFoundMessage,
   buildWhatsAppForActionMessage,
+  buildAdClickMessage,
   WHATSAPP_PHONE,
 } from '../../services/whatsapp-service';
 import { sendRepairRequestWhatsApp } from '../../services/repair/repair-whatsapp';
@@ -172,5 +173,51 @@ describe('WhatsApp unified send path (launch-blocker fix)', () => {
         wantVariant: '128GB',
       }),
     );
+  });
+});
+
+describe('PHASE C — buildAdClickMessage ad context (image + placement, only when present)', () => {
+  function makeDevice() {
+    return {
+      id: 'rec_abcdef12',
+      brand: 'Apple',
+      model: 'iPhone 13',
+      variant: '128GB',
+      sellPrice: 98000,
+      city: 'الجزائر',
+      code: '',
+    };
+  }
+
+  it('keeps the original 6-field contract when no ad context is passed', () => {
+    const message = buildAdClickMessage(makeDevice());
+    expect(message).toContain('أود الاستفسار عن الهاتف الذي شاهدت إعلانه:');
+    expect(message).toContain('اسم الهاتف: Apple iPhone 13 (128GB)');
+    expect(message).toContain('الكود: rec_abcd');
+    expect(message).toContain('السعر: 98,000 دج');
+    expect(message).toContain('المدينة: الجزائر');
+    expect(message).toContain('رابط الإعلان:');
+    expect(message).not.toContain('صورة الإعلان:');
+    expect(message).not.toContain('الموضع:');
+    expect(message.endsWith('شكراً.')).toBe(true);
+  });
+
+  it('appends صورة الإعلان and الموضع ONLY when the values are present', () => {
+    const message = buildAdClickMessage(makeDevice(), {
+      placement: 'home',
+      imageUrl: 'https://cdn/banner.png',
+    });
+    expect(message).toContain('صورة الإعلان: https://cdn/banner.png');
+    expect(message).toContain('الموضع: home');
+    // 6-field contract intact alongside the extras.
+    expect(message).toContain('اسم الهاتف: Apple iPhone 13 (128GB)');
+    expect(message).toContain('الكود: rec_abcd');
+    expect(message.endsWith('شكراً.')).toBe(true);
+  });
+
+  it('omits the extra lines when the ad context values are empty/whitespace', () => {
+    const message = buildAdClickMessage(makeDevice(), { placement: '   ', imageUrl: '' });
+    expect(message).not.toContain('صورة الإعلان:');
+    expect(message).not.toContain('الموضع:');
   });
 });

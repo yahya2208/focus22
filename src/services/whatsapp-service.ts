@@ -259,9 +259,23 @@ export function sendContactOwnerWhatsApp(
  * M1 — Ad Click → WhatsApp (§10): clicking an ad that points to a phone builds a
  * contact message with the available phone data and opens WhatsApp to the owner.
  * Same 6-field contract as the details action bar (name/code/price/city/link).
+ *
+ * PHASE C — the ad context is appended as two extra lines, ONLY when the values
+ * are present (never fabricated): `صورة الإعلان: {imageUrl}` (the clicked
+ * banner's public image URL — wa.me is text-only, so the image travels as a
+ * link the recipient opens) and `الموضع: {placement}` (the explicit ad
+ * placement key — never guessed from the URL).
  */
+export interface AdClickMessageOptions {
+  /** The clicked ad's placement key (explicit identity, never route-derived). */
+  placement?: string;
+  /** The clicked ad banner image public URL (http/https). */
+  imageUrl?: string;
+}
+
 export function buildAdClickMessage(
   device: Pick<InventoryRecord, 'id' | 'brand' | 'model' | 'variant' | 'sellPrice' | 'city' | 'code'>,
+  opts?: AdClickMessageOptions,
 ): string {
   const ctx = getPhoneActionContext(device);
   const lines = [
@@ -273,6 +287,8 @@ export function buildAdClickMessage(
   if (ctx.price != null) lines.push(`السعر: ${ctx.price} دج`);
   if (ctx.city) lines.push(`المدينة: ${ctx.city}`);
   lines.push(`رابط الإعلان: ${ctx.url}`);
+  if (opts?.imageUrl && opts.imageUrl.trim()) lines.push(`صورة الإعلان: ${opts.imageUrl.trim()}`);
+  if (opts?.placement && opts.placement.trim()) lines.push(`الموضع: ${opts.placement.trim()}`);
   lines.push('شكراً.');
   return lines.join('\n');
 }
