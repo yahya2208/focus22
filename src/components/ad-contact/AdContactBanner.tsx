@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { ensureAdsLoaded, getAd, subscribeAds, type AdPlacement } from '../../services/ads-service';
 import { AdSpot } from '../ads/AdSpot';
 import { AdBanner, type AdBannerStatus } from '../ads/AdBanner';
-import { resolveAdDevice } from '../../services/ad-device-resolver';
+import { resolveAdDevice, extractAdDeviceId } from '../../services/ad-device-resolver';
 import { recordIntent } from '../../services/intent-tracking';
 import { useAppDispatch } from '../../store/navigation';
 import type { InventoryRecord } from '../../services/inventory-service';
@@ -49,6 +49,7 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
 
   const device: InventoryRecord | null = ad?.link ? resolveAdDevice(ad.link) : null;
   const deviceId = device?.id;
+  const hasPhoneLink = Boolean(ad?.link && extractAdDeviceId(ad.link) !== null);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,11 +120,16 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
   // is the ONLY focusable/actionable target. Clicking navigates to the phone's
   // details page carrying `deviceId` — never to WhatsApp directly, never to an
   // image viewer. Non-phone ads keep their normal AdSpot anchor behaviour.
-  const isContact = Boolean(device);
+  //
+  // BATCH 4A fallback: a phone-format link whose device is NOT resolvable in
+  // the current inventory renders as a NON-INTERACTIVE banner (never a dead
+  // <a>, never a navigation attempt). Resolvable → interactive overlay button.
+  const isContact = hasPhoneLink && Boolean(device);
+  const isUnresolvedPhoneLink = hasPhoneLink && !device;
 
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
-      {isContact ? (
+      {isContact || isUnresolvedPhoneLink ? (
         <div role="banner" aria-label={ad.alt || placement}>
           <AdBanner image={ad.image} alt={ad.alt || placement} onStateChange={handleStateChange} />
         </div>

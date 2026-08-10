@@ -33,6 +33,12 @@ export interface AdConfig {
   image: string;
   link: string;
   alt: string;
+  /**
+   * Structured source of truth for phone-linked ads: the InventoryRecord.id
+   * the banner navigates to. Empty string when the ad is a plain external link.
+   * `link` is derived from `deviceId` on save (#/phone-details?device=<id>).
+   */
+  deviceId: string;
 }
 
 interface AdRow {
@@ -42,6 +48,7 @@ interface AdRow {
   image_url: string;
   link: string;
   alt: string;
+  device_id: string;
 }
 
 export interface AdRowInput {
@@ -51,6 +58,44 @@ export interface AdRowInput {
   image_url?: string;
   link?: string;
   alt?: string;
+  deviceId?: string;
+}
+
+export const PHONE_DETAILS_PREFIX = '#/phone-details?device=';
+
+export function buildAdPhoneLink(deviceId: string): string {
+  return `${PHONE_DETAILS_PREFIX}${encodeURIComponent(deviceId)}`;
+}
+
+export function isAdPhoneLink(link: string | undefined): boolean {
+  return typeof link === 'string' && link.startsWith(PHONE_DETAILS_PREFIX);
+}
+
+/**
+ * Client-side validation mirror of the DB CHECKs (supabase/ads-device-links/).
+ * The DB enforces format/consistency; this helper enforces the same rules at
+ * save time so the admin sees the error immediately. Existence in the current
+ * inventory is NOT validated here — that is the Ads Manager's job (the DB
+ * cannot know a client-side inventory source).
+ */
+export function validateAdInput(input: AdRowInput): void {
+  const enabled = Boolean(input.enabled);
+  const link = input.link?.trim() ?? '';
+  const deviceId = input.deviceId?.trim() ?? '';
+
+  if (isAdPhoneLink(input.link)) {
+    if (!deviceId) {
+      throw new Error('رابط هاتف يتطلب اختيار هاتف مرتبط (device_id)');
+    }
+    if (link !== buildAdPhoneLink(deviceId)) {
+      throw new Error('الرابط لا يطابق الهاتف المختار');
+    }
+  } else if (deviceId) {
+    throw new Error('اختيار هاتف مرتبط يتطلب رابط هاتف داخلي');
+  }
+  if (enabled && !link) {
+    throw new Error('الإعلان المفعّل يجب أن يحتوي على رابط وجهة (هاتف أو رابط خارجي)');
+  }
 }
 
 const ADS_BUCKET = 'ads-images';
@@ -64,7 +109,7 @@ let realtimeStarted = false;
 
 function emptyMap(): Record<AdPlacement, AdConfig> {
   const result = {} as Record<AdPlacement, AdConfig>;
-  for (const p of AD_PLACEMENTS) result[p] = { enabled: false, image: '', link: '', alt: '' };
+  for (const p of AD_PLACEMENTS) result[p] = { enabled: false, image: '', link: '', alt: '', deviceId: '' };
   return result;
 }
 
@@ -102,6 +147,7 @@ function rowToConfig(row: AdRow): AdConfig {
     image: imageUrl || publicImageUrl(row.image_path),
     link: row.link,
     alt: row.alt,
+    deviceId: row.device_id ?? '',
   };
 }
 
@@ -203,12 +249,19 @@ export async function uploadAdImage(placement: AdPlacement, file: Blob): Promise
 }
 
 export async function saveAd(input: AdRowInput): Promise<void> {
+  let link = input.link ?? '';
+  const deviceId = input.deviceId?.trim() ?? '';
+  if (deviceId) {
+    link = buildAdPhoneLink(deviceId);
+  }
+  validateAdInput({ ...input, link, deviceId });
   const { error } = await getSupabaseClient().from('ads').upsert({
     placement: input.placement,
     enabled: input.enabled,
     image_path: input.image_path ?? '',
     image_url: input.image_url ?? '',
-    link: input.link ?? '',
+    link,
+    device_id: deviceId,
     alt: input.alt ?? '',
   });
   if (error) throw new Error(`فشل حفظ الإعلان: ${error.message}`);

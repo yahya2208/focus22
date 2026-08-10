@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { DashboardHeader } from '../../layout/ResearchLayout';
 import {
   refreshAds, getAds, saveAd, resetAd, uploadAdImage, AD_PLACEMENTS,
+  buildAdPhoneLink,
   type AdPlacement, type AdConfig,
 } from '../../../services/ads-service';
 import { compressImageToBlob } from '../../../services/image-service';
 import { AdBanner } from '../../../components/ads/AdBanner';
+import { InventoryService, type InventoryRecord } from '../../../services/inventory-service';
 
 const PLACEMENT_LABELS: Record<AdPlacement, string> = {
   home: 'الصفحة الرئيسية',
@@ -18,7 +20,7 @@ const PLACEMENT_LABELS: Record<AdPlacement, string> = {
 };
 
 function emptyConfig(): AdConfig {
-  return { enabled: false, image: '', link: '', alt: '' };
+  return { enabled: false, image: '', link: '', alt: '', deviceId: '' };
 }
 
 function emptyMap(): Record<AdPlacement, AdConfig> {
@@ -34,6 +36,10 @@ export function AdsManager() {
   const [status, setStatus] = useState<Record<AdPlacement, string>>({} as Record<AdPlacement, string>);
   const [busy, setBusy] = useState<AdPlacement | null>(null);
   const [loaded, setLoaded] = useState(false);
+
+  // Phone picker source — the same availability contract the phone-details
+  // page uses (useProductDetails), so any selectable phone resolves at runtime.
+  const devices: InventoryRecord[] = InventoryService.getExchangeableDevices();
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +85,11 @@ export function AdsManager() {
     setStatus((prev) => ({ ...prev, [placement]: '' }));
     try {
       const cfg = edits[placement];
+      if (cfg.deviceId && !devices.some((d) => d.id === cfg.deviceId)) {
+        setStatus((prev) => ({ ...prev, [placement]: 'الهاتف المحدد غير موجود في المخزون الحالي — أعد اختياره' }));
+        setBusy(null);
+        return;
+      }
       const pending = pendingUploads[placement];
       let image_path = '';
       let image_url = cfg.image;
@@ -87,7 +98,10 @@ export function AdsManager() {
         image_path = uploaded.path;
         image_url = uploaded.url;
       }
-      await saveAd({ placement, enabled: cfg.enabled, image_path, image_url, link: cfg.link, alt: cfg.alt });
+      await saveAd({
+        placement, enabled: cfg.enabled, image_path, image_url,
+        link: cfg.link, alt: cfg.alt, deviceId: cfg.deviceId,
+      });
       setPendingUploads((prev) => {
         const next = { ...prev };
         delete next[placement];
@@ -201,13 +215,43 @@ export function AdsManager() {
                   onChange={(e) => handleUpload(placement, e.target.files)}
                   style={{ color: '#888', fontSize: '0.8rem', width: '100%' }}
                 />
-                <input
-                  type="text"
-                  placeholder="رابط الوجهة (اختياري)"
-                  value={cfg.link}
-                  onChange={(e) => patch(placement, { link: e.target.value })}
-                  style={inputStyle}
-                />
+                <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '4px' }}>هاتف مرتبط (اختياري)</div>
+                <select
+                  aria-label={`هاتف مرتبط لـ ${PLACEMENT_LABELS[placement]}`}
+                  value={cfg.deviceId}
+                  onChange={(e) => {
+                    const deviceId = e.target.value;
+                    patch(placement, { deviceId, link: deviceId ? buildAdPhoneLink(deviceId) : '' });
+                  }}
+                  style={{ ...inputStyle, marginBottom: '8px' }}
+                >
+                  <option value="">لا يوجد هاتف — رابط خارجي</option>
+                  {devices.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {`${d.brand} ${d.model} ${d.variant ?? ''}`.trim()}
+                    </option>
+                  ))}
+                </select>
+                {cfg.deviceId ? (
+                  <div>
+                    <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '4px' }}>رابط الهاتف (يُشتق تلقائيًا)</div>
+                    <input
+                      type="text"
+                      readOnly
+                      value={cfg.link}
+                      data-testid="ad-phone-link"
+                      style={inputStyle}
+                    />
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="رابط الوجهة (اختياري) — مثال https://..."
+                    value={cfg.link}
+                    onChange={(e) => patch(placement, { link: e.target.value })}
+                    style={inputStyle}
+                  />
+                )}
                 <input
                   type="text"
                   placeholder="نص بديل / وصف"

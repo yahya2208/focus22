@@ -365,4 +365,27 @@ describe('AdContactBanner (BATCH 2 — Ad Click → Phone Details + view countin
     expect(screen.getByTestId('probe-device').textContent).toBe(DEVICE.id);
     expect(mockSend).not.toHaveBeenCalled();
   });
+
+  it('BATCH 4A — phone link with an unresolvable device renders a NON-interactive banner (no dead link, no navigation)', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/banner.png',
+      link: '#/phone-details?device=ghost-device',
+      alt: 'Ghost phone',
+    });
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const banner = screen.getByRole('banner');
+    expect(banner.tagName).toBe('DIV');
+    expect(banner.querySelector('a')).toBeNull();
+    // No overlay button, no focusable target — never a dead <a>, never a nav attempt.
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(document.querySelectorAll('a, button, [role="link"], [tabindex]:not([tabindex="-1"])').length).toBe(0);
+    // Navigation contract: NOTHING navigates for an unresolved phone link.
+    expect(screen.getByTestId('probe-screen').textContent).not.toBe('phone-details');
+    expect(mockRecordIntent).not.toHaveBeenCalled();
+  });
 });

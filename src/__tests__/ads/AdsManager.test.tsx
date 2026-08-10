@@ -7,6 +7,7 @@ interface AdConfigShape {
   image: string;
   link: string;
   alt: string;
+  deviceId: string;
 }
 
 const mock = vi.hoisted(() => {
@@ -19,7 +20,7 @@ const mock = vi.hoisted(() => {
     },
     __emptyAds: () => {
       const empty = {} as Record<string, AdConfigShape>;
-      for (const p of PLACEMENTS) empty[p] = { enabled: false, image: '', link: '', alt: '' };
+      for (const p of PLACEMENTS) empty[p] = { enabled: false, image: '', link: '', alt: '', deviceId: '' };
       return empty;
     },
     refreshAds: vi.fn(async () => {}),
@@ -29,6 +30,7 @@ const mock = vi.hoisted(() => {
     uploadAdImage: vi.fn(async () => ({ path: 'ads/home/new.jpg', url: 'https://cdn/new.jpg' })),
     AD_PLACEMENTS: PLACEMENTS,
     compressImageToBlob: vi.fn(async () => new Blob(['x'], { type: 'image/jpeg' })),
+    buildAdPhoneLink: vi.fn((deviceId: string) => `#/phone-details?device=${deviceId}`),
   };
 });
 
@@ -39,10 +41,19 @@ vi.mock('../../services/ads-service', () => ({
   resetAd: mock.resetAd,
   uploadAdImage: mock.uploadAdImage,
   AD_PLACEMENTS: mock.AD_PLACEMENTS,
+  buildAdPhoneLink: mock.buildAdPhoneLink,
 }));
 
 vi.mock('../../services/image-service', () => ({
   compressImageToBlob: mock.compressImageToBlob,
+}));
+
+vi.mock('../../services/inventory-service', () => ({
+  InventoryService: {
+    getExchangeableDevices: () => [
+      { id: 'dev-samsung-1', brand: 'Samsung', model: 'Galaxy S22', variant: '128GB', quantity: 2, status: 'in_stock' },
+    ],
+  },
 }));
 
 afterEach(() => {
@@ -88,7 +99,7 @@ describe('AdsManager', () => {
 
   it('reflects an enabled ad as a checked toggle', async () => {
     const ads = mock.__emptyAds();
-    ads.home = { enabled: true, image: 'https://cdn/home.png', link: '', alt: '' };
+    ads.home = { enabled: true, image: 'https://cdn/home.png', link: '', alt: '', deviceId: '' };
     mock.__setAds(ads);
 
     render(<AdsManager />);
@@ -154,5 +165,42 @@ describe('AdsManager', () => {
     fireEvent.click(within(phonesCard).getByRole('button', { name: '💾 حفظ ونشر' }));
 
     await waitFor(() => expect(screen.getByText('فشل الحفظ: DB down')).toBeTruthy());
+  });
+
+  it('selecting a phone derives the phone link and saves deviceId + derived link', async () => {
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.change(within(homeCard).getByRole('combobox'), { target: { value: 'dev-samsung-1' } });
+
+    const derivedLink = within(homeCard).getByTestId('ad-phone-link') as HTMLInputElement;
+    expect(derivedLink.value).toBe('#/phone-details?device=dev-samsung-1');
+
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+    await waitFor(() => expect(mock.saveAd).toHaveBeenCalled());
+    expect(mock.saveAd).toHaveBeenCalledWith(expect.objectContaining({
+      placement: 'home',
+      deviceId: 'dev-samsung-1',
+      link: '#/phone-details?device=dev-samsung-1',
+    }));
+  });
+
+  it('blocks save when the linked phone is not in the current inventory', async () => {
+    const ads = mock.__emptyAds();
+    ads.home = {
+      enabled: true, image: 'https://cdn/home.png', alt: '',
+      link: '#/phone-details?device=ghost-device', deviceId: 'ghost-device',
+    };
+    mock.__setAds(ads);
+
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(screen.getByText(/الهاتف المحدد غير موجود/)).toBeTruthy());
+    expect(mock.saveAd).not.toHaveBeenCalled();
   });
 });

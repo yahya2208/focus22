@@ -66,6 +66,7 @@ vi.mock('../../core/supabase/client', () => ({
 
 import {
   AD_PLACEMENTS, ensureAdsLoaded, getAd, getAds, saveAd, resetAd, uploadAdImage, resetAdsService,
+  buildAdPhoneLink, validateAdInput,
 } from '../../services/ads-service';
 
 describe('ads-service (Supabase-backed)', () => {
@@ -88,7 +89,7 @@ describe('ads-service (Supabase-backed)', () => {
     });
 
     await ensureAdsLoaded();
-    expect(getAd('home')).toEqual({ enabled: true, image: 'https://cdn/x.jpg', link: 'https://go', alt: 'X' });
+    expect(getAd('home')).toEqual({ enabled: true, image: 'https://cdn/x.jpg', link: 'https://go', alt: 'X', deviceId: '' });
     expect(getAd('phones')?.enabled).toBe(false);
     // every placement is present
     expect(Object.keys(getAds() ?? {})).toHaveLength(AD_PLACEMENTS.length);
@@ -98,7 +99,7 @@ describe('ads-service (Supabase-backed)', () => {
     mockFrom().select.mockResolvedValue({ data: null, error: { message: 'relation "ads" does not exist' } });
 
     await ensureAdsLoaded();
-    expect(getAd('home')).toEqual({ enabled: false, image: '', link: '', alt: '' });
+    expect(getAd('home')).toEqual({ enabled: false, image: '', link: '', alt: '', deviceId: '' });
   });
 
   it('resolves the public URL from a storage path when image_url is empty', async () => {
@@ -115,9 +116,58 @@ describe('ads-service (Supabase-backed)', () => {
     mockFrom().upsert.mockResolvedValue({ error: null });
     mockFrom().select.mockResolvedValue({ data: [], error: null });
 
-    await saveAd({ placement: 'home', enabled: true, image_url: 'https://cdn/x.jpg', link: '', alt: '' });
+    await saveAd({ placement: 'home', enabled: true, image_url: 'https://cdn/x.jpg', link: 'https://go', alt: '' });
     expect(mockFrom).toHaveBeenCalledWith('ads');
-    expect(mockFrom().upsert).toHaveBeenCalledWith(expect.objectContaining({ placement: 'home', enabled: true }));
+    expect(mockFrom().upsert).toHaveBeenCalledWith(expect.objectContaining({ placement: 'home', enabled: true, link: 'https://go', device_id: '' }));
+  });
+
+  it('saveAd with a deviceId derives the internal phone link and stores device_id', async () => {
+    mockFrom().upsert.mockResolvedValue({ error: null });
+    mockFrom().select.mockResolvedValue({ data: [], error: null });
+
+    await saveAd({ placement: 'showroom', enabled: true, image_url: 'https://cdn/x.jpg', alt: 'A', deviceId: 'dev-123' });
+    const expectedLink = buildAdPhoneLink('dev-123');
+    expect(mockFrom().upsert).toHaveBeenCalledWith(expect.objectContaining({ link: expectedLink, device_id: 'dev-123' }));
+  });
+
+  it('saveAd overrides a stale phone link with the derived one', async () => {
+    mockFrom().upsert.mockResolvedValue({ error: null });
+    mockFrom().select.mockResolvedValue({ data: [], error: null });
+
+    await saveAd({
+      placement: 'showroom', enabled: true, image_url: 'https://cdn/x.jpg', alt: 'A',
+      link: buildAdPhoneLink('stale-id'), deviceId: 'dev-456',
+    });
+    expect(mockFrom().upsert).toHaveBeenCalledWith(expect.objectContaining({ link: buildAdPhoneLink('dev-456'), device_id: 'dev-456' }));
+  });
+
+  it('rowToConfig surfaces device_id as deviceId on the loaded config', async () => {
+    mockFrom().select.mockResolvedValue({
+      data: [
+        { placement: 'home', enabled: true, image_path: '', image_url: 'https://cdn/x.jpg', link: buildAdPhoneLink('dev-1'), alt: 'X', device_id: 'dev-1' },
+      ],
+      error: null,
+    });
+
+    await ensureAdsLoaded();
+    expect(getAd('home')?.deviceId).toBe('dev-1');
+    expect(getAd('home')?.link).toBe(buildAdPhoneLink('dev-1'));
+  });
+
+  it('buildAdPhoneLink / validateAdInput: phone-link consistency rules', async () => {
+    const id = '36be2ef7-2e28-4c18-8bf7-2c9f3e9d4a51';
+    const link = buildAdPhoneLink(id);
+    expect(link).toBe(`#/phone-details?device=${id}`);
+    expect(() => validateAdInput({ placement: 'home', enabled: true, deviceId: id, link })).not.toThrow();
+    expect(() => validateAdInput({ placement: 'home', enabled: true, link })).toThrow(/device/);
+    expect(() => validateAdInput({ placement: 'home', enabled: true, deviceId: id })).toThrow(/رابط هاتف/);
+    expect(() => validateAdInput({ placement: 'home', enabled: true, deviceId: id, link: buildAdPhoneLink('other-device') })).toThrow(/لا يطابق/);
+    expect(() => validateAdInput({ placement: 'home', enabled: true, deviceId: id, link: 'https://external.com' })).toThrow(/رابط هاتف داخلي/);
+  });
+
+  it('validateAdInput: an enabled ad requires a destination link', () => {
+    expect(() => validateAdInput({ placement: 'home', enabled: true, image_url: 'https://cdn/x.jpg', link: '' })).toThrow(/رابط وجهة/);
+    expect(() => validateAdInput({ placement: 'home', enabled: false, link: '' })).not.toThrow();
   });
 
   it('resetAd deletes the row and its storage object', async () => {
