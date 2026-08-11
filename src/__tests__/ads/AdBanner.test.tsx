@@ -98,11 +98,11 @@ describe('AdBanner (V-1 — loading / loaded / failed)', () => {
       expect(onStateChange).toHaveBeenCalledWith('loaded');
     } finally {
       if (originalComplete) Object.defineProperty(proto, 'complete', originalComplete);
-      else delete (proto as any).complete;
+      else delete (proto as { complete?: boolean }).complete;
       if (originalNW) Object.defineProperty(proto, 'naturalWidth', originalNW);
-      else delete (proto as any).naturalWidth;
+      else delete (proto as { naturalWidth?: number }).naturalWidth;
       if (originalNH) Object.defineProperty(proto, 'naturalHeight', originalNH);
-      else delete (proto as any).naturalHeight;
+      else delete (proto as { naturalHeight?: number }).naturalHeight;
     }
   });
 });
