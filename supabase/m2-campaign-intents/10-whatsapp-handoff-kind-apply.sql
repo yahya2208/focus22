@@ -150,6 +150,38 @@ REVOKE ALL ON FUNCTION public.record_campaign_intent(TEXT, TEXT, TEXT, UUID, TEX
 GRANT EXECUTE ON FUNCTION public.record_campaign_intent(TEXT, TEXT, TEXT, UUID, TEXT, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.record_campaign_intent(TEXT, TEXT, TEXT, UUID, TEXT, TEXT) TO authenticated;
 
+-- ----------------------------------------------------------------------------
+-- 2) TABLE CHECK — rebuild campaign_intents_kind_check to include the new kind.
+--    The kind allowlist lives in TWO places: the RPC body above AND the column
+--    CHECK on campaign_intents.kind (inline in 01-campaign-intents-apply.sql,
+--    auto-named campaign_intents_kind_check). Updating only the RPC made the
+--    function accept whatsapp_handoff_started but its own INSERT still violated
+--    the stale CHECK (ERROR 23514). Located by column so the fix works whatever
+--    the auto-generated name is; no other constraint/table/function/policy is
+--    touched. Idempotent: re-running drops the (already widened) named check and
+--    re-adds the same one.
+-- ----------------------------------------------------------------------------
+DO $constraint$
+DECLARE
+  v_constraint_name TEXT;
+BEGIN
+  SELECT conname INTO v_constraint_name
+  FROM pg_constraint c
+  JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey)
+  WHERE c.conrelid = 'public.campaign_intents'::regclass
+    AND c.contype = 'c'
+    AND a.attname = 'kind';
+
+  IF v_constraint_name IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE public.campaign_intents DROP CONSTRAINT %I', v_constraint_name);
+  END IF;
+
+  ALTER TABLE public.campaign_intents
+    ADD CONSTRAINT campaign_intents_kind_check
+    CHECK (kind IN ('view', 'click', 'whatsapp_intent', 'whatsapp_handoff_started'));
+END
+$constraint$;
+
 -- ============================================================================
 -- Done. Run 10-whatsapp-handoff-kind-post-apply-verify.sql next (read-only).
 -- ============================================================================
