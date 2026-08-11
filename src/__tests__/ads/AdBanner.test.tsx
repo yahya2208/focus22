@@ -75,4 +75,34 @@ describe('AdBanner (V-1 — loading / loaded / failed)', () => {
     expect(screen.queryByRole('img')).toBeNull();
     expect(screen.queryByTestId('adspot-frame')).toBeNull();
   });
+
+  it('CACHED — a disk-cached (already-complete) image shows immediately, never stuck at loading/opacity:0', () => {
+    // Simulate a browser disk-cache hit: the <img> is already complete with real
+    // dimensions when React mounts it, so the load event can fire before React
+    // attaches onLoad. The mount completion guard must reveal the image.
+    const proto = HTMLImageElement.prototype;
+    const originalComplete = Object.getOwnPropertyDescriptor(proto, 'complete');
+    const originalNW = Object.getOwnPropertyDescriptor(proto, 'naturalWidth');
+    const originalNH = Object.getOwnPropertyDescriptor(proto, 'naturalHeight');
+
+    Object.defineProperty(proto, 'complete', { configurable: true, get: () => true });
+    Object.defineProperty(proto, 'naturalWidth', { configurable: true, get: () => 1600 });
+    Object.defineProperty(proto, 'naturalHeight', { configurable: true, get: () => 400 });
+
+    try {
+      renderBanner();
+
+      const frame = screen.getByTestId('adspot-frame');
+      expect(frame.getAttribute('data-status')).toBe('loaded');
+      expect(screen.getByRole('img').style.opacity).toBe('1');
+      expect(onStateChange).toHaveBeenCalledWith('loaded');
+    } finally {
+      if (originalComplete) Object.defineProperty(proto, 'complete', originalComplete);
+      else delete (proto as any).complete;
+      if (originalNW) Object.defineProperty(proto, 'naturalWidth', originalNW);
+      else delete (proto as any).naturalWidth;
+      if (originalNH) Object.defineProperty(proto, 'naturalHeight', originalNH);
+      else delete (proto as any).naturalHeight;
+    }
+  });
 });

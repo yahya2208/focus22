@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 
 export type AdBannerStatus = 'loading' | 'loaded' | 'failed';
@@ -24,6 +24,7 @@ interface AdBannerProps {
  */
 export const AdBanner = memo(function AdBanner({ image, alt, onStateChange }: AdBannerProps) {
   const colors = useThemeColors();
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const [ratio, setRatio] = useState<number | null>(null);
   const [status, setStatus] = useState<AdBannerStatus>('loading');
 
@@ -42,6 +43,19 @@ export const AdBanner = memo(function AdBanner({ image, alt, onStateChange }: Ad
   const handleError = useCallback(() => {
     setStatus('failed');
     onStateChange?.('failed');
+  }, [onStateChange]);
+
+  useEffect(() => {
+    const el = imgRef.current;
+    if (!el || !el.complete) return;
+    if (el.naturalWidth > 0 && el.naturalHeight > 0) {
+      setRatio(el.naturalWidth / el.naturalHeight);
+      setStatus('loaded');
+      onStateChange?.('loaded');
+    } else {
+      setStatus('failed');
+      onStateChange?.('failed');
+    }
   }, [onStateChange]);
 
   if (status === 'failed') return null;
@@ -65,6 +79,7 @@ export const AdBanner = memo(function AdBanner({ image, alt, onStateChange }: Ad
       }}
     >
       <img
+        ref={imgRef}
         src={image}
         alt={alt ?? ''}
         loading="lazy"
