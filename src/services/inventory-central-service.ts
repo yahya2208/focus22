@@ -563,6 +563,7 @@ export async function uploadRecordImage(
   });
   if (error) throw new Error(`storage upload failed: ${error.message}`);
   await centralAddImage(recordId, path, null, false);
+  imageCache.delete(recordId);
   const url = supabase.storage.from('inventory-images').getPublicUrl(path).data.publicUrl;
   return { path, url };
 }
@@ -578,6 +579,38 @@ export async function getCentralImages(recordId: string): Promise<string[]> {
     return data.map((r: { path: string }) =>
       getSupabaseClient().storage.from('inventory-images').getPublicUrl(r.path).data.publicUrl,
     );
+  } catch {
+    return [];
+  }
+}
+
+const imageCache = new Map<string, string[]>();
+
+/**
+ * Resolve the display image URLs for a record by listing the record's folder
+ * inside the `inventory-images` bucket (object names are relative to the
+ * bucket). Direct SELECT on `inventory_images` is blocked at runtime by RLS
+ * (the SELECT policy subquery reads the locked `inventory_items`), so the
+ * bucket listing is the read path that works for anon + authenticated.
+ * Results are cached per record; ordering approximates insertion order via
+ * created_at (the DB position/is_cover are not exposed on this read path).
+ */
+export async function centralListImages(recordId: string): Promise<string[]> {
+  const cached = imageCache.get(recordId);
+  if (cached) return cached;
+  try {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.storage.from('inventory-images').list(recordId, {
+      limit: 100,
+      sortBy: { column: 'name', order: 'asc' },
+    });
+    if (error || !Array.isArray(data)) return [];
+    const urls = data
+      .filter((o) => /\.(jpe?g|png|webp|avif|heic|heif)$/i.test(o.name ?? ''))
+      .sort((a, b) => String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')))
+      .map((o) => supabase.storage.from('inventory-images').getPublicUrl(`${recordId}/${o.name}`).data.publicUrl);
+    imageCache.set(recordId, urls);
+    return urls;
   } catch {
     return [];
   }

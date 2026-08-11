@@ -1,8 +1,9 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import type { ThemeColors } from '../../hooks/useThemeColors';
 import type { InventoryRecord } from '../../services/inventory-service';
 import { InventoryService } from '../../services/inventory-service';
 import { PhoneImageUploader } from '../showroom/PhoneImageUploader';
+import { useInventoryImages } from '../../hooks/useInventoryImages';
 
 interface EditInventoryModalProps {
   record: InventoryRecord;
@@ -17,6 +18,11 @@ export const EditInventoryModal = memo(function EditInventoryModal({ record, col
   const [buyPrice, setBuyPrice] = useState(record.buyPrice != null ? String(record.buyPrice) : '');
   const [sellPrice, setSellPrice] = useState(record.sellPrice != null ? String(record.sellPrice) : '');
   const [images, setImages] = useState<string[]>(record.images ?? []);
+  const persistedImages = useInventoryImages(record.id, record.images ?? []);
+
+  useEffect(() => {
+    setImages((prev) => (prev.length > 0 ? prev : persistedImages));
+  }, [persistedImages]);
   const [color, setColor] = useState(record.color ?? '');
   const [batteryHealth, setBatteryHealth] = useState(record.batteryHealth != null ? String(record.batteryHealth) : '');
   const [warranty, setWarranty] = useState(record.warranty ?? '');

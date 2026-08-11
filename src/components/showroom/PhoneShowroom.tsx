@@ -1,6 +1,7 @@
 import { memo, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useInventoryImages } from '../../hooks/useInventoryImages';
 import type { InventoryRecord } from '../../services/inventory-service';
 
 export interface PhoneCardProps {
@@ -18,7 +19,7 @@ export interface PhoneCardProps {
 export const PhoneCard = memo(function PhoneCard({ device, compact = false, onSelect }: PhoneCardProps) {
   const colors = useThemeColors();
   const { t } = useTranslation();
-  const images = device.images ?? [];
+  const images = useInventoryImages(device.id, device.images ?? []);
   const primary = images[0];
 
   const handleClick = useCallback(() => {

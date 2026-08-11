@@ -13,6 +13,7 @@ import { SimilarPhones } from '../../components/showroom/SimilarPhones';
 import { useProductDetails } from '../../hooks/useProductDetails';
 import { useSimilarPhones } from '../../hooks/useSimilarPhones';
 import { useViewCounter } from '../../hooks/useViewCounter';
+import { useInventoryImages } from '../../hooks/useInventoryImages';
 import { useWhatsApp } from '../../providers/WhatsAppProvider';
 import { useFavorites } from '../../hooks/useFavorites';
 import { sendContactOwnerWhatsApp } from '../../services/whatsapp-service';
@@ -70,6 +71,7 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
   const { count: views } = useViewCounter(deviceId);
   const whatsapp = useWhatsApp();
   const favorites = useFavorites();
+  const images = useInventoryImages(device?.id, device?.images ?? []);
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
@@ -174,7 +176,7 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
 
         <Card variant="glass" padding="lg">
           <Stack gap="md">
-            <ProductImageGallery images={device.images ?? []} name={`${device.brand} ${device.model}`} />
+            <ProductImageGallery images={images} name={`${device.brand} ${device.model}`} />
 
             <div>
               <h1 style={{ margin: 0, color: colors.text, fontSize: '1.25rem', fontWeight: 800, lineHeight: 1.3 }}>

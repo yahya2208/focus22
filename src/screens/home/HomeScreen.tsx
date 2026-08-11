@@ -15,6 +15,7 @@ import { Flex } from '../../design-system/components/Flex';
 import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 import { InventoryService, type InventoryRecord } from '../../services/inventory-service';
 import { getInventoryReady, subscribeCentralInventory } from '../../services/inventory-central-service';
+import { useInventoryImages } from '../../hooks/useInventoryImages';
 
 function getGreetingKey() {
   const h = new Date().getHours();
@@ -72,7 +73,8 @@ function ProductCard({ device, colors, onOpen }: {
   colors: ReturnType<typeof useThemeColors>;
   onOpen: () => void;
 }) {
-  const primary = device.images?.[0];
+  const images = useInventoryImages(device.id, device.images ?? []);
+  const primary = images[0];
 
   return (
     <button
