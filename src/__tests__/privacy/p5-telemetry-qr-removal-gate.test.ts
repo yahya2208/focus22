@@ -39,6 +39,15 @@ import { execSync } from 'child_process';
  * Scope/expiration: this controlled execution only. Every other protected
  *         path below remains a HARD STOP — including any other file under
  *         src/components/ads/ and every catalog/inventory/price-memory path.
+ *
+ * CENTRAL INVENTORY CUTOVER CARVE-OUT — owner-authorized 2026-08-11
+ * (FOCUS v2 CENTRAL INVENTORY CUTOVER DIRECTIVE v2.0, Rev 4).
+ * Authorized files (EXACT paths only):
+ *   - src/services/inventory-service.ts  (facade over the central RPCs)
+ *   - src/services/inventory-seed.ts     (seed revocation → no-op seed)
+ * Scope/expiration: this controlled execution only. All other inventory
+ *         paths (price-memory, catalog, components/catalog, components/ads)
+ *         remain a HARD STOP.
  */
 
 const SRC = path.resolve(__dirname, '../..');
@@ -200,10 +209,15 @@ describe('PG-61: KEEP — catalog/inventory/ads untouched by P5 (D3)', () => {
   // PRODUCT FIX EXECUTION DIRECTIVE v1.0). Exact authorized files only; no
   // directory exception, no wildcard. Scope: V-1 and V-4 of this controlled
   // execution only. Every other protected path below remains a HARD STOP.
+  // CENTRAL INVENTORY CUTOVER CARVE-OUT — owner-authorized 2026-08-11
+  // (FOCUS v2 CENTRAL INVENTORY CUTOVER DIRECTIVE v2.0, Rev 4): the two exact
+  // inventory files are authorized; every other inventory path stays a HARD STOP.
   const AUTHORIZED_CHANGES = [
     'src/components/ads/AdBanner.tsx',
     'src/components/ads/AdSpot.tsx',
     'src/services/ads-service.ts',
+    'src/services/inventory-service.ts',
+    'src/services/inventory-seed.ts',
   ];
 
   function findProtectedViolations(changed: string[], prefixes: string[], authorized: string[]): string[] {
@@ -232,7 +246,7 @@ describe('PG-61: KEEP — catalog/inventory/ads untouched by P5 (D3)', () => {
     ]);
   });
 
-  it('carve-out regression: catalog/inventory/price-memory paths STILL fail', () => {
+  it('carve-out regression: catalog/price-memory paths STILL fail (inventory carve-out licenses only its exact files)', () => {
     const changed = [
       'src/catalog/cat.ts',
       'src/components/catalog/CatalogView.tsx',
@@ -240,13 +254,17 @@ describe('PG-61: KEEP — catalog/inventory/ads untouched by P5 (D3)', () => {
       'src/services/inventory-seed.ts',
       'src/services/price-memory.ts',
     ];
-    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual(changed);
+    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([
+      'src/catalog/cat.ts',
+      'src/components/catalog/CatalogView.tsx',
+      'src/services/price-memory.ts',
+    ]);
   });
 
   it('carve-out regression: an authorized file does not exempt other protected files in the same tree', () => {
-    const changed = ['src/components/ads/AdSpot.tsx', 'src/services/inventory-service.ts'];
+    const changed = ['src/components/ads/AdSpot.tsx', 'src/services/price-memory.ts'];
     expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([
-      'src/services/inventory-service.ts',
+      'src/services/price-memory.ts',
     ]);
   });
 });

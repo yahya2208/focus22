@@ -112,11 +112,27 @@ const HARD_STOP_PREFIXES = [
  * Scope/expiration: this controlled execution only. Every other protected
  *         path below remains a HARD STOP — including any other file under
  *         src/components/ads/ and every catalog/inventory/price-memory path.
+ *
+ * CENTRAL INVENTORY CUTOVER CARVE-OUT — owner-authorized 2026-08-11.
+ * Authorization source: FOCUS v2 CENTRAL INVENTORY CUTOVER DIRECTIVE v2.0
+ * (Rev 4, "inventory-local-keys" as pure static config + seed revocation).
+ * Authorized files (EXACT paths only — no directory exception, no wildcard):
+ *   - src/services/inventory-service.ts  (Rev 4: facade over the central RPCs,
+ *     legacy keys kept as pure static config with NO write capability)
+ *   - src/services/inventory-seed.ts     (Rev 4: seed revocation → no-op seed)
+ * Reason: Rev 4 cutover retires localStorage writes from the inventory context;
+ *         every write now goes through the central SECURITY DEFINER RPCs only.
+ *         The 22-method facade contract is preserved verbatim.
+ * Scope/expiration: this controlled execution only. All other inventory
+ *         paths (price-memory, catalog, components/catalog, components/ads)
+ *         remain a HARD STOP.
  */
 const AUTHORIZED_CHANGES = [
   'src/components/ads/AdBanner.tsx',
   'src/components/ads/AdSpot.tsx',
   'src/services/ads-service.ts',
+  'src/services/inventory-service.ts',
+  'src/services/inventory-seed.ts',
 ];
 
 /**
@@ -283,6 +299,12 @@ describe('PG-51/52/14: المخزون والكتالوج يعملان', () => {
     expect(inv).toContain('catalog_inventory_transactions');
     expect(inv).toContain('catalog_inventory_movements_v2');
   });
+
+  it('inventory-service facade لا يكتب إلى localStorage (Rev 4: مفاتيح ثابتة بلا قدرة كتابة)', () => {
+    const inv = codeOnly(read('services/inventory-service.ts'));
+    expect(inv).not.toMatch(/localStorage\.\s*setItem/);
+    expect(inv).not.toMatch(/localStorage\.\s*removeItem/);
+  });
 });
 
 describe('PG-50: الإعلانات تعمل', () => {
@@ -333,7 +355,7 @@ describe('PG-57: Hard-Stop — لا تعديل على الكتالوج/المخ�
     ]);
   });
 
-  it('carve-out regression: catalog/inventory/price-memory ما زالت ممنوعة', () => {
+  it('carve-out regression: catalog/price-memory ما زالت ممنوعة', () => {
     const changed = [
       'src/catalog/cat.ts',
       'src/components/catalog/CatalogView.tsx',
@@ -341,7 +363,23 @@ describe('PG-57: Hard-Stop — لا تعديل على الكتالوج/المخ�
       'src/services/inventory-seed.ts',
       'src/services/price-memory.ts',
     ];
-    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual(changed);
+    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([
+      'src/catalog/cat.ts',
+      'src/components/catalog/CatalogView.tsx',
+      'src/services/price-memory.ts',
+    ]);
+  });
+
+  it('central-inventory carve-out regression: المخزون المركزي يرخّص ملفيه بالضبط، وكل محمي آخر ما زال ممنوعاً', () => {
+    const changed = [
+      'src/services/inventory-service.ts',
+      'src/services/inventory-seed.ts',
+      'src/services/inventory-central-service.ts',
+      'src/services/price-memory.ts',
+    ];
+    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([
+      'src/services/price-memory.ts',
+    ]);
   });
 
   it('carve-out regression: ملف مخوّل لا يبرئ ملفات محمية أخرى في نفس الشجرة', () => {

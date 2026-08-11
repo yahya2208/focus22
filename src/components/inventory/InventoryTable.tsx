@@ -7,12 +7,15 @@ interface InventoryTableProps {
   filtered: InventoryRecord[];
   search: string;
   colors: ThemeColors;
+  busy?: boolean;
+  publishedIds: ReadonlySet<string>;
   onEdit: (record: InventoryRecord) => void;
   onDelete: (id: string) => void;
   onToggleVisibility: (id: string) => void;
+  onTogglePublish: (id: string) => void;
 }
 
-export const InventoryTable = memo(function InventoryTable({ filtered, search, colors, onEdit, onDelete, onToggleVisibility }: InventoryTableProps) {
+export const InventoryTable = memo(function InventoryTable({ filtered, search, colors, busy = false, publishedIds, onEdit, onDelete, onToggleVisibility, onTogglePublish }: InventoryTableProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
       {filtered.length === 0 ? (
@@ -21,7 +24,17 @@ export const InventoryTable = memo(function InventoryTable({ filtered, search, c
         </div>
       ) : (
         filtered.map(r => (
-          <InventoryRow key={r.id} record={r} colors={colors} onEdit={() => onEdit(r)} onDelete={() => onDelete(r.id)} onToggleVisibility={() => onToggleVisibility(r.id)} />
+          <InventoryRow
+            key={r.id}
+            record={r}
+            colors={colors}
+            busy={busy}
+            published={publishedIds.has(r.id)}
+            onEdit={() => onEdit(r)}
+            onDelete={() => onDelete(r.id)}
+            onToggleVisibility={() => onToggleVisibility(r.id)}
+            onTogglePublish={() => onTogglePublish(r.id)}
+          />
         ))
       )}
     </div>

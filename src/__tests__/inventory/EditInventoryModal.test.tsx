@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import type { ThemeColors } from '../../hooks/useThemeColors';
 import type { InventoryRecord } from '../../services/inventory-service';
 import { EditInventoryModal } from '../../components/inventory/EditInventoryModal';
@@ -76,7 +76,7 @@ describe('EditInventoryModal', () => {
     expect((screen.getByDisplayValue('140000') as HTMLInputElement).value).toBe('140000');
   });
 
-  it('saves the edited quantity and prices, then calls onSave', () => {
+  it('saves the edited quantity and prices, then calls onSave', async () => {
     const { onSave } = renderModal();
 
     fireEvent.change(screen.getByDisplayValue('2'), { target: { value: '5' } });
@@ -84,8 +84,8 @@ describe('EditInventoryModal', () => {
     fireEvent.change(screen.getByDisplayValue('140000'), { target: { value: '150000' } });
     fireEvent.click(screen.getByRole('button', { name: 'حفظ' }));
 
+    await waitFor(() => expect(mock.updatePrices).toHaveBeenCalledWith('rec-1', 115000, 150000));
     expect(mock.updateImages).toHaveBeenCalledWith('rec-1', []);
-    expect(mock.updatePrices).toHaveBeenCalledWith('rec-1', 115000, 150000);
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 'rec-1' }), 5);
   });
 
@@ -107,7 +107,7 @@ describe('EditInventoryModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('parses empty price fields as undefined', () => {
+  it('parses empty price fields as undefined', async () => {
     const { onSave } = renderModal();
 
     fireEvent.change(screen.getByDisplayValue('2'), { target: { value: '3' } });
@@ -115,11 +115,11 @@ describe('EditInventoryModal', () => {
     fireEvent.change(screen.getByDisplayValue('140000'), { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: 'حفظ' }));
 
-    expect(mock.updatePrices).toHaveBeenCalledWith('rec-1', undefined, undefined);
+    await waitFor(() => expect(mock.updatePrices).toHaveBeenCalledWith('rec-1', undefined, undefined));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 'rec-1' }), 3);
   });
 
-  it('saves the §4 admin details trimmed via updateDetails (color/battery/warranty/city/code/description)', () => {
+  it('saves the §4 admin details trimmed via updateDetails (color/battery/warranty/city/code/description)', async () => {
     renderModal();
 
     const boxes = screen.getAllByRole('textbox');
@@ -135,13 +135,15 @@ describe('EditInventoryModal', () => {
     fireEvent.change(description, { target: { value: '  حالة ممتازة ' } });
     fireEvent.click(screen.getByRole('button', { name: 'حفظ' }));
 
-    expect(mock.updateDetails).toHaveBeenCalledWith('rec-1', {
-      color: 'أسود',
-      batteryHealth: undefined,
-      warranty: '6 أشهر',
-      city: 'الجزائر',
-      description: 'حالة ممتازة',
-      code: 'IP13-1',
-    });
+    await waitFor(() =>
+      expect(mock.updateDetails).toHaveBeenCalledWith('rec-1', {
+        color: 'أسود',
+        batteryHealth: undefined,
+        warranty: '6 أشهر',
+        city: 'الجزائر',
+        description: 'حالة ممتازة',
+        code: 'IP13-1',
+      }),
+    );
   });
 });

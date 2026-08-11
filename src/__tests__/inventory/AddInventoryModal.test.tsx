@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import type { ThemeColors } from '../../hooks/useThemeColors';
 import { ALL_CONDITIONS } from '../../services/price-memory';
 import { AddInventoryModal } from '../../components/inventory/AddInventoryModal';
@@ -64,7 +64,7 @@ describe('AddInventoryModal', () => {
     expect(screen.getByRole('button', { name: 'mock-autocomplete' })).toBeTruthy();
   });
 
-  it('walks through variant → condition → quantity and saves the record', () => {
+  it('walks through variant → condition → quantity and saves the record', async () => {
     const onDone = vi.fn();
     renderModal(onDone);
 
@@ -88,7 +88,7 @@ describe('AddInventoryModal', () => {
       'Samsung', 'Galaxy S22', VARIANT, 1,
       undefined, undefined, 'purchase', undefined, undefined, undefined, 'New',
     );
-    expect(onDone).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
   });
 
   it('saves the chosen quantity and buy/sell prices', () => {

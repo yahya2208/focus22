@@ -22,6 +22,7 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
   const [buyPrice, setBuyPrice] = useState('');
   const [sellPrice, setSellPrice] = useState('');
   const [images, setImages] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
 
   const handleModelSelect = (result: CatalogSearchResult) => {
     setSelectedBrand(result.brand);
@@ -39,9 +40,11 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
     setStep('quantity');
   };
 
-  const handleSave = () => {
-    if (selectedBrand && selectedModel && selectedVariant) {
-      const record = InventoryService.addStock(
+  const handleSave = async () => {
+    if (!selectedBrand || !selectedModel || !selectedVariant || saving) return;
+    setSaving(true);
+    try {
+      const record = await InventoryService.addStock(
         selectedBrand,
         selectedModel,
         selectedVariant,
@@ -55,9 +58,11 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
         selectedCondition,
       );
       if (record && images.length > 0) {
-        InventoryService.updateImages(record.id, images);
+        await InventoryService.updateImages(record.id, images);
       }
       onDone();
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -200,12 +205,13 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
               flex: 1, padding: '10px', borderRadius: '8px', border: `1px solid ${colors.border}`,
               background: 'transparent', color: colors.textMuted, fontSize: '0.82rem', cursor: 'pointer', fontFamily: 'inherit',
             }}>رجوع</button>
-            <button onClick={handleSave} style={{
+            <button onClick={handleSave} disabled={saving} style={{
               flex: 2, padding: '10px', borderRadius: '8px', border: 'none',
               background: colors.accent, color: '#fff', fontSize: '0.85rem',
               fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+              opacity: saving ? 0.6 : 1,
             }}>
-              حفظ ({quantity} قطعة, {selectedCondition})
+              {saving ? 'جارٍ الحفظ…' : `حفظ (${quantity} قطعة, ${selectedCondition})`}
             </button>
           </div>
         </div>

@@ -6,7 +6,13 @@ import { ThemeProvider } from '../../design-system/use-theme';
 import { TranslationProvider } from '../../hooks/useTranslation';
 import { ProductDetailsScreen } from '../../screens/showroom/ProductDetailsScreen';
 import { InventoryService } from '../../services/inventory-service';
-import { ensureInventorySeeded } from '../../services/inventory-seed';
+import { bootstrapCentralInventory, resetCentralInventoryState } from '../../services/inventory-central-service';
+import { resetFakeCentralDb, seedFakeCentralDb } from '../helpers/fake-central-inventory';
+
+vi.mock('../../core/supabase/client', async () => {
+  const { getFakeSupabaseClient } = await import('../helpers/fake-central-inventory');
+  return { getSupabaseClient: () => getFakeSupabaseClient() };
+});
 
 vi.mock('../../components/ads/AdSpot', () => ({ AdSpot: () => null }));
 
@@ -55,9 +61,12 @@ function renderScreen(id: string) {
 }
 
 describe('Phase 3B §3.2/§3.3 — ProductDetailsScreen', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
-    ensureInventorySeeded();
+    resetFakeCentralDb();
+    resetCentralInventoryState();
+    seedFakeCentralDb();
+    await bootstrapCentralInventory();
   });
 
   afterEach(() => {

@@ -9,6 +9,7 @@ import { ShowroomControls } from '../../components/showroom/ShowroomControls';
 import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 import { InventoryService } from '../../services/inventory-service';
 import type { InventoryRecord } from '../../services/inventory-service';
+import { getInventoryReady, subscribeCentralInventory } from '../../services/inventory-central-service';
 import { useShowroomState, filterAndSortDevices } from '../../hooks/useShowroomState';
 import { useScrollPreservation } from '../../hooks/useScrollPreservation';
 
@@ -19,12 +20,17 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const [devices, setDevices] = useState<InventoryRecord[]>([]);
+  const [ready, setReady] = useState<boolean>(() => getInventoryReady());
   const { state, update } = useShowroomState();
   useScrollPreservation(devices.length > 0);
 
   useEffect(() => {
-    setDevices(InventoryService.getExchangeableDevices());
+    return subscribeCentralInventory(() => setReady(getInventoryReady()));
   }, []);
+
+  useEffect(() => {
+    if (ready) setDevices(InventoryService.getExchangeableDevices());
+  }, [ready]);
 
   const visible = filterAndSortDevices(devices, state);
 
@@ -52,7 +58,7 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
         <Grid columns={1} gap="md">
           <PhoneShowroom
             devices={visible}
-            emptyText={t('showroom.empty')}
+            emptyText={!ready ? 'جارٍ تحميل الهواتف…' : t('showroom.empty')}
             onSelect={handleSelect}
           />
         </Grid>

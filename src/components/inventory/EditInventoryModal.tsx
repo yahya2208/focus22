@@ -7,11 +7,12 @@ import { PhoneImageUploader } from '../showroom/PhoneImageUploader';
 interface EditInventoryModalProps {
   record: InventoryRecord;
   colors: ThemeColors;
-  onSave: (record: InventoryRecord, newQuantity: number) => void;
+  busy?: boolean;
+  onSave: (record: InventoryRecord, newQuantity: number) => void | Promise<void>;
   onClose: () => void;
 }
 
-export const EditInventoryModal = memo(function EditInventoryModal({ record, colors, onSave, onClose }: EditInventoryModalProps) {
+export const EditInventoryModal = memo(function EditInventoryModal({ record, colors, busy = false, onSave, onClose }: EditInventoryModalProps) {
   const [quantity, setQuantity] = useState(record.quantity);
   const [buyPrice, setBuyPrice] = useState(record.buyPrice != null ? String(record.buyPrice) : '');
   const [sellPrice, setSellPrice] = useState(record.sellPrice != null ? String(record.sellPrice) : '');
@@ -23,14 +24,15 @@ export const EditInventoryModal = memo(function EditInventoryModal({ record, col
   const [description, setDescription] = useState(record.description ?? '');
   const [code, setCode] = useState(record.code ?? '');
 
-  const handleSave = () => {
-    InventoryService.updateImages(record.id, images);
-    InventoryService.updatePrices(
+  const handleSave = async () => {
+    if (busy) return;
+    await InventoryService.updateImages(record.id, images);
+    await InventoryService.updatePrices(
       record.id,
       buyPrice ? parseInt(buyPrice) || undefined : undefined,
       sellPrice ? parseInt(sellPrice) || undefined : undefined,
     );
-    InventoryService.updateDetails(record.id, {
+    await InventoryService.updateDetails(record.id, {
       color: color.trim(),
       batteryHealth: batteryHealth ? Math.max(0, Math.min(100, parseInt(batteryHealth) || 0)) : undefined,
       warranty: warranty.trim(),
@@ -38,7 +40,7 @@ export const EditInventoryModal = memo(function EditInventoryModal({ record, col
       description: description.trim(),
       code: code.trim(),
     });
-    onSave(record, quantity);
+    await onSave(record, quantity);
   };
 
   const inputStyle = (multiline = false): React.CSSProperties => ({
@@ -120,11 +122,12 @@ export const EditInventoryModal = memo(function EditInventoryModal({ record, col
             flex: 1, padding: '8px', borderRadius: '8px', border: `1px solid ${colors.border}`,
             background: 'transparent', color: colors.textMuted, fontSize: '0.82rem', cursor: 'pointer', fontFamily: 'inherit',
           }}>إلغاء</button>
-          <button onClick={handleSave} style={{
+          <button onClick={handleSave} disabled={busy} style={{
             flex: 2, padding: '8px', borderRadius: '8px', border: 'none',
             background: colors.accent, color: '#fff', fontSize: '0.85rem',
             fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-          }}>حفظ</button>
+            opacity: busy ? 0.6 : 1,
+          }}>{busy ? 'جارٍ الحفظ…' : 'حفظ'}</button>
         </div>
       </div>
     </div>

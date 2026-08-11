@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { devError } from './core/logging';
 import { ensureInventorySeeded } from './services/inventory-seed';
+import { bootstrapCentralInventory } from './services/inventory-central-service';
 
 window.addEventListener('error', (event) => {
   devError('[FOCUS ERROR]', event.message, event.error);
@@ -12,9 +13,10 @@ window.addEventListener('unhandledrejection', (event) => {
   devError('[FOCUS UNHANDLED REJECTION]', event.reason);
 });
 
-// Used-phones showroom: load the bundled default catalog on first run only,
-// so the published site shows the same used phones as local builds.
+// Central inventory bootstrap: hydrates the in-memory caches (public view,
+// admin list, movements) once at app boot. Reads are served from those caches.
 ensureInventorySeeded();
+void bootstrapCentralInventory();
 
 // PWA: register the service worker in production builds only.
 // Guarded: SW support check + build-mode check; failures are non-fatal.

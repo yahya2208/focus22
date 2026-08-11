@@ -6,6 +6,13 @@ import { ThemeProvider } from '../design-system/use-theme';
 import { CatalogCascadeSelector } from '../components/catalog/CatalogCascadeSelector';
 import { InventoryService } from '../services/inventory-service';
 import { getStockForModel } from '../components/catalog/CatalogCascadeTypes';
+import { bootstrapCentralInventory, resetCentralInventoryState } from '../services/inventory-central-service';
+import { resetFakeCentralDb } from './helpers/fake-central-inventory';
+
+vi.mock('../core/supabase/client', async () => {
+  const { getFakeSupabaseClient } = await import('./helpers/fake-central-inventory');
+  return { getSupabaseClient: () => getFakeSupabaseClient() };
+});
 
 /**
  * S4 Acceptance Gate — AT-24 (المصدر الحقيقي للتصفح، المعتمد 2026-08-07):
@@ -16,6 +23,8 @@ import { getStockForModel } from '../components/catalog/CatalogCascadeTypes';
  *
  * القيود المعتمدة: لا تعديل JSON، لا canonical.ts، لا seeder/S5، والمخزون
  * (catalog_inventory) يبقى يعمل بنفس الصيغة النصية modelId = "Vivo X50".
+ * Rev 4 (2026-08-11): المخزون يقرأ من الكاش المركزي بعد الإقلاع (addStock
+ * عبر RPCs مركزية بدل localStorage).
  */
 
 const localStorageKeys: string[] = [];
@@ -32,7 +41,7 @@ function Harness({ onEmit }: { onEmit: (v: Partial<PhoneIdentity>) => void }) {
   );
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   localStorage.clear();
   getItemSpy.mockClear();
   localStorageKeys.length = 0;
@@ -40,6 +49,9 @@ beforeEach(() => {
     localStorageKeys.push(key);
     return originalGetItem.call(window.localStorage, key);
   });
+  resetFakeCentralDb();
+  resetCentralInventoryState();
+  await bootstrapCentralInventory();
 });
 
 describe('S4 AT-24: التصفح يعمل من الكتالوج الحقيقي دون catalog_*_v1', () => {
@@ -66,8 +78,8 @@ describe('S4 AT-24: التصفح يعمل من الكتالوج الحقيقي �
     expect(modelEmit?.modelId).toBe('Vivo X50');
   });
 
-  it('modelId النصي = "Vivo X50" يجلب المخزون دون اللجوء إلى catalog_models_v1', () => {
-    InventoryService.addStock('Vivo', 'X50', '8/128', 5, 10000, 20000);
+  it('modelId النصي = "Vivo X50" يجلب المخزون دون اللجوء إلى catalog_models_v1', async () => {
+    await InventoryService.addStock('Vivo', 'X50', '8/128', 5, 10000, 20000);
 
     getItemSpy.mockClear();
     localStorageKeys.length = 0;
@@ -79,8 +91,8 @@ describe('S4 AT-24: التصفح يعمل من الكتالوج الحقيقي �
     expect(localStorageKeys).not.toContain('catalog_brands_v1');
   });
 
-  it('المخزون يظهر داخل خطوة النسخة عند التصفح (catalog_inventory لم يُكسر)', () => {
-    InventoryService.addStock('Vivo', 'X50', '8/128', 5, 10000, 20000);
+  it('المخزون يظهر داخل خطوة النسخة عند التصفح (catalog_inventory لم يُكسر)', async () => {
+    await InventoryService.addStock('Vivo', 'X50', '8/128', 5, 10000, 20000);
 
     render(
       <ThemeProvider>

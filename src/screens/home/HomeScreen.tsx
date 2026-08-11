@@ -14,6 +14,7 @@ import { Card } from '../../design-system/components/Card';
 import { Flex } from '../../design-system/components/Flex';
 import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 import { InventoryService, type InventoryRecord } from '../../services/inventory-service';
+import { getInventoryReady, subscribeCentralInventory } from '../../services/inventory-central-service';
 
 function getGreetingKey() {
   const h = new Date().getHours();
@@ -166,10 +167,15 @@ export const HomeScreen = memo(function HomeScreen() {
   const { state, researchRole } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [devices, setDevices] = useState<InventoryRecord[]>([]);
+  const [inventoryReady, setInventoryReady] = useState(() => getInventoryReady());
 
   useEffect(() => {
-    setDevices(InventoryService.getExchangeableDevices());
+    return subscribeCentralInventory(() => setInventoryReady(getInventoryReady()));
   }, []);
+
+  useEffect(() => {
+    if (inventoryReady) setDevices(InventoryService.getExchangeableDevices());
+  }, [inventoryReady]);
 
   const canUseSticker = permissionGuard.can(researchRole, 'sticker', 'write');
 

@@ -1,15 +1,15 @@
 /**
  * Default used-phones inventory seed.
  *
- * Launch blocker (2026-08-05): used phones only appeared on origins where the
- * admin had manually added them (inventory is localStorage-scoped, one store
- * per browser origin). A freshly-opened published site was empty. This module
- * bundles a small realistic starting catalog and loads it ONCE, only when no
- * inventory exists yet — every origin (local AND published) starts with the
- * same used phones. The admin can edit, reprice, hide or delete every record
- * through the Inventory management page; the seed never overwrites data.
+ * ── CUTOVER NOTE 2026-08-11 ─────────────────────────────────────────────
+ *  localStorage seeding is retired: inventory now lives in the central
+ *  Supabase tables (see `src/services/inventory-central-service.ts` and
+ *  `supabase/inventory-central/`). `ensureInventorySeeded()` is a NO-OP
+ *  returning `false` — the central bootstrap (SQL apply + admin seeding) is
+ *  the only seed path, and the admin Inventory page remains the editing
+ *  surface. `DEFAULT_INVENTORY_SEED` is kept for reference/regression docs.
+ * ─────────────────────────────────────────────────────────────────────────
  */
-import { InventoryService } from './inventory-service';
 
 export interface SeedPhone {
   brand: string;
@@ -34,29 +34,9 @@ export const DEFAULT_INVENTORY_SEED: readonly SeedPhone[] = [
 ];
 
 /**
- * Populates the default used-phones catalog on first run only.
- * No-op when inventory already exists (never overwrites admin data).
+ * Retired seed hook (central cutover). Always a no-op: the central bootstrap
+ * is the only seed path, and it never runs from the client runtime.
  */
 export function ensureInventorySeeded(): boolean {
-  try {
-    if (localStorage.getItem('catalog_inventory') !== null) return false;
-    for (const phone of DEFAULT_INVENTORY_SEED) {
-      InventoryService.addStock(
-        phone.brand,
-        phone.model,
-        phone.variant,
-        phone.quantity,
-        phone.buyPrice,
-        phone.sellPrice,
-        'purchase',
-        undefined,
-        undefined,
-        'seed',
-        phone.condition,
-      );
-    }
-    return true;
-  } catch {
-    return false;
-  }
+  return false;
 }

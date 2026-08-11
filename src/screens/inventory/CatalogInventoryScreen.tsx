@@ -1,7 +1,8 @@
-import { memo, useState, useEffect } from 'react';
+import { memo, useState, useEffect, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { InventoryService, type InventoryRecord } from '../../services/inventory-service';
+import { getInventoryReady, subscribeCentralInventory } from '../../services/inventory-central-service';
 import { InventorySummaryCards } from '../../components/inventory/InventorySummaryCards';
 import { InventorySearchBar } from '../../components/inventory/InventorySearchBar';
 import { InventoryViewToggle, type View } from '../../components/inventory/InventoryViewToggle';
@@ -17,29 +18,68 @@ export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
   const [records, setRecords] = useState<InventoryRecord[]>([]);
   const [search, setSearch] = useState('');
   const [editingRecord, setEditingRecord] = useState<InventoryRecord | null>(null);
+  const [ready, setReady] = useState(() => getInventoryReady());
+  const [pending, setPending] = useState(false);
 
-  const refresh = () => setRecords(InventoryService.getAll());
-  useEffect(() => { refresh(); }, []);
+  const refresh = useCallback(() => setRecords(InventoryService.getAll()), []);
+
+  useEffect(() => {
+    return subscribeCentralInventory(() => setReady(getInventoryReady()));
+  }, []);
+
+  useEffect(() => {
+    if (ready) refresh();
+  }, [ready, refresh]);
 
   const filtered = search ? InventoryService.search(search) : records;
   const totalItems = records.reduce((s, r) => s + r.quantity, 0);
   const lowStock = records.filter(r => r.quantity > 0 && r.quantity <= 3).length;
   const outOfStock = records.filter(r => r.quantity <= 0).length;
 
-  const handleEditSave = (record: InventoryRecord, newQty: number) => {
+  const handleEditSave = async (record: InventoryRecord, newQty: number) => {
     const diff = newQty - record.quantity;
-    if (diff > 0) InventoryService.addStock(record.brand, record.model, record.variant, diff);
-    else if (diff < 0) InventoryService.removeStock(record.id, Math.abs(diff));
-    refresh();
-    setEditingRecord(null);
+    setPending(true);
+    try {
+      if (diff > 0) await InventoryService.addStock(record.brand, record.model, record.variant, diff);
+      else if (diff < 0) await InventoryService.removeStock(record.id, Math.abs(diff));
+      refresh();
+      setEditingRecord(null);
+    } finally {
+      setPending(false);
+    }
   };
 
-  const handleToggleVisibility = (id: string) => {
+  const handleToggleVisibility = async (id: string) => {
     const rec = records.find(r => r.id === id);
     if (!rec) return;
-    if (rec.status === 'archived' || rec.status === 'discontinued') InventoryService.unhideRecord(id);
-    else InventoryService.hideRecord(id);
-    refresh();
+    setPending(true);
+    try {
+      if (rec.status === 'archived' || rec.status === 'discontinued') await InventoryService.unhideRecord(id);
+      else await InventoryService.hideRecord(id);
+      refresh();
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const handleTogglePublish = async (id: string) => {
+    setPending(true);
+    try {
+      await InventoryService.publishRecord(id, !InventoryService.isRecordPublished(id));
+      refresh();
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setPending(true);
+    try {
+      await InventoryService.deleteRecord(id);
+      refresh();
+    } finally {
+      setPending(false);
+    }
   };
 
   return (
@@ -49,11 +89,27 @@ export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
         <InventoryViewToggle view={view} onViewChange={setView} colors={colors} />
       </div>
 
+      {!ready && (
+        <div style={{ ...styles.textMuted, textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem' }}>
+          جارٍ تحميل المخزون…
+        </div>
+      )}
+
       {view === 'dashboard' && (
         <>
           <InventorySummaryCards colors={colors} totalItems={totalItems} recordsCount={records.length} lowStock={lowStock} outOfStock={outOfStock} />
           <InventorySearchBar value={search} onChange={setSearch} colors={colors} />
-          <InventoryTable filtered={filtered} search={search} colors={colors} onEdit={setEditingRecord} onDelete={id => { InventoryService.deleteRecord(id); refresh(); }} onToggleVisibility={handleToggleVisibility} />
+          <InventoryTable
+            filtered={filtered}
+            search={search}
+            colors={colors}
+            busy={pending}
+            publishedIds={new Set(records.map(r => r.id).filter(id => InventoryService.isRecordPublished(id)))}
+            onEdit={setEditingRecord}
+            onDelete={handleDelete}
+            onToggleVisibility={handleToggleVisibility}
+            onTogglePublish={handleTogglePublish}
+          />
         </>
       )}
 
@@ -76,7 +132,7 @@ export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
       )}
 
       {editingRecord && (
-        <EditInventoryModal record={editingRecord} colors={colors} onSave={handleEditSave} onClose={() => setEditingRecord(null)} />
+        <EditInventoryModal record={editingRecord} colors={colors} busy={pending} onSave={handleEditSave} onClose={() => setEditingRecord(null)} />
       )}
     </div>
   );

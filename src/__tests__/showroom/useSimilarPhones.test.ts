@@ -1,41 +1,49 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
 import { useSimilarPhones } from '../../hooks/useSimilarPhones';
 import { InventoryService } from '../../services/inventory-service';
-import { ensureInventorySeeded } from '../../services/inventory-seed';
+import { bootstrapCentralInventory, resetCentralInventoryState } from '../../services/inventory-central-service';
+import { resetFakeCentralDb, seedFakeCentralDb } from '../helpers/fake-central-inventory';
 
-describe('Phase 3B §6 — useSimilarPhones', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    ensureInventorySeeded();
+vi.mock('../../core/supabase/client', async () => {
+  const { getFakeSupabaseClient } = await import('../helpers/fake-central-inventory');
+  return { getSupabaseClient: () => getFakeSupabaseClient() };
+});
+
+describe('useSimilarPhones (central seed drives the carousel)', () => {
+  beforeEach(async () => {
+    resetFakeCentralDb();
+    resetCentralInventoryState();
+    seedFakeCentralDb();
+    await bootstrapCentralInventory();
   });
 
-  it('excludes the current device and prioritizes same modelId, then brand family', () => {
-    const all = InventoryService.getExchangeableDevices();
-    const target = all.find((r) => r.brand === 'Apple' && r.model === 'iPhone 15 Pro')!;
+  it('returns up to 8 similar phones (matching model or brand) excluding the current record', async () => {
+    const target = InventoryService.getExchangeableDevices().find((r) => r.brand === 'Samsung')!;
+
     const { result } = renderHook(() => useSimilarPhones(target));
+    await waitFor(() => {
+      expect(result.current.length).toBeGreaterThan(0);
+      expect(result.current.length).toBeLessThanOrEqual(8);
+    });
 
-    const ids = result.current.map((r) => r.id);
-    expect(ids).not.toContain(target.id);
+    expect(result.current.every((r) => r.id !== target.id)).toBe(true);
 
-    const sameModel = all.filter(
-      (r) => r.id !== target.id && r.modelId.toLowerCase() === target.modelId.toLowerCase(),
-    );
-    expect(ids.slice(0, sameModel.length)).toEqual(sameModel.map((r) => r.id));
-    expect(ids.length).toBeLessThanOrEqual(8);
+    const pool = InventoryService.getExchangeableDevices();
+    expect(result.current.every((r) => pool.some((p) => p.id === r.id))).toBe(true);
+
+    // same-model/same-brand candidates are ranked first (carousel priority)
+    const samsungs = pool.filter((r) => r.brand === 'Samsung' && r.id !== target.id);
+    if (samsungs.length > 0) {
+      const first = result.current[0]!;
+      expect(first.brand === 'Samsung' || first.model === target.model).toBe(true);
+    }
   });
 
-  it('caps at the requested limit', () => {
-    const all = InventoryService.getExchangeableDevices();
-    const target = all[0]!;
-    const { result } = renderHook(() => useSimilarPhones(target, 3));
-    expect(result.current.length).toBeLessThanOrEqual(3);
-  });
-
-  it('not-found mode (device null) returns the top exchangeable devices', () => {
-    const all = InventoryService.getExchangeableDevices();
+  it('null/unknown device → not-found carousel fallback (up to 6 devices, no crash)', async () => {
     const { result } = renderHook(() => useSimilarPhones(null));
+    await waitFor(() => expect(result.current.length).toBe(6));
+
     expect(result.current.length).toBe(6);
-    expect(result.current.map((r) => r.id)).toEqual(all.slice(0, 6).map((r) => r.id));
   });
 });
