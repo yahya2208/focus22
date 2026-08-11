@@ -11,7 +11,7 @@ const APP_SHELL = [
   './index.html',
   './manifest.json',
   './404.html',
-  './apple-touch-icon.png',
+  './icons/apple-touch-icon.png',
   './icons/focus-icon.svg',
   './icons/focus-16.png',
   './icons/focus-32.png',

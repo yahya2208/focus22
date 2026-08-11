@@ -557,7 +557,7 @@ export async function uploadRecordImage(
   blob: Blob,
 ): Promise<{ path: string; url: string }> {
   const supabase = getSupabaseClient();
-  const path = `inventory-images/${recordId}/${randomToken()}.jpg`;
+  const path = `${recordId}/${randomToken()}.jpg`;
   const { error } = await supabase.storage.from('inventory-images').upload(path, blob, {
     contentType: 'image/jpeg',
   });
