@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FOCUS — مطابقة المخزون (Phase C · READ-ONLY)</title>
+<style>
+  :root { --bg:#0f1420; --card:#171e2e; --line:#26304a; --text:#e6e9f0; --dim:#9aa4bb; --accent:#4f8cff; --ok:#2ecc71; --warn:#f1c40f; --bad:#e74c3c; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,"Segoe UI",Tahoma,sans-serif; padding:24px; line-height:1.6; }
+  .wrap { max-width:1200px; margin:0 auto; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--dim); font-size:13px; margin-bottom:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px 20px; margin-bottom:16px; }
+  .card h2 { font-size:15px; margin:0 0 12px; color:var(--accent); }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th,td { text-align:right; padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top; word-break:break-word; }
+  th { color:var(--dim); font-weight:600; white-space:nowrap; }
+  .mono { font-family:ui-monospace,Consolas,monospace; font-size:11px; direction:ltr; text-align:left; }
+  .ok { color:var(--ok); } .warn { color:var(--warn); } .bad { color:var(--bad); } .dim { color:var(--dim); }
+  #drop { border:2px dashed var(--line); border-radius:10px; padding:40px; text-align:center; color:var(--dim); cursor:pointer; }
+  #drop.hover { border-color:var(--accent); color:var(--accent); }
+  input[type=file] { display:none; }
+  .chip { display:inline-block; background:#121826; border:1px solid var(--line); border-radius:6px; padding:3px 10px; margin:3px 4px 3px 0; font-size:12px; }
+  .kpi { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
+  .kpi .box { flex:1; min-width:140px; background:#121826; border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .kpi .box .num { font-size:24px; font-weight:700; color:var(--accent); }
+  .kpi .box .lbl { font-size:12px; color:var(--dim); margin-top:2px; }
+  .summaryRow { font-size:13px; margin:4px 0; }
+  button { background:var(--accent); color:#fff; border:none; border-radius:8px; padding:9px 16px; font-size:13px; cursor:pointer; margin-left:8px; }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--text); }
+  textarea { width:100%; min-height:120px; background:#0d1220; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:10px; font-family:ui-monospace,Consolas,monospace; font-size:12px; direction:ltr; text-align:left; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FOCUS — مطابقة المخزون بين الأجهزة</h1>
+  <div class="sub">Phase C · أداة قراءة فقط · جمع ملفات التصدير من كل Origin ثم المطابقة</div>
+
+  <div class="card">
+    <h2>1) إضافة ملفات التصدير</h2>
+    <div id="drop">اسحب ملفات التصدير (JSON) هنا أو اضغط لاختيارها</div>
+    <input type="file" id="fileInput" multiple accept=".json,application/json">
+    <div id="filesInfo" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card">
+    <h2>2) ملخص</h2>
+    <div class="kpi" id="kpis"></div>
+    <div id="summary"></div>
+  </div>
+
+  <div class="card">
+    <h2>3) تقرير المطابقة</h2>
+    <button id="downloadReport">تنزيل تقرير المطابقة (JSON)</button>
+    <button class="ghost" id="copyReport">نسخ التقرير</button>
+    <div id="tableWrap" style="overflow-x:auto;margin-top:12px"></div>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var origins = [];  // {file, name, exportedAt, origin, records: []}
+  var report = null;
+
+  var drop = $('drop');
+  var input = $('fileInput');
+  drop.onclick = function () { input.click(); };
+  drop.ondragover = function (e) { e.preventDefault(); drop.classList.add('hover'); };
+  drop.ondragleave = function () { drop.classList.remove('hover'); };
+  drop.ondrop = function (e) {
+    e.preventDefault();
+    drop.classList.remove('hover');
+    handleFiles(e.dataTransfer.files);
+  };
+  input.onchange = function () { handleFiles(input.files); };
+
+  function handleFiles(files) {
+    var list = Array.prototype.slice.call(files);
+    Promise.all(list.map(function (f) {
+      return f.text().then(function (text) {
+        return JSON.parse(text);
+      });
+    })).then(function (exports) {
+      return Promise.all(exports.map(function (ex, i) {
+        return verifyExport(ex).then(function (issues) {
+          return { ex: ex, file: list[i].name, issues: issues };
+        });
+      }));
+    }).then(function (loaded) {
+      loaded.forEach(function (entry) {
+        var ex = entry.ex;
+        var recs = (ex.keys && ex.keys.catalog_inventory && ex.keys.catalog_inventory.value) || [];
+        if (!Array.isArray(recs)) recs = [];
+        origins.push({
+          name: ex.origin || entry.file,
+          file: entry.file,
+          exportedAt: ex.exportedAt || '?',
+          sha256: ex.sha256 || '?',
+          integrity: entry.issues,
+          count: recs.length,
+          records: recs
+        });
+      });
+      render();
+    }).catch(function (e) {
+      alert('تعذّر قراءة ملف: ' + e.message);
+    });
+  }
+
+  function verifyExport(ex) {
+    var issues = [];
+    if (!ex || typeof ex !== 'object') return Promise.resolve(['ملف غير صالح']);
+    if (ex.schema !== 'focus-inventory-export-v1') {
+      issues.push('schema غير متوقع: ' + (ex.schema || 'بدون schema'));
+    }
+    if (!ex.sha256) issues.push('لا SHA-256 في الملف');
+    if (crypto && crypto.subtle && ex.sha256 && ex.exportedAt) {
+      var clone = Object.assign({}, ex, { sha256: null });
+      return crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(clone))).then(function (buf) {
+        var hex = Array.prototype.map.call(new Uint8Array(buf), function (b) {
+          return b.toString(16).padStart(2, '0');
+        }).join('');
+        if (hex !== ex.sha256) issues.push('SHA-256 لا يطابق محتوى الملف (ملف معدّل)');
+        return issues;
+      });
+    }
+    return Promise.resolve(issues);
+  }
+
+  function normRecord(r) {
+    return {
+      raw: r,   // السجل الكامل كما هو (كل الحقول + imagesData) — مصدر canonical dataset
+      id: r.id || '',
+      modelId: r.modelId || '',
+      brand: r.brand || '',
+      model: r.model || '',
+      variant: r.variant || '',
+      ram: r.ram || '',
+      storage: r.storage || '',
+      condition: r.condition || '',
+      color: r.color || '',
+      quantity: Number(r.quantity) || 0,
+      buyPrice: r.buyPrice != null ? Number(r.buyPrice) : null,
+      sellPrice: r.sellPrice != null ? Number(r.sellPrice) : null,
+      status: r.status || '',
+      createdAt: r.createdAt || '',
+      updatedAt: r.updatedAt || '',
+      totalPurchased: Number(r.totalPurchased) || 0,
+      totalSold: Number(r.totalSold) || 0,
+      code: r.code || '',
+      batteryHealth: r.batteryHealth != null ? Number(r.batteryHealth) : null,
+      warranty: r.warranty || '',
+      city: r.city || '',
+      description: r.description || '',
+      images: Array.isArray(r.images) ? r.images.length : 0,
+      imagesData: Array.isArray(r.images) ? r.images : []
+    };
+  }
+
+  // مفتاح الهوية: `code` هو المعرّف الأكثر أمانًا عند وجوده (لا دمج خاطئ بين
+  // هاتفين مختلفين). غيره: مركّب يتضمن ram وstorage حتى لا يندمج متغيران مختلفان.
+  function skuKey(r) {
+    var code = r.code && String(r.code).trim();
+    if (code) return 'code:' + code.toLowerCase();
+    return [r.modelId, r.ram, r.storage, r.variant, r.condition, r.color].join('|').toLowerCase();
+  }
+
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function render() {
+    // Build per-origin index by SKU key.
+    var groups = {}; // skuKey -> { key, label, rows: [{originIdx, rec}] }
+    origins.forEach(function (o, oi) {
+      o.records.forEach(function (r) {
+        var nr = normRecord(r);
+        var k = skuKey(nr);
+        if (!groups[k]) {
+          groups[k] = {
+            key: k,
+            label: (nr.brand + ' ' + nr.model + ' | ' + nr.variant + ' | ' + nr.condition + (nr.color ? ' | ' + nr.color : '')),
+            rows: []
+          };
+        }
+        groups[k].rows.push({ originIdx: oi, rec: nr });
+      });
+    });
+
+    var keys = Object.keys(groups).sort();
+    var matchCount = 0, conflictCount = 0, singleCount = 0;
+    var rows = [];
+
+    keys.forEach(function (k) {
+      var g = groups[k];
+      var present = origins.map(function () { return null; });
+      g.rows.forEach(function (row) { present[row.originIdx] = row.rec; });
+
+      var quantities = g.rows.map(function (r) { return r.rec.quantity; });
+      var sellPrices = g.rows.map(function (r) { return r.rec.sellPrice; });
+      var buyPrices = g.rows.map(function (r) { return r.rec.buyPrice; });
+
+      var decision;
+      if (g.rows.length === 1) {
+        decision = { level: 'OWNER_REVIEW', code: 'SINGLE_ORIGIN', label: 'موجود في جهاز واحد فقط' };
+        singleCount++;
+      } else {
+        var qOk = quantities.every(function (q) { return q === quantities[0]; });
+        var spOk = sellPrices.every(function (p) { return p === sellPrices[0]; });
+        var bpOk = buyPrices.every(function (p) { return p === buyPrices[0]; });
+        if (qOk && spOk && bpOk) {
+          decision = { level: 'MATCH', code: 'MATCH', label: 'مطابق' };
+          matchCount++;
+        } else {
+          decision = { level: 'CONFLICT', code: 'OWNER_REVIEW', label: 'اختلاف — قرار المالك' };
+          conflictCount++;
+        }
+      }
+      rows.push({ group: g, present: present, decision: decision });
+    });
+
+    // KPIs
+    $('kpis').innerHTML = '';
+    var kpis = [
+      { n: origins.length, l: 'الأجهزة/الأصول' },
+      { n: keys.length, l: 'هواتف فريدة (SKU)' },
+      { n: matchCount, l: 'مطابق' },
+      { n: conflictCount, l: 'اختلاف — قرار مطلوب' },
+      { n: singleCount, l: 'موجود في جهاز واحد' }
+    ];
+    kpis.forEach(function (k) {
+      var box = document.createElement('div');
+      box.className = 'box';
+      box.innerHTML = '<div class="num">' + k.n + '</div><div class="lbl">' + k.l + '</div>';
+      $('kpis').appendChild(box);
+    });
+
+    // Origin chips + integrity warnings
+    var info = '';
+    origins.forEach(function (o, i) {
+      info += '<span class="chip"><b>' + esc(o.name) + '</b> · ' + o.count + ' سجلات · ' + esc(o.exportedAt) + '</span>';
+      if (o.integrity && o.integrity.length) {
+        info += '<div class="summaryRow err">' + esc(o.name) + ': ' + esc(o.integrity.join('; ')) + '</div>';
+      }
+    });
+    $('summary').innerHTML = '<div class="summaryRow">' + info + '</div>';
+
+    // Build table
+    var th = '<tr><th>الهاتف</th>';
+    origins.forEach(function (o) { th += '<th>' + esc(o.name) + '</th>'; });
+    th += '<th>القرار</th></tr>';
+    var tbody = '';
+    rows.forEach(function (row) {
+      var d = row.decision;
+      var cls = d.level === 'MATCH' ? 'ok' : (d.level === 'CONFLICT' ? 'bad' : 'warn');
+      tbody += '<tr><td>' + esc(row.group.label) + '</td>';
+      row.present.forEach(function (rec) {
+        if (rec) {
+          var delta = 'q=' + rec.quantity + ' · ' + (rec.sellPrice != null ? rec.sellPrice + ' دج' : 'سعر-');
+          tbody += '<td>' + esc(delta) + '</td>';
+        } else {
+          tbody += '<td class="dim">—</td>';
+        }
+      });
+      tbody += '<td class="' + cls + '">' + esc(d.label) + '</td></tr>';
+    });
+    $('tableWrap').innerHTML = '<table><thead>' + th + '</thead><tbody>' + tbody + '</tbody></table>';
+
+    report = {
+      schema: 'focus-inventory-reconcile-v1',
+      note: 'CANONICAL DATASET: full raw records (rec) embedded per origin. Resolve EVERY OWNER_REVIEW before any backfill. Backfill must consume this file (raw records + decisions), never a summary alone.',
+      generatedAt: new Date().toISOString(),
+      origins: origins.map(function (o) {
+        return { name: o.name, file: o.file, exportedAt: o.exportedAt, sha256: o.sha256, count: o.count, integrity: o.integrity || [] };
+      }),
+      summary: { uniqueSkus: keys.length, match: matchCount, conflict: conflictCount, singleOrigin: singleCount },
+      items: rows.map(function (row) {
+        return {
+          skuKey: row.group.key,
+          label: row.group.label,
+          decision: row.decision,
+          origins: row.present.map(function (rec, i) {
+            return rec ? {
+              origin: origins[i].name,
+              rec: rec.raw,
+              id: rec.id,
+              quantity: rec.quantity,
+              sellPrice: rec.sellPrice,
+              buyPrice: rec.buyPrice,
+              status: rec.status,
+              totalPurchased: rec.totalPurchased,
+              totalSold: rec.totalSold,
+              updatedAt: rec.updatedAt,
+              code: rec.code,
+              batteryHealth: rec.batteryHealth,
+              warranty: rec.warranty,
+              city: rec.city,
+              imagesCount: rec.images
+            } : null;
+          })
+        };
+      })
+    };
+
+    $('downloadReport').disabled = false;
+    $('downloadReport').onclick = function () {
+      var blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'focus-inventory-reconcile_' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    $('copyReport').onclick = function () {
+      navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+    };
+  }
+})();
+</script>
+</body>
+</html>

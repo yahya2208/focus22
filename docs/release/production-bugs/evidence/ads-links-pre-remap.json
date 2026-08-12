@@ -1,0 +1,99 @@
+{
+  "source": "Production Supabase SQL Editor",
+  "query": "SELECT placement, enabled, image_path, image_url, link, alt, device_id, sort_order, updated_by, created_at, updated_at FROM public.ads ORDER BY placement;",
+  "row_count": 7,
+  "captured_before": "07-remap-ad-phone-links.sql",
+  "rows": [
+    {
+      "placement": "exchange",
+      "enabled": true,
+      "image_path": "ads/exchange/1786144499935-9tegk7ck.jpg",
+      "image_url": "https://fmggysdqigtejxbfpgtg.supabase.co/storage/v1/object/public/ads-images/ads/exchange/1786144499935-9tegk7ck.jpg",
+      "link": "",
+      "alt": "",
+      "device_id": "",
+      "sort_order": 0,
+      "updated_by": null,
+      "created_at": "2026-08-05 19:45:34.543659+00",
+      "updated_at": "2026-08-07 23:15:02.684136+00"
+    },
+    {
+      "placement": "home",
+      "enabled": true,
+      "image_path": "ads/home/1786140615868-amzsfgwx.jpg",
+      "image_url": "https://fmggysdqigtejxbfpgtg.supabase.co/storage/v1/object/public/ads-images/ads/home/1786140615868-amzsfgwx.jpg",
+      "link": "",
+      "alt": "",
+      "device_id": "",
+      "sort_order": 0,
+      "updated_by": null,
+      "created_at": "2026-08-05 19:45:34.543659+00",
+      "updated_at": "2026-08-07 22:10:17.486359+00"
+    },
+    {
+      "placement": "phone-details",
+      "enabled": true,
+      "image_path": "ads/phone-details/1786210470630-xbozmqcw.jpg",
+      "image_url": "https://fmggysdqigtejxbfpgtg.supabase.co/storage/v1/object/public/ads-images/ads/phone-details/1786210470630-xbozmqcw.jpg",
+      "link": "",
+      "alt": "",
+      "device_id": "",
+      "sort_order": 0,
+      "updated_by": null,
+      "created_at": "2026-08-05 19:45:34.543659+00",
+      "updated_at": "2026-08-08 17:34:31.822254+00"
+    },
+    {
+      "placement": "phones",
+      "enabled": true,
+      "image_path": "ads/phones/1786143567639-ob29qqsc.jpg",
+      "image_url": "https://fmggysdqigtejxbfpgtg.supabase.co/storage/v1/object/public/ads-images/ads/phones/1786143567639-ob29qqsc.jpg",
+      "link": "",
+      "alt": "",
+      "device_id": "",
+      "sort_order": 0,
+      "updated_by": null,
+      "created_at": "2026-08-05 19:45:34.543659+00",
+      "updated_at": "2026-08-07 22:59:30.402967+00"
+    },
+    {
+      "placement": "repair",
+      "enabled": true,
+      "image_path": "ads/repair/1786143584432-54g2w49i.jpg",
+      "image_url": "https://fmggysdqigtejxbfpgtg.supabase.co/storage/v1/object/public/ads-images/ads/repair/1786143584432-54g2w49i.jpg",
+      "link": "",
+      "alt": "",
+      "device_id": "",
+      "sort_order": 0,
+      "updated_by": null,
+      "created_at": "2026-08-05 19:45:34.543659+00",
+      "updated_at": "2026-08-07 22:59:46.960961+00"
+    },
+    {
+      "placement": "results",
+      "enabled": true,
+      "image_path": "ads/results/1786143597671-irs4ogby.jpg",
+      "image_url": "https://fmggysdqigtejxbfpgtg.supabase.co/storage/v1/object/public/ads-images/ads/results/1786143597671-irs4ogby.jpg",
+      "link": "",
+      "alt": "",
+      "device_id": "",
+      "sort_order": 0,
+      "updated_by": null,
+      "created_at": "2026-08-05 19:45:34.543659+00",
+      "updated_at": "2026-08-07 23:00:00.558003+00"
+    },
+    {
+      "placement": "showroom",
+      "enabled": true,
+      "image_path": "",
+      "image_url": "https://fmggysdqigtejxbfpgtg.supabase.co/storage/v1/object/public/ads-images/ads/showroom/1786297097350-khmobxbb.jpg",
+      "link": "",
+      "alt": "",
+      "device_id": "",
+      "sort_order": 0,
+      "updated_by": null,
+      "created_at": "2026-08-09 17:38:18.870113+00",
+      "updated_at": "2026-08-09 17:38:23.978734+00"
+    }
+  ]
+}

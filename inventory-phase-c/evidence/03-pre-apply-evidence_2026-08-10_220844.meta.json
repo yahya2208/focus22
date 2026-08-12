@@ -1,0 +1,16 @@
+{
+  "evidence": {
+    "file": "03-pre-apply-evidence_2026-08-10_220844.sql.txt",
+    "status": "PENDING_RAW_OUTPUT",
+    "note": "Raw output was declared by the owner but its content has not been received in this workspace. The .sql.txt evidence file will be created verbatim only after the owner pastes the actual SQL Editor output. No output was fabricated."
+  },
+  "owner_declared": {
+    "captured_at": "2026-08-10 22:08:44.831447+00",
+    "current_user": "postgres",
+    "checks": ["01A", "02", "03", "04", "05", "06", "07", "08"],
+    "result": "GATE 0 = PASS"
+  },
+  "declared_by": "owner (via conversation)",
+  "created_at": "2026-08-11T00:12:00Z",
+  "tools": ["bash mkdir"]
+}
