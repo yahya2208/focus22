@@ -36,7 +36,7 @@ describe('P2-C C-1 variant normalization', () => {
     }
   });
 
-  it('every offered variant across all 866 models round-trips', () => {
+  it('every offered variant across all catalog models round-trips', () => {
     for (const brand of getAllBrands()) {
       for (const model of brand.models) {
         for (const v of getVariantsForModel(model.model, brand.brand)) {
@@ -56,28 +56,59 @@ describe('P2-C C-1 variant normalization', () => {
     expect(a10.length).toBeGreaterThan(0);
   });
 
-  it('no offered variant leaks outside the real JSON set (heuristic unused today)', () => {
+  it('heuristic variants are offered ONLY for models with no real variants; never fabricated for the original 866', () => {
+    let heuristicOnly = 0;
+    let realBearing = 0;
+    let aliasInherited = 0; // seeded models that resolve to an existing device's real variants
     for (const brand of getAllBrands()) {
       for (const model of brand.models) {
-        const realLabels = new Set(getRealVariantsForModel(model.model, brand.brand).map(v => v.label));
+        const real = getRealVariantsForModel(model.model, brand.brand);
         const offered = getVariantsForModel(model.model, brand.brand).map(v => v.label);
+        if (real.length === 0) {
+          heuristicOnly++;
+          // The JSON itself never fabricates variants...
+          expect(model.variants.length).toBe(0);
+          // ...but the display-only fallback still supplies selectable variants.
+          expect(offered.length).toBeGreaterThan(0);
+          continue;
+        }
+        realBearing++;
+        // The 12 seeded "+" models carry variants: [] in JSON (DB truth) yet
+        // resolve to their base device's real variants by normalized-name lookup.
+        if (model.variants.length === 0) aliasInherited++;
+        const realLabels = new Set(real.map(v => v.label));
         for (const label of offered) {
           expect(realLabels.has(label), `${brand.brand} ${model.model} -> ${label}`).toBe(true);
         }
       }
     }
+    expect(heuristicOnly).toBe(1300); // 1312 seeded − 12 inherited-from-base
+    expect(realBearing).toBe(878);    // 866 original + 12 alias
+    expect(aliasInherited).toBe(12);
   });
 
-  it('variant coverage is 100% after C-1', () => {
+  it('variant coverage: 878 full (866 original + 12 base-aliased seeded); 1,300 heuristic-only (no DB variants, display-only)', () => {
     const stats = getCoverageStats();
-    expect(stats.totalModels).toBe(866);
-    expect(stats.fullCoverage).toBe(866);
+    expect(stats.totalModels).toBe(2178);
+    expect(stats.fullCoverage).toBe(878);
     expect(stats.partialCoverage).toBe(0);
-    expect(stats.noCoverage).toBe(0);
-    expect(stats.averageCoverage).toBe(1);
-    for (const r of verifyAllModels()) {
+    expect(stats.noCoverage).toBe(1300);
+    expect(stats.averageCoverage).toBe(0.4031);
+
+    const reports = verifyAllModels();
+    const withReal = reports.filter(r => getRealVariantsForModel(r.model, r.brand).length > 0);
+    const heuristicOnly = reports.filter(r => getRealVariantsForModel(r.model, r.brand).length === 0);
+    expect(withReal.length).toBe(878);
+    expect(heuristicOnly.length).toBe(1300);
+
+    for (const r of withReal) {
       expect(r.missing).toEqual([]);
       expect(r.extra).toEqual([]);
+    }
+    for (const r of heuristicOnly) {
+      // no real variants invented, heuristic (display-only) expected labels present
+      expect(r.actualVariants).toEqual([]);
+      expect(r.expectedVariants.length).toBeGreaterThan(0);
     }
   });
 });

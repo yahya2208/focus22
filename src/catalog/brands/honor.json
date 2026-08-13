@@ -66,6 +66,18 @@
     { "model": "Play 30", "series": "Play", "variants": [{"storage":"64","ram":"4"},{"storage":"128","ram":"6"}], "modelNumbers":["PLAY30"], "releaseYear":2022 },
     { "model": "Play 50 Plus", "series": "Play", "variants": [{"storage":"256","ram":"8"}], "modelNumbers":["PLAY50P"], "releaseYear":2023 },
     { "model": "Play 60", "series": "Play", "variants": [{"storage":"128","ram":"6"},{"storage":"256","ram":"8"}], "modelNumbers":["PLAY60"], "releaseYear":2024 },
-    { "model": "Play 70", "series": "Play", "variants": [{"storage":"128","ram":"8"},{"storage":"256","ram":"8"}], "modelNumbers":["PLAY70"], "releaseYear":2025 }
+    { "model": "Play 70", "series": "Play", "variants": [{"storage":"128","ram":"8"},{"storage":"256","ram":"8"}], "modelNumbers":["PLAY70"], "releaseYear":2025 },
+    { "model": "Honor 60 Pro", "series": "Honor Numbered", "variants": [], "modelNumbers": [], "releaseYear": null },
+    { "model": "Honor 80 Pro", "series": "Honor Numbered", "variants": [], "modelNumbers": [], "releaseYear": null },
+    { "model": "Magic 4 Lite", "series": "Magic", "variants": [], "modelNumbers": [], "releaseYear": null },
+    { "model": "Magic 5 Lite", "series": "Magic", "variants": [], "modelNumbers": [], "releaseYear": null },
+    { "model": "Play 20", "series": "Honor Play", "variants": [], "modelNumbers": [], "releaseYear": null },
+    { "model": "Play 30 Plus", "series": "Honor Play", "variants": [], "modelNumbers": [], "releaseYear": null },
+    { "model": "Play 40 Plus", "series": "Honor Play", "variants": [], "modelNumbers": [], "releaseYear": null },
+    { "model": "Play 40C", "series": "Honor Play", "variants": [], "modelNumbers": [], "releaseYear": null },
+    { "model": "Play 50", "series": "Honor Play", "variants": [], "modelNumbers": [], "releaseYear": null },
+    { "model": "Play 8A", "series": "Honor Play", "variants": [], "modelNumbers": [], "releaseYear": null },
+    { "model": "Play 9A", "series": "Honor Play", "variants": [], "modelNumbers": [], "releaseYear": null },
+    { "model": "X10 Max", "series": "Honor X", "variants": [], "modelNumbers": [], "releaseYear": null }
   ]
 }

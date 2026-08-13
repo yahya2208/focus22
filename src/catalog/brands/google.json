@@ -40,6 +40,12 @@
     {"model":"Nexus 5","series":"Nexus","variants":[{"storage":"16","ram":"2"},{"storage":"32","ram":"2"}],"modelNumbers":["LG-D820"],"releaseYear":2013},
     {"model":"Nexus 6","series":"Nexus","variants":[{"storage":"32","ram":"3"},{"storage":"64","ram":"3"}],"modelNumbers":["XT1103"],"releaseYear":2014},
     {"model":"Nexus 6P","series":"Nexus","variants":[{"storage":"32","ram":"3"},{"storage":"64","ram":"3"},{"storage":"128","ram":"3"}],"modelNumbers":["H1511"],"releaseYear":2015},
-    {"model":"Nexus 5X","series":"Nexus","variants":[{"storage":"16","ram":"2"},{"storage":"32","ram":"2"}],"modelNumbers":["LG-H790"],"releaseYear":2015}
+    {"model":"Nexus 5X","series":"Nexus","variants":[{"storage":"16","ram":"2"},{"storage":"32","ram":"2"}],"modelNumbers":["LG-H790"],"releaseYear":2015},
+    {"model":"7a","series":"","variants":[],"modelNumbers":[],"releaseYear":null},
+    {"model":"Galaxy Nexus","series":"","variants":[],"modelNumbers":[],"releaseYear":null},
+    {"model":"Nexus One","series":"Nexus","variants":[],"modelNumbers":[],"releaseYear":null},
+    {"model":"Nexus S","series":"Nexus","variants":[],"modelNumbers":[],"releaseYear":null},
+    {"model":"Pixel 4a 5G","series":"Pixel","variants":[],"modelNumbers":[],"releaseYear":null},
+    {"model":"Pixel 5a 5G","series":"Pixel","variants":[],"modelNumbers":[],"releaseYear":null}
   ]
 }

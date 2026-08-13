@@ -35,7 +35,13 @@ describe('S1 adapter: lossless legacy → canonical', () => {
 
     expect(catalog.brands.length).toBe(18);
     expect(catalog.brands.length).toBe(legacyBrands.length);
-    expect(catalog.brands.flatMap(b => b.models).length).toBe(legacyModels.length);
+    // The S1 adapter migrates VARIANTS. The 1,312 GC-R3-seeded models have NO
+    // variants in the DB, so they are intentionally absent from the canonical
+    // migration catalog (there is nothing to migrate) while remaining present
+    // in the legacy runtime catalog. Losslessness is asserted over the
+    // variant-bearing subset.
+    const legacyWithVariants = legacyModels.filter(m => m.variants.length > 0);
+    expect(catalog.brands.flatMap(b => b.models).length).toBe(legacyWithVariants.length);
     expect(allVariants(catalog).length).toBe(legacyVariants.length);
     expect(report.totalLegacy).toBe(legacyVariants.length);
   });
@@ -47,6 +53,24 @@ describe('S1 adapter: lossless legacy → canonical', () => {
     expect(report.totalLegacy).toBe(1816);
     expect(report.migrated).toBe(1816);
     expect(report.dropped).toBe(0);
+  });
+
+  it('the legacy runtime catalog carries 2,178 models (866 original + 1,312 seeded); the variant-less 1,312 are the only excluded set', () => {
+    const legacyModels = getAllBrands().flatMap(b => b.models);
+    expect(legacyModels.length).toBe(2178);
+    const variantBearing = legacyModels.filter(m => m.variants.length > 0);
+    const variantLess = legacyModels.filter(m => m.variants.length === 0);
+    expect(variantBearing.length).toBe(866);
+    expect(variantLess.length).toBe(1312);
+    expect(variantLess.every(m => m.releaseYear === null)).toBe(true);
+    // zero loss: every variant-bearing legacy model exists in the canonical catalog
+    const canonicalIds = new Set(buildCanonicalCatalog().catalog.brands.flatMap(b => b.models.map(m => m.modelId)));
+    for (const brand of getAllBrands()) {
+      for (const m of brand.models) {
+        if (m.variants.length === 0) continue;
+        expect(canonicalIds.has(resolveModelId(brandIdFor(brand.brand), m.model))).toBe(true);
+      }
+    }
   });
 
   it('before/after: 1,806 direct matches + 10 remapped via declared override, zero loss', () => {

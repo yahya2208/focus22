@@ -7,7 +7,7 @@ export interface CatalogModel {
   model: string;
   variants: CatalogVariant[];
   modelNumbers: string[];
-  releaseYear: number;
+  releaseYear: number | null;
   series: string;
 }
 

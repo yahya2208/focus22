@@ -19,8 +19,63 @@ export const MIGRATION_VERIFIER = 'catalog-migration-s1';
 export const MIGRATION_AT = '2026-08-07T00:00:00.000Z';
 
 export const MODEL_ID_OVERRIDES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  huawei: {
+    'Mate 40 Pro+': 'huawei-mate-40-pro-plus',
+    'Mate 60 Pro+': 'huawei-mate-60-pro-plus',
+    'P40 Pro+': 'huawei-p40-pro-plus',
+  },
+  infinix: {
+    'Note 40 Pro+': 'infinix-note-40-pro-plus',
+  },
+  motorola: {
+    'Edge+': 'motorola-edge-plus',
+    'One Fusion+': 'motorola-one-fusion-plus',
+  },
+  oppo: {
+    'F19 Pro+': 'oppo-f19-pro-plus',
+    'Reno 10 Pro+': 'oppo-reno-10-pro-plus',
+  },
+  realme: {
+    'Realme 10 Pro+': 'realme-realme-10-pro-plus',
+    'Realme 11 Pro+': 'realme-realme-11-pro-plus',
+    'Realme 12+': 'realme-realme-12-plus',
+    'Realme 12 Pro+': 'realme-realme-12-pro-plus',
+    'Realme 13 Pro+': 'realme-realme-13-pro-plus',
+    'Realme 9 Pro+': 'realme-realme-9-pro-plus',
+  },
+  samsung: {
+    'Galaxy A6+ (2018)': 'samsung-galaxy-a6-2018-plus',
+    'Galaxy A8+ (2018)': 'samsung-galaxy-a8-2018-plus',
+    'Galaxy Grand Prime+': 'samsung-galaxy-grand-prime-plus',
+    'Galaxy J4+': 'samsung-galaxy-j4-plus',
+    'Galaxy J6+': 'samsung-galaxy-j6-plus',
+    'Galaxy Note 10+': 'samsung-galaxy-note-10-plus',
+    'Galaxy S10+': 'samsung-galaxy-s10-plus',
+    'Galaxy S6 Edge+': 'samsung-galaxy-s6-edge-plus',
+    'Galaxy S8+': 'samsung-galaxy-s8-plus',
+    'Galaxy S9+': 'samsung-galaxy-s9-plus',
+    'Galaxy Z Flip7': 'samsung-galaxy-z-flip-7',
+    'Galaxy Z Fold7': 'samsung-galaxy-z-fold-7',
+  },
+  sony: {
+    'Xperia Z3+': 'sony-xperia-z3-plus',
+  },
+  tecno: {
+    'Spark 20 Pro+': 'tecno-spark-20-pro-plus',
+  },
+  vivo: {
+    'V7+': 'vivo-v7-plus',
+    'X Fold+': 'vivo-x-fold-plus',
+    'X50 Pro+': 'vivo-x50-pro-plus',
+    'X60 Pro+': 'vivo-x60-pro-plus',
+    'X70 Pro+': 'vivo-x70-pro-plus',
+    'X90 Pro+': 'vivo-x90-pro-plus',
+  },
   xiaomi: {
+    'Redmi Note 12 Pro+': 'xiaomi-redmi-note-12-pro-plus',
+    'Redmi Note 12 Pro+ 5G': 'xiaomi-redmi-note-12-pro-5g-plus',
     'Redmi Note 13 Pro+': 'xiaomi-redmi-note-13-pro-plus',
+    'Redmi Note 13 Pro+ 5G': 'xiaomi-redmi-note-13-pro-5g-plus',
     'Redmi Note 14 Pro+': 'xiaomi-redmi-note-14-pro-plus',
     'Redmi Note 15 Pro+': 'xiaomi-redmi-note-15-pro-plus',
     'Redmi Note 16 Pro+': 'xiaomi-redmi-note-16-pro-plus',
@@ -253,7 +308,7 @@ export function buildCanonicalCatalog(): AdapterResult {
           brandId,
           name: model.model,
           series: model.series,
-          releaseYear: model.releaseYear,
+          releaseYear: model.releaseYear ?? undefined,
           modelNumbers: [...model.modelNumbers],
           variants,
         });

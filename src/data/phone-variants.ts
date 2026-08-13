@@ -133,8 +133,11 @@ export function getVariantsForModel(modelName: string, brand?: string): PhoneVar
 
 /**
  * REMOVABLE FALLBACK (P2-C, C-1): heuristic variant buckets used ONLY when a
- * model has no real JSON variants (0 of 866 today). Safe to delete once the
- * JSON catalog guarantees a variants array for every model.
+ * model has no real JSON variants (today: the 1,300 GC-R3-seeded models that
+ * carry no catalog_variants rows; the 12 "+" seeded models resolve to their
+ * base device's real variants and never reach this fallback). Display-only —
+ * never persisted. Safe to delete once the JSON catalog guarantees a variants
+ * array for every model.
  */
 function getHeuristicVariants(modelName: string): PhoneVariant[] {
   const lower = modelName.toLowerCase();

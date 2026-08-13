@@ -70,6 +70,7 @@
     { "model": "iPad Pro 11 (M5)", "series": "iPad Pro", "variants": [{"storage":"256","ram":"8"},{"storage":"512","ram":"8"},{"storage":"1000","ram":"16"}], "modelNumbers":["A3021","A3022"], "releaseYear":2025 },
     { "model": "iPad Pro 13 (M5)", "series": "iPad Pro", "variants": [{"storage":"256","ram":"8"},{"storage":"512","ram":"8"},{"storage":"1000","ram":"16"}], "modelNumbers":["A3023","A3024"], "releaseYear":2025 },
     { "model": "iPad mini (6th Gen)", "series": "iPad mini", "variants": [{"storage":"64","ram":"4"},{"storage":"256","ram":"4"}], "modelNumbers":["A2567","A2568"], "releaseYear":2021 },
-    { "model": "iPad mini (7th Gen)", "series": "iPad mini", "variants": [{"storage":"128","ram":"8"},{"storage":"256","ram":"8"},{"storage":"512","ram":"8"}], "modelNumbers":["A2992","A2993"], "releaseYear":2024 }
+    { "model": "iPad mini (7th Gen)", "series": "iPad mini", "variants": [{"storage":"128","ram":"8"},{"storage":"256","ram":"8"},{"storage":"512","ram":"8"}], "modelNumbers":["A2992","A2993"], "releaseYear":2024 },
+    { "model": "iPhone SE (2016)", "series": "iPhone SE", "variants": [], "modelNumbers": [], "releaseYear": null }
   ]
 }
