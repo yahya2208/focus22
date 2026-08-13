@@ -126,6 +126,25 @@ const HARD_STOP_PREFIXES = [
  * Scope/expiration: this controlled execution only. All other inventory
  *         paths (price-memory, catalog, components/catalog, components/ads)
  *         remain a HARD STOP.
+ *
+ * APPLE STORAGE-ONLY + BATTERY-AT-CREATION CARVE-OUT — owner-authorized 2026-08-13.
+ * Authorization source: FOCUS v2 "Apple storage-only + battery-at-creation"
+ * product execution (storage-only labels for iPhone/iPad catalog flows).
+ * Authorized files (EXACT paths only — no directory exception, no wildcard):
+ *   - src/components/catalog/VariantSelector.tsx         (add-flow variant step
+ *     shows storage-only options for Apple: 128GB/256GB/1TB)
+ *   - src/components/catalog/CatalogCascadeSelector.tsx  (customer buy-flow
+ *     cascade presents the same storage-only labels)
+ *   - src/components/catalog/CatalogStepVariant.tsx      (cascade variant step
+ *     uses the storage-only display projection)
+ * Reason: the add-stock flow and the storefront cascade must present the
+ *         storage-only labels so newly written rows (variant="128GB") match
+ *         what customers select; otherwise inventory rows are unreachable.
+ *         No catalog DATA files (src/catalog/*, apple.json) are touched — the
+ *         projection reads only the existing source variants.
+ * Scope/expiration: this controlled execution only. Every other protected
+ *         path below (including all other src/components/catalog/ files)
+ *         remains a HARD STOP.
  */
 const AUTHORIZED_CHANGES = [
   'src/components/ads/AdBanner.tsx',
@@ -133,6 +152,9 @@ const AUTHORIZED_CHANGES = [
   'src/services/ads-service.ts',
   'src/services/inventory-service.ts',
   'src/services/inventory-seed.ts',
+  'src/components/catalog/VariantSelector.tsx',
+  'src/components/catalog/CatalogCascadeSelector.tsx',
+  'src/components/catalog/CatalogStepVariant.tsx',
 ];
 
 /**
@@ -386,6 +408,25 @@ describe('PG-57: Hard-Stop — لا تعديل على الكتالوج/المخ�
     const changed = ['src/components/ads/AdBanner.tsx', 'src/services/price-memory.ts'];
     expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([
       'src/services/price-memory.ts',
+    ]);
+  });
+
+  it('apple storage-only carve-out regression: الملفات الثلاثة المخوّلة لا تُفشل، وأي ملف آخر في src/components/catalog/ ما زال ممنوعاً', () => {
+    const changed = [
+      'src/components/catalog/VariantSelector.tsx',
+      'src/components/catalog/CatalogCascadeSelector.tsx',
+      'src/components/catalog/CatalogStepVariant.tsx',
+      'src/components/catalog/CatalogView.tsx',
+    ];
+    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([
+      'src/components/catalog/CatalogView.tsx',
+    ]);
+  });
+
+  it('apple storage-only carve-out regression: src/catalog/ (بيانات الكتالوج) ما زالت ممنوعة', () => {
+    const changed = ['src/components/catalog/VariantSelector.tsx', 'src/catalog/cat.ts'];
+    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([
+      'src/catalog/cat.ts',
     ]);
   });
 });

@@ -3,7 +3,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { CatalogAutocomplete } from '../../components/catalog/CatalogAutocomplete';
 import type { CatalogSearchResult } from '../../services/catalog-service';
 import { VariantSelector } from '../../components/catalog/VariantSelector';
-import type { PhoneVariant } from '../../data/phone-variants';
+import { getDisplayVariants, type PhoneVariant, type StorageOnlyVariant } from '../../data/phone-variants';
 import { ALL_CONDITIONS, type DeviceCondition } from '../../services/price-memory';
 import { InventoryService } from '../../services/inventory-service';
 import type { InventoryRecord } from '../../services/inventory-service';
@@ -24,7 +24,7 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
 
   const [step, setStep] = useState<FlowStep>('search');
   const [selectedResult, setSelectedResult] = useState<CatalogSearchResult | null>(null);
-  const [selectedVariant, setSelectedVariant] = useState<PhoneVariant | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<PhoneVariant | StorageOnlyVariant | null>(null);
   const [selectedCondition, setSelectedCondition] = useState<DeviceCondition>('New');
   const [action, setAction] = useState<CustomerAction | null>(null);
   const [targetDevice, setTargetDevice] = useState<InventoryRecord | null>(null);
@@ -40,11 +40,11 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
       );
 
   const handleSendWhatsApp = () => {
-    if (!selectedResult || !selectedVariant || !action) return;
+    if (!selectedResult || !action) return;
     const message = buildWhatsAppForActionMessage(action, {
       brand: selectedResult.brand,
       model: selectedResult.model,
-      variant: selectedVariant.label,
+      variant: selectedVariant?.label,
       condition: selectedCondition,
       targetDevice: action !== 'sell' && targetDevice ? { brand: targetDevice.brand, model: targetDevice.model, variant: targetDevice.variant } : undefined,
     });
@@ -56,8 +56,13 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
     setStep('variant');
   };
 
-  const handleVariantSelect = (variant: PhoneVariant) => {
+  const handleVariantSelect = (variant: PhoneVariant | StorageOnlyVariant) => {
     setSelectedVariant(variant);
+    setStep('condition');
+  };
+
+  const handleSkipVariant = () => {
+    setSelectedVariant(null);
     setStep('condition');
   };
 
@@ -215,6 +220,7 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
 
   const renderVariant = () => {
     if (!selectedResult) return null;
+    const hasNoVariants = getDisplayVariants(selectedResult.model, selectedResult.brand).length === 0;
     return (
       <div style={baseStyle}>
         {renderBack()}
@@ -238,13 +244,23 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
             brand={selectedResult.brand}
             onSelect={handleVariantSelect}
           />
+          {hasNoVariants && (
+            <button onClick={handleSkipVariant} style={{
+              marginTop: '12px', width: '100%', padding: '0.75rem', borderRadius: '12px',
+              border: `1px solid ${colors.accent}66`, background: 'transparent',
+              color: colors.accent, cursor: 'pointer', fontSize: '0.82rem',
+              fontWeight: 600, fontFamily: 'inherit',
+            }}>
+              متابعة بدون تحديد إصدار
+            </button>
+          )}
         </div>
       </div>
     );
   };
 
   const renderCondition = () => {
-    if (!selectedResult || !selectedVariant) return null;
+    if (!selectedResult) return null;
     return (
       <div style={baseStyle}>
         {renderBack()}
@@ -258,7 +274,7 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
           WebkitBackdropFilter: 'blur(12px)',
         }}>
           <p style={{ color: colors.textMuted, fontSize: '0.8rem', marginBottom: '0.75rem', fontWeight: 600 }}>
-            {selectedResult.brand} {selectedResult.model} — {selectedVariant.label}
+            {selectedResult.brand} {selectedResult.model} — {selectedVariant ? selectedVariant.label : 'بدون تحديد إصدار'}
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '6px' }}>
             {ALL_CONDITIONS.map(cond => (
@@ -316,7 +332,7 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
   );
 
   const renderWhatsApp = () => {
-    if (!selectedResult || !selectedVariant) return null;
+    if (!selectedResult) return null;
 
     const showInventory = (action === 'exchange' || action === 'buy') && !targetDevice;
     const showPreview = action === 'sell' || targetDevice;

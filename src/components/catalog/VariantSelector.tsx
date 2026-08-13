@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { PHONE_VARIANTS, getVariantsForModel, type PhoneVariant } from '../../data/phone-variants';
+import { PHONE_VARIANTS, getDisplayVariants, type PhoneVariant, type StorageOnlyVariant } from '../../data/phone-variants';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { getAllVariants } from '../../services/catalog-service';
@@ -8,42 +8,51 @@ interface VariantSelectorProps {
   modelName?: string;
   brand?: string;
   showAll?: boolean;
-  onSelect: (variant: PhoneVariant) => void;
+  onSelect: (variant: PhoneVariant | StorageOnlyVariant) => void;
   selected?: string | null;
 }
 
 export const VariantSelector = memo(function VariantSelector({ modelName, brand, showAll, onSelect, selected }: VariantSelectorProps) {
   const colors = useThemeColors();
   const styles = useThemeStyles();
-  const variants = showAll ? getAllVariants() : modelName ? getVariantsForModel(modelName, brand) : getAllVariants();
+  const variants = showAll || !modelName ? getAllVariants() : getDisplayVariants(modelName, brand);
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-      {variants.map(v => {
-        const isSelected = selected === v.label;
-        return (
-          <button
-            key={v.label}
-            onClick={() => onSelect(v)}
-            style={{
-              ...(isSelected ? styles.tabActive : styles.tabInactive),
-              padding: '10px 18px',
-              borderRadius: '10px',
-              border: isSelected ? `2px solid ${colors.accent}` : `1px solid ${colors.borderLight}`,
-              background: isSelected ? colors.accent + '20' : colors.bgInput,
-              color: isSelected ? colors.accent : colors.text,
-              fontSize: '0.82rem', fontWeight: isSelected ? 700 : 400,
-              transition: 'all 0.1s',
-              minWidth: '70px',
-            }}
-          >
-            <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{v.label}</div>
-            <div style={{ fontSize: '0.6rem', color: isSelected ? colors.accent : colors.textMuted }}>
-              {v.ram} / {v.storage}
-            </div>
-          </button>
-        );
-      })}
+      {variants.length === 0 ? (
+        <div style={{ color: colors.textMuted, fontSize: '0.8rem', padding: '10px 4px', width: '100%' }}>
+          إصدارات RAM والتخزين غير متوفرة لهذا الموديل.
+        </div>
+      ) : (
+        variants.map(v => {
+          const isSelected = selected === v.label;
+          const hasRam = 'ram' in v;
+          return (
+            <button
+              key={v.label}
+              onClick={() => onSelect(v)}
+              style={{
+                ...(isSelected ? styles.tabActive : styles.tabInactive),
+                padding: '10px 18px',
+                borderRadius: '10px',
+                border: isSelected ? `2px solid ${colors.accent}` : `1px solid ${colors.borderLight}`,
+                background: isSelected ? colors.accent + '20' : colors.bgInput,
+                color: isSelected ? colors.accent : colors.text,
+                fontSize: '0.82rem', fontWeight: isSelected ? 700 : 400,
+                transition: 'all 0.1s',
+                minWidth: '70px',
+              }}
+            >
+              <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{v.label}</div>
+              {hasRam && (
+                <div style={{ fontSize: '0.6rem', color: isSelected ? colors.accent : colors.textMuted }}>
+                  {v.ram} / {v.storage}
+                </div>
+              )}
+            </button>
+          );
+        })
+      )}
     </div>
   );
 });

@@ -135,7 +135,7 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
     { label: t('phoneDetails.company'), value: device.brand },
     { label: t('phoneDetails.model'), value: device.model },
     { label: t('phoneDetails.storage'), value: device.storage },
-    { label: t('phoneDetails.ram'), value: device.ram },
+    ...(device.ram ? [{ label: t('phoneDetails.ram'), value: device.ram }] : []),
     ...(device.color ? [{ label: t('phoneDetails.color'), value: device.color }] : []),
     { label: t('phoneDetails.condition'), value: device.condition === 'New' ? t('showroom.conditionNew') : t('showroom.conditionUsed') },
     ...(device.batteryHealth != null ? [{ label: t('phoneDetails.battery'), value: `${device.batteryHealth}%` }] : []),
@@ -183,7 +183,7 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
                 {device.brand} {device.model}
               </h1>
               <div style={{ color: colors.textMuted, fontSize: '0.8rem', marginTop: '0.15rem' }}>
-                {device.variant} · {device.ram} · {device.storage}
+                {[...new Set([device.variant, device.ram, device.storage].filter(Boolean))].join(' · ')}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
                 {device.sellPrice != null && (

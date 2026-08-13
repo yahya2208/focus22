@@ -145,6 +145,7 @@ export const InventoryService = {
     reference?: string,
     createdBy?: string,
     condition: string = 'New',
+    batteryHealth?: number,
   ): Promise<InventoryRecord> {
     const { variantLabel, ram, storage } = inventoryCentral.resolveVariantParams(variant);
     const normalizedModel = normalizeModelName(model);
@@ -180,6 +181,7 @@ export const InventoryService = {
       quantity,
       buyPrice,
       sellPrice,
+      batteryHealth,
     });
   },
 

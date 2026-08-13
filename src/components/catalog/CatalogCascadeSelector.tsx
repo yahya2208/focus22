@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { searchCatalog } from '../../services/catalog-service';
-import { getVariantsForModel, formatVariant } from '../../data/phone-variants';
+import { getDisplayVariants, formatVariant } from '../../data/phone-variants';
 import { getAllBrands, getSeries, getModelsBySeries } from '../../catalog/loader';
 import type { CatalogCascadeProps, PhoneIdentity } from './CatalogIdentity';
 import { ARABIC_BRANDS, STEP_NAMES, getFavorites, getMostUsed, addFavorite, trackUsage, getStockForModel, getPriceSummary, StepIndicator, type CatalogSearchResult, type DeviceCondition } from './CatalogCascadeTypes';
@@ -75,7 +75,13 @@ export function CatalogCascadeSelector({
 
   const currentVariants = useMemo(() => {
     if (!selectedModel) return [];
-    return getVariantsForModel(selectedModel, selectedBrand ?? undefined);
+    // Apple shows a storage-only projection (ram:null); other brands keep
+    // their real RAM/Storage variants unchanged. Display layer only.
+    return getDisplayVariants(selectedModel, selectedBrand ?? undefined).map(v => ({
+      label: v.label,
+      ram: 'ram' in v ? v.ram : null,
+      storage: v.storage,
+    }));
   }, [selectedModel, selectedBrand]);
 
   const currentStock = useMemo(() => {
@@ -171,11 +177,17 @@ export function CatalogCascadeSelector({
     emitChange({ modelName: model.name, modelId: model.id, variantId: null, ram: null, storage: null });
   };
 
-  const handleVariantSelect = (ram: string, storage: string) => {
-    const label = formatVariant(ram, storage);
+  const handleVariantSelect = (ram: string | null, storage: string) => {
+    const label = ram ? formatVariant(ram, storage) : storage;
     setSelectedVariant(label);
     setStep(4);
     emitChange({ variantId: label, ram, storage });
+  };
+
+  const handleSkipVariant = () => {
+    setSelectedVariant(null);
+    setStep(allowCondition ? 5 : 6);
+    emitChange({ variantId: null, ram: null, storage: null });
   };
 
   const handleConditionSelect = (cond: DeviceCondition) => {
@@ -251,6 +263,7 @@ export function CatalogCascadeSelector({
           currentStock={currentStock}
           priceSummary={priceSummary}
           onSelect={handleVariantSelect}
+          onSkipVariant={handleSkipVariant}
           onBack={() => setStep(3)}
         />
       )}

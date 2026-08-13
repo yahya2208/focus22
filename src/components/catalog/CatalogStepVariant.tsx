@@ -1,9 +1,8 @@
 import { memo } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { formatVariant } from '../../data/phone-variants';
 
 interface VariantEntry {
-  ram: string; storage: string;
+  label: string; ram: string | null; storage: string;
 }
 
 interface CatalogStepVariantProps {
@@ -13,13 +12,14 @@ interface CatalogStepVariantProps {
   selectedVariant: string | null;
   currentStock: { variant: string; stock: number }[];
   priceSummary: { lastBuy?: number; avgBuy?: number; lastSell?: number; avgSell?: number };
-  onSelect: (ram: string, storage: string) => void;
+  onSelect: (ram: string | null, storage: string) => void;
+  onSkipVariant: () => void;
   onBack: () => void;
 }
 
 function CatalogStepVariant({
   selectedBrand, selectedModel, currentVariants, selectedVariant,
-  currentStock, priceSummary, onSelect, onBack,
+  currentStock, priceSummary, onSelect, onSkipVariant, onBack,
 }: CatalogStepVariantProps) {
   const colors = useThemeColors();
   return (
@@ -59,7 +59,7 @@ function CatalogStepVariant({
       )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '6px' }}>
         {currentVariants.map(v => {
-          const label = formatVariant(v.ram, v.storage);
+          const label = v.label;
           const stockInfo = currentStock.find(s => s.variant === label);
           const isSelected = selectedVariant === label;
           const stock = stockInfo?.stock ?? 0;
@@ -89,7 +89,17 @@ function CatalogStepVariant({
       </div>
       {currentVariants.length === 0 && (
         <div style={{ textAlign: 'center', color: colors.textMuted, fontSize: '0.82rem', padding: '16px' }}>
-          لا توجد نسخ مسجلة لهذا الموديل
+          <div style={{ marginBottom: '12px' }}>
+            لا توجد نسخ مسجلة لهذا الموديل
+          </div>
+          <button onClick={onSkipVariant} style={{
+            padding: '10px 18px', borderRadius: '10px',
+            border: `1px solid ${colors.accent}66`, background: 'transparent',
+            color: colors.accent, cursor: 'pointer', fontSize: '0.82rem',
+            fontWeight: 600, fontFamily: 'inherit',
+          }}>
+            متابعة بدون تحديد إصدار
+          </button>
         </div>
       )}
       <button onClick={onBack} style={{

@@ -162,4 +162,29 @@ describe('Phase 3B §3.2/§3.3 — ProductDetailsScreen', () => {
     expect(mockSend).toHaveBeenCalledTimes(1);
     expect(mockSend).toHaveBeenCalledWith(expect.stringContaining('FOCUS'), { action: 'inquiry', deviceId: target.id });
   });
+
+  it('L) storage-only Apple record (ram=NULL): RAM row hidden, Storage + Battery shown', async () => {
+    const rec = await InventoryService.addStock(
+      'Apple', 'iPhone 13', '128GB', 1, undefined, 1000000, 'purchase', undefined, undefined, undefined, 'New', 87,
+    );
+    await InventoryService.publishRecord(rec.id, true);
+
+    renderScreen(rec.id);
+    await waitFor(() => expect(screen.getByRole('region', { name: 'product gallery' })).toBeTruthy());
+
+    expect(screen.queryByText('RAM')).toBeNull();
+    expect(screen.getByText('Storage')).toBeTruthy();
+    expect(screen.getAllByText('128GB').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('87%')).toBeTruthy();
+  });
+
+  it('M) Android record with RAM keeps the RAM row visible', async () => {
+    const target = InventoryService.getExchangeableDevices().find(r => r.brand === 'Samsung')!;
+    expect(target.ram).toBeTruthy();
+    renderScreen(target.id);
+
+    await waitFor(() => expect(screen.getByRole('region', { name: 'product gallery' })).toBeTruthy());
+    expect(screen.getByText('RAM')).toBeTruthy();
+    expect(screen.getByText(target.ram)).toBeTruthy();
+  });
 });

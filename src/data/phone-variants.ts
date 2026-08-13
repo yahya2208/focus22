@@ -9,6 +9,23 @@ export interface PhoneVariant {
   label: string;
 }
 
+/**
+ * Apple storage-only display variant (iPhone/iPad): RAM is deliberately not
+ * shown nor recorded. Built ONLY from the real variants in the catalog JSON
+ * (storage extracted → normalized → deduplicated → sorted). No fabrication,
+ * no heuristic, no RAM guessing. Selecting it yields:
+ *   variant = storage label (e.g. '128GB'), ram = null, storage = label.
+ */
+export interface StorageOnlyVariant {
+  storage: StorageSize;
+  label: string;
+}
+
+/** Brand gate for the Apple storage-only projection (display layer only). */
+export function isAppleBrand(brand?: string | null): boolean {
+  return !!brand && brand.toLowerCase() === 'apple';
+}
+
 export const RAM_VALUES: RamSize[] = ['1GB', '2GB', '3GB', '4GB', '6GB', '8GB', '12GB', '16GB', '18GB', '24GB', '32GB'];
 export const STORAGE_VALUES: StorageSize[] = ['8GB', '16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB', '2TB'];
 
@@ -116,9 +133,47 @@ export function getRealVariantsForModel(modelName: string, brand?: string): Phon
 }
 
 /**
+ * Apple storage-only projection. Extraction is strictly limited to the real
+ * variants of THIS model (getRealVariantsForModel reads only the model's own
+ * catalog JSON entry): storage is deduplicated (4/128 + 6/128 → '128GB' once)
+ * and sorted ascending. Non-Apple brands → []. Models with no real variants
+ * (e.g. iPhone SE (2016)) → [] — nothing is ever invented.
+ */
+export function getAppleStorageOnlyVariants(modelName: string, brand?: string): StorageOnlyVariant[] {
+  if (!isAppleBrand(brand)) return [];
+  const real = getRealVariantsForModel(modelName, brand);
+  const seen = new Set<string>();
+  const result: StorageOnlyVariant[] = [];
+  for (const v of real) {
+    if (seen.has(v.storage)) continue;
+    seen.add(v.storage);
+    result.push({ storage: v.storage, label: v.storage });
+  }
+  result.sort((a, b) => toGBf(a.storage) - toGBf(b.storage));
+  return result;
+}
+
+/**
+ * Display-layer variant options for the UI variant-selection step.
+ *   - Apple: storage-only projection (ram always null).
+ *   - Other brands: real variants unchanged (ram always set).
+ * Never fabricates a config for models without real variants (empty list).
+ */
+export function getDisplayVariants(modelName: string, brand?: string): (PhoneVariant | StorageOnlyVariant)[] {
+  if (isAppleBrand(brand)) return getAppleStorageOnlyVariants(modelName, brand);
+  if (!modelName) return [];
+  return getVariantsForModel(modelName, brand);
+}
+
+/**
  * Real variants for a model. When `brand` is provided, results are restricted
  * to that brand (cross-brand isolation — S2 AT-23). When `brand` is absent,
  * legacy behavior is kept: first brand match wins (backward compatible).
+ *
+ * Honest-by-default: models without real variants return an EMPTY list. The
+ * heuristic buckets are never exposed as real configurations (data-integrity
+ * decision, 2026-08-13). Consumers must render an explicit "variants
+ * unavailable" state and allow the workflow to continue without a variant.
  */
 export function getVariantsForModel(modelName: string, brand?: string): PhoneVariant[] {
   if (!brand && MODEL_VARIANT_OVERRIDES[modelName]) {
@@ -128,18 +183,16 @@ export function getVariantsForModel(modelName: string, brand?: string): PhoneVar
   }
   const real = getRealVariantsForModel(modelName, brand);
   if (real.length > 0) return real;
-  return getHeuristicVariants(modelName);
+  return [];
 }
 
 /**
- * REMOVABLE FALLBACK (P2-C, C-1): heuristic variant buckets used ONLY when a
- * model has no real JSON variants (today: the 1,300 GC-R3-seeded models that
- * carry no catalog_variants rows; the 12 "+" seeded models resolve to their
- * base device's real variants and never reach this fallback). Display-only —
- * never persisted. Safe to delete once the JSON catalog guarantees a variants
- * array for every model.
+ * Heuristic variant buckets. NOT part of the default resolution path anymore
+ * (data-integrity decision, 2026-08-13): no configuration is fabricated as a
+ * real one. Kept exported so a future explicit "suggested / unverified" mode
+ * can opt in with clear UI labeling — never persisted.
  */
-function getHeuristicVariants(modelName: string): PhoneVariant[] {
+export function getHeuristicVariants(modelName: string): PhoneVariant[] {
   const lower = modelName.toLowerCase();
   const isHighEnd = lower.includes('pro') || lower.includes('ultra') || lower.includes('max') || lower.includes('plus')
     || lower.includes('s25') || lower.includes('s24') || lower.includes('s23') || lower.includes('s22') || lower.includes('s21')

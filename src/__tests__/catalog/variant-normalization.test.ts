@@ -56,7 +56,7 @@ describe('P2-C C-1 variant normalization', () => {
     expect(a10.length).toBeGreaterThan(0);
   });
 
-  it('heuristic variants are offered ONLY for models with no real variants; never fabricated for the original 866', () => {
+  it('no heuristic variants are exposed by default for the 1,300 models without real variants', () => {
     let heuristicOnly = 0;
     let realBearing = 0;
     let aliasInherited = 0; // seeded models that resolve to an existing device's real variants
@@ -68,8 +68,8 @@ describe('P2-C C-1 variant normalization', () => {
           heuristicOnly++;
           // The JSON itself never fabricates variants...
           expect(model.variants.length).toBe(0);
-          // ...but the display-only fallback still supplies selectable variants.
-          expect(offered.length).toBeGreaterThan(0);
+          // ...and the default resolution path exposes NOTHING fabricated.
+          expect(offered).toEqual([]);
           continue;
         }
         realBearing++;
@@ -87,7 +87,23 @@ describe('P2-C C-1 variant normalization', () => {
     expect(aliasInherited).toBe(12);
   });
 
-  it('variant coverage: 878 full (866 original + 12 base-aliased seeded); 1,300 heuristic-only (no DB variants, display-only)', () => {
+  it('data integrity: no fabricated configs on seeded models; real variants preserved on original models', () => {
+    // iPhone SE (2016) must NOT show the fabricated 4/64 — real configs are 2/16, 2/32, 2/64.
+    const se2016 = getVariantsForModel('iPhone SE (2016)', 'apple').map(v => v.label);
+    expect(se2016).toEqual([]);
+    expect(se2016).not.toContain('4/64');
+    expect(se2016).not.toContain('8/128');
+
+    // ROG Phone 3 Strix (seeded) must expose no heuristic configurations.
+    expect(getVariantsForModel('ROG Phone 3 Strix', 'asus')).toEqual([]);
+
+    // Original models keep ALL their real variants, including 4/64 where real.
+    expect(getVariantsForModel('Galaxy A14', 'samsung').map(v => v.label).sort()).toEqual(['4/128', '4/64']);
+    expect(getVariantsForModel('iPhone 11', 'apple').map(v => v.label).sort()).toEqual(['4/128', '4/256', '4/64']);
+    expect(getVariantsForModel('Redmi Note 13', 'xiaomi').map(v => v.label).sort()).toEqual(['6/128', '8/256']);
+  });
+
+  it('variant coverage: 878 full (866 original + 12 base-aliased seeded); 1,300 without real variants (no fabricated data)', () => {
     const stats = getCoverageStats();
     expect(stats.totalModels).toBe(2178);
     expect(stats.fullCoverage).toBe(878);
@@ -106,9 +122,9 @@ describe('P2-C C-1 variant normalization', () => {
       expect(r.extra).toEqual([]);
     }
     for (const r of heuristicOnly) {
-      // no real variants invented, heuristic (display-only) expected labels present
+      // No real variants invented: neither actual nor expected fabricates anything.
       expect(r.actualVariants).toEqual([]);
-      expect(r.expectedVariants.length).toBeGreaterThan(0);
+      expect(r.expectedVariants).toEqual([]);
     }
   });
 });

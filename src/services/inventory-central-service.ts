@@ -346,6 +346,7 @@ export async function centralAddItem(params: {
   quantity: number;
   buyPrice?: number;
   sellPrice?: number;
+  batteryHealth?: number;
 }): Promise<InventoryRecord> {
   const row = await rpcRow<FullRow>('inventory_add_item', {
     p_model_id: params.modelId,
@@ -360,7 +361,7 @@ export async function centralAddItem(params: {
     p_buy_price: params.buyPrice ?? null,
     p_sell_price: params.sellPrice ?? null,
     p_code: null,
-    p_battery_health: null,
+    p_battery_health: params.batteryHealth ?? null,
     p_warranty: null,
     p_city: null,
     p_description: null,
@@ -800,6 +801,18 @@ export function resolveVariantParams(variant: string | PhoneVariant): {
 } {
   const variantLabel = typeof variant === 'string' ? variant : variant.label;
   if (typeof variant === 'string') {
+    // Empty label = "no variant". Schema contract (inventory-central/01-inventory-apply.sql):
+    // inventory_items.variant and .storage are TEXT NOT NULL DEFAULT '' → they keep
+    // their native ''; ram is the ONLY nullable field → real NULL, never ''.
+    if (variantLabel.trim() === '') {
+      return { variantLabel: '', ram: null, storage: '' };
+    }
+    // Apple storage-only label (iPhone/iPad projection): no '/' → the whole
+    // label IS the storage ('128GB' / '1TB'). ram must resolve to real NULL,
+    // never a mangled part ('128GBGB' from a naive split).
+    if (!variantLabel.includes('/')) {
+      return { variantLabel, ram: null, storage: variantLabel.trim() };
+    }
     const [r, s] = variantLabel.split('/');
     return {
       variantLabel,

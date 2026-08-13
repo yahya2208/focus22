@@ -212,12 +212,20 @@ describe('PG-61: KEEP — catalog/inventory/ads untouched by P5 (D3)', () => {
   // CENTRAL INVENTORY CUTOVER CARVE-OUT — owner-authorized 2026-08-11
   // (FOCUS v2 CENTRAL INVENTORY CUTOVER DIRECTIVE v2.0, Rev 4): the two exact
   // inventory files are authorized; every other inventory path stays a HARD STOP.
+  // APPLE STORAGE-ONLY + BATTERY-AT-CREATION CARVE-OUT — owner-authorized
+  // 2026-08-13 (FOCUS v2 "Apple storage-only + battery-at-creation" execution):
+  // the three exact src/components/catalog/ UI files below are authorized to
+  // present storage-only labels; src/catalog/* data and every other catalog
+  // component remain a HARD STOP.
   const AUTHORIZED_CHANGES = [
     'src/components/ads/AdBanner.tsx',
     'src/components/ads/AdSpot.tsx',
     'src/services/ads-service.ts',
     'src/services/inventory-service.ts',
     'src/services/inventory-seed.ts',
+    'src/components/catalog/VariantSelector.tsx',
+    'src/components/catalog/CatalogCascadeSelector.tsx',
+    'src/components/catalog/CatalogStepVariant.tsx',
   ];
 
   function findProtectedViolations(changed: string[], prefixes: string[], authorized: string[]): string[] {
@@ -265,6 +273,20 @@ describe('PG-61: KEEP — catalog/inventory/ads untouched by P5 (D3)', () => {
     const changed = ['src/components/ads/AdSpot.tsx', 'src/services/price-memory.ts'];
     expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([
       'src/services/price-memory.ts',
+    ]);
+  });
+
+  it('carve-out regression: apple storage-only UI files pass, src/catalog/ data + other catalog components STILL fail', () => {
+    const changed = [
+      'src/components/catalog/VariantSelector.tsx',
+      'src/components/catalog/CatalogCascadeSelector.tsx',
+      'src/components/catalog/CatalogStepVariant.tsx',
+      'src/components/catalog/CatalogView.tsx',
+      'src/catalog/cat.ts',
+    ];
+    expect(findProtectedViolations(changed, HARD_STOP_PREFIXES, AUTHORIZED_CHANGES)).toEqual([
+      'src/components/catalog/CatalogView.tsx',
+      'src/catalog/cat.ts',
     ]);
   });
 });

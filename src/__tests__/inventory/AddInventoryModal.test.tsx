@@ -7,6 +7,7 @@ import { AddInventoryModal } from '../../components/inventory/AddInventoryModal'
 const mock = vi.hoisted(() => ({
   addStock: vi.fn(() => ({ id: 'rec-9' })),
   updateImages: vi.fn(() => ({})),
+  selectResult: { brand: 'Samsung', model: 'Galaxy S22', normalized: 'galaxys22', score: 100 },
 }));
 
 vi.mock('../../services/inventory-service', () => ({
@@ -17,7 +18,7 @@ const VARIANT = { label: '128GB / 8GB', ram: '8GB', storage: '128GB' as const };
 
 vi.mock('../../components/catalog/CatalogAutocomplete', () => ({
   CatalogAutocomplete: ({ onSelect }: { onSelect: (r: unknown) => void }) => (
-    <button type="button" onClick={() => onSelect({ brand: 'Samsung', model: 'Galaxy S22', normalized: 'galaxys22', score: 100 })}>
+    <button type="button" onClick={() => onSelect(mock.selectResult)}>
       mock-autocomplete
     </button>
   ),
@@ -52,6 +53,7 @@ afterEach(() => {
 describe('AddInventoryModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mock.selectResult = { brand: 'Samsung', model: 'Galaxy S22', normalized: 'galaxys22', score: 100 };
   });
 
   function renderModal(onDone: () => void = vi.fn()) {
@@ -86,7 +88,7 @@ describe('AddInventoryModal', () => {
 
     expect(mock.addStock).toHaveBeenCalledWith(
       'Samsung', 'Galaxy S22', VARIANT, 1,
-      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New',
+      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', undefined,
     );
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
   });
@@ -105,7 +107,7 @@ describe('AddInventoryModal', () => {
 
     expect(mock.addStock).toHaveBeenCalledWith(
       'Samsung', 'Galaxy S22', VARIANT, 3,
-      100000, undefined, 'purchase', undefined, undefined, undefined, 'Open Box',
+      100000, undefined, 'purchase', undefined, undefined, undefined, 'Open Box', undefined,
     );
   });
 
@@ -118,5 +120,103 @@ describe('AddInventoryModal', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'تغيير' }));
     expect(screen.getByRole('button', { name: 'mock-variant' })).toBeTruthy();
+  });
+
+  it('"متابعة بدون تحديد إصدار" saves the no-variant representation ("" only where the schema is NOT NULL; ram resolves to NULL)', async () => {
+    mock.selectResult = { brand: 'Apple', model: 'iPhone SE (2016)', normalized: 'iphone se 2016', score: 100 };
+    const onDone = vi.fn();
+    renderModal(onDone);
+
+    fireEvent.click(screen.getByRole('button', { name: 'mock-autocomplete' }));
+    expect(screen.getByRole('button', { name: 'متابعة بدون تحديد إصدار' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'متابعة بدون تحديد إصدار' }));
+    expect(screen.getByText('اختر الحالة')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'New' }));
+    expect(screen.getByText(/دون تحديد إصدار/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'حفظ (1 قطعة, New)' }));
+
+    expect(mock.addStock).toHaveBeenCalledWith(
+      'Apple', 'iPhone SE (2016)', '', 1,
+      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', undefined,
+    );
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+  });
+
+  it('J) Samsung: Battery Health field is NOT rendered', () => {
+    mock.selectResult = { brand: 'Samsung', model: 'Galaxy S22', normalized: 'galaxys22', score: 100 };
+    renderModal();
+
+    fireEvent.click(screen.getByRole('button', { name: 'mock-autocomplete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'mock-variant' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New' }));
+
+    expect(screen.queryByLabelText('Battery Health')).toBeNull();
+  });
+
+  it('Apple: Battery Health field IS rendered and battery=87 is passed to addStock', async () => {
+    mock.selectResult = { brand: 'Apple', model: 'iPhone 13', normalized: 'iphone 13', score: 100 };
+    const onDone = vi.fn();
+    renderModal(onDone);
+
+    fireEvent.click(screen.getByRole('button', { name: 'mock-autocomplete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'mock-variant' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New' }));
+
+    expect(screen.getByLabelText('Battery Health')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Battery Health'), { target: { value: '87' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'حفظ (1 قطعة, New)' }));
+
+    expect(mock.addStock).toHaveBeenCalledWith(
+      'Apple', 'iPhone 13', VARIANT, 1,
+      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', 87,
+    );
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+  });
+
+  it('I) Battery validation: -1 rejected, 101 rejected, 87 accepted', () => {
+    mock.selectResult = { brand: 'Apple', model: 'iPhone 13', normalized: 'iphone 13', score: 100 };
+    renderModal();
+
+    fireEvent.click(screen.getByRole('button', { name: 'mock-autocomplete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'mock-variant' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New' }));
+
+    const battery = screen.getByLabelText('Battery Health');
+    const save = screen.getByRole('button', { name: 'حفظ (1 قطعة, New)' });
+
+    fireEvent.change(battery, { target: { value: '-1' } });
+    fireEvent.click(save);
+    expect(screen.getByText('أدخل نسبة البطارية بين 0 و 100')).toBeTruthy();
+    expect(mock.addStock).not.toHaveBeenCalled();
+
+    fireEvent.change(battery, { target: { value: '101' } });
+    fireEvent.click(save);
+    expect(screen.getByText('أدخل نسبة البطارية بين 0 و 100')).toBeTruthy();
+    expect(mock.addStock).not.toHaveBeenCalled();
+
+    fireEvent.change(battery, { target: { value: '87' } });
+    fireEvent.click(save);
+    expect(mock.addStock).toHaveBeenCalledWith(
+      'Apple', 'iPhone 13', VARIANT, 1,
+      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', 87,
+    );
+  });
+
+  it('Apple + empty battery → battery passes as undefined (NULL downstream)', () => {
+    mock.selectResult = { brand: 'Apple', model: 'iPhone 13', normalized: 'iphone 13', score: 100 };
+    renderModal();
+
+    fireEvent.click(screen.getByRole('button', { name: 'mock-autocomplete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'mock-variant' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New' }));
+    fireEvent.click(screen.getByRole('button', { name: 'حفظ (1 قطعة, New)' }));
+
+    expect(mock.addStock).toHaveBeenCalledWith(
+      'Apple', 'iPhone 13', VARIANT, 1,
+      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', undefined,
+    );
   });
 });
