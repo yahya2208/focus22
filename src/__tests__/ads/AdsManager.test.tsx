@@ -2,12 +2,22 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { AdsManager } from '../../research-console/pages/ads/AdsManager';
 
+interface AdImageShape {
+  id: string;
+  path: string;
+  url: string;
+  position: number;
+  isCover: boolean;
+  deviceId?: string;
+}
+
 interface AdConfigShape {
   enabled: boolean;
   image: string;
   link: string;
   alt: string;
   deviceId: string;
+  images?: AdImageShape[];
 }
 
 const mock = vi.hoisted(() => {
@@ -28,6 +38,8 @@ const mock = vi.hoisted(() => {
     saveAd: vi.fn(async () => {}),
     resetAd: vi.fn(async () => {}),
     uploadAdImage: vi.fn(async () => ({ path: 'ads/home/new.jpg', url: 'https://cdn/new.jpg' })),
+    replaceAdImages: vi.fn(async () => {}),
+    removeAdImage: vi.fn(async () => {}),
     AD_PLACEMENTS: PLACEMENTS,
     compressImageToBlob: vi.fn(async () => new Blob(['x'], { type: 'image/jpeg' })),
     buildAdPhoneLink: vi.fn((deviceId: string) => `#/phone-details?device=${deviceId}`),
@@ -40,6 +52,8 @@ vi.mock('../../services/ads-service', () => ({
   saveAd: mock.saveAd,
   resetAd: mock.resetAd,
   uploadAdImage: mock.uploadAdImage,
+  replaceAdImages: mock.replaceAdImages,
+  removeAdImage: mock.removeAdImage,
   AD_PLACEMENTS: mock.AD_PLACEMENTS,
   buildAdPhoneLink: mock.buildAdPhoneLink,
 }));
@@ -122,7 +136,7 @@ describe('AdsManager', () => {
     await waitFor(() => expect(screen.getByText('✓ تم الحفظ — لا توجد صورة، لن يظهر للزوار')).toBeTruthy());
   });
 
-  it('uploads a compressed image and persists the returned URL', async () => {
+  it('uploads a compressed image into the gallery and applies it on save', async () => {
     render(<AdsManager />);
     await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
 
@@ -138,11 +152,9 @@ describe('AdsManager', () => {
 
     await waitFor(() => expect(mock.uploadAdImage).toHaveBeenCalled());
     expect(mock.uploadAdImage).toHaveBeenCalledWith('home', expect.any(Blob));
-    expect(mock.saveAd).toHaveBeenCalledWith(expect.objectContaining({
-      placement: 'home',
-      image_path: 'ads/home/new.jpg',
-      image_url: 'https://cdn/new.jpg',
-    }));
+    expect(mock.saveAd).toHaveBeenCalledWith(expect.objectContaining({ placement: 'home' }));
+    await waitFor(() => expect(mock.replaceAdImages).toHaveBeenCalled());
+    expect(mock.replaceAdImages).toHaveBeenCalledWith('home', ['ads/home/new.jpg'], [true], ['']);
   });
 
   it('removes the ad via resetAd when  إزالة is clicked', async () => {
@@ -202,5 +214,80 @@ describe('AdsManager', () => {
 
     await waitFor(() => expect(screen.getByText(/الهاتف المحدد غير موجود/)).toBeTruthy());
     expect(mock.saveAd).not.toHaveBeenCalled();
+  });
+
+  it('renders the loaded gallery and persists cover/order via replaceAdImages', async () => {
+    const ads = mock.__emptyAds();
+    ads.home = {
+      enabled: true, image: 'https://cdn/cover.jpg', link: '', alt: '', deviceId: '',
+      images: [
+        { id: 'g1', path: 'ads-images/home/a.jpg', url: 'https://cdn/a.jpg', position: 0, isCover: true },
+        { id: 'g2', path: 'ads-images/home/b.jpg', url: 'https://cdn/b.jpg', position: 1, isCover: false },
+      ],
+    };
+    mock.__setAds(ads);
+
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    expect(homeCard.querySelectorAll('img[data-gallery-thumb]')).toHaveLength(2);
+
+    // move the second image up, then save -> replaceAdImages persists the reorder
+    fireEvent.click(within(homeCard).getByRole('button', { name: 'رفع صورة 1' }));
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(mock.replaceAdImages).toHaveBeenCalled());
+    expect(mock.replaceAdImages).toHaveBeenCalledWith('home', ['ads-images/home/b.jpg', 'ads-images/home/a.jpg'], [false, true], ['', '']);
+  });
+
+  it('assigns a per-slide device and persists deviceIds via replaceAdImages', async () => {
+    const ads = mock.__emptyAds();
+    ads.home = {
+      enabled: true, image: 'https://cdn/cover.jpg', link: '', alt: '', deviceId: '',
+      images: [
+        { id: 'g1', path: 'ads-images/home/a.jpg', url: 'https://cdn/a.jpg', position: 0, isCover: true, deviceId: '' },
+        { id: 'g2', path: 'ads-images/home/b.jpg', url: 'https://cdn/b.jpg', position: 1, isCover: false, deviceId: '' },
+      ],
+    };
+    mock.__setAds(ads);
+
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    const slideSelect = within(homeCard).getByTestId('ad-slide-device-0') as HTMLSelectElement;
+    fireEvent.change(slideSelect, { target: { value: 'dev-samsung-1' } });
+    expect(slideSelect.value).toBe('dev-samsung-1');
+
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(mock.replaceAdImages).toHaveBeenCalled());
+    expect(mock.replaceAdImages).toHaveBeenCalledWith(
+      'home',
+      ['ads-images/home/a.jpg', 'ads-images/home/b.jpg'],
+      [true, false],
+      ['dev-samsung-1', ''],
+    );
+  });
+
+  it('blocks save when a per-slide device is not in the current inventory', async () => {
+    const ads = mock.__emptyAds();
+    ads.home = {
+      enabled: true, image: 'https://cdn/cover.jpg', link: '', alt: '', deviceId: '',
+      images: [
+        { id: 'g1', path: 'ads-images/home/a.jpg', url: 'https://cdn/a.jpg', position: 0, isCover: true, deviceId: 'ghost-device' },
+      ],
+    };
+    mock.__setAds(ads);
+
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(screen.getByText(/هاتف إحدى الصور غير موجود/)).toBeTruthy());
+    expect(mock.replaceAdImages).not.toHaveBeenCalled();
   });
 });

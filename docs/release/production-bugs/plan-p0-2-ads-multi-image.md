@@ -321,4 +321,75 @@ loaded / failed collapse).
 
 ---
 
+## 12. Phase C — client-side gallery implementation (EXECUTED, all gates green)
+
+- **Date:** 2026-08-14. **Status:** implemented + verified. App layer only — the Phase B SQL
+  package (`supabase/ads-multi-image/`) is still DRAFT, `00020_ads_multi_image.sql` is NOT applied.
+
+### 12.1 Service (`src/services/ads-service.ts`)
+
+- `AdImage { id, path, url, position, isCover }`; `AdConfig.images: AdImage[]` (ordered gallery;
+  legacy scalar `image` remains the cover mirror for back-compat).
+- `rowToConfig(row, images = [])`; `fetchAds()` calls the new `loadGalleries()` (reads `ad_images`
+  ordered by position/created_at; **tolerates the pre-apply schema** — missing `ad_images` table
+  yields an empty map and ads fall back to the single `image_path` mirror).
+- `uploadAdImage` uploads to `ads-images/{placement}/` (D-ADS-2 canonical prefix).
+- `saveAd` is metadata-only (placement, enabled, link, alt, deviceId) — the image set is committed
+  via the RPC, never `image_path`/`image_url` directly.
+- New RPC wrappers: `replaceAdImages(placement, paths, covers)` → `ad_replace_images`,
+  `addAdImage(placement, path, covers?)` → `ad_add_image`, `removeAdImage(id)` → `ad_remove_image`
+  (returns the removed path; caller deletes the object via the Storage API — B-1).
+- `resetAd` now removes the gallery rows plus all legacy+`ads-images` storage paths (collected by
+  internal `collectAdImagePaths`). Every write clears the module cache and refreshes subscribers.
+
+### 12.2 Admin manager (`src/research-console/pages/ads/AdsManager.tsx`)
+
+- Per-placement gallery editor: multi-file `<input type="file" multiple>`, pending object-URL
+  previews (revoked on remove/unmount), cover selection, up/down reorder, per-image remove
+  (a gallery never drops below one image), «🗑 إزالة» clears the ad entirely.
+- Save flow (one click, atomic): upload pending files → `saveAd` (metadata) →
+  `replaceAdImages(paths, covers)` → revoke object URLs → refresh from `getAds()`. No partial state
+  is ever committed: a failed upload or RPC aborts the whole save.
+- Known RLS limitation: the `ad_images` SELECT policy is **enabled-only** (`a.enabled = TRUE`), so a
+  disabled ad's gallery reads back empty in the manager (mirror cover still comes from `ads.image_path`).
+
+### 12.3 Renderers (D-GATE-ADS carve-out)
+
+- **New `src/components/ads/AdImageCarousel.tsx`**: lightweight carousel carved from
+  `ProductImageGallery` — stacked crossfading slides, prev/next arrows, thumbnail strip. NO
+  fullscreen, NO visible counter, NO autoplay (ads stay static, BATCH 2). Same adaptive frame rules
+  as `AdBanner`: loading placeholder, loaded adaptive ratio, **failed → collapse** (the parent
+  collapses its interactive wrapper; never a broken ad frame). Starts on the cover slide.
+- `AdBanner` accepts optional `images: AdImage[]`; when `images.length > 1` it renders the carousel,
+  otherwise the existing single-frame path (unchanged).
+- `AdSpot` / `AdContactBanner` pass the placement's `images` through — the gallery is scoped to the
+  placement, never mixed across placements. The WhatsApp handoff still uses the cover
+  (`ad.image`) in the click message.
+
+### 12.4 Tests (all green — full suite 1455/1455 across 136 files)
+
+| File | Coverage added |
+|---|---|
+| `src/__tests__/ads/ads-service.test.ts` | per-table chains `{ ads, ad_images }` + `.order`; `mockRpc`; Phase C describe (5 tests: ordered gallery load, missing-table tolerance, `replaceAdImages` + stale-object removal, no-op on empty paths, add/remove RPCs) |
+| `src/__tests__/ads/AdsManager.test.tsx` | upload → `uploadAdImage` + `saveAd` + `replaceAdImages`; gallery reorder → `replaceAdImages('home', [...], [false, true])` |
+| `src/__tests__/ads/AdBanner.test.tsx` | carousel with 3 images (cover start, arrows, thumbnails), single-image fallback, loaded/adaptive, failed collapse |
+| `src/__tests__/ads/AdSpot.test.tsx` | placement maps to its gallery images; no cross-placement mixing |
+| `src/__tests__/ad-contact/AdContactBanner.test.tsx` | gallery carousel beneath the overlay; handoff message uses the cover |
+| **New** `src/__tests__/ads/ad-images.test.ts` | SQL migration surface: table/columns/unique+partial-cover index, SELECT-only RLS, `ad_is_admin`, prefix+object guards, EXECUTE grants/revokes (4 RPCs), guarded publication, idempotent all-or-nothing backfill |
+| `src/__tests__/inventory/sql-migration-gate.test.ts` | max migration 19→20; `00020` body ≡ `01-apply`; `01↔02` rollback symmetry; security invariants; evidence/verify/backfill checks |
+
+`pnpm typecheck` clean; `pnpm lint` 0 errors (only pre-existing design-system warnings).
+`src/__tests__/privacy/p3-stop-write-gate.test.ts` `AUTHORIZED_CHANGES` gained exactly
+`src/components/ads/AdImageCarousel.tsx` (D-GATE-ADS).
+
+### 12.5 Remaining before production (out of scope for Phase C app work)
+
+1. Owner GO on Plan P0-2 (Phase B): run `03-pre-apply-evidence.sql` → `01-apply` →
+   `05-backfill` → `04-post-apply-verify.sql`, then copy `01-apply` verbatim to
+   `supabase/migrations/00020_ads_multi_image.sql`.
+2. Deploy the Phase C app code **with** the migration (both must ship together — the service
+   tolerates the old schema, so order of deploy is safe either way).
+
+---
+
 **Ready for owner review. Decision points: D-ADS-1..4, D-GATE-ADS.**

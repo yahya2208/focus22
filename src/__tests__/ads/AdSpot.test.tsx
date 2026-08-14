@@ -1,17 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within, cleanup, act } from '@testing-library/react';
 import { AdSpot } from '../../components/ads/AdSpot';
+import type { AdImage } from '../../services/ads-service';
 
 interface MockAd {
   enabled: boolean;
   image: string;
   link: string;
   alt: string;
+  images: AdImage[];
+}
+
+function adImage(path: string, overrides: Partial<AdImage> = {}): AdImage {
+  return { id: `id-${path}`, path, url: `https://cdn/${path}`, position: 0, isCover: false, deviceId: '', ...overrides };
 }
 
 const mock = vi.hoisted(() => {
   const listeners = new Set<() => void>();
-  let state: MockAd = { enabled: false, image: '', link: '', alt: '' };
+  let state: MockAd = { enabled: false, image: '', link: '', alt: '', images: [] };
   return {
     __setState: (next: MockAd) => {
       state = next;
@@ -39,9 +45,26 @@ vi.mock('../../services/ads-service', async () => {
   };
 });
 
-const DISABLED: MockAd = { enabled: false, image: '', link: '', alt: '' };
-const ENABLED_LINK: MockAd = { enabled: true, image: 'https://cdn/banner.png', link: 'https://go.example', alt: 'Special offer' };
-const ENABLED_NO_LINK: MockAd = { enabled: true, image: 'https://cdn/banner.png', link: '', alt: '' };
+const DISABLED: MockAd = { enabled: false, image: '', link: '', alt: '', images: [] };
+const ENABLED_LINK: MockAd = {
+  enabled: true,
+  image: 'https://cdn/banner.png',
+  link: 'https://go.example',
+  alt: 'Special offer',
+  images: [],
+};
+const ENABLED_NO_LINK: MockAd = { enabled: true, image: 'https://cdn/banner.png', link: '', alt: '', images: [] };
+const ENABLED_GALLERY: MockAd = {
+  enabled: true,
+  image: 'https://cdn/b.jpg',
+  link: 'https://go.example',
+  alt: 'Special offer',
+  images: [
+    adImage('b.jpg', { position: 0, isCover: true }),
+    adImage('c.jpg', { position: 1 }),
+    adImage('d.jpg', { position: 2 }),
+  ],
+};
 
 afterEach(() => {
   cleanup();
@@ -131,5 +154,26 @@ describe('AdSpot', () => {
 
     unmount();
     expect(mock.__listenerCount()).toBe(0);
+  });
+
+  it('renders the carousel with exactly this placement\'s images (no cross-placement mixing)', async () => {
+    mock.__setState(ENABLED_GALLERY);
+    render(<AdSpot placement="home" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const banner = screen.getByRole('banner');
+    expect(within(banner).getByTestId('ad-carousel')).toBeTruthy();
+
+    const slides = banner.querySelectorAll(
+      '[data-testid="ad-carousel-current"], [data-testid^="ad-carousel-slide-"]',
+    );
+    const srcs = Array.from(slides).map((el) => el.getAttribute('src'));
+    expect(new Set(srcs)).toEqual(
+      new Set(['https://cdn/b.jpg', 'https://cdn/c.jpg', 'https://cdn/d.jpg']),
+    );
+    // The cover image is the first (initial) slide.
+    expect(within(banner).getByTestId('ad-carousel-current').getAttribute('src')).toBe('https://cdn/b.jpg');
   });
 });

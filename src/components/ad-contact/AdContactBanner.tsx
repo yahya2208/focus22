@@ -1,11 +1,19 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { ensureAdsLoaded, getAd, subscribeAds, type AdPlacement } from '../../services/ads-service';
+import {
+  ensureAdsLoaded,
+  getAd,
+  subscribeAds,
+  buildAdPhoneLink,
+  type AdImage,
+  type AdPlacement,
+} from '../../services/ads-service';
 import { AdSpot } from '../ads/AdSpot';
 import { AdBanner, type AdBannerStatus } from '../ads/AdBanner';
 import { resolveAdDevice, extractAdDeviceId } from '../../services/ad-device-resolver';
 import { recordIntent } from '../../services/intent-tracking';
 import { buildAdClickMessage } from '../../services/whatsapp-service';
 import { useWhatsApp } from '../../providers/WhatsAppProvider';
+import { useNavigate } from '../../store/navigation';
 import type { InventoryRecord } from '../../services/inventory-service';
 
 interface AdContactBannerProps {
@@ -16,24 +24,25 @@ interface ResolvedAd {
   image: string;
   link: string;
   alt: string;
+  images: AdImage[];
 }
 
 function resolve(placement: AdPlacement): ResolvedAd | null {
   const ad = getAd(placement);
   if (!ad || !ad.enabled || !ad.image) return null;
-  return { image: ad.image, link: ad.link, alt: ad.alt };
+  return { image: ad.image, link: ad.link, alt: ad.alt, images: ad.images };
 }
 
 /**
  * Ad Contact Banner — device-linked ads (Marketplace Mediator model §10, §17):
  * When the configured ad links to a phone (`#/phone-details?device=<id>`), the
- * whole banner becomes a single-target click. PHASE C (owner-approved): the
- * click starts a guarded same-tab WhatsApp handoff DIRECTLY to the fixed
- * business number — it records `ad_click` then `whatsapp_handoff_started`
- * (fire-and-forget), builds the ad-click message with the ad's image URL and
- * placement, and sends via `useWhatsApp().send`. It NEVER navigates, NEVER
- * opens a new tab, and never opens an image viewer/zoom. Any other ad link
- * keeps its normal anchor behaviour.
+ * MAIN IMAGE is a details surface: tapping it opens that device's details page
+ * (FOCUS-AD-DETAILS) — it NEVER starts a WhatsApp handoff. The WhatsApp handoff
+ * lives exclusively on a small corner "تواصل" button. The corner click records
+ * `ad_click` then `whatsapp_handoff_started` (fire-and-forget), builds the
+ * ad-click message with the ad's image URL and placement, and sends via
+ * `useWhatsApp().send`. It NEVER opens a new tab, and never opens an image
+ * viewer/zoom. Any other ad link keeps its normal anchor behaviour.
  *
  * M2 — View counting (§17): a view is recorded when the banner stays inside
  * the viewport at ≥ 0.6 visibility for ≥ 1 s (IntersectionObserver). NOT
@@ -51,10 +60,83 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewedRef = useRef(false);
   const whatsapp = useWhatsApp();
+  const navigate = useNavigate();
 
   const device: InventoryRecord | null = ad?.link ? resolveAdDevice(ad.link) : null;
   const deviceId = device?.id;
   const hasPhoneLink = Boolean(ad?.link && extractAdDeviceId(ad.link) !== null);
+
+  // 00021 — per-slide devices: when the gallery slides carry their own device
+  // the interaction moves INTO the carousel (each slide drives its own handoff)
+  // instead of the single whole-banner target / AdSpot anchor below. The
+  // ad-level device (the phone the whole ad links to) is the fallback so a
+  // phone-linked ad stays interactive even when a slide carries no device_id.
+  const hasSlideDevices = Boolean(ad && ad.images.length > 1 && ad.images.some((img) => img.deviceId));
+
+  const resolveSlideDevice = (slideDeviceId: string): InventoryRecord | null =>
+    resolveAdDevice(buildAdPhoneLink(slideDeviceId));
+
+  // FOCUS-AD-DETAILS — the device that drives a slide's interactions:
+  // the slide's own device_id when present, else the ad-level device.
+  const slideDeviceId = (image: AdImage): string | null => image.deviceId || device?.id || null;
+
+  const activateSlide = useCallback(
+    (image: AdImage) => {
+      const id = slideDeviceId(image);
+      if (!id) return;
+      const dev = resolveSlideDevice(id);
+      if (!dev) return;
+      try {
+        recordIntent({ kind: 'click', ctaType: 'ad_click', placement, deviceId: dev.id });
+      } catch {
+        // fire-and-forget: tracking must never block the handoff
+      }
+      try {
+        recordIntent({ kind: 'whatsapp_handoff_started', ctaType: 'inquiry', placement, deviceId: dev.id });
+      } catch {
+        // fire-and-forget: tracking must never block the handoff
+      }
+      whatsapp.send(buildAdClickMessage(dev, { placement, imageUrl: image.url }), {
+        action: 'inquiry',
+        deviceId: dev.id,
+      });
+    },
+    [placement, whatsapp, device],
+  );
+
+  const canSlideAction = useCallback(
+    (image: AdImage) => {
+      // Same resolvability contract as the ad-level target: never a dead click.
+      const id = slideDeviceId(image);
+      return Boolean(id && resolveSlideDevice(id));
+    },
+    [device],
+  );
+
+  // FOCUS-AD-DETAILS — tapping the carousel's main image opens the device's
+  // details page (never the WhatsApp handoff). The CTA stays as the corner
+  // button handled by activateSlide above.
+  const openSlideDetails = useCallback(
+    (image: AdImage) => {
+      const id = slideDeviceId(image);
+      if (!id) return;
+      navigate.push('phone-details', { device: id });
+    },
+    [navigate, device],
+  );
+
+  // FOCUS-AD-DETAILS — every actionable slide of a phone-linked ad is a valid
+  // details surface (slide device_id or ad-level device), gated by the same
+  // resolvability contract as the CTA: never a dead target. The carousel gates
+  // its full-frame overlay on this predicate, so it can never become a
+  // WhatsApp surface.
+  const canSlideDetails = useCallback(
+    (image: AdImage) => {
+      const id = slideDeviceId(image);
+      return Boolean(id && resolveSlideDevice(id));
+    },
+    [device],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -134,44 +216,83 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
 
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
-      {isContact || isUnresolvedPhoneLink ? (
+      {hasSlideDevices || isContact || isUnresolvedPhoneLink ? (
         <div role="banner" aria-label={ad.alt || placement}>
-          <AdBanner image={ad.image} alt={ad.alt || placement} onStateChange={handleStateChange} />
+          <AdBanner
+            image={ad.image}
+            images={ad.images}
+            alt={ad.alt || placement}
+            onStateChange={handleStateChange}
+            onSlideAction={activateSlide}
+            canSlideAction={canSlideAction}
+            onSlideDetails={openSlideDetails}
+            canSlideDetails={canSlideDetails}
+          />
         </div>
       ) : (
         <AdSpot placement={placement} />
       )}
-      {isContact ? (
-        <button
-          type="button"
-          aria-label={ad.alt || placement}
-          onClick={() => {
-            try {
-              recordIntent({ kind: 'click', ctaType: 'ad_click', placement, deviceId: device!.id });
-            } catch {
-              // fire-and-forget: tracking must never block the handoff
-            }
-            try {
-              recordIntent({ kind: 'whatsapp_handoff_started', ctaType: 'inquiry', placement, deviceId: device!.id });
-            } catch {
-              // fire-and-forget: tracking must never block the handoff
-            }
-            whatsapp.send(buildAdClickMessage(device!, { placement, imageUrl: ad.image }), {
-              action: 'inquiry',
-              deviceId: device!.id,
-            });
-          }}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'transparent',
-            border: 'none',
-            padding: 0,
-            margin: 0,
-            cursor: 'pointer',
-            zIndex: 1,
-          }}
-        />
+      {/* FOCUS-AD-DETAILS — single-frame phone-linked ads (no carousel) get the
+          two surfaces here: the full-frame overlay opens the device's details
+          page, the small corner button is the ONLY WhatsApp surface. Multi-frame
+          ads let the carousel own the interaction, so NO full-frame overlay ever
+          covers the slides/thumbnails. The main image NEVER converts directly. */}
+      {ad.images.length <= 1 && isContact ? (
+        <>
+          <button
+            type="button"
+            data-testid="ad-contact-details"
+            aria-label={`${ad.alt || placement} — عرض التفاصيل`}
+            onClick={() => navigate.push('phone-details', { device: device!.id })}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              margin: 0,
+              cursor: 'pointer',
+              zIndex: 1,
+            }}
+          />
+          <button
+            type="button"
+            data-testid="ad-contact-cta"
+            aria-label={`${ad.alt || placement} — فتح المحادثة`}
+            onClick={() => {
+              try {
+                recordIntent({ kind: 'click', ctaType: 'ad_click', placement, deviceId: device!.id });
+              } catch {
+                // fire-and-forget: tracking must never block the handoff
+              }
+              try {
+                recordIntent({ kind: 'whatsapp_handoff_started', ctaType: 'inquiry', placement, deviceId: device!.id });
+              } catch {
+                // fire-and-forget: tracking must never block the handoff
+              }
+              whatsapp.send(buildAdClickMessage(device!, { placement, imageUrl: ad.image }), {
+                action: 'inquiry',
+                deviceId: device!.id,
+              });
+            }}
+            style={{
+              position: 'absolute',
+              insetInlineEnd: '0.6rem',
+              bottom: '0.6rem',
+              zIndex: 3,
+              padding: '0.45rem 0.85rem',
+              borderRadius: '999px',
+              border: 'none',
+              background: 'rgba(0,0,0,0.55)',
+              color: '#fff',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            تواصل
+          </button>
+        </>
       ) : null}
     </div>
   );

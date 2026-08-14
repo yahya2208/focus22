@@ -188,6 +188,17 @@ export function getInventoryReady(): boolean {
 
 export function subscribeCentralInventory(fn: () => void): () => void {
   listeners.add(fn);
+  // Close the "settled before subscribe" race: when a consumer subscribes
+  // AFTER the cache is already hydrated, replay the current state once so a
+  // late mount (e.g. HomeScreen finishing its lazy chunk while bootstrap is
+  // already done) can never miss the readiness transition. The ads path
+  // already re-reads after `ensureAdsLoaded()`; this makes the central cache
+  // equally race-free for every consumer (Home / Showroom / product details).
+  if (ready) {
+    queueMicrotask(() => {
+      if (listeners.has(fn)) fn();
+    });
+  }
   return () => { listeners.delete(fn); };
 }
 
@@ -203,15 +214,26 @@ export function isRecordPublished(id: string): boolean {
   return publishedIds.has(id);
 }
 
-async function fetchPublic(): Promise<void> {
+/**
+ * Hydrate the public cache (customer-facing projection). Returns success so
+ * the bootstrap can distinguish "transient failure" from "legitimately empty"
+ * and retry only the former.
+ */
+async function fetchPublic(): Promise<boolean> {
   try {
     const { data, error } = await getSupabaseClient()
       .from('v_public_inventory')
       .select('*')
       .order('updated_at', { ascending: false });
-    publicCache = error || !Array.isArray(data) ? [] : data.map(mapPublic);
+    if (error || !Array.isArray(data)) {
+      publicCache = [];
+      return false;
+    }
+    publicCache = data.map(mapPublic);
+    return true;
   } catch {
     publicCache = [];
+    return false;
   }
 }
 
@@ -251,11 +273,48 @@ async function refetchCentralInventory(): Promise<void> {
   notify();
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Bounded retry budget (ms) for the FIRST public-cache hydration only. A cold
+ * mobile start (radio wake / cold Supabase connection) can fail the very first
+ * request transiently; without a retry the app would settle `ready=true` with
+ * an empty public cache and Home would show "no devices" until a manual
+ * refresh. This is a bounded network-resilience retry, NOT auto-refresh: the
+ * admin/movements fetches (which legitimately error for anon visitors via
+ * RLS) are never retried, and after the budget is exhausted the bootstrap
+ * settles normally and focus/visibility refreshes remain the recovery path.
+ */
+const PUBLIC_BOOTSTRAP_RETRIES_MS = [500, 1500];
+
+async function bootstrapHydrate(): Promise<void> {
+  // Admin + movements are best-effort and start immediately (RLS errors are
+  // expected for public visitors); only the public projection is retried.
+  const adminPromise = fetchAdmin();
+  const movementsPromise = fetchMovements();
+  let attempt = 0;
+  for (;;) {
+    const publicOk = await fetchPublic();
+    if (publicOk) {
+      await Promise.all([adminPromise, movementsPromise]);
+      return;
+    }
+    if (attempt >= PUBLIC_BOOTSTRAP_RETRIES_MS.length) {
+      await Promise.all([adminPromise, movementsPromise]);
+      return;
+    }
+    await delay(PUBLIC_BOOTSTRAP_RETRIES_MS[attempt]!);
+    attempt += 1;
+  }
+}
+
 export function bootstrapCentralInventory(): Promise<void> {
   if (bootstrapPromise) return bootstrapPromise;
   bootstrapPromise = (async () => {
     try {
-      await Promise.all([fetchPublic(), fetchAdmin(), fetchMovements()]);
+      await bootstrapHydrate();
     } finally {
       ready = true;
       notify();

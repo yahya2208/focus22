@@ -249,6 +249,10 @@ export const HomeScreen = memo(function HomeScreen() {
 
         <HomeMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
 
+        {/* Ad — the first main content, directly below the top bar.
+            Renders nothing when no published ad exists, so no space is reserved. */}
+        <AdContactBanner placement="home" />
+
         {/* Hero — greeting + focus score + start, unified card */}
         <Card variant="glass" padding="xl">
           <div style={{ textAlign: 'center' }}>
@@ -344,9 +348,6 @@ export const HomeScreen = memo(function HomeScreen() {
             )}
           </div>
         </div>
-
-        {/* Featured ad — renders nothing when no published ad, so no space is reserved */}
-        <AdContactBanner placement="home" />
 
         {/* Latest devices — live data source, count adapts to screen */}
         <div>

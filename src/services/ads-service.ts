@@ -28,8 +28,33 @@ export const AD_PLACEMENTS: readonly AdPlacement[] = [
   'showroom',
 ];
 
+export interface AdImage {
+  id: string;
+  path: string;
+  url: string;
+  position: number;
+  isCover: boolean;
+  /**
+   * Per-slide device (00021): the InventoryRecord.id that THIS carousel slide
+   * drives at render time (buildAdPhoneLink → #/phone-details?device=<id>).
+   * '' = no device (slide is not interactive, mirrors ads.device_id).
+   */
+  deviceId: string;
+}
+
+interface AdImageRow {
+  id: string;
+  ad_placement: AdPlacement;
+  path: string;
+  position: number;
+  is_cover: boolean;
+  device_id: string;
+  created_at: string;
+}
+
 export interface AdConfig {
   enabled: boolean;
+  /** Cover image of the gallery (mirrors ads.image_path/image_url). */
   image: string;
   link: string;
   alt: string;
@@ -39,6 +64,8 @@ export interface AdConfig {
    * `link` is derived from `deviceId` on save (#/phone-details?device=<id>).
    */
   deviceId: string;
+  /** Ordered gallery. Empty for legacy ads with no ad_images rows. */
+  images: AdImage[];
 }
 
 interface AdRow {
@@ -54,8 +81,6 @@ interface AdRow {
 export interface AdRowInput {
   placement: AdPlacement;
   enabled: boolean;
-  image_path?: string;
-  image_url?: string;
   link?: string;
   alt?: string;
   deviceId?: string;
@@ -109,7 +134,7 @@ let realtimeStarted = false;
 
 function emptyMap(): Record<AdPlacement, AdConfig> {
   const result = {} as Record<AdPlacement, AdConfig>;
-  for (const p of AD_PLACEMENTS) result[p] = { enabled: false, image: '', link: '', alt: '', deviceId: '' };
+  for (const p of AD_PLACEMENTS) result[p] = { enabled: false, image: '', link: '', alt: '', deviceId: '', images: [] };
   return result;
 }
 
@@ -140,7 +165,7 @@ function isValidImageUrl(value: string): boolean {
   }
 }
 
-function rowToConfig(row: AdRow): AdConfig {
+function rowToConfig(row: AdRow, images: AdImage[] = []): AdConfig {
   const imageUrl = isValidImageUrl(row.image_url) ? row.image_url : '';
   return {
     enabled: row.enabled,
@@ -148,6 +173,7 @@ function rowToConfig(row: AdRow): AdConfig {
     link: row.link,
     alt: row.alt,
     deviceId: row.device_id ?? '',
+    images,
   };
 }
 
@@ -156,13 +182,46 @@ async function fetchAds(): Promise<Record<AdPlacement, AdConfig>> {
   try {
     const { data, error } = await getSupabaseClient().from('ads').select('*');
     if (error || !data) return result; // table not created yet — render nothing
+    const galleryByPlacement = await loadGalleries();
     for (const row of data as AdRow[]) {
-      if (row.placement in result) result[row.placement] = rowToConfig(row);
+      if (row.placement in result) {
+        result[row.placement] = rowToConfig(row, galleryByPlacement.get(row.placement) ?? []);
+      }
     }
   } catch {
     // ignore — same as missing table
   }
   return result;
+}
+
+/**
+ * Phase C — ordered gallery from `ad_images` (supabase/migrations/00020_*).
+ * Tolerates the pre-Phase-C schema (no table yet): returns an empty map so
+ * ads fall back to the single `ads.image_path` mirror.
+ */
+async function loadGalleries(): Promise<Map<AdPlacement, AdImage[]>> {
+  const map = new Map<AdPlacement, AdImage[]>();
+  try {
+    const { data } = await getSupabaseClient()
+      .from('ad_images')
+      .select('id, ad_placement, path, position, is_cover, device_id')
+      .order('position', { ascending: true });
+    for (const row of (data ?? []) as AdImageRow[]) {
+      const list = map.get(row.ad_placement) ?? [];
+      list.push({
+        id: row.id,
+        path: row.path,
+        url: publicImageUrl(row.path),
+        position: row.position,
+        isCover: row.is_cover,
+        deviceId: row.device_id ?? '',
+      });
+      map.set(row.ad_placement, list);
+    }
+  } catch {
+    // ad_images missing (pre-Phase-C) or read restricted — legacy mirror only
+  }
+  return map;
 }
 
 function notify() {
@@ -237,7 +296,7 @@ export function subscribeAds(listener: Listener): () => void {
  * Returns the storage path and the public URL.
  */
 export async function uploadAdImage(placement: AdPlacement, file: Blob): Promise<{ path: string; url: string }> {
-  const path = `ads/${placement}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.jpg`;
+  const path = `ads-images/${placement}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.jpg`;
   const client = getSupabaseClient();
   const { error } = await client.storage.from(ADS_BUCKET).upload(path, file, {
     contentType: 'image/jpeg',
@@ -258,8 +317,6 @@ export async function saveAd(input: AdRowInput): Promise<void> {
   const { error } = await getSupabaseClient().from('ads').upsert({
     placement: input.placement,
     enabled: input.enabled,
-    image_path: input.image_path ?? '',
-    image_url: input.image_url ?? '',
     link,
     device_id: deviceId,
     alt: input.alt ?? '',
@@ -271,18 +328,107 @@ export async function saveAd(input: AdRowInput): Promise<void> {
 
 export async function resetAd(placement: AdPlacement): Promise<void> {
   const client = getSupabaseClient();
-  let path: string | undefined;
+  const paths = new Set<string>();
+  try {
+    const { data: gallery } = await client.from('ad_images').select('path').eq('ad_placement', placement);
+    for (const r of (gallery ?? []) as Array<{ path: string }>) {
+      if (r.path) paths.add(r.path);
+    }
+  } catch {
+    // ad_images missing — legacy mirror only
+  }
   try {
     const { data } = await client.from('ads').select('image_path').eq('placement', placement).maybeSingle();
-    path = data?.image_path;
+    const legacyPath = (data as { image_path?: string } | null)?.image_path;
+    if (legacyPath) paths.add(legacyPath);
   } catch {
     // ignore read failure — proceed with delete
   }
   const { error } = await client.from('ads').delete().eq('placement', placement);
   if (error) throw new Error(`فشل إعادة تعيين الإعلان: ${error.message}`);
-  if (path) {
-    await client.storage.from(ADS_BUCKET).remove([path]).catch(() => {});
+  const all = [...paths];
+  if (all.length > 0) {
+    await client.storage.from(ADS_BUCKET).remove(all).catch(() => {});
   }
   loadPromise = null;
   await refreshAds();
+}
+
+/**
+ * Phase C + 00021 — gallery writes. The RPCs (supabase/migrations/00020_* and
+ * 00021_ad_images_device_id.sql) are SECURITY DEFINER so the admin can mutate
+ * `ad_images` despite the public read-only RLS policy. Storage cleanup runs
+ * client-side because the RPCs return the removed paths.
+ *
+ * Per-slide devices (00021): device_ids are sent to ad_replace_images_devices
+ * ONLY when at least one slide carries a device; otherwise the device-free
+ * 00020 ad_replace_images is used (old callers keep working unchanged).
+ */
+export async function replaceAdImages(
+  placement: AdPlacement,
+  paths: string[],
+  covers: boolean[],
+  deviceIds?: string[],
+): Promise<void> {
+  if (paths.length === 0) return;
+  const trimmed = deviceIds?.map((d) => d?.trim() ?? '') ?? [];
+  const hasDevices = trimmed.some((d) => d !== '');
+  if (hasDevices && trimmed.length !== paths.length) {
+    throw new Error('عدد الأجهزة لا يطابق عدد الصور');
+  }
+  const client = getSupabaseClient();
+  const previous = await collectAdImagePaths(placement);
+  const rpcName = hasDevices ? 'ad_replace_images_devices' : 'ad_replace_images';
+  const args = hasDevices
+    ? { p_ad_placement: placement, p_paths: paths, p_covers: covers, p_device_ids: trimmed }
+    : { p_ad_placement: placement, p_paths: paths, p_covers: covers };
+  const { error } = await client.rpc(rpcName, args);
+  if (error) throw new Error(`فشل حفظ الصور: ${error.message}`);
+  const removed = previous.filter((p) => !paths.includes(p));
+  if (removed.length > 0) {
+    await client.storage.from(ADS_BUCKET).remove(removed).catch(() => {});
+  }
+  loadPromise = null;
+  await refreshAds();
+}
+
+export async function addAdImage(
+  placement: AdPlacement,
+  path: string,
+  position: number,
+  isCover: boolean,
+  deviceId = '',
+): Promise<void> {
+  const device = deviceId?.trim() ?? '';
+  const hasDevice = device !== '';
+  const client = getSupabaseClient();
+  const rpcName = hasDevice ? 'ad_add_image_devices' : 'ad_add_image';
+  const args = hasDevice
+    ? { p_ad_placement: placement, p_path: path, p_position: position, p_is_cover: isCover, p_device_id: device }
+    : { p_ad_placement: placement, p_path: path, p_position: position, p_is_cover: isCover };
+  const { error } = await client.rpc(rpcName, args);
+  if (error) throw new Error(`فشل إضافة الصورة: ${error.message}`);
+  loadPromise = null;
+  await refreshAds();
+}
+
+export async function removeAdImage(imageId: string): Promise<void> {
+  const client = getSupabaseClient();
+  const { data, error } = await client.rpc('ad_remove_image', { p_image_id: imageId });
+  if (error) throw new Error(`فشل إزالة الصورة: ${error.message}`);
+  const removedPath = (data ?? '') as string;
+  if (removedPath) {
+    await client.storage.from(ADS_BUCKET).remove([removedPath]).catch(() => {});
+  }
+  loadPromise = null;
+  await refreshAds();
+}
+
+async function collectAdImagePaths(placement: AdPlacement): Promise<string[]> {
+  try {
+    const { data } = await getSupabaseClient().from('ad_images').select('path').eq('ad_placement', placement);
+    return ((data ?? []) as Array<{ path: string }>).map((r) => r.path).filter(Boolean);
+  } catch {
+    return [];
+  }
 }

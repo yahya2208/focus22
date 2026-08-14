@@ -3,6 +3,11 @@ import applySql from '../../../supabase/inventory-central/01-inventory-apply.sql
 import rollbackSql from '../../../supabase/inventory-central/02-inventory-rollback.sql?raw';
 import evidenceSql from '../../../supabase/inventory-central/03-pre-apply-evidence.sql?raw';
 import verifySql from '../../../supabase/inventory-central/04-post-apply-verify.sql?raw';
+import adsApplySql from '../../../supabase/ads-multi-image/01-ads-multi-image-apply.sql?raw';
+import adsRollbackSql from '../../../supabase/ads-multi-image/02-ads-multi-image-rollback.sql?raw';
+import adsEvidenceSql from '../../../supabase/ads-multi-image/03-pre-apply-evidence.sql?raw';
+import adsVerifySql from '../../../supabase/ads-multi-image/04-post-apply-verify.sql?raw';
+import adsBackfillSql from '../../../supabase/ads-multi-image/05-ad-images-backfill.sql?raw';
 
 const MIGRATIONS = import.meta.glob('../../../supabase/migrations/*.sql', {
   eager: true,
@@ -12,6 +17,10 @@ const MIGRATIONS = import.meta.glob('../../../supabase/migrations/*.sql', {
 
 const migration19 = Object.entries(MIGRATIONS).find(([key]) =>
   key.includes('00019_inventory_central.sql'),
+)?.[1] as string;
+
+const migration20 = Object.entries(MIGRATIONS).find(([key]) =>
+  key.includes('00020_ads_multi_image.sql'),
 )?.[1] as string;
 
 function basename(key: string): string {
@@ -28,6 +37,16 @@ function stripSqlComments(sql: string): string {
     .split('\n')
     .filter((line) => !line.trimStart().startsWith('--'))
     .join('\n');
+}
+
+function executableLines(sql: string): string[] {
+  return sql
+    .split('\n')
+    .map((line) => line.replace(/\r$/, ''))
+    .filter((line) => {
+      const t = line.trim();
+      return t !== '' && !t.startsWith('--');
+    });
 }
 
 function bodyFrom(sql: string): string {
@@ -65,7 +84,7 @@ function countOccurrences(haystack: string, needle: string): number {
 }
 
 describe('Migration numbering', () => {
-  it('zero-padded migration numbers (00001..00019) are unique', () => {
+  it('zero-padded migration numbers (00001..00021) are unique', () => {
     const names = Object.keys(MIGRATIONS).map(basename);
     const nums = names
       .filter((name) => /^\d{5}_/.test(name))
@@ -82,18 +101,24 @@ describe('Migration numbering', () => {
     expect(legacy).toEqual(['003_add_session_lifecycle.sql', '004_add_analytics_events_indexes.sql']);
   });
 
-  it('00019 is the highest migration number and exists', () => {
+  it('00021 is the highest migration number; 00020 and 00021 both exist', () => {
     const nums = Object.keys(MIGRATIONS)
       .map(basename)
       .map(numericPrefix)
       .filter((n): n is number => n !== null);
-    expect(Math.max(...nums)).toBe(19);
-    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00019_inventory_central.sql');
+    expect(Math.max(...nums)).toBe(21);
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00020_ads_multi_image.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00021_ad_images_device_id.sql');
   });
 
   it('00019 body (after header comments) matches 01-inventory-apply.sql body', () => {
     expect(migration19).toBeDefined();
     expect(bodyFrom(migration19)).toBe(bodyFrom(applySql));
+  });
+
+  it('00020 body (executable lines) matches 01-ads-multi-image-apply.sql body', () => {
+    expect(migration20).toBeDefined();
+    expect(executableLines(migration20)).toEqual(executableLines(adsApplySql));
   });
 });
 
@@ -296,5 +321,224 @@ describe('H13 ownership model', () => {
     const movementsEnd = applySql.indexOf('REVOKE ALL ON public.inventory_items');
     const movementsPolicy = applySql.slice(movementsStart, movementsEnd);
     expect(movementsPolicy).toContain("u.role IN ('admin','super_admin','researcher')");
+  });
+});
+
+describe('01-ads-multi-image-apply.sql ↔ 02-ads-multi-image-rollback.sql consistency', () => {
+  it('every function created in 01 is dropped in 02 with an identical signature', () => {
+    const created = createFunctionSigs(adsApplySql);
+    const dropped = dropFunctionSigs(adsRollbackSql);
+    expect(created.size).toBeGreaterThan(0);
+    expect(dropped.size).toBe(created.size);
+    for (const [name, argc] of created) {
+      expect(dropped.has(name), `02 must drop ${name}`).toBe(true);
+      expect(dropped.get(name), `${name} argument-count mismatch between 01 and 02`).toBe(argc);
+    }
+    for (const name of dropped.keys()) {
+      expect(created.has(name), `02 drops ${name} but 01 does not create it`).toBe(true);
+    }
+  });
+
+  it('rollback order reverses apply order (mirror helper / table / RPCs / storage)', () => {
+    expect(adsApplySql.indexOf('CREATE TABLE IF NOT EXISTS public.ad_images')).toBeLessThan(
+      adsApplySql.indexOf('CREATE OR REPLACE FUNCTION public.sync_ads_image_mirror'),
+    );
+    expect(adsApplySql.indexOf('CREATE OR REPLACE FUNCTION public.sync_ads_image_mirror')).toBeLessThan(
+      adsApplySql.indexOf('CREATE OR REPLACE FUNCTION public.ad_is_admin'),
+    );
+    expect(adsRollbackSql.indexOf('DROP TRIGGER IF EXISTS trg_ad_images_mirror')).toBeLessThan(
+      adsRollbackSql.indexOf('DROP FUNCTION IF EXISTS public.sync_ads_image_mirror'),
+    );
+    expect(adsRollbackSql.indexOf('DROP FUNCTION IF EXISTS public.sync_ads_image_mirror')).toBeLessThan(
+      adsRollbackSql.indexOf('DROP TABLE IF EXISTS public.ad_images'),
+    );
+    expect(adsRollbackSql.indexOf('DROP TABLE IF EXISTS public.ad_images')).toBeLessThan(
+      adsRollbackSql.indexOf('DROP FUNCTION IF EXISTS public.ad_is_admin'),
+    );
+  });
+});
+
+describe('Ads multi-image security invariants (01 / 00020)', () => {
+  const files: Array<{ label: string; sql: string }> = [
+    { label: '01-ads-multi-image-apply.sql', sql: adsApplySql },
+    { label: '00020_ads_multi_image.sql', sql: migration20 },
+  ];
+
+  for (const { label, sql } of files) {
+    it(`${label}: storage upload hardening uses CREATE POLICY with WITH CHECK, never raw storage.policies inserts`, () => {
+      expect(sql).not.toContain('INSERT INTO storage.policies');
+      expect(sql).not.toContain('supabase_realtime.publication');
+      expect(sql).toContain('CREATE POLICY "Staff upload ads-images"');
+      expect(sql).toContain('WITH CHECK');
+    });
+
+    it(`${label}: upload policy requires admin role AND the ads-images/% or ads/% prefix`, () => {
+      expect(countOccurrences(sql, "u.role IN ('admin','super_admin')")).toBeGreaterThanOrEqual(2);
+      expect(sql).toContain("(name LIKE 'ads-images/%' OR name LIKE 'ads/%')");
+      expect(sql).toContain("name LIKE 'ads-images/' || a.placement || '/%'");
+    });
+
+    it(`${label}: ad_% RPCs gate on ad_is_admin(), validate prefix + object existence, and lock the row`, () => {
+      expect(sql).toContain('IF NOT public.ad_is_admin() THEN');
+      expect(sql).toContain("p_path LIKE 'ads-images/' || p_ad_placement || '/%'");
+      expect(sql).toContain('storage.objects');
+      expect(sql).toContain('FOR UPDATE');
+      expect(sql).toContain('does not exist in ads-images bucket');
+    });
+
+    it(`${label}: EXECUTE is revoked from PUBLIC for exactly the 4 ad_% RPCs`, () => {
+      expect(countOccurrences(sql, 'REVOKE ALL ON FUNCTION')).toBe(4);
+      expect(countOccurrences(sql, 'GRANT EXECUTE ON FUNCTION')).toBe(4);
+    });
+
+    it(`${label}: ad_images is SELECT-only for public — RPCs are the only write path`, () => {
+      expect(sql).toContain('REVOKE ALL ON public.ad_images FROM anon, authenticated');
+      expect(sql).toContain('GRANT SELECT ON public.ad_images TO anon, authenticated');
+      expect(sql).not.toContain('GRANT INSERT, UPDATE, DELETE ON public.ad_images');
+    });
+
+    it(`${label}: realtime uses guarded ALTER PUBLICATION, never raw internal-table inserts`, () => {
+      expect(sql).toContain('ALTER PUBLICATION supabase_realtime ADD TABLE public.ad_images');
+    });
+
+    it(`${label}: UUID generation is consistent via gen_random_uuid()`, () => {
+      expect(sql).not.toContain('uuid_generate_v4');
+      expect(sql).toContain('gen_random_uuid()');
+    });
+
+    it(`${label}: cover exclusivity is enforced (partial unique index + RPC guard)`, () => {
+      expect(sql).toContain('CREATE UNIQUE INDEX IF NOT EXISTS uq_ad_images_cover');
+      expect(sql).toContain('WHERE is_cover = TRUE');
+      expect(sql).toContain('at most one image can be the cover');
+    });
+  }
+});
+
+describe('sync_ads_image_mirror — deleting the last ad_images row blanks the mirror (ISSUE 1)', () => {
+  const files: Array<{ label: string; sql: string }> = [
+    { label: '01-ads-multi-image-apply.sql', sql: adsApplySql },
+    { label: '00020_ads_multi_image.sql', sql: migration20 },
+  ];
+
+  for (const { label, sql } of files) {
+    it(`${label}: no rows left (last row deleted) resets ads.image_path and image_url to empty`, () => {
+      const fnStart = sql.indexOf('CREATE OR REPLACE FUNCTION public.sync_ads_image_mirror()');
+      expect(fnStart).toBeGreaterThanOrEqual(0);
+      const fn = sql.slice(fnStart, sql.indexOf('$$;', fnStart));
+      // Cover exists -> mirror stores the cover.
+      expect(fn).toContain('IF v_cover_path IS NOT NULL THEN');
+      expect(fn).toContain('SET image_path = v_cover_path,');
+      expect(fn).toContain('image_url  = ' + "''");
+      // No rows remain (last row deleted) -> mirror is blanked, never left stale.
+      expect(fn.indexOf('ELSE')).toBeGreaterThan(fn.indexOf('SET image_path = v_cover_path,'));
+      expect(fn).toContain("SET image_path = '',");
+      expect(fn).toContain('WHERE placement = v_placement;');
+    });
+
+    it(`${label}: blanking UPDATE is valid SQL — single SET with comma-separated columns, never a repeated SET`, () => {
+      const fnStart = sql.indexOf('CREATE OR REPLACE FUNCTION public.sync_ads_image_mirror()');
+      expect(fnStart).toBeGreaterThanOrEqual(0);
+      const fn = sql.slice(fnStart, sql.indexOf('$$;', fnStart));
+      // A valid UPDATE ... SET a = x, b = y never repeats the SET keyword.
+      expect(fn).not.toMatch(/SET\s+image_url/);
+      // Extract the blanking UPDATE statement (the one inside the ELSE branch).
+      const elseIdx = fn.indexOf('ELSE');
+      const blank = fn.slice(elseIdx);
+      const upStart = blank.indexOf('UPDATE public.ads');
+      expect(upStart).toBeGreaterThanOrEqual(0);
+      const whereEnd = 'WHERE placement = v_placement;';
+      const stmt = blank.slice(upStart, blank.indexOf(whereEnd, upStart) + whereEnd.length);
+      const lines = stmt.split('\n').map((l) => l.trim());
+      expect(lines[0]).toBe('UPDATE public.ads');
+      expect(lines[1]).toBe("SET image_path = '',");
+      expect(lines[2]).toBe("image_url  = ''");
+      expect(lines[3]).toBe('WHERE placement = v_placement;');
+    });
+  }
+});
+
+describe('02-ads-multi-image-rollback.sql (G1/G2/G3 for ads)', () => {
+  it('never deletes storage objects or the bucket — files survive rollback (B-1)', () => {
+    expect(adsRollbackSql).not.toContain('DELETE FROM storage.objects');
+    expect(adsRollbackSql).not.toContain('DELETE FROM storage.buckets');
+  });
+
+  it('restores the 00015 upload policy VERBATIM (no placement hardening)', () => {
+    expect(adsRollbackSql).toContain('DROP POLICY IF EXISTS "Staff upload ads-images" ON storage.objects');
+    expect(adsRollbackSql).toContain('CREATE POLICY "Staff upload ads-images"');
+    expect(adsRollbackSql).toContain("bucket_id = 'ads-images'");
+    expect(adsRollbackSql).toContain("u.role IN ('admin','super_admin')");
+    expect(adsRollbackSql).not.toContain("OR name LIKE 'ads/%'");
+  });
+
+  it('erases the multi-image layer: trigger, helper, table, RPCs, realtime membership', () => {
+    expect(adsRollbackSql).toContain('DROP TRIGGER IF EXISTS trg_ad_images_mirror');
+    expect(adsRollbackSql).toContain('DROP TABLE IF EXISTS public.ad_images');
+    expect(adsRollbackSql).toContain('DROP FUNCTION IF EXISTS public.ad_is_admin');
+    expect(adsRollbackSql).toContain('ALTER PUBLICATION supabase_realtime DROP TABLE public.ad_images');
+  });
+});
+
+describe('03-pre-apply-evidence.sql (ads)', () => {
+  it('proves ad_images absence with to_regclass, never queries non-existent tables', () => {
+    expect(countOccurrences(adsEvidenceSql, 'to_regclass')).toBeGreaterThanOrEqual(1);
+    expect(adsEvidenceSql).not.toMatch(/FROM\s+public\.ad_images/);
+  });
+
+  it('checks functions, bucket, storage policies, publication, uuid generator, users baseline', () => {
+    expect(adsEvidenceSql).toContain("p.proname LIKE 'ad\\_%'");
+    expect(adsEvidenceSql).toContain("storage.buckets WHERE id = 'ads-images'");
+    expect(adsEvidenceSql).toContain("'Staff upload ads-images'");
+    expect(adsEvidenceSql).toContain('pg_publication_tables');
+    expect(adsEvidenceSql).toContain("pubname = 'supabase_realtime'");
+    expect(adsEvidenceSql).toContain("p.proname = 'gen_random_uuid'");
+    expect(adsEvidenceSql).toContain("table_name = 'users' AND column_name = 'id'");
+  });
+
+  it('proves at least one admin/super_admin exists before apply', () => {
+    expect(adsEvidenceSql).toContain("role IN ('admin','super_admin')");
+  });
+
+  it('captures the legacy ad-with-image count (check 7) that the backfill guard compares', () => {
+    expect(adsEvidenceSql).toContain('legacy_ads_with_image');
+    expect(adsEvidenceSql).toContain(
+      "FROM public.ads WHERE image_path IS NOT NULL AND image_path <> ''",
+    );
+  });
+});
+
+describe('04-post-apply-verify.sql (ads)', () => {
+  it('pins the exact RPC count to 4 ad_% functions with no PUBLIC execute leak', () => {
+    expect(adsVerifySql).toContain("p.proname LIKE 'ad\\_%'");
+    expect(adsVerifySql).toContain('08_no_public_exec');
+  });
+
+  it('verifies storage policies (4 total, upload one hardened with placement check)', () => {
+    expect(adsVerifySql).toContain("'Public read ads-images'");
+    expect(adsVerifySql).toContain("'Staff upload ads-images'");
+    expect(adsVerifySql).toContain("'Staff update ads-images'");
+    expect(adsVerifySql).toContain("'Staff delete ads-images'");
+    expect(adsVerifySql).toContain('10_hardened_upload_policy');
+  });
+
+  it('verifies the mirror invariant and backfill rows', () => {
+    expect(adsVerifySql).toContain('12_backfill_rows');
+    expect(adsVerifySql).toContain('13_mirror_invariant');
+    expect(adsVerifySql).toContain('trg_ad_images_mirror');
+  });
+});
+
+describe('05-ad-images-backfill.sql (ads)', () => {
+  it('mirrors legacy single-image ads 1:1 (position 0, cover) with ON CONFLICT rerunnability', () => {
+    expect(adsBackfillSql).toContain('INSERT INTO public.ad_images');
+    expect(adsBackfillSql).toContain('ON CONFLICT (ad_placement, path) DO NOTHING');
+    expect(adsBackfillSql).toContain('FROM public.ads');
+    expect(adsBackfillSql).toContain("WHERE image_path IS NOT NULL AND image_path <> ''");
+  });
+
+  it('guards the backfill with an all-or-nothing count check', () => {
+    expect(adsBackfillSql).toContain('BEGIN;');
+    expect(adsBackfillSql).toContain('COMMIT;');
+    expect(adsBackfillSql).toContain('RAISE EXCEPTION');
   });
 });

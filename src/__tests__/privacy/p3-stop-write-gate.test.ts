@@ -149,6 +149,7 @@ const HARD_STOP_PREFIXES = [
 const AUTHORIZED_CHANGES = [
   'src/components/ads/AdBanner.tsx',
   'src/components/ads/AdSpot.tsx',
+  'src/components/ads/AdImageCarousel.tsx',
   'src/services/ads-service.ts',
   'src/services/inventory-service.ts',
   'src/services/inventory-seed.ts',

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import { AdBanner } from '../../components/ads/AdBanner';
+import type { AdImage } from '../../services/ads-service';
 
 const onStateChange = vi.fn();
 
@@ -9,8 +10,14 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function renderBanner(image = 'https://cdn/banner.png') {
-  return render(<AdBanner image={image} alt="Special offer" onStateChange={onStateChange} />);
+function adImage(path: string, overrides: Partial<AdImage> = {}): AdImage {
+  return { id: `id-${path}`, path, url: `https://cdn/${path}`, position: 0, isCover: false, deviceId: '', ...overrides };
+}
+
+function renderBanner(image = 'https://cdn/banner.png', images?: AdImage[]) {
+  return render(
+    <AdBanner image={image} images={images} alt="Special offer" onStateChange={onStateChange} />,
+  );
 }
 
 describe('AdBanner (V-1 — loading / loaded / failed)', () => {
@@ -44,6 +51,26 @@ describe('AdBanner (V-1 — loading / loaded / failed)', () => {
     expect(img.style.animation).toBe('');
     expect(container.querySelector('[style*="adspot-shine"]')).toBeNull();
     expect(container.querySelector('[style*="adspot-breathe"]')).toBeNull();
+  });
+
+  it('a portrait image fills the fixed-height banner frame with a TOP-focused crop', () => {
+    renderBanner();
+    const frame = screen.getByTestId('adspot-frame');
+    const img = screen.getByRole('img');
+
+    // Portrait image (2:1 height) — the frame must NOT become square/tall and
+    // the image must stretch to fill it, keeping the top info visible.
+    Object.defineProperty(img, 'naturalWidth', { configurable: true, value: 800 });
+    Object.defineProperty(img, 'naturalHeight', { configurable: true, value: 1600 });
+    act(() => {
+      fireEvent.load(img);
+    });
+
+    expect(frame.style.height).toBe('clamp(220px, 58vw, 360px)');
+    expect(frame.style.aspectRatio).toBe('');
+    expect(img.style.objectFit).toBe('cover');
+    expect(img.style.objectPosition).toBe('center top');
+    expect(img.style.opacity).toBe('1');
   });
 
   it('collapses cleanly on a broken image: no frame, no shine, no throw, no retry loop', () => {
@@ -104,5 +131,87 @@ describe('AdBanner (V-1 — loading / loaded / failed)', () => {
       if (originalNH) Object.defineProperty(proto, 'naturalHeight', originalNH);
       else delete (proto as { naturalHeight?: number }).naturalHeight;
     }
+  });
+});
+
+describe('AdBanner (D-GATE-ADS — multi-image gallery renders the carousel)', () => {
+  it('keeps the single-frame path when one image (or none) is provided', () => {
+    renderBanner('https://cdn/banner.png', [adImage('banner.png')]);
+    expect(screen.queryByTestId('ad-carousel')).toBeNull();
+    expect(screen.getByTestId('adspot-frame')).toBeTruthy();
+
+    cleanup();
+    renderBanner('https://cdn/banner.png', []);
+    expect(screen.queryByTestId('ad-carousel')).toBeNull();
+    expect(screen.getByTestId('adspot-frame')).toBeTruthy();
+  });
+
+  it('starts on the cover image and navigates with the arrows', () => {
+    const images = [
+      adImage('a.jpg', { position: 0 }),
+      adImage('b.jpg', { position: 1, isCover: true }),
+      adImage('c.jpg', { position: 2 }),
+    ];
+    renderBanner('https://cdn/b.jpg', images);
+
+    expect(screen.getByTestId('ad-carousel')).toBeTruthy();
+    expect(screen.getByTestId('ad-carousel-current').getAttribute('src')).toBe('https://cdn/b.jpg');
+
+    act(() => {
+      fireEvent.click(screen.getByTestId('ad-carousel-next'));
+    });
+    expect(screen.getByTestId('ad-carousel-current').getAttribute('src')).toBe('https://cdn/c.jpg');
+
+    act(() => {
+      fireEvent.click(screen.getByTestId('ad-carousel-prev'));
+    });
+    expect(screen.getByTestId('ad-carousel-current').getAttribute('src')).toBe('https://cdn/b.jpg');
+  });
+
+  it('renders a thumbnail per image and jumps to the selected slide', () => {
+    const images = [adImage('a.jpg', { position: 0, isCover: true }), adImage('c.jpg', { position: 1 })];
+    renderBanner('https://cdn/a.jpg', images);
+
+    expect(screen.getByTestId('ad-carousel-thumb-0')).toBeTruthy();
+    expect(screen.getByTestId('ad-carousel-thumb-1')).toBeTruthy();
+    expect(screen.getByTestId('ad-carousel-thumb-0').getAttribute('aria-current')).toBe('true');
+
+    act(() => {
+      fireEvent.click(screen.getByTestId('ad-carousel-thumb-1'));
+    });
+    expect(screen.getByTestId('ad-carousel-current').getAttribute('src')).toBe('https://cdn/c.jpg');
+    expect(screen.getByTestId('ad-carousel-thumb-1').getAttribute('aria-current')).toBe('true');
+  });
+
+  it('reports loaded once the current slide loads (opacity 1, adaptive frame)', () => {
+    const images = [adImage('a.jpg', { position: 0, isCover: true }), adImage('b.jpg', { position: 1 })];
+    renderBanner('https://cdn/a.jpg', images);
+
+    const img = screen.getByTestId('ad-carousel-current');
+    Object.defineProperty(img, 'naturalWidth', { configurable: true, value: 1600 });
+    Object.defineProperty(img, 'naturalHeight', { configurable: true, value: 400 });
+    act(() => {
+      fireEvent.load(img);
+    });
+
+    expect(onStateChange).toHaveBeenCalledWith('loaded');
+    expect(img.style.opacity).toBe('1');
+    expect(screen.getByTestId('ad-carousel-frame').getAttribute('data-status')).toBe('loaded');
+  });
+
+  it('collapses the whole banner when the current slide fails to load (never a broken frame)', () => {
+    const images = [adImage('a.jpg', { position: 0, isCover: true }), adImage('broken.jpg', { position: 1 })];
+    renderBanner('https://cdn/a.jpg', images);
+
+    act(() => {
+      fireEvent.click(screen.getByTestId('ad-carousel-next'));
+    });
+    const broken = screen.getByTestId('ad-carousel-current');
+    act(() => {
+      fireEvent.error(broken);
+    });
+
+    expect(screen.queryByTestId('ad-carousel')).toBeNull();
+    expect(onStateChange).toHaveBeenCalledWith('failed');
   });
 });
