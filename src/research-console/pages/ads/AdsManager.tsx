@@ -3,8 +3,11 @@ import { DashboardHeader } from '../../layout/ResearchLayout';
 import {
   refreshAds, getAds, saveAd, resetAd, uploadAdImage, replaceAdImages, AD_PLACEMENTS,
   buildAdPhoneLink,
-  type AdPlacement, type AdConfig,
+  type AdPlacement, type AdConfig, type AdDestinationType,
 } from '../../../services/ads-service';
+import { isSafeExternalUrl } from '../../../services/ad-adapters/external';
+import { isValidWhatsAppNumber, WHATSAPP_MESSAGE_MAX_LENGTH } from '../../../services/ad-adapters/whatsapp';
+import { INTERNAL_AD_ALLOWLIST } from '../../../services/ad-adapters/internal';
 import { compressImageToBlob } from '../../../services/image-service';
 import { AdBanner } from '../../../components/ads/AdBanner';
 import { InventoryService, type InventoryRecord } from '../../../services/inventory-service';
@@ -19,8 +22,62 @@ const PLACEMENT_LABELS: Record<AdPlacement, string> = {
   showroom: 'صفحة العرض (المعرض)',
 };
 
+const DESTINATION_TYPE_LABELS: Record<AdDestinationType, string> = {
+  phone: 'هاتف (مخزون)',
+  external: 'رابط خارجي (http)',
+  whatsapp: 'واتساب',
+  internal: 'شاشة داخلية',
+};
+
+const INTERNAL_SCREEN_LABELS: Record<string, string> = {
+  'phone-details': 'تفاصيل الهاتف (يتطلب هاتفًا)',
+  showroom: 'صالة العرض',
+  'phone-services': 'خدمات الهاتف',
+  'repair-home': 'الصيانة (الرئيسية)',
+};
+
 function emptyConfig(): AdConfig {
-  return { enabled: false, image: '', link: '', alt: '', deviceId: '', images: [] };
+  return {
+    enabled: false, image: '', link: '', alt: '', deviceId: '',
+    destinationType: 'phone', destination: {}, title: '', images: [],
+  };
+}
+
+/**
+ * Live destination-payload validation — mirrors ads-service.validateAdInput
+ * (same adapter predicates, adapter = source of truth) so the save button is
+ * disabled before any upload happens. phone keeps the legacy permissive rules
+ * (inventory checks happen at save time, as before).
+ */
+function destinationError(cfg: AdConfig, validDeviceIds: ReadonlySet<string>): string | null {
+  const type = cfg.destinationType ?? 'phone';
+  if (type === 'phone') return null;
+
+  if (type === 'external') {
+    const ext = cfg.destination?.external as { url?: unknown } | undefined;
+    const url = typeof ext?.url === 'string' ? ext.url : '';
+    return isSafeExternalUrl(url) ? null : 'الوجهة الخارجية تتطلب رابطًا مطلقًا صالحًا (http/https)';
+  }
+
+  if (type === 'whatsapp') {
+    const wa = cfg.destination?.whatsapp as { number?: unknown; message?: unknown } | undefined;
+    const number = typeof wa?.number === 'string' ? wa.number : '';
+    const message = typeof wa?.message === 'string' ? wa.message : '';
+    if (!isValidWhatsAppNumber(number)) return 'الوجهة عبر واتساب تتطلب رقمًا صالحًا (8–15 رقمًا)';
+    if (message.length > WHATSAPP_MESSAGE_MAX_LENGTH) return `رسالة واتساب تتجاوز الحد الأقصى (${WHATSAPP_MESSAGE_MAX_LENGTH} حرفًا)`;
+    return null;
+  }
+
+  const internal = cfg.destination?.internal as { screen?: unknown; params?: unknown } | undefined;
+  const screen = typeof internal?.screen === 'string' ? internal.screen : '';
+  if (!(INTERNAL_AD_ALLOWLIST as readonly string[]).includes(screen)) return 'الوجهة الداخلية تتطلب اختيار شاشة من القائمة';
+  if (screen === 'phone-details') {
+    const params = internal?.params as Record<string, unknown> | undefined;
+    const device = typeof params?.device === 'string' ? params.device.trim() : '';
+    if (!device) return 'وجهة تفاصيل الهاتف تتطلب اختيار هاتف مرتبط';
+    if (!validDeviceIds.has(device)) return 'الهاتف المحدد غير موجود في المخزون الحالي';
+  }
+  return null;
 }
 
 function emptyMap(): Record<AdPlacement, AdConfig> {
@@ -177,14 +234,21 @@ export function AdsManager() {
     setStatus((prev) => ({ ...prev, [placement]: '' }));
     try {
       const cfg = edits[placement];
-      if (cfg.deviceId && !devices.some((d) => d.id === cfg.deviceId)) {
+      const validDeviceIds = new Set(devices.map((d) => d.id));
+      const destError = destinationError(cfg, validDeviceIds);
+      if (destError) {
+        setStatus((prev) => ({ ...prev, [placement]: destError }));
+        setBusy(null);
+        return;
+      }
+      if (cfg.deviceId && !validDeviceIds.has(cfg.deviceId)) {
         setStatus((prev) => ({ ...prev, [placement]: 'الهاتف المحدد غير موجود في المخزون الحالي — أعد اختياره' }));
         setBusy(null);
         return;
       }
       const items = galleries[placement] ?? [];
       const slideDeviceIds = items.map((it) => it.deviceId ?? '');
-      const missingDevice = slideDeviceIds.find((id) => id !== '' && !devices.some((d) => d.id === id));
+      const missingDevice = slideDeviceIds.find((id) => id !== '' && !validDeviceIds.has(id));
       if (missingDevice) {
         setStatus((prev) => ({ ...prev, [placement]: 'هاتف إحدى الصور غير موجود في المخزون الحالي — أعد اختياره' }));
         setBusy(null);
@@ -199,7 +263,11 @@ export function AdsManager() {
           pathByKey.set(item.key, item.path);
         }
       }
-      await saveAd({ placement, enabled: cfg.enabled, link: cfg.link, alt: cfg.alt, deviceId: cfg.deviceId });
+      const destinationType = cfg.destinationType ?? 'phone';
+      const input: Parameters<typeof saveAd>[0] = destinationType === 'phone'
+        ? { placement, enabled: cfg.enabled, link: cfg.link, alt: cfg.alt, deviceId: cfg.deviceId, title: cfg.title ?? '' }
+        : { placement, enabled: cfg.enabled, alt: cfg.alt, destinationType, destination: cfg.destination ?? {}, title: cfg.title ?? '' };
+      await saveAd(input);
       if (items.length > 0) {
         await replaceAdImages(
           placement,
@@ -285,6 +353,15 @@ export function AdsManager() {
         const cfg = edits[placement];
         const items = galleries[placement] ?? [];
         const previewImage = cfg.image;
+        const destType = cfg.destinationType ?? 'phone';
+        const destExternalUrl = (cfg.destination?.external as { url?: string } | undefined)?.url ?? '';
+        const destWhatsapp = cfg.destination?.whatsapp as { number?: string; message?: string } | undefined;
+        const destWhatsappNumber = destWhatsapp?.number ?? '';
+        const destWhatsappMessage = destWhatsapp?.message ?? '';
+        const destInternal = cfg.destination?.internal as { screen?: string; params?: Record<string, string> } | undefined;
+        const destInternalScreen = destInternal?.screen ?? '';
+        const destInternalDevice = destInternal?.params?.device ?? '';
+        const liveError = destinationError(cfg, new Set(devices.map((d) => d.id)));
         return (
           <div
             key={placement}
@@ -367,43 +444,155 @@ export function AdsManager() {
                   onChange={(e) => handleUpload(placement, e.target.files)}
                   style={{ color: '#888', fontSize: '0.8rem', width: '100%' }}
                 />
-                <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '4px', marginTop: '8px' }}>هاتف مرتبط (اختياري)</div>
-                <select
-                  aria-label={`هاتف مرتبط لـ ${PLACEMENT_LABELS[placement]}`}
-                  value={cfg.deviceId}
-                  onChange={(e) => {
-                    const deviceId = e.target.value;
-                    patch(placement, { deviceId, link: deviceId ? buildAdPhoneLink(deviceId) : '' });
-                  }}
-                  style={{ ...inputStyle, marginBottom: '8px' }}
-                >
-                  <option value="">لا يوجد هاتف — رابط خارجي</option>
-                  {devices.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {`${d.brand} ${d.model} ${d.variant ?? ''}`.trim()}
-                    </option>
+                <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '4px', marginTop: '8px' }}>وجهة الإعلان</div>
+                <div role="radiogroup" aria-label={`نوع الوجهة لـ ${PLACEMENT_LABELS[placement]}`} style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                  {(Object.keys(DESTINATION_TYPE_LABELS) as AdDestinationType[]).map((type) => (
+                    <label key={type} style={{ display: 'flex', alignItems: 'center', gap: '4px', color: type === destType ? '#f0f0f0' : '#888', fontSize: '0.75rem', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name={`dest-type-${placement}`}
+                        value={type}
+                        checked={destType === type}
+                        onChange={() => patch(placement, { destinationType: type, destination: {}, link: '', deviceId: '' })}
+                      />
+                      {DESTINATION_TYPE_LABELS[type]}
+                    </label>
                   ))}
-                </select>
-                {cfg.deviceId ? (
+                </div>
+
+                {destType === 'phone' && (
+                  <>
+                    <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '4px' }}>هاتف مرتبط (اختياري)</div>
+                    <select
+                      aria-label={`هاتف مرتبط لـ ${PLACEMENT_LABELS[placement]}`}
+                      value={cfg.deviceId}
+                      onChange={(e) => {
+                        const deviceId = e.target.value;
+                        patch(placement, { deviceId, link: deviceId ? buildAdPhoneLink(deviceId) : '' });
+                      }}
+                      style={{ ...inputStyle, marginBottom: '8px' }}
+                    >
+                      <option value="">لا يوجد هاتف — رابط خارجي</option>
+                      {devices.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {`${d.brand} ${d.model} ${d.variant ?? ''}`.trim()}
+                        </option>
+                      ))}
+                    </select>
+                    {cfg.deviceId ? (
+                      <div>
+                        <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '4px' }}>رابط الهاتف (يُشتق تلقائيًا)</div>
+                        <input
+                          type="text"
+                          readOnly
+                          value={cfg.link}
+                          data-testid="ad-phone-link"
+                          style={inputStyle}
+                        />
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="رابط الوجهة (اختياري) — مثال https://..."
+                        value={cfg.link}
+                        onChange={(e) => patch(placement, { link: e.target.value })}
+                        style={inputStyle}
+                      />
+                    )}
+                  </>
+                )}
+
+                {destType === 'external' && (
                   <div>
-                    <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '4px' }}>رابط الهاتف (يُشتق تلقائيًا)</div>
+                    <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '4px' }}>رابط الوجهة الخارجية (http/https)</div>
                     <input
                       type="text"
-                      readOnly
-                      value={cfg.link}
-                      data-testid="ad-phone-link"
+                      placeholder="https://example.com/offer"
+                      value={destExternalUrl}
+                      onChange={(e) => patch(placement, { destination: { external: { url: e.target.value } } })}
+                      data-testid="ad-external-url"
                       style={inputStyle}
                     />
                   </div>
-                ) : (
-                  <input
-                    type="text"
-                    placeholder="رابط الوجهة (اختياري) — مثال https://..."
-                    value={cfg.link}
-                    onChange={(e) => patch(placement, { link: e.target.value })}
-                    style={inputStyle}
-                  />
                 )}
+
+                {destType === 'whatsapp' && (
+                  <div>
+                    <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '4px' }}>رقم واتساب (8–15 رقمًا)</div>
+                    <input
+                      type="text"
+                      placeholder="+9665xxxxxxx"
+                      value={destWhatsappNumber}
+                      onChange={(e) => patch(placement, { destination: { whatsapp: { number: e.target.value, message: destWhatsappMessage } } })}
+                      data-testid="ad-wa-number"
+                      style={{ ...inputStyle, marginBottom: '8px' }}
+                    />
+                    <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '4px' }}>رسالة مبدئية (اختياري، ≤1000 حرف)</div>
+                    <input
+                      type="text"
+                      placeholder="مرحبًا، أستفسر عن..."
+                      value={destWhatsappMessage}
+                      onChange={(e) => patch(placement, { destination: { whatsapp: { number: destWhatsappNumber, message: e.target.value } } })}
+                      data-testid="ad-wa-message"
+                      style={inputStyle}
+                    />
+                  </div>
+                )}
+
+                {destType === 'internal' && (
+                  <div>
+                    <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '4px' }}>الشاشة الداخلية</div>
+                    <select
+                      aria-label={`الشاشة الداخلية لـ ${PLACEMENT_LABELS[placement]}`}
+                      value={destInternalScreen}
+                      onChange={(e) => {
+                        const screen = e.target.value;
+                        patch(placement, {
+                          destination: {
+                            internal: { screen, params: screen === 'phone-details' ? { device: '' } : {} },
+                          },
+                        });
+                      }}
+                      data-testid="ad-internal-screen"
+                      style={{ ...inputStyle, marginBottom: '8px' }}
+                    >
+                      <option value="">— اختر الشاشة —</option>
+                      {INTERNAL_AD_ALLOWLIST.map((screen) => (
+                        <option key={screen} value={screen}>{INTERNAL_SCREEN_LABELS[screen]}</option>
+                      ))}
+                    </select>
+                    {destInternalScreen === 'phone-details' && (
+                      <div>
+                        <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '4px' }}>هاتف مرتبط (مطلوب لشاشة تفاصيل الهاتف)</div>
+                        <select
+                          aria-label={`هاتف وجهة داخلي لـ ${PLACEMENT_LABELS[placement]}`}
+                          value={destInternalDevice}
+                          onChange={(e) => patch(placement, {
+                            destination: { internal: { screen: destInternalScreen, params: { device: e.target.value } } },
+                          })}
+                          data-testid="ad-internal-device"
+                          style={inputStyle}
+                        >
+                          <option value="">— اختر الهاتف —</option>
+                          {devices.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {`${d.brand} ${d.model} ${d.variant ?? ''}`.trim()}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <input
+                  type="text"
+                  placeholder="عنوان الإعلان (اختياري)"
+                  value={cfg.title ?? ''}
+                  onChange={(e) => patch(placement, { title: e.target.value })}
+                  data-testid="ad-title"
+                  style={inputStyle}
+                />
                 <input
                   type="text"
                   placeholder="نص بديل / وصف"
@@ -411,6 +600,9 @@ export function AdsManager() {
                   onChange={(e) => patch(placement, { alt: e.target.value })}
                   style={inputStyle}
                 />
+                {liveError && (
+                  <div style={{ color: '#f59e0b', fontSize: '0.75rem', marginTop: '6px' }}>{liveError}</div>
+                )}
               </div>
 
               <div style={{ flex: '1 1 220px', minWidth: 0 }}>
@@ -434,7 +626,7 @@ export function AdsManager() {
             </div>
 
             <div style={{ display: 'flex', gap: '8px', marginTop: '0.75rem' }}>
-              <button style={btnStyle(true)} disabled={busy !== null} onClick={() => save(placement)}>💾 حفظ ونشر</button>
+              <button style={btnStyle(true)} disabled={busy !== null || liveError !== null} onClick={() => save(placement)}>💾 حفظ ونشر</button>
               <button style={btnStyle(false)} disabled={busy !== null} onClick={() => reset(placement)}>🗑 إزالة</button>
             </div>
           </div>

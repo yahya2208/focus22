@@ -17,6 +17,9 @@ interface AdConfigShape {
   link: string;
   alt: string;
   deviceId: string;
+  destinationType?: string;
+  destination?: Record<string, unknown>;
+  title?: string;
   images?: AdImageShape[];
 }
 
@@ -289,5 +292,148 @@ describe('AdsManager', () => {
 
     await waitFor(() => expect(screen.getByText(/هاتف إحدى الصور غير موجود/)).toBeTruthy());
     expect(mock.replaceAdImages).not.toHaveBeenCalled();
+  });
+
+  it('shows the four destination types per placement', async () => {
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    expect(within(homeCard).getByRole('radio', { name: 'هاتف (مخزون)' })).toBeTruthy();
+    expect(within(homeCard).getByRole('radio', { name: 'رابط خارجي (http)' })).toBeTruthy();
+    expect(within(homeCard).getByRole('radio', { name: 'واتساب' })).toBeTruthy();
+    expect(within(homeCard).getByRole('radio', { name: 'شاشة داخلية' })).toBeTruthy();
+  });
+
+  it('saves an external destination as destination.external.url without legacy link/deviceId', async () => {
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.click(within(homeCard).getByRole('radio', { name: 'رابط خارجي (http)' }));
+    fireEvent.change(within(homeCard).getByTestId('ad-external-url'), { target: { value: 'https://example.com/offer' } });
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(mock.saveAd).toHaveBeenCalled());
+    expect(mock.saveAd).toHaveBeenCalledWith(expect.objectContaining({
+      placement: 'home',
+      destinationType: 'external',
+      destination: { external: { url: 'https://example.com/offer' } },
+    }));
+    const firstCall = mock.saveAd.mock.calls[0] as unknown[];
+    const args = (firstCall?.[0] as Record<string, unknown>) ?? {};
+    expect(args).not.toHaveProperty('link');
+    expect(args).not.toHaveProperty('deviceId');
+  });
+
+  it('disables save with a live warning when the external URL is invalid', async () => {
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.click(within(homeCard).getByRole('radio', { name: 'رابط خارجي (http)' }));
+    fireEvent.change(within(homeCard).getByTestId('ad-external-url'), { target: { value: 'javascript:alert(1)' } });
+
+    await waitFor(() => expect(within(homeCard).getByText(/الوجهة الخارجية تتطلب رابطًا مطلقًا صالحًا/)).toBeTruthy());
+    expect((within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(mock.saveAd).not.toHaveBeenCalled();
+  });
+
+  it('saves a whatsapp destination as destination.whatsapp.{number,message}', async () => {
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.click(within(homeCard).getByRole('radio', { name: 'واتساب' }));
+    fireEvent.change(within(homeCard).getByTestId('ad-wa-number'), { target: { value: '+966512345678' } });
+    fireEvent.change(within(homeCard).getByTestId('ad-wa-message'), { target: { value: 'مرحبًا، أستفسر عن العرض' } });
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(mock.saveAd).toHaveBeenCalled());
+    expect(mock.saveAd).toHaveBeenCalledWith(expect.objectContaining({
+      placement: 'home',
+      destinationType: 'whatsapp',
+      destination: { whatsapp: { number: '+966512345678', message: 'مرحبًا، أستفسر عن العرض' } },
+    }));
+  });
+
+  it('disables save with a live warning when the whatsapp number is invalid', async () => {
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.click(within(homeCard).getByRole('radio', { name: 'واتساب' }));
+    fireEvent.change(within(homeCard).getByTestId('ad-wa-number'), { target: { value: '123' } });
+
+    await waitFor(() => expect(within(homeCard).getByText(/تتطلب رقمًا صالحًا/)).toBeTruthy());
+    expect((within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(mock.saveAd).not.toHaveBeenCalled();
+  });
+
+  it('saves an internal destination with a selected screen and no params', async () => {
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.click(within(homeCard).getByRole('radio', { name: 'شاشة داخلية' }));
+    fireEvent.change(within(homeCard).getByTestId('ad-internal-screen'), { target: { value: 'showroom' } });
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(mock.saveAd).toHaveBeenCalled());
+    expect(mock.saveAd).toHaveBeenCalledWith(expect.objectContaining({
+      placement: 'home',
+      destinationType: 'internal',
+      destination: { internal: { screen: 'showroom', params: {} } },
+    }));
+  });
+
+  it('requires a device for the internal phone-details screen', async () => {
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.click(within(homeCard).getByRole('radio', { name: 'شاشة داخلية' }));
+    fireEvent.change(within(homeCard).getByTestId('ad-internal-screen'), { target: { value: 'phone-details' } });
+
+    await waitFor(() => expect(within(homeCard).getByText(/تتطلب اختيار هاتف مرتبط/)).toBeTruthy());
+    expect((within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(mock.saveAd).not.toHaveBeenCalled();
+
+    fireEvent.change(within(homeCard).getByTestId('ad-internal-device'), { target: { value: 'dev-samsung-1' } });
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(mock.saveAd).toHaveBeenCalled());
+    expect(mock.saveAd).toHaveBeenCalledWith(expect.objectContaining({
+      placement: 'home',
+      destinationType: 'internal',
+      destination: { internal: { screen: 'phone-details', params: { device: 'dev-samsung-1' } } },
+    }));
+  });
+
+  it('saves the title alongside the destination', async () => {
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.change(within(homeCard).getByTestId('ad-title'), { target: { value: 'عرض الافتتاح' } });
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(mock.saveAd).toHaveBeenCalled());
+    expect(mock.saveAd).toHaveBeenCalledWith(expect.objectContaining({ placement: 'home', title: 'عرض الافتتاح' }));
+  });
+
+  it('keeps the legacy phone save path when the phone destination is selected', async () => {
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.change(within(homeCard).getByRole('combobox'), { target: { value: 'dev-samsung-1' } });
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(mock.saveAd).toHaveBeenCalled());
+    const firstCall = mock.saveAd.mock.calls[0] as unknown[];
+    const args = (firstCall?.[0] as Record<string, unknown>) ?? {};
+    expect(args).toMatchObject({ placement: 'home', deviceId: 'dev-samsung-1', link: '#/phone-details?device=dev-samsung-1' });
+    expect(args).not.toHaveProperty('destination');
   });
 });

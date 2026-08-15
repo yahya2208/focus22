@@ -9,6 +9,9 @@
  */
 
 import { getSupabaseClient } from '../core/supabase/client';
+import { isSafeExternalUrl } from './ad-adapters/external';
+import { isValidWhatsAppNumber, WHATSAPP_MESSAGE_MAX_LENGTH } from './ad-adapters/whatsapp';
+import { INTERNAL_AD_ALLOWLIST } from './ad-adapters/internal';
 
 export type AdPlacement = 'home' | 'phones' | 'repair' | 'results' | 'exchange' | 'phone-details' | 'showroom';
 
@@ -52,6 +55,12 @@ interface AdImageRow {
   created_at: string;
 }
 
+/**
+ * Generic destination discriminator (00022): how the ad's target resolves at
+ * render time. `phone` preserves the legacy behavior exactly.
+ */
+export type AdDestinationType = 'phone' | 'external' | 'internal' | 'whatsapp';
+
 export interface AdConfig {
   enabled: boolean;
   /** Cover image of the gallery (mirrors ads.image_path/image_url). */
@@ -64,6 +73,16 @@ export interface AdConfig {
    * `link` is derived from `deviceId` on save (#/phone-details?device=<id>).
    */
   deviceId: string;
+  /**
+   * Generic destination discriminator (00022). Backfilled to 'phone' when the
+   * row predates 00022 or the column is missing. Informational at this stage —
+   * the render path still resolves phone ads via `link`/`deviceId`.
+   */
+  destinationType?: AdDestinationType;
+  /** Per-type payload (JSONB passthrough from `ads.destination`). {} for phone. */
+  destination?: Record<string, unknown>;
+  /** Generic headline/title (optional, `ads.title`). */
+  title?: string;
   /** Ordered gallery. Empty for legacy ads with no ad_images rows. */
   images: AdImage[];
 }
@@ -76,6 +95,9 @@ interface AdRow {
   link: string;
   alt: string;
   device_id: string;
+  destination_type: AdDestinationType;
+  destination: Record<string, unknown>;
+  title: string;
 }
 
 export interface AdRowInput {
@@ -84,6 +106,16 @@ export interface AdRowInput {
   link?: string;
   alt?: string;
   deviceId?: string;
+  /**
+   * Generic destination discriminator (00022). Missing → 'phone' (legacy).
+   * Non-phone types (external/whatsapp/internal) carry their payload in
+   * `destination` and NEVER write legacy `link`/`device_id` (strict separation).
+   */
+  destinationType?: AdDestinationType;
+  /** Per-type payload (JSONB passthrough). For phone it is written as {}. */
+  destination?: Record<string, unknown>;
+  /** Generic headline/title (optional, `ads.title`). */
+  title?: string;
 }
 
 export const PHONE_DETAILS_PREFIX = '#/phone-details?device=';
@@ -102,8 +134,32 @@ export function isAdPhoneLink(link: string | undefined): boolean {
  * save time so the admin sees the error immediately. Existence in the current
  * inventory is NOT validated here — that is the Ads Manager's job (the DB
  * cannot know a client-side inventory source).
+ *
+ * PHASE 3 STEP 1 — destination-aware:
+ *   - `phone` (default, including rows predating 00022) keeps the exact legacy
+ *     link/device_id consistency rules.
+ *   - external/whatsapp/internal are validated against the SAME predicates the
+ *     destination adapters use (adapter = source of truth), enforce strict
+ *     separation (no legacy link/device_id). They may be saved ENABLED: the
+ *     destination-aware `ads_enabled_requires_link` constraint (00023, applied)
+ *     accepts enabled rows whose destination_type is external/internal/whatsapp
+ *     even with an empty legacy link (Phase 3 Step 2).
+ *
+ * PHASE 3 STEP 4 — after 00023: the service mirrors the destination-aware CHECK
+ * (enabled ⇒ phone needs non-empty link; external/internal/whatsapp carry their
+ * target in `destination`), so a validated non-phone payload is never rejected
+ * by the DB on the enabled rule.
  */
 export function validateAdInput(input: AdRowInput): void {
+  const destinationType = input.destinationType ?? 'phone';
+  if (destinationType === 'phone') {
+    validatePhoneAdInput(input);
+    return;
+  }
+  validateStructuredAdInput(input, destinationType);
+}
+
+function validatePhoneAdInput(input: AdRowInput): void {
   const enabled = Boolean(input.enabled);
   const link = input.link?.trim() ?? '';
   const deviceId = input.deviceId?.trim() ?? '';
@@ -123,6 +179,71 @@ export function validateAdInput(input: AdRowInput): void {
   }
 }
 
+/**
+ * Plain object whose values are all strings — mirrors the internal adapter's
+ * `isPlainStringParams` so the saved payload is always what the adapter would
+ * accept at render time (adapter = source of truth).
+ */
+function isPlainStringParams(value: unknown): value is Record<string, string> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) return false;
+  return Object.values(value).every((v) => typeof v === 'string');
+}
+
+function validateStructuredAdInput(input: AdRowInput, destinationType: AdDestinationType): void {
+  const link = input.link?.trim() ?? '';
+  const deviceId = input.deviceId?.trim() ?? '';
+
+  // Strict separation (approved contract): non-phone destinations carry their
+  // target ONLY in `destination` — never in the legacy `link`/`device_id`.
+  if (link || deviceId) {
+    throw new Error('الوجهة غير-الهاتفية لا تستخدم link أو device_id — الهدف يُحفظ في destination فقط (فصل صارم)');
+  }
+
+  const destination = input.destination ?? {};
+
+  if (destinationType === 'external') {
+    const external = destination.external as { url?: unknown } | undefined;
+    const url = typeof external?.url === 'string' ? external.url : '';
+    if (!isSafeExternalUrl(url)) {
+      throw new Error('الوجهة الخارجية تتطلب رابطاً مطلقاً http(s) صالحاً في destination.external.url');
+    }
+  } else if (destinationType === 'whatsapp') {
+    const wa = destination.whatsapp as { number?: unknown; message?: unknown } | undefined;
+    const number = typeof wa?.number === 'string' ? wa.number : '';
+    const message = typeof wa?.message === 'string' ? wa.message : '';
+    if (!isValidWhatsAppNumber(number)) {
+      throw new Error('الوجهة تتطلب رقم واتساب صالحاً (8–15 رقماً) في destination.whatsapp.number');
+    }
+    if (message.length > WHATSAPP_MESSAGE_MAX_LENGTH) {
+      throw new Error(`رسالة واتساب تتجاوز الحد الأقصى (${WHATSAPP_MESSAGE_MAX_LENGTH} حرفاً)`);
+    }
+  } else {
+    // internal
+    const internal = destination.internal as { screen?: unknown; params?: unknown } | undefined;
+    const screen = typeof internal?.screen === 'string' ? internal.screen : '';
+    if (!(INTERNAL_AD_ALLOWLIST as readonly string[]).includes(screen)) {
+      throw new Error('الوجهة الداخلية تتطلب شاشة ضمن القائمة المسموحة (destination.internal.screen)');
+    }
+    const params = internal?.params;
+    if (params !== undefined && !isPlainStringParams(params)) {
+      throw new Error('معاملات الوجهة الداخلية يجب أن تكون نصية فقط (destination.internal.params)');
+    }
+    if (screen === 'phone-details') {
+      const device = params !== undefined ? (params as Record<string, string>).device ?? '' : '';
+      if (!device.trim()) {
+        throw new Error('وجهة phone-details تتطلب معامل device (destination.internal.params.device)');
+      }
+    }
+  }
+
+  // DB gate: the destination-aware `ads_enabled_requires_link` (00023, applied)
+  // accepts enabled rows for external/internal/whatsapp without a legacy link.
+  // An ENABLED non-phone ad passes here — only the phone path still requires a
+  // non-empty link (enforced in validatePhoneAdInput above).
+}
+
 const ADS_BUCKET = 'ads-images';
 
 type Listener = () => void;
@@ -134,7 +255,8 @@ let realtimeStarted = false;
 
 function emptyMap(): Record<AdPlacement, AdConfig> {
   const result = {} as Record<AdPlacement, AdConfig>;
-  for (const p of AD_PLACEMENTS) result[p] = { enabled: false, image: '', link: '', alt: '', deviceId: '', images: [] };
+  for (const p of AD_PLACEMENTS)
+    result[p] = { enabled: false, image: '', link: '', alt: '', deviceId: '', destinationType: 'phone', destination: {}, title: '', images: [] };
   return result;
 }
 
@@ -173,6 +295,9 @@ function rowToConfig(row: AdRow, images: AdImage[] = []): AdConfig {
     link: row.link,
     alt: row.alt,
     deviceId: row.device_id ?? '',
+    destinationType: row.destination_type ?? 'phone',
+    destination: row.destination ?? {},
+    title: row.title ?? '',
     images,
   };
 }
@@ -308,18 +433,28 @@ export async function uploadAdImage(placement: AdPlacement, file: Blob): Promise
 }
 
 export async function saveAd(input: AdRowInput): Promise<void> {
+  const destinationType = input.destinationType ?? 'phone';
+
   let link = input.link ?? '';
   const deviceId = input.deviceId?.trim() ?? '';
-  if (deviceId) {
+  // Legacy phone path: derive the deep link from the selected device exactly
+  // as before. Non-phone paths never touch link/device_id (strict separation).
+  if (destinationType === 'phone' && deviceId) {
     link = buildAdPhoneLink(deviceId);
   }
-  validateAdInput({ ...input, link, deviceId });
+  const normalized: AdRowInput = { ...input, link, deviceId, destinationType };
+
+  validateAdInput(normalized);
+
   const { error } = await getSupabaseClient().from('ads').upsert({
     placement: input.placement,
     enabled: input.enabled,
     link,
     device_id: deviceId,
     alt: input.alt ?? '',
+    destination_type: destinationType,
+    destination: destinationType === 'phone' ? {} : input.destination ?? {},
+    title: input.title ?? '',
   });
   if (error) throw new Error(`فشل حفظ الإعلان: ${error.message}`);
   loadPromise = null;

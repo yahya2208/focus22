@@ -101,7 +101,10 @@ describe('ads-service (Supabase-backed)', () => {
     });
 
     await ensureAdsLoaded();
-    expect(getAd('home')).toEqual({ enabled: true, image: 'https://cdn/x.jpg', link: 'https://go', alt: 'X', deviceId: '', images: [] });
+    expect(getAd('home')).toEqual({
+      enabled: true, image: 'https://cdn/x.jpg', link: 'https://go', alt: 'X', deviceId: '',
+      destinationType: 'phone', destination: {}, title: '', images: [],
+    });
     expect(getAd('phones')?.enabled).toBe(false);
     // every placement is present
     expect(Object.keys(getAds() ?? {})).toHaveLength(AD_PLACEMENTS.length);
@@ -111,7 +114,10 @@ describe('ads-service (Supabase-backed)', () => {
     mockFrom().select.mockResolvedValue({ data: null, error: { message: 'relation "ads" does not exist' } });
 
     await ensureAdsLoaded();
-    expect(getAd('home')).toEqual({ enabled: false, image: '', link: '', alt: '', deviceId: '', images: [] });
+    expect(getAd('home')).toEqual({
+      enabled: false, image: '', link: '', alt: '', deviceId: '',
+      destinationType: 'phone', destination: {}, title: '', images: [],
+    });
   });
 
   it('resolves the public URL from a storage path when image_url is empty', async () => {
@@ -164,6 +170,40 @@ describe('ads-service (Supabase-backed)', () => {
     await ensureAdsLoaded();
     expect(getAd('home')?.deviceId).toBe('dev-1');
     expect(getAd('home')?.link).toBe(buildAdPhoneLink('dev-1'));
+  });
+
+  it('rowToConfig maps the generic destination fields (00022)', async () => {
+    mockFrom().select.mockResolvedValue({
+      data: [
+        {
+          placement: 'showroom', enabled: true, image_path: '', image_url: 'https://cdn/y.jpg',
+          link: 'https://go', alt: 'Y', device_id: '', destination_type: 'external',
+          destination: { url: 'https://go' }, title: 'عرض خاص',
+        },
+      ],
+      error: null,
+    });
+
+    await ensureAdsLoaded();
+    expect(getAd('showroom')).toMatchObject({
+      destinationType: 'external',
+      destination: { url: 'https://go' },
+      title: 'عرض خاص',
+    });
+  });
+
+  it('rowToConfig backfills the phone default for legacy rows without the 00022 columns', async () => {
+    mockFrom().select.mockResolvedValue({
+      data: [
+        { placement: 'home', enabled: true, image_path: '', image_url: 'https://cdn/x.jpg', link: buildAdPhoneLink('dev-1'), alt: 'X', device_id: 'dev-1' },
+      ],
+      error: null,
+    });
+
+    await ensureAdsLoaded();
+    expect(getAd('home')?.destinationType).toBe('phone');
+    expect(getAd('home')?.destination).toEqual({});
+    expect(getAd('home')?.title).toBe('');
   });
 
   it('buildAdPhoneLink / validateAdInput: phone-link consistency rules', async () => {
@@ -433,5 +473,226 @@ describe('Phase C — ad galleries (ad_images)', () => {
       p_position: 1,
       p_is_cover: false,
     });
+  });
+});
+
+describe('Phase 3 Step 1 — generic destination save contract (ads-service)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetDefaults();
+    resetAdsService();
+    mockFrom.mockClear();
+    mockStorage.from.mockClear();
+  });
+
+  it('saveAd writes destination columns for a DISABLED external destination (link/device_id stay empty)', async () => {
+    mockFrom().upsert.mockResolvedValue({ error: null });
+    mockFrom().select.mockResolvedValue({ data: [], error: null });
+
+    await saveAd({
+      placement: 'home',
+      enabled: false,
+      destinationType: 'external',
+      destination: { external: { url: 'https://go.example.com' } },
+      title: 'عرض خاص',
+    });
+
+    expect(mockFrom().upsert).toHaveBeenCalledWith(expect.objectContaining({
+      placement: 'home',
+      enabled: false,
+      link: '',
+      device_id: '',
+      destination_type: 'external',
+      destination: { external: { url: 'https://go.example.com' } },
+      title: 'عرض خاص',
+    }));
+  });
+
+  it('saveAd writes destination columns for a DISABLED whatsapp destination', async () => {
+    mockFrom().upsert.mockResolvedValue({ error: null });
+    mockFrom().select.mockResolvedValue({ data: [], error: null });
+
+    await saveAd({
+      placement: 'phones',
+      enabled: false,
+      destinationType: 'whatsapp',
+      destination: { whatsapp: { number: '+213555001122', message: 'أريد الاستفسار' } },
+    });
+
+    expect(mockFrom().upsert).toHaveBeenCalledWith(expect.objectContaining({
+      placement: 'phones',
+      enabled: false,
+      link: '',
+      device_id: '',
+      destination_type: 'whatsapp',
+      destination: { whatsapp: { number: '+213555001122', message: 'أريد الاستفسار' } },
+      title: '',
+    }));
+  });
+
+  it('saveAd writes destination columns for a DISABLED internal destination', async () => {
+    mockFrom().upsert.mockResolvedValue({ error: null });
+    mockFrom().select.mockResolvedValue({ data: [], error: null });
+
+    await saveAd({
+      placement: 'repair',
+      enabled: false,
+      destinationType: 'internal',
+      destination: { internal: { screen: 'repair-home', params: {} } },
+    });
+
+    expect(mockFrom().upsert).toHaveBeenCalledWith(expect.objectContaining({
+      placement: 'repair',
+      enabled: false,
+      link: '',
+      device_id: '',
+      destination_type: 'internal',
+      destination: { internal: { screen: 'repair-home', params: {} } },
+      title: '',
+    }));
+  });
+
+  it('saveAd phone path still derives the link and writes canonical phone destination columns', async () => {
+    mockFrom().upsert.mockResolvedValue({ error: null });
+    mockFrom().select.mockResolvedValue({ data: [], error: null });
+
+    await saveAd({ placement: 'home', enabled: true, deviceId: 'dev-123', alt: 'A' });
+
+    expect(mockFrom().upsert).toHaveBeenCalledWith(expect.objectContaining({
+      placement: 'home',
+      enabled: true,
+      link: buildAdPhoneLink('dev-123'),
+      device_id: 'dev-123',
+      destination_type: 'phone',
+      destination: {},
+      title: '',
+    }));
+  });
+
+  it('validateAdInput: an ENABLED external destination passes (00023 allows enabled non-phone)', () => {
+    expect(() =>
+      validateAdInput({
+        placement: 'home', enabled: true,
+        destinationType: 'external',
+        destination: { external: { url: 'https://go.example.com' } },
+      }),
+    ).not.toThrow();
+  });
+
+  it('validateAdInput: an ENABLED whatsapp destination passes (00023 allows enabled non-phone)', () => {
+    expect(() =>
+      validateAdInput({
+        placement: 'home', enabled: true,
+        destinationType: 'whatsapp',
+        destination: { whatsapp: { number: '+213555001122' } },
+      }),
+    ).not.toThrow();
+  });
+
+  it('validateAdInput: an ENABLED internal destination passes (00023 allows enabled non-phone)', () => {
+    expect(() =>
+      validateAdInput({
+        placement: 'home', enabled: true,
+        destinationType: 'internal',
+        destination: { internal: { screen: 'showroom', params: {} } },
+      }),
+    ).not.toThrow();
+  });
+
+  it('validateAdInput: a DISABLED non-phone destination with a valid payload passes', () => {
+    expect(() =>
+      validateAdInput({
+        placement: 'home', enabled: false,
+        destinationType: 'external',
+        destination: { external: { url: 'https://go.example.com' } },
+      }),
+    ).not.toThrow();
+  });
+
+  it('validateAdInput: rejects an unsafe external URL (javascript: scheme)', () => {
+    expect(() =>
+      validateAdInput({
+        placement: 'home', enabled: false,
+        destinationType: 'external',
+        destination: { external: { url: 'javascript:alert(1)' } },
+      }),
+    ).toThrow(/http\(s\)/);
+  });
+
+  it('validateAdInput: rejects a whatsapp number with too few digits', () => {
+    expect(() =>
+      validateAdInput({
+        placement: 'home', enabled: false,
+        destinationType: 'whatsapp',
+        destination: { whatsapp: { number: '123' } },
+      }),
+    ).toThrow(/رقم واتساب/);
+  });
+
+  it('validateAdInput: rejects a whatsapp message over the length cap', () => {
+    expect(() =>
+      validateAdInput({
+        placement: 'home', enabled: false,
+        destinationType: 'whatsapp',
+        destination: { whatsapp: { number: '+213555001122', message: 'x'.repeat(1001) } },
+      }),
+    ).toThrow(/الحد الأقصى/);
+  });
+
+  it('validateAdInput: rejects an internal screen outside the allowlist', () => {
+    expect(() =>
+      validateAdInput({
+        placement: 'home', enabled: false,
+        destinationType: 'internal',
+        destination: { internal: { screen: 'home', params: {} } },
+      }),
+    ).toThrow(/القائمة المسموحة/);
+  });
+
+  it('validateAdInput: rejects internal params that are not plain string values', () => {
+    expect(() =>
+      validateAdInput({
+        placement: 'home', enabled: false,
+        destinationType: 'internal',
+        destination: { internal: { screen: 'showroom', params: { page: 1 } } },
+      }),
+    ).toThrow(/نصية فقط/);
+  });
+
+  it('validateAdInput: phone-details requires a params.device', () => {
+    expect(() =>
+      validateAdInput({
+        placement: 'home', enabled: false,
+        destinationType: 'internal',
+        destination: { internal: { screen: 'phone-details', params: {} } },
+      }),
+    ).toThrow(/معامل device/);
+  });
+
+  it('validateAdInput: a valid phone-details internal destination passes', () => {
+    expect(() =>
+      validateAdInput({
+        placement: 'home', enabled: false,
+        destinationType: 'internal',
+        destination: { internal: { screen: 'phone-details', params: { device: 'dev-123' } } },
+      }),
+    ).not.toThrow();
+  });
+
+  it('validateAdInput: a non-phone destination rejects legacy link/device_id (strict separation)', () => {
+    expect(() =>
+      validateAdInput({
+        placement: 'home', enabled: false, link: 'https://legacy.example',
+        destinationType: 'external',
+        destination: { external: { url: 'https://go.example.com' } },
+      }),
+    ).toThrow(/فصل صارم/);
+    expect(() =>
+      validateAdInput({
+        placement: 'home', enabled: false, deviceId: 'dev-123',
+        destinationType: 'whatsapp',
+        destination: { whatsapp: { number: '+213555001122' } },
+      }),
+    ).toThrow(/فصل صارم/);
   });
 });
