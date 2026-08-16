@@ -1,36 +1,40 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ensureAdsLoaded,
   getAd,
   subscribeAds,
-  buildAdPhoneLink,
-  type AdImage,
+  type AdConfig,
   type AdPlacement,
 } from '../../services/ads-service';
 import { AdSpot } from '../ads/AdSpot';
 import { AdBanner, type AdBannerStatus } from '../ads/AdBanner';
-import { resolveAdDevice, extractAdDeviceId } from '../../services/ad-device-resolver';
 import { recordIntent } from '../../services/intent-tracking';
-import { buildAdClickMessage } from '../../services/whatsapp-service';
 import { useWhatsApp } from '../../providers/WhatsAppProvider';
 import { useNavigate } from '../../store/navigation';
-import type { InventoryRecord } from '../../services/inventory-service';
+import { resolveDestination } from '../../services/ad-destination-resolver';
+import { openExternalUrl } from '../../services/ad-adapters/external';
+import { openWhatsApp } from '../../services/whatsapp-service';
 
 interface AdContactBannerProps {
   placement: AdPlacement;
 }
 
-interface ResolvedAd {
-  image: string;
-  link: string;
-  alt: string;
-  images: AdImage[];
-}
+const EMPTY_AD: AdConfig = {
+  enabled: false,
+  image: '',
+  link: '',
+  alt: '',
+  deviceId: '',
+  destinationType: 'phone',
+  destination: {},
+  title: '',
+  images: [],
+};
 
-function resolve(placement: AdPlacement): ResolvedAd | null {
+function resolve(placement: AdPlacement): AdConfig | null {
   const ad = getAd(placement);
   if (!ad || !ad.enabled || !ad.image) return null;
-  return { image: ad.image, link: ad.link, alt: ad.alt, images: ad.images };
+  return ad;
 }
 
 /**
@@ -55,88 +59,33 @@ function resolve(placement: AdPlacement): ResolvedAd | null {
  * path — repair requests originate only from the repair flow.
  */
 export const AdContactBanner = memo(function AdContactBanner({ placement }: AdContactBannerProps) {
-  const [ad, setAd] = useState<ResolvedAd | null>(() => resolve(placement));
+  const [ad, setAd] = useState<AdConfig | null>(() => resolve(placement));
   const [failed, setFailed] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewedRef = useRef(false);
   const whatsapp = useWhatsApp();
   const navigate = useNavigate();
 
-  const device: InventoryRecord | null = ad?.link ? resolveAdDevice(ad.link) : null;
-  const deviceId = device?.id;
-  const hasPhoneLink = Boolean(ad?.link && extractAdDeviceId(ad.link) !== null);
-
-  // 00021 — per-slide devices: when the gallery slides carry their own device
-  // the interaction moves INTO the carousel (each slide drives its own handoff)
-  // instead of the single whole-banner target / AdSpot anchor below. The
-  // ad-level device (the phone the whole ad links to) is the fallback so a
-  // phone-linked ad stays interactive even when a slide carries no device_id.
-  const hasSlideDevices = Boolean(ad && ad.images.length > 1 && ad.images.some((img) => img.deviceId));
-
-  const resolveSlideDevice = (slideDeviceId: string): InventoryRecord | null =>
-    resolveAdDevice(buildAdPhoneLink(slideDeviceId));
-
-  // FOCUS-AD-DETAILS — the device that drives a slide's interactions:
-  // the slide's own device_id when present, else the ad-level device.
-  const slideDeviceId = (image: AdImage): string | null => image.deviceId || device?.id || null;
-
-  const activateSlide = useCallback(
-    (image: AdImage) => {
-      const id = slideDeviceId(image);
-      if (!id) return;
-      const dev = resolveSlideDevice(id);
-      if (!dev) return;
-      try {
-        recordIntent({ kind: 'click', ctaType: 'ad_click', placement, deviceId: dev.id });
-      } catch {
-        // fire-and-forget: tracking must never block the handoff
-      }
-      try {
-        recordIntent({ kind: 'whatsapp_handoff_started', ctaType: 'inquiry', placement, deviceId: dev.id });
-      } catch {
-        // fire-and-forget: tracking must never block the handoff
-      }
-      whatsapp.send(buildAdClickMessage(dev, { placement, imageUrl: image.url }), {
-        action: 'inquiry',
-        deviceId: dev.id,
-      });
-    },
-    [placement, whatsapp, device],
+  // PHASE 2 — resolveDestination(ad) picks the adapter for this ad (phone /
+  // external / whatsapp / internal today; destination_type missing → phone).
+  // The phone logic lives in the PhoneDestinationAdapter (Step 2), the external
+  // logic in the ExternalDestinationAdapter (Step 4), the whatsapp logic in the
+  // WhatsAppDestinationAdapter (Step 5) and the internal logic in the
+  // InternalDestinationAdapter (Step 6) — all behavior-preserving.
+  const adapter = useMemo(
+    () =>
+      resolveDestination(ad ?? EMPTY_AD, {
+        placement,
+        navigateToDetails: (deviceId) => navigate.push('phone-details', { device: deviceId }),
+        whatsappSend: (message, context) => whatsapp.send(message, context),
+        openInNewTab: openExternalUrl,
+        openChat: openWhatsApp,
+        navigateTo: (screen, params) => navigate.push(screen, params),
+      }),
+    [ad, placement, navigate, whatsapp],
   );
 
-  const canSlideAction = useCallback(
-    (image: AdImage) => {
-      // Same resolvability contract as the ad-level target: never a dead click.
-      const id = slideDeviceId(image);
-      return Boolean(id && resolveSlideDevice(id));
-    },
-    [device],
-  );
-
-  // FOCUS-AD-DETAILS — tapping the carousel's main image opens the device's
-  // details page (never the WhatsApp handoff). The CTA stays as the corner
-  // button handled by activateSlide above.
-  const openSlideDetails = useCallback(
-    (image: AdImage) => {
-      const id = slideDeviceId(image);
-      if (!id) return;
-      navigate.push('phone-details', { device: id });
-    },
-    [navigate, device],
-  );
-
-  // FOCUS-AD-DETAILS — every actionable slide of a phone-linked ad is a valid
-  // details surface (slide device_id or ad-level device), gated by the same
-  // resolvability contract as the CTA: never a dead target. The carousel gates
-  // its full-frame overlay on this predicate, so it can never become a
-  // WhatsApp surface.
-  const canSlideDetails = useCallback(
-    (image: AdImage) => {
-      const id = slideDeviceId(image);
-      return Boolean(id && resolveSlideDevice(id));
-    },
-    [device],
-  );
+  const deviceId = adapter.type === 'phone' ? (adapter.deviceId ?? undefined) : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -211,22 +160,125 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
   // BATCH 4A fallback: a phone-format link whose device is NOT resolvable in
   // the current inventory renders as a NON-INTERACTIVE banner (never a dead
   // <a>, never a navigation attempt). Resolvable → interactive overlay button.
-  const isContact = hasPhoneLink && Boolean(device);
-  const isUnresolvedPhoneLink = hasPhoneLink && !device;
-
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
-      {hasSlideDevices || isContact || isUnresolvedPhoneLink ? (
+      {adapter.type === 'external' ? (
+        // External destination (Step 4): a valid absolute http(s) URL preserves
+        // the safe external pattern (new tab, noopener, noreferrer). Invalid
+        // destinations render NON-interactively — no anchor, no dead CTA.
+        adapter.isValid ? (
+          <a
+            href={adapter.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            role="banner"
+            aria-label={ad.alt || placement}
+            style={{ display: 'block' }}
+          >
+            <AdBanner image={ad.image} images={ad.images} alt={ad.alt || placement} onStateChange={handleStateChange} />
+          </a>
+        ) : (
+          <div role="banner" aria-label={ad.alt || placement}>
+            <AdBanner image={ad.image} images={ad.images} alt={ad.alt || placement} onStateChange={handleStateChange} />
+          </div>
+        )
+      ) : adapter.type === 'whatsapp' ? (
+        // WhatsApp destination (Step 5): the whole banner is the chat target.
+        // Single-frame ads get a full-frame overlay (no dead anchor — the chat
+        // opens via the popup+fallback opener). Multi-frame ads let the
+        // carousel own the interaction: each slide's corner CTA is bound to the
+        // chat (NO full-frame overlay over slides/thumbnails). Invalid numbers
+        // render NON-interactively — no button, no handoff attempt.
+        adapter.isValid ? (
+          <>
+            <div role="banner" aria-label={ad.alt || placement}>
+              <AdBanner
+                image={ad.image}
+                images={ad.images}
+                alt={ad.alt || placement}
+                onStateChange={handleStateChange}
+                onSlideAction={adapter.callToAction}
+                canSlideAction={adapter.canCallToAction}
+              />
+            </div>
+            {ad.images.length <= 1 && (
+              <button
+                type="button"
+                data-testid="ad-whatsapp-cta"
+                aria-label={`${ad.alt || placement} — فتح المحادثة`}
+                onClick={() => adapter.callToAction()}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  margin: 0,
+                  cursor: 'pointer',
+                  zIndex: 1,
+                }}
+              />
+            )}
+          </>
+        ) : (
+          <div role="banner" aria-label={ad.alt || placement}>
+            <AdBanner image={ad.image} images={ad.images} alt={ad.alt || placement} onStateChange={handleStateChange} />
+          </div>
+        )
+      ) : adapter.type === 'internal' ? (
+        // Internal destination (Step 6): the whole banner converts to in-app
+        // navigation (screen + params from the allowlisted payload). Single-frame
+        // ads get a full-frame overlay (no dead anchor); multi-frame ads let the
+        // carousel own the interaction — each slide's corner CTA navigates (NO
+        // full-frame overlay over slides/thumbnails). Invalid screens/params/
+        // device render NON-interactively — no button, no navigation attempt.
+        adapter.isValid ? (
+          <>
+            <div role="banner" aria-label={ad.alt || placement}>
+              <AdBanner
+                image={ad.image}
+                images={ad.images}
+                alt={ad.alt || placement}
+                onStateChange={handleStateChange}
+                onSlideAction={adapter.callToAction}
+                canSlideAction={adapter.canCallToAction}
+              />
+            </div>
+            {ad.images.length <= 1 && (
+              <button
+                type="button"
+                data-testid="ad-internal-cta"
+                aria-label={`${ad.alt || placement} — عرض التفاصيل`}
+                onClick={() => adapter.openDetails()}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  margin: 0,
+                  cursor: 'pointer',
+                  zIndex: 1,
+                }}
+              />
+            )}
+          </>
+        ) : (
+          <div role="banner" aria-label={ad.alt || placement}>
+            <AdBanner image={ad.image} images={ad.images} alt={ad.alt || placement} onStateChange={handleStateChange} />
+          </div>
+        )
+      ) : adapter.type === 'phone' && (adapter.hasSlideDevices || adapter.isContact || adapter.isUnresolvedPhoneLink) ? (
         <div role="banner" aria-label={ad.alt || placement}>
           <AdBanner
             image={ad.image}
             images={ad.images}
             alt={ad.alt || placement}
             onStateChange={handleStateChange}
-            onSlideAction={activateSlide}
-            canSlideAction={canSlideAction}
-            onSlideDetails={openSlideDetails}
-            canSlideDetails={canSlideDetails}
+            onSlideAction={adapter.callToAction}
+            canSlideAction={adapter.canCallToAction}
+            onSlideDetails={adapter.openDetails}
+            canSlideDetails={adapter.canOpenDetails}
           />
         </div>
       ) : (
@@ -237,13 +289,13 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
           page, the small corner button is the ONLY WhatsApp surface. Multi-frame
           ads let the carousel own the interaction, so NO full-frame overlay ever
           covers the slides/thumbnails. The main image NEVER converts directly. */}
-      {ad.images.length <= 1 && isContact ? (
+      {ad.images.length <= 1 && adapter.type === 'phone' && adapter.isContact ? (
         <>
           <button
             type="button"
             data-testid="ad-contact-details"
             aria-label={`${ad.alt || placement} — عرض التفاصيل`}
-            onClick={() => navigate.push('phone-details', { device: device!.id })}
+            onClick={() => adapter.openDetails()}
             style={{
               position: 'absolute',
               inset: 0,
@@ -259,22 +311,7 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
             type="button"
             data-testid="ad-contact-cta"
             aria-label={`${ad.alt || placement} — فتح المحادثة`}
-            onClick={() => {
-              try {
-                recordIntent({ kind: 'click', ctaType: 'ad_click', placement, deviceId: device!.id });
-              } catch {
-                // fire-and-forget: tracking must never block the handoff
-              }
-              try {
-                recordIntent({ kind: 'whatsapp_handoff_started', ctaType: 'inquiry', placement, deviceId: device!.id });
-              } catch {
-                // fire-and-forget: tracking must never block the handoff
-              }
-              whatsapp.send(buildAdClickMessage(device!, { placement, imageUrl: ad.image }), {
-                action: 'inquiry',
-                deviceId: device!.id,
-              });
-            }}
+            onClick={() => adapter.callToAction()}
             style={{
               position: 'absolute',
               insetInlineEnd: '0.6rem',

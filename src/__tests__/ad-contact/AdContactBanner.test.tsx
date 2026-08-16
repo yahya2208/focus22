@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, act, fireEvent } from '@testing-library/react';
 import { AppProvider, useAppState } from '../../store/navigation';
 import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
-import type { AdImage } from '../../services/ads-service';
+import type { AdDestinationType, AdImage } from '../../services/ads-service';
 import type { InventoryRecord } from '../../services/inventory-service';
 
 interface MockAd {
@@ -11,6 +11,8 @@ interface MockAd {
   link: string;
   alt: string;
   images: AdImage[];
+  destinationType?: AdDestinationType;
+  destination?: Record<string, unknown>;
 }
 
 function adImage(path: string, overrides: Partial<AdImage> = {}): AdImage {
@@ -201,6 +203,179 @@ describe('AdContactBanner (PHASE C — Ad Click → guarded WhatsApp handoff + v
     expect(banner.tagName).toBe('A');
     expect(banner.getAttribute('href')).toBe('https://go.example');
     expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('PHASE 2 STEP 4 — destination_type=external renders a safe new-tab anchor from the payload URL (never the legacy link)', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/banner.png',
+      link: '#/phone-details?device=legacy-ignored',
+      alt: 'External ad',
+      images: [],
+      destinationType: 'external',
+      destination: { external: { url: 'https://go.example/campaign' } },
+    });
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const banner = screen.getByRole('banner');
+    expect(banner.tagName).toBe('A');
+    // URL comes from the destination payload, never from the legacy link.
+    expect(banner.getAttribute('href')).toBe('https://go.example/campaign');
+    expect(banner.getAttribute('target')).toBe('_blank');
+    expect(banner.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('PHASE 2 STEP 4 — invalid destination_type=external renders NON-interactively (never a dead anchor)', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/banner.png',
+      link: '',
+      alt: 'External ad',
+      images: [],
+      destinationType: 'external',
+      destination: { external: { url: 'javascript:alert(1)' } },
+    });
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const banner = screen.getByRole('banner');
+    expect(banner.tagName).toBe('DIV');
+    expect(banner.querySelector('a')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('PHASE 2 STEP 5 — destination_type=whatsapp: single-frame banner converts to the chat (full-frame CTA, no dead anchor)', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/banner.png',
+      link: '#/phone-details?device=legacy-ignored',
+      alt: 'WhatsApp offer',
+      images: [],
+      destinationType: 'whatsapp',
+      destination: { whatsapp: { number: '0556254007', message: 'أستفسر عن الإعلان' } },
+    });
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const banner = screen.getByRole('banner');
+    expect(banner.tagName).toBe('DIV');
+    expect(banner.querySelector('a')).toBeNull();
+
+    const cta = screen.getByTestId('ad-whatsapp-cta');
+    fireEvent.click(cta);
+
+    // The chat opens to the payload number (normalized) with the preset message.
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(openSpy).toHaveBeenCalledWith(
+      `https://wa.me/213556254007?text=${encodeURIComponent('أستفسر عن الإعلان')}`,
+      '_blank',
+      'noopener',
+    );
+    // Placement-only tracking, no device, in order: ad_click then handoff.
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'click', ctaType: 'ad_click', placement: 'home' });
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'whatsapp_handoff_started', ctaType: 'inquiry', placement: 'home' });
+    expect(mockRecordIntent).toHaveBeenCalledTimes(2);
+    // The whatsapp destination never uses the legacy provider send.
+    expect(mockSend).not.toHaveBeenCalled();
+    // No internal navigation.
+    expect(screen.getByTestId('probe-screen').textContent).toBe('home');
+    expect(screen.getByTestId('probe-device').textContent).toBe('');
+    openSpy.mockRestore();
+  });
+
+  it('PHASE 2 STEP 5 — invalid destination_type=whatsapp renders NON-interactively (no CTA, no handoff)', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/banner.png',
+      link: '',
+      alt: 'WhatsApp offer',
+      images: [],
+      destinationType: 'whatsapp',
+      destination: { whatsapp: { number: 'not-a-number' } },
+    });
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const banner = screen.getByRole('banner');
+    expect(banner.tagName).toBe('DIV');
+    expect(banner.querySelector('a')).toBeNull();
+    expect(screen.queryByTestId('ad-whatsapp-cta')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(mockRecordIntent).not.toHaveBeenCalled();
+    openSpy.mockRestore();
+  });
+
+  it('PHASE 2 STEP 6 — destination_type=internal: the banner navigates in-app to the allowlisted screen', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/banner.png',
+      link: '#/phone-details?device=legacy-ignored',
+      alt: 'Showroom ad',
+      images: [],
+      destinationType: 'internal',
+      destination: { internal: { screen: 'showroom', params: { tab: 'offers' } } },
+    });
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const banner = screen.getByRole('banner');
+    expect(banner.tagName).toBe('DIV');
+    // The whole banner converts to in-app navigation — no anchor, no WhatsApp,
+    // no new tab. The legacy phone link is ignored (strict separation).
+    expect(banner.querySelector('a')).toBeNull();
+
+    const cta = screen.getByTestId('ad-internal-cta');
+    fireEvent.click(cta);
+
+    // In-app navigation to the allowlisted screen with the payload params.
+    expect(screen.getByTestId('probe-screen').textContent).toBe('showroom');
+    expect(screen.getByTestId('probe-device').textContent).toBe('');
+    expect(screen.getByTestId('probe-screen')).toBeTruthy();
+    // ad_click placement-only (target is not phone-details → no deviceId).
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'click', ctaType: 'ad_click', placement: 'home', deviceId: undefined });
+    expect(mockRecordIntent).toHaveBeenCalledTimes(1);
+    // No WhatsApp send, no new tab.
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('PHASE 2 STEP 6 — invalid destination_type=internal renders NON-interactively (no CTA, no navigation)', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/banner.png',
+      link: '',
+      alt: 'Broken internal ad',
+      images: [],
+      destinationType: 'internal',
+      destination: { internal: { screen: 'not-allowlisted' } },
+    });
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const banner = screen.getByRole('banner');
+    expect(banner.tagName).toBe('DIV');
+    expect(banner.querySelector('a')).toBeNull();
+    expect(screen.queryByTestId('ad-internal-cta')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+    // Nothing navigated.
+    expect(screen.getByTestId('probe-screen').textContent).toBe('home');
+    expect(mockRecordIntent).not.toHaveBeenCalled();
   });
 
   it('FOCUS-AD-DETAILS — phone-linked ad: main image opens device details (never WhatsApp)', async () => {
