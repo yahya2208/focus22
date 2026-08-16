@@ -16,6 +16,10 @@ import adsDestEnabledApplySql from '../../../supabase/ads-destination-enabled/01
 import adsDestEnabledRollbackSql from '../../../supabase/ads-destination-enabled/02-ads-destination-enabled-rollback.sql?raw';
 import adsDestEnabledEvidenceSql from '../../../supabase/ads-destination-enabled/03-pre-apply-evidence.sql?raw';
 import adsDestEnabledVerifySql from '../../../supabase/ads-destination-enabled/04-post-apply-verify.sql?raw';
+import adsSlideDestApplySql from '../../../supabase/ads-slide-destinations/01-ads-slide-destinations-apply.sql?raw';
+import adsSlideDestRollbackSql from '../../../supabase/ads-slide-destinations/02-ads-slide-destinations-rollback.sql?raw';
+import adsSlideDestEvidenceSql from '../../../supabase/ads-slide-destinations/03-pre-apply-evidence.sql?raw';
+import adsSlideDestVerifySql from '../../../supabase/ads-slide-destinations/04-post-apply-verify.sql?raw';
 
 const MIGRATIONS = import.meta.glob('../../../supabase/migrations/*.sql', {
   eager: true,
@@ -37,6 +41,10 @@ const migration22 = Object.entries(MIGRATIONS).find(([key]) =>
 
 const migration23 = Object.entries(MIGRATIONS).find(([key]) =>
   key.includes('00023_ads_destination_enabled.sql'),
+)?.[1] as string;
+
+const migration24 = Object.entries(MIGRATIONS).find(([key]) =>
+  key.includes('00024_ads_image_destinations.sql'),
 )?.[1] as string;
 
 function basename(key: string): string {
@@ -117,16 +125,17 @@ describe('Migration numbering', () => {
     expect(legacy).toEqual(['003_add_session_lifecycle.sql', '004_add_analytics_events_indexes.sql']);
   });
 
-  it('00023 is the highest migration number; 00020, 00021, 00022 and 00023 all exist', () => {
+  it('00024 is the highest migration number; 00020..00024 all exist', () => {
     const nums = Object.keys(MIGRATIONS)
       .map(basename)
       .map(numericPrefix)
       .filter((n): n is number => n !== null);
-    expect(Math.max(...nums)).toBe(23);
+    expect(Math.max(...nums)).toBe(24);
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00020_ads_multi_image.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00021_ad_images_device_id.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00022_generic_ads_destinations.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00023_ads_destination_enabled.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00024_ads_image_destinations.sql');
   });
 
   it('00019 body (after header comments) matches 01-inventory-apply.sql body', () => {
@@ -243,6 +252,107 @@ describe('Migration 00023 — Destination-aware enabled rule (Step 2)', () => {
     expect(adsDestEnabledVerifySql).toContain('probe_external');
     expect(adsDestEnabledVerifySql).toContain('probe_internal');
     expect(adsDestEnabledVerifySql).toContain('probe_whatsapp');
+  });
+});
+
+describe('Migration 00024 — Per-Slide Destinations (PHASE 4A)', () => {
+  it('00024 body (executable lines) matches 01-ads-slide-destinations-apply.sql body', () => {
+    expect(migration24).toBeDefined();
+    expect(executableLines(migration24)).toEqual(executableLines(adsSlideDestApplySql));
+  });
+
+  it('00024 is additive: adds the 2 nullable columns to ad_images, never touches ads structure', () => {
+    const executable = executableLines(migration24).join('\n');
+    expect(migration24).toContain('ADD COLUMN IF NOT EXISTS destination_type TEXT');
+    expect(migration24).toContain('ADD COLUMN IF NOT EXISTS destination JSONB');
+    // ad_images columns are NULLable (NULL = inherit the ad destination).
+    expect(adsSlideDestApplySql).toContain('destination_type TEXT');
+    // No destructive DDL against ads / ad_images existing layers. (DELETE FROM
+    // inside the new RPC is expected — it is the 00021 replace contract.)
+    for (const forbidden of ['DROP TABLE', 'DROP COLUMN', 'DROP TRIGGER', 'DROP POLICY',
+                             'DROP CONSTRAINT', 'ALTER PUBLICATION',
+                             'CREATE TABLE', 'ALTER TABLE public.ads']) {
+      expect(executable, `00024 must not contain ${forbidden}`).not.toContain(forbidden);
+    }
+  });
+
+  it('00024 CHECK admits exactly NULL/external/whatsapp/internal and NEVER phone', () => {
+    const executable = executableLines(migration24).join('\n');
+    expect(migration24).toContain('ad_images_destination_type_valid');
+    expect(migration24).toContain("destination_type IN ('external', 'whatsapp', 'internal')");
+    expect(migration24).toContain('NOT VALID');
+    // phone is excluded from the executable SQL — phone slides stay on device_id (00021).
+    expect(executable).not.toContain("'phone'");
+  });
+
+  it('00024 adds the new superset RPC and NEVER touches the 00021 RPCs (backward compat)', () => {
+    const executable = executableLines(migration24).join('\n');
+    expect(migration24).toContain('CREATE OR REPLACE FUNCTION public.ad_replace_images_destinations');
+    expect(migration24).toContain('p_destination_types text[]');
+    expect(migration24).toMatch(/p_destinations\s+jsonb\[\]/);
+    // The 00021 RPCs are NOT redefined or dropped by 00024 (comments may mention them).
+    expect(executable).not.toContain('ad_replace_images_devices');
+    expect(executable).not.toContain('ad_add_image_devices');
+    expect(executable).not.toContain('CREATE OR REPLACE FUNCTION public.ad_replace_images_devices');
+  });
+
+  it('rollback drops exactly what 00024 added (RPC + constraint + 2 columns), nothing else', () => {
+    const executable = executableLines(adsSlideDestRollbackSql).join('\n');
+    expect(adsSlideDestRollbackSql).toContain('DROP FUNCTION IF EXISTS public.ad_replace_images_destinations');
+    expect(adsSlideDestRollbackSql).toContain('DROP CONSTRAINT IF EXISTS ad_images_destination_type_valid');
+    expect(adsSlideDestRollbackSql).toContain('DROP COLUMN IF EXISTS destination_type');
+    expect(adsSlideDestRollbackSql).toContain('DROP COLUMN IF EXISTS destination');
+    for (const forbidden of ['DROP TABLE', 'DROP TRIGGER', 'DROP POLICY', 'DROP VIEW',
+                             'ALTER PUBLICATION', 'DELETE FROM', 'ad_replace_images_devices']) {
+      expect(executable, `rollback must not contain ${forbidden}`).not.toContain(forbidden);
+    }
+  });
+
+  it('pre-apply evidence asserts the new columns/constraint/RPC are ABSENT and the 00021 baseline is PRESENT', () => {
+    expect(adsSlideDestEvidenceSql).toContain("column_name IN ('destination_type', 'destination')");
+    expect(adsSlideDestEvidenceSql).toContain("conname = 'ad_images_destination_type_valid'");
+    expect(adsSlideDestEvidenceSql).toContain("p.proname = 'ad_replace_images_destinations'");
+    expect(adsSlideDestEvidenceSql).toContain("ad_images_device_id_format");
+    expect(adsSlideDestEvidenceSql).toContain("'ad_add_image_devices', 'ad_replace_images_devices'");
+    expect(adsSlideDestEvidenceSql).toContain('total_ad_images');
+  });
+
+  it('post-apply verify asserts the inherit-default contract, phone rejection probes and backward compat', () => {
+    expect(adsSlideDestVerifySql).toContain('ad_images_destination_type_valid');
+    expect(adsSlideDestVerifySql).toContain('convalidated');
+    expect(adsSlideDestVerifySql).toContain('dest_type_assigned');
+    expect(adsSlideDestVerifySql).toContain('dest_assigned');
+    expect(adsSlideDestVerifySql).toContain('__probe_00024_null_dest__');
+    expect(adsSlideDestVerifySql).toContain('__probe_00024_phone__');
+    expect(adsSlideDestVerifySql).toContain('__probe_00024_external__');
+    expect(adsSlideDestVerifySql).toContain('__probe_00024_whatsapp__');
+    expect(adsSlideDestVerifySql).toContain('__probe_00024_internal__');
+    expect(adsSlideDestVerifySql).toContain('check_violation');
+    expect(adsSlideDestVerifySql).toContain("p.proname = 'ad_replace_images_destinations'");
+    expect(adsSlideDestVerifySql).toContain("'ad_add_image_devices', 'ad_replace_images_devices'");
+  });
+});
+
+describe('01-ads-slide-destinations-apply.sql ↔ 02-ads-slide-destinations-rollback.sql consistency', () => {
+  it('every function created in 01 is dropped in 02 with an identical signature', () => {
+    const created = createFunctionSigs(adsSlideDestApplySql);
+    const dropped = dropFunctionSigs(adsSlideDestRollbackSql);
+    expect(created.size).toBeGreaterThan(0);
+    expect(dropped.size).toBe(created.size);
+    for (const [name, argc] of created) {
+      expect(dropped.has(name), `02 must drop ${name}`).toBe(true);
+      expect(dropped.get(name), `${name} argument-count mismatch between 01 and 02`).toBe(argc);
+    }
+    for (const name of dropped.keys()) {
+      expect(created.has(name), `02 drops ${name} but 01 does not create it`).toBe(true);
+    }
+  });
+
+  it('rollback never touches the 00021 RPCs or the ads table (backward compat)', () => {
+    const executable = executableLines(adsSlideDestRollbackSql).join('\n');
+    expect(executable).not.toContain('ad_replace_images_devices');
+    expect(executable).not.toContain('ad_add_image_devices');
+    expect(executable).not.toContain('ALTER TABLE public.ads');
   });
 });
 

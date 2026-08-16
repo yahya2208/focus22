@@ -474,6 +474,159 @@ describe('Phase C — ad galleries (ad_images)', () => {
       p_is_cover: false,
     });
   });
+
+  it('loadGalleries surfaces the per-slide destination fields (00024)', async () => {
+    mockFrom().select.mockResolvedValue({
+      data: [{ placement: 'home', enabled: true, image_path: '', image_url: '', link: '', alt: '', device_id: '' }],
+      error: null,
+    });
+    mockFrom('ad_images').order.mockResolvedValue({
+      data: [
+        {
+          id: 'img-1', ad_placement: 'home', path: 'ads-images/home/a.jpg', position: 0, is_cover: true, device_id: '',
+          destination_type: 'external', destination: { external: { url: 'https://go.example.com' } },
+        },
+        { id: 'img-2', ad_placement: 'home', path: 'ads-images/home/b.jpg', position: 1, is_cover: false, device_id: '', destination_type: null, destination: null },
+      ],
+      error: null,
+    });
+
+    await ensureAdsLoaded();
+    const images = getAd('home')?.images ?? [];
+    expect(images[0]).toMatchObject({
+      destinationType: 'external',
+      destination: { external: { url: 'https://go.example.com' } },
+    });
+    // NULL/NULL → the fields are absent → the slide inherits the ad destination.
+    expect(images[1]?.destinationType).toBeUndefined();
+    expect(images[1]?.destination).toBeUndefined();
+  });
+
+  it('loadGalleries tolerates pre-00024 rows without the destination columns', async () => {
+    mockFrom().select.mockResolvedValue({
+      data: [{ placement: 'home', enabled: true, image_path: '', image_url: '', link: '', alt: '', device_id: '' }],
+      error: null,
+    });
+    mockFrom('ad_images').order.mockResolvedValue({
+      data: [
+        { id: 'img-1', ad_placement: 'home', path: 'ads-images/home/a.jpg', position: 0, is_cover: true, device_id: '' },
+      ],
+      error: null,
+    });
+
+    await ensureAdsLoaded();
+    const img = getAd('home')?.images?.[0];
+    expect(img?.destinationType).toBeUndefined();
+    expect(img?.destination).toBeUndefined();
+    expect(img?.deviceId).toBe('');
+  });
+
+  it('replaceAdImages with per-slide destination data calls the 00024 superset RPC', async () => {
+    mockFrom('ad_images').select.mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ data: [{ path: 'ads-images/home/old.jpg' }], error: null }),
+    });
+    mockRpc.mockResolvedValue({ data: null, error: null });
+    mockFrom().select.mockResolvedValue({ data: [], error: null });
+
+    await replaceAdImages(
+      'home',
+      ['ads-images/home/a.jpg'],
+      [true],
+      undefined,
+      ['external'],
+      [{ external: { url: 'https://go.example.com' } }],
+    );
+    expect(mockRpc).toHaveBeenCalledWith('ad_replace_images_destinations', {
+      p_ad_placement: 'home',
+      p_paths: ['ads-images/home/a.jpg'],
+      p_covers: [true],
+      p_destination_types: ['external'],
+      p_destinations: [{ external: { url: 'https://go.example.com' } }],
+    });
+  });
+
+  it('replaceAdImages superset RPC carries device_ids alongside per-slide destinations', async () => {
+    mockFrom('ad_images').select.mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ data: [{ path: 'ads-images/home/old.jpg' }], error: null }),
+    });
+    mockRpc.mockResolvedValue({ data: null, error: null });
+    mockFrom().select.mockResolvedValue({ data: [], error: null });
+
+    await replaceAdImages(
+      'home',
+      ['ads-images/home/a.jpg'],
+      [true],
+      ['dev-samsung-1'],
+      ['whatsapp'],
+      [{ whatsapp: { number: '+213555001122' } }],
+    );
+    expect(mockRpc).toHaveBeenCalledWith('ad_replace_images_destinations', {
+      p_ad_placement: 'home',
+      p_paths: ['ads-images/home/a.jpg'],
+      p_covers: [true],
+      p_device_ids: ['dev-samsung-1'],
+      p_destination_types: ['whatsapp'],
+      p_destinations: [{ whatsapp: { number: '+213555001122' } }],
+    });
+  });
+
+  it('replaceAdImages superset RPC: mixed inherit/override slides are normalized (inherit type + null payload)', async () => {
+    mockFrom('ad_images').select.mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+    mockRpc.mockResolvedValue({ data: null, error: null });
+    mockFrom().select.mockResolvedValue({ data: [], error: null });
+
+    await replaceAdImages(
+      'home',
+      ['ads-images/home/a.jpg', 'ads-images/home/b.jpg'],
+      [true, false],
+      undefined,
+      ['external', ''],
+      [{ external: { url: 'https://go.example.com' } }, undefined],
+    );
+    expect(mockRpc).toHaveBeenCalledWith('ad_replace_images_destinations', {
+      p_ad_placement: 'home',
+      p_paths: ['ads-images/home/a.jpg', 'ads-images/home/b.jpg'],
+      p_covers: [true, false],
+      p_destination_types: ['external', ''],
+      p_destinations: [{ external: { url: 'https://go.example.com' } }, null],
+    });
+  });
+
+  it('replaceAdImages with all-inherit per-slide types keeps the device-free 00020 RPC', async () => {
+    mockFrom('ad_images').select.mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+    mockRpc.mockResolvedValue({ data: null, error: null });
+    mockFrom().select.mockResolvedValue({ data: [], error: null });
+
+    await replaceAdImages('home', ['ads-images/home/a.jpg'], [true], undefined, [''], [null]);
+    expect(mockRpc).toHaveBeenCalledWith('ad_replace_images', {
+      p_ad_placement: 'home',
+      p_paths: ['ads-images/home/a.jpg'],
+      p_covers: [true],
+    });
+    expect(mockRpc).not.toHaveBeenCalledWith('ad_replace_images_destinations', expect.anything());
+  });
+
+  it('replaceAdImages rejects a destinationTypes length mismatch', async () => {
+    await expect(
+      replaceAdImages('home', ['ads-images/home/a.jpg'], [true], undefined, ['external', 'whatsapp'], [{}]),
+    ).rejects.toThrow('عدد أنواع الوجهات لا يطابق عدد الصور');
+  });
+
+  it('replaceAdImages rejects a destinations length mismatch', async () => {
+    await expect(
+      replaceAdImages('home', ['ads-images/home/a.jpg'], [true], undefined, ['external'], [{}, {}]),
+    ).rejects.toThrow('عدد بيانات الوجهات لا يطابق عدد الصور');
+  });
+
+  it('replaceAdImages rejects phone as a per-slide destination type (phone stays on device_id)', async () => {
+    await expect(
+      replaceAdImages('home', ['ads-images/home/a.jpg'], [true], undefined, ['phone'], [{}]),
+    ).rejects.toThrow('وجهة الهاتف غير مسموحة');
+  });
 });
 
 describe('Phase 3 Step 1 — generic destination save contract (ads-service)', () => {

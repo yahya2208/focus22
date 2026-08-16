@@ -43,6 +43,18 @@ export interface AdImage {
    * '' = no device (slide is not interactive, mirrors ads.device_id).
    */
   deviceId: string;
+  /**
+   * Per-slide destination discriminator (00024): how THIS slide's target
+   * resolves at render time, independent of the ad-level destination.
+   * undefined/NULL = INHERIT the ad-level destination (Slide → Ad fallback).
+   * Non-NULL ∈ {external, whatsapp, internal} = slide-level override, read from
+   * `destination`. 'phone' is NEVER valid per slide (DB CHECK excludes it):
+   * phone slides stay expressed EXCLUSIVELY via `deviceId` (00021).
+   */
+  destinationType?: AdDestinationType;
+  /** Per-slide payload (00024, JSONB passthrough from ad_images.destination).
+   *  undefined/NULL = INHERIT the ad-level destination. */
+  destination?: Record<string, unknown>;
 }
 
 interface AdImageRow {
@@ -52,6 +64,8 @@ interface AdImageRow {
   position: number;
   is_cover: boolean;
   device_id: string;
+  destination_type: AdDestinationType | null;
+  destination: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -323,13 +337,17 @@ async function fetchAds(): Promise<Record<AdPlacement, AdConfig>> {
  * Phase C — ordered gallery from `ad_images` (supabase/migrations/00020_*).
  * Tolerates the pre-Phase-C schema (no table yet): returns an empty map so
  * ads fall back to the single `ads.image_path` mirror.
+ *
+ * PHASE 4B (00024): also reads the per-slide destination columns
+ * (`destination_type` / `destination`). NULL/NULL rows surface as absent
+ * fields on the AdImage → the slide inherits the ad-level destination.
  */
 async function loadGalleries(): Promise<Map<AdPlacement, AdImage[]>> {
   const map = new Map<AdPlacement, AdImage[]>();
   try {
     const { data } = await getSupabaseClient()
       .from('ad_images')
-      .select('id, ad_placement, path, position, is_cover, device_id')
+      .select('id, ad_placement, path, position, is_cover, device_id, destination_type, destination')
       .order('position', { ascending: true });
     for (const row of (data ?? []) as AdImageRow[]) {
       const list = map.get(row.ad_placement) ?? [];
@@ -340,6 +358,8 @@ async function loadGalleries(): Promise<Map<AdPlacement, AdImage[]>> {
         position: row.position,
         isCover: row.is_cover,
         deviceId: row.device_id ?? '',
+        destinationType: row.destination_type ?? undefined,
+        destination: row.destination ?? undefined,
       });
       map.set(row.ad_placement, list);
     }
@@ -490,20 +510,31 @@ export async function resetAd(placement: AdPlacement): Promise<void> {
 }
 
 /**
- * Phase C + 00021 — gallery writes. The RPCs (supabase/migrations/00020_* and
- * 00021_ad_images_device_id.sql) are SECURITY DEFINER so the admin can mutate
- * `ad_images` despite the public read-only RLS policy. Storage cleanup runs
- * client-side because the RPCs return the removed paths.
+ * Phase C + 00021 + 00024 — gallery writes. The RPCs (supabase/migrations/
+ * 00020_*, 00021_ad_images_device_id.sql and 00024_ads_image_destinations.sql)
+ * are SECURITY DEFINER so the admin can mutate `ad_images` despite the public
+ * read-only RLS policy. Storage cleanup runs client-side because the RPCs
+ * return the removed paths.
  *
  * Per-slide devices (00021): device_ids are sent to ad_replace_images_devices
  * ONLY when at least one slide carries a device; otherwise the device-free
  * 00020 ad_replace_images is used (old callers keep working unchanged).
+ *
+ * PHASE 4B (00024) — per-slide destinations: when at least one slide carries a
+ * non-empty destination_type, the NEW superset RPC ad_replace_images_destinations
+ * is used, passing device_ids + destination_types + destinations in ONE call.
+ * A slide is an override only when its destination_type is non-empty;
+ * ''/undefined (and its destination) = INHERIT the ad destination (NULL/NULL
+ * contract). 'phone' is never valid per slide (the DB CHECK and this client
+ * mirror both reject it — phone slides stay on device_id).
  */
 export async function replaceAdImages(
   placement: AdPlacement,
   paths: string[],
   covers: boolean[],
   deviceIds?: string[],
+  destinationTypes?: Array<AdDestinationType | '' | undefined>,
+  destinations?: Array<Record<string, unknown> | null | undefined>,
 ): Promise<void> {
   if (paths.length === 0) return;
   const trimmed = deviceIds?.map((d) => d?.trim() ?? '') ?? [];
@@ -511,12 +542,34 @@ export async function replaceAdImages(
   if (hasDevices && trimmed.length !== paths.length) {
     throw new Error('عدد الأجهزة لا يطابق عدد الصور');
   }
+
+  const slideTypes = normalizeSlideDestinationTypes(destinationTypes, paths.length);
+  const hasSlideDestinations = slideTypes.some((t) => t !== '');
+  if (hasSlideDestinations && deviceIds !== undefined && trimmed.length !== paths.length) {
+    throw new Error('عدد الأجهزة لا يطابق عدد الصور');
+  }
+  const slideDests = normalizeSlideDestinations(destinations, paths.length, slideTypes);
+
   const client = getSupabaseClient();
   const previous = await collectAdImagePaths(placement);
-  const rpcName = hasDevices ? 'ad_replace_images_devices' : 'ad_replace_images';
-  const args = hasDevices
-    ? { p_ad_placement: placement, p_paths: paths, p_covers: covers, p_device_ids: trimmed }
-    : { p_ad_placement: placement, p_paths: paths, p_covers: covers };
+
+  const rpcName = hasSlideDestinations
+    ? 'ad_replace_images_destinations'
+    : hasDevices
+      ? 'ad_replace_images_devices'
+      : 'ad_replace_images';
+  const args = hasSlideDestinations
+    ? {
+        p_ad_placement: placement,
+        p_paths: paths,
+        p_covers: covers,
+        ...(deviceIds !== undefined ? { p_device_ids: trimmed } : {}),
+        p_destination_types: slideTypes,
+        p_destinations: slideDests,
+      }
+    : hasDevices
+      ? { p_ad_placement: placement, p_paths: paths, p_covers: covers, p_device_ids: trimmed }
+      : { p_ad_placement: placement, p_paths: paths, p_covers: covers };
   const { error } = await client.rpc(rpcName, args);
   if (error) throw new Error(`فشل حفظ الصور: ${error.message}`);
   const removed = previous.filter((p) => !paths.includes(p));
@@ -525,6 +578,59 @@ export async function replaceAdImages(
   }
   loadPromise = null;
   await refreshAds();
+}
+
+/**
+ * Per-slide destination types allowed by 00024 (ad_images_destination_type_valid).
+ * 'phone' is deliberately NOT here — phone slides stay on device_id (00021).
+ */
+const SLIDE_DESTINATION_TYPES: ReadonlySet<AdDestinationType> = new Set(['external', 'whatsapp', 'internal']);
+
+/**
+ * Client-side mirror of the 00024 per-slide destination_type contract:
+ *   - undefined (no array) → every slide is INHERIT ('');
+ *   - '' / undefined / null → INHERIT the ad destination;
+ *   - 'phone' → REJECTED (never valid per slide — the DB CHECK excludes it);
+ *   - anything outside {external, whatsapp, internal} → REJECTED.
+ */
+function normalizeSlideDestinationTypes(
+  types: Array<AdDestinationType | '' | undefined> | undefined,
+  count: number,
+): Array<AdDestinationType | ''> {
+  if (types === undefined) return Array.from({ length: count }, () => '' as const);
+  if (types.length !== count) {
+    throw new Error('عدد أنواع الوجهات لا يطابق عدد الصور');
+  }
+  return types.map((t) => {
+    const value = t?.trim() ?? '';
+    if (value === '') return '' as const;
+    if (value === 'phone') {
+      throw new Error('وجهة الهاتف غير مسموحة لكل شريحة — استخدم device_id (00021)');
+    }
+    if (!(SLIDE_DESTINATION_TYPES as ReadonlySet<string>).has(value)) {
+      throw new Error('نوع وجهة الشريحة غير صالح — external/whatsapp/internal فقط');
+    }
+    return value as AdDestinationType;
+  });
+}
+
+/**
+ * Aligns the per-slide payload array with the normalized types:
+ *   - a slide that INHERITS ('' type) never carries a payload (NULL/NULL
+ *     contract — the render path ignores a payload without a type);
+ *   - an OVERRIDE slide keeps its payload (undefined/null → NULL = empty
+ *     payload → the adapter is non-interactive, never a dead target).
+ */
+function normalizeSlideDestinations(
+  dests: Array<Record<string, unknown> | null | undefined> | undefined,
+  count: number,
+  types: Array<AdDestinationType | ''>,
+): Array<Record<string, unknown> | null> {
+  if (dests === undefined) return Array.from({ length: count }, () => null);
+  if (dests.length !== count) {
+    throw new Error('عدد بيانات الوجهات لا يطابق عدد الصور');
+  }
+  return dests.map((d, i) => (types[i] !== '' ? (d ?? null) : null));
 }
 
 export async function addAdImage(

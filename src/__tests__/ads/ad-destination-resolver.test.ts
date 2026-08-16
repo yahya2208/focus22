@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { resolveDestination } from '../../services/ad-destination-resolver';
-import type { AdConfig } from '../../services/ads-service';
+import { resolveDestination, resolveSlideDestination } from '../../services/ad-destination-resolver';
+import type { AdConfig, AdImage } from '../../services/ads-service';
 import type { InventoryRecord } from '../../services/inventory-service';
 import type { PhoneDestinationAdapter } from '../../services/ad-adapters/phone';
 import type { ExternalDestinationAdapter } from '../../services/ad-adapters/external';
@@ -240,6 +240,112 @@ describe('resolveDestination (Phase 2 Steps 3–6 — phone/external/whatsapp/in
     resolveDestination(makeAd({ destinationType: 'external', destination: { external: { url: 'https://go.example' } } }), deps);
     resolveDestination(makeAd({ destinationType: 'whatsapp', destination: { whatsapp: { number: '0556254007' } } }), deps);
     resolveDestination(makeAd({ destinationType: 'internal', destination: { internal: { screen: 'showroom' } } }), deps);
+    expect(deps.navigateToDetails).not.toHaveBeenCalled();
+    expect(deps.whatsappSend).not.toHaveBeenCalled();
+    expect(deps.openInNewTab).not.toHaveBeenCalled();
+    expect(deps.openChat).not.toHaveBeenCalled();
+    expect(deps.navigateTo).not.toHaveBeenCalled();
+  });
+});
+
+function slide(overrides: Partial<AdImage> = {}): AdImage {
+  return {
+    id: 'img-1',
+    path: 'ads-images/home/a.jpg',
+    url: 'https://cdn/slide.png',
+    position: 0,
+    isCover: true,
+    deviceId: '',
+    ...overrides,
+  };
+}
+
+describe('resolveSlideDestination (Phase 4B — 00024 per-slide destinations)', () => {
+  it('slide destinationType=external overrides the ad with the slide payload (never the legacy phone link)', () => {
+    const deps = makeDeps();
+    // The ad is a legacy phone ad; the slide carries its own external target.
+    const adapter = resolveSlideDestination(
+      makeAd(),
+      slide({ destinationType: 'external', destination: { external: { url: 'https://slide.example' } } }),
+      deps,
+    ) as ExternalDestinationAdapter;
+    expect(adapter.type).toBe('external');
+    expect(adapter.url).toBe('https://slide.example');
+    expect(adapter.isValid).toBe(true);
+    expect(adapter).not.toHaveProperty('deviceId');
+    expect(adapter).not.toHaveProperty('isContact');
+  });
+
+  it('slide destinationType=whatsapp overrides with the slide payload', () => {
+    const deps = makeDeps();
+    const adapter = resolveSlideDestination(
+      makeAd(),
+      slide({ destinationType: 'whatsapp', destination: { whatsapp: { number: '0556254007', message: 'هذا السلايد' } } }),
+      deps,
+    ) as WhatsAppDestinationAdapter;
+    expect(adapter.type).toBe('whatsapp');
+    expect(adapter.number).toBe('213556254007');
+    expect(adapter.message).toBe('هذا السلايد');
+    expect(adapter.isValid).toBe(true);
+  });
+
+  it('slide destinationType=internal overrides with the slide payload', () => {
+    const deps = makeDeps();
+    const adapter = resolveSlideDestination(
+      makeAd(),
+      slide({ destinationType: 'internal', destination: { internal: { screen: 'showroom', params: {} } } }),
+      deps,
+    ) as InternalDestinationAdapter;
+    expect(adapter.type).toBe('internal');
+    expect(adapter.screen).toBe('showroom');
+    expect(adapter.isValid).toBe(true);
+  });
+
+  it('NULL/NULL on the slide inherits the ad destination (phone ad → phone adapter)', () => {
+    const deps = makeDeps();
+    const adapter = resolveSlideDestination(
+      makeAd(),
+      slide({ destinationType: undefined, destination: undefined }),
+      deps,
+    ) as PhoneDestinationAdapter;
+    expect(adapter.type).toBe('phone');
+    expect(adapter.isContact).toBe(true);
+    expect(adapter.deviceId).toBe(DEVICE.id);
+  });
+
+  it('NULL/NULL on the slide inherits a non-phone ad destination (external ad → external adapter)', () => {
+    const deps = makeDeps();
+    const ad = makeAd({ destinationType: 'external', destination: { external: { url: 'https://ad.example' } } });
+    const adapter = resolveSlideDestination(ad, slide(), deps) as ExternalDestinationAdapter;
+    expect(adapter.type).toBe('external');
+    expect(adapter.url).toBe('https://ad.example');
+    expect(adapter.isValid).toBe(true);
+  });
+
+  it('slide with a type but no payload is a non-interactive adapter of that type (never a dead target)', () => {
+    const deps = makeDeps();
+    const adapter = resolveSlideDestination(makeAd(), slide({ destinationType: 'external' }), deps) as ExternalDestinationAdapter;
+    expect(adapter.type).toBe('external');
+    expect(adapter.isValid).toBe(false);
+    expect(adapter.canOpenDetails()).toBe(false);
+    expect(adapter.canCallToAction()).toBe(false);
+    adapter.callToAction();
+    expect(deps.openInNewTab).not.toHaveBeenCalled();
+  });
+
+  it('a defensive phone slide type is treated as inherit (phone stays on device_id)', () => {
+    const deps = makeDeps();
+    const adapter = resolveSlideDestination(makeAd(), slide({ destinationType: 'phone' }), deps) as PhoneDestinationAdapter;
+    expect(adapter.type).toBe('phone');
+    expect(adapter.isContact).toBe(true);
+  });
+
+  it('creates no side effects at resolve time (render-safe)', () => {
+    const deps = makeDeps();
+    resolveSlideDestination(makeAd(), slide(), deps);
+    resolveSlideDestination(makeAd(), slide({ destinationType: 'external', destination: { external: { url: 'https://slide.example' } } }), deps);
+    resolveSlideDestination(makeAd(), slide({ destinationType: 'whatsapp', destination: { whatsapp: { number: '0556254007' } } }), deps);
+    resolveSlideDestination(makeAd(), slide({ destinationType: 'internal', destination: { internal: { screen: 'showroom' } } }), deps);
     expect(deps.navigateToDetails).not.toHaveBeenCalled();
     expect(deps.whatsappSend).not.toHaveBeenCalled();
     expect(deps.openInNewTab).not.toHaveBeenCalled();
