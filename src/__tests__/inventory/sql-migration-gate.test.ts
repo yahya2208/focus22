@@ -8,6 +8,14 @@ import adsRollbackSql from '../../../supabase/ads-multi-image/02-ads-multi-image
 import adsEvidenceSql from '../../../supabase/ads-multi-image/03-pre-apply-evidence.sql?raw';
 import adsVerifySql from '../../../supabase/ads-multi-image/04-post-apply-verify.sql?raw';
 import adsBackfillSql from '../../../supabase/ads-multi-image/05-ad-images-backfill.sql?raw';
+import adsGenericApplySql from '../../../supabase/ads-generic-destinations/01-ads-generic-destinations-apply.sql?raw';
+import adsGenericRollbackSql from '../../../supabase/ads-generic-destinations/02-ads-generic-destinations-rollback.sql?raw';
+import adsGenericEvidenceSql from '../../../supabase/ads-generic-destinations/03-pre-apply-evidence.sql?raw';
+import adsGenericVerifySql from '../../../supabase/ads-generic-destinations/04-post-apply-verify.sql?raw';
+import adsDestEnabledApplySql from '../../../supabase/ads-destination-enabled/01-ads-destination-enabled-apply.sql?raw';
+import adsDestEnabledRollbackSql from '../../../supabase/ads-destination-enabled/02-ads-destination-enabled-rollback.sql?raw';
+import adsDestEnabledEvidenceSql from '../../../supabase/ads-destination-enabled/03-pre-apply-evidence.sql?raw';
+import adsDestEnabledVerifySql from '../../../supabase/ads-destination-enabled/04-post-apply-verify.sql?raw';
 
 const MIGRATIONS = import.meta.glob('../../../supabase/migrations/*.sql', {
   eager: true,
@@ -21,6 +29,14 @@ const migration19 = Object.entries(MIGRATIONS).find(([key]) =>
 
 const migration20 = Object.entries(MIGRATIONS).find(([key]) =>
   key.includes('00020_ads_multi_image.sql'),
+)?.[1] as string;
+
+const migration22 = Object.entries(MIGRATIONS).find(([key]) =>
+  key.includes('00022_generic_ads_destinations.sql'),
+)?.[1] as string;
+
+const migration23 = Object.entries(MIGRATIONS).find(([key]) =>
+  key.includes('00023_ads_destination_enabled.sql'),
 )?.[1] as string;
 
 function basename(key: string): string {
@@ -101,14 +117,16 @@ describe('Migration numbering', () => {
     expect(legacy).toEqual(['003_add_session_lifecycle.sql', '004_add_analytics_events_indexes.sql']);
   });
 
-  it('00021 is the highest migration number; 00020 and 00021 both exist', () => {
+  it('00023 is the highest migration number; 00020, 00021, 00022 and 00023 all exist', () => {
     const nums = Object.keys(MIGRATIONS)
       .map(basename)
       .map(numericPrefix)
       .filter((n): n is number => n !== null);
-    expect(Math.max(...nums)).toBe(21);
+    expect(Math.max(...nums)).toBe(23);
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00020_ads_multi_image.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00021_ad_images_device_id.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00022_generic_ads_destinations.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00023_ads_destination_enabled.sql');
   });
 
   it('00019 body (after header comments) matches 01-inventory-apply.sql body', () => {
@@ -119,6 +137,112 @@ describe('Migration numbering', () => {
   it('00020 body (executable lines) matches 01-ads-multi-image-apply.sql body', () => {
     expect(migration20).toBeDefined();
     expect(executableLines(migration20)).toEqual(executableLines(adsApplySql));
+  });
+});
+
+describe('Migration 00022 — Generic Ads Destinations (PHASE 1 foundation)', () => {
+  it('00022 body (executable lines) matches 01-ads-generic-destinations-apply.sql body', () => {
+    expect(migration22).toBeDefined();
+    expect(executableLines(migration22)).toEqual(executableLines(adsGenericApplySql));
+  });
+
+  it('00022 is additive-only: adds the 3 columns, never touches existing ads structure', () => {
+    const executable = executableLines(migration22).join('\n');
+    expect(migration22).toContain('ADD COLUMN IF NOT EXISTS destination_type TEXT NOT NULL DEFAULT');
+    expect(migration22).toContain('ADD COLUMN IF NOT EXISTS destination JSONB NOT NULL DEFAULT');
+    expect(migration22).toContain('ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT');
+    // No destructive statements, no table/trigger/RLS/storage/RPC rewrites (executable SQL only).
+    for (const forbidden of ['DROP TABLE', 'DROP COLUMN', 'DROP TRIGGER', 'DROP POLICY',
+                             'CREATE OR REPLACE FUNCTION', 'ALTER PUBLICATION', 'DELETE FROM',
+                             'TRUNCATE', 'CREATE TABLE']) {
+      expect(executable, `00022 must not contain ${forbidden}`).not.toContain(forbidden);
+    }
+    // ad_images must not be touched by this phase (executable SQL only).
+    expect(executable).not.toContain('ad_images');
+  });
+
+  it('00022 CHECK admits exactly phone/external/internal/whatsapp', () => {
+    expect(migration22).toContain('ads_destination_type_valid');
+    expect(migration22).toContain("destination_type IN ('phone', 'external', 'internal', 'whatsapp')");
+  });
+
+  it('rollback drops exactly what 00022 added (constraint + 3 columns), nothing else', () => {
+    expect(adsGenericRollbackSql).toContain('DROP CONSTRAINT IF EXISTS ads_destination_type_valid');
+    expect(adsGenericRollbackSql).toContain('DROP COLUMN IF EXISTS destination_type');
+    expect(adsGenericRollbackSql).toContain('DROP COLUMN IF EXISTS destination');
+    expect(adsGenericRollbackSql).toContain('DROP COLUMN IF EXISTS title');
+    for (const forbidden of ['DROP TABLE', 'DROP TRIGGER', 'DROP POLICY', 'DROP FUNCTION',
+                             'ALTER PUBLICATION', 'DELETE FROM']) {
+      expect(adsGenericRollbackSql, `rollback must not contain ${forbidden}`).not.toContain(forbidden);
+    }
+  });
+
+  it('pre-apply evidence asserts the new columns + constraint are ABSENT, and reads rows without DDL', () => {
+    expect(adsGenericEvidenceSql).toContain("column_name IN ('destination_type', 'destination', 'title')");
+    expect(adsGenericEvidenceSql).toContain("conname = 'ads_destination_type_valid'");
+    expect(adsGenericEvidenceSql).toContain('SELECT placement, enabled, image_path, image_url, link, alt, device_id, sort_order');
+    expect(adsGenericEvidenceSql).toContain('FROM public.ad_images');
+    expect(adsGenericEvidenceSql).toContain('trg_ad_images_mirror');
+  });
+
+  it('post-apply verify asserts the backfill contract and that existing layers are untouched', () => {
+    expect(adsGenericVerifySql).toContain('ads_destination_type_valid');
+    expect(adsGenericVerifySql).toContain('jsonb_typeof(destination)');
+    expect(adsGenericVerifySql).toContain("destination_type <> 'phone'");
+    expect(adsGenericVerifySql).toContain('trg_ad_images_mirror');
+    expect(adsGenericVerifySql).toContain('pg_policies');
+    expect(adsGenericVerifySql).toContain("p.proname IN ('ad_is_admin'");
+  });
+});
+
+describe('Migration 00023 — Destination-aware enabled rule (Step 2)', () => {
+  it('00023 body (executable lines) matches 01-ads-destination-enabled-apply.sql body', () => {
+    expect(migration23).toBeDefined();
+    expect(executableLines(migration23)).toEqual(executableLines(adsDestEnabledApplySql));
+  });
+
+  it('00023 replaces the same constraint name with the destination-aware meaning', () => {
+    expect(migration23).toContain('DROP CONSTRAINT IF EXISTS ads_enabled_requires_link');
+    expect(migration23).toContain('ADD CONSTRAINT ads_enabled_requires_link');
+    expect(migration23).toContain("destination_type = 'phone' AND btrim(link) <> ''");
+    expect(migration23).toContain("destination_type IN ('external', 'internal', 'whatsapp')");
+    expect(migration23).toContain('NOT VALID');
+  });
+
+  it('00023 is constraint-only: no destructive statements, no fallback between destination and link', () => {
+    const executable = executableLines(migration23).join('\n');
+    for (const forbidden of ['DROP TABLE', 'DROP COLUMN', 'DROP TRIGGER', 'DROP POLICY',
+                             'DROP FUNCTION', 'CREATE OR REPLACE FUNCTION', 'ALTER PUBLICATION',
+                             'DELETE FROM', 'TRUNCATE', 'CREATE TABLE']) {
+      expect(executable, `00023 must not contain ${forbidden}`).not.toContain(forbidden);
+    }
+    // ad_images must not be touched by this step (executable SQL only).
+    expect(executable).not.toContain('ad_images');
+  });
+
+  it('rollback restores the original Batch 4A meaning verbatim', () => {
+    expect(adsDestEnabledRollbackSql).toContain('DROP CONSTRAINT IF EXISTS ads_enabled_requires_link');
+    expect(adsDestEnabledRollbackSql).toContain("CHECK (enabled = FALSE OR btrim(link) <> '')");
+    for (const forbidden of ['DROP TABLE', 'DROP TRIGGER', 'DROP POLICY', 'DROP FUNCTION',
+                             'ALTER PUBLICATION', 'DELETE FROM', 'DROP COLUMN']) {
+      expect(adsDestEnabledRollbackSql, `rollback must not contain ${forbidden}`).not.toContain(forbidden);
+    }
+  });
+
+  it('pre-apply evidence asserts the current def + destination columns + violation baseline', () => {
+    expect(adsDestEnabledEvidenceSql).toContain("conname = 'ads_enabled_requires_link'");
+    expect(adsDestEnabledEvidenceSql).toContain("column_name IN ('destination_type', 'destination', 'title')");
+    expect(adsDestEnabledEvidenceSql).toContain('rows_violate_new_enabled_rule');
+    expect(adsDestEnabledEvidenceSql).toContain('enabled_non_phone_rows');
+  });
+
+  it('post-apply verify probes the full truth table and keeps VALIDATE blocked', () => {
+    expect(adsDestEnabledVerifySql).toContain("conname = 'ads_enabled_requires_link'");
+    expect(adsDestEnabledVerifySql).toContain('rows_violate_new_enabled_rule');
+    expect(adsDestEnabledVerifySql).toContain('probe_phone_empty_link');
+    expect(adsDestEnabledVerifySql).toContain('probe_external');
+    expect(adsDestEnabledVerifySql).toContain('probe_internal');
+    expect(adsDestEnabledVerifySql).toContain('probe_whatsapp');
   });
 });
 
