@@ -753,4 +753,441 @@ describe('AdContactBanner (PHASE C — Ad Click → guarded WhatsApp handoff + v
     expect(document.querySelectorAll('button').length).toBe(4);
     expect(screen.getByTestId('probe-screen').textContent).not.toBe('phone-details');
   });
+
+  it('PHASE 4B (00024) — slide overriding to external converts the whole slide to the external URL', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/cover.jpg',
+      link: '#/phone-details?device=rec_abcdef12',
+      alt: 'Mixed gallery',
+      images: [
+        adImage('slide1.jpg', { position: 0, isCover: true, deviceId: DEVICE.id }),
+        adImage('slide2.jpg', {
+          position: 1,
+          deviceId: '',
+          destinationType: 'external',
+          destination: { external: { url: 'https://slide.example/campaign' } },
+        }),
+      ],
+    });
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Slide 1 (cover) inherits the ad-level phone device → details page.
+    fireEvent.load(screen.getByTestId('ad-carousel-current'));
+    fireEvent.click(screen.getByTestId('ad-slide-action'));
+    expect(screen.getByTestId('probe-screen').textContent).toBe('phone-details');
+    expect(screen.getByTestId('probe-device').textContent).toBe(DEVICE.id);
+    expect(openSpy).not.toHaveBeenCalled();
+
+    // Switch to slide 2 — its OWN destination overrides the ad-level phone
+    // target. The whole slide converts to the external URL (main image + corner
+    // CTA), never the legacy phone link/device_id.
+    fireEvent.click(screen.getByTestId('ad-carousel-thumb-1'));
+    fireEvent.load(screen.getByTestId('ad-carousel-current'));
+    fireEvent.click(screen.getByTestId('ad-slide-action'));
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(openSpy).toHaveBeenCalledWith('https://slide.example/campaign', '_blank', 'noopener,noreferrer');
+    // No in-app navigation happened for the external slide.
+    expect(screen.getByTestId('probe-device').textContent).toBe(DEVICE.id);
+
+    fireEvent.click(screen.getByTestId('ad-slide-cta'));
+    expect(openSpy).toHaveBeenCalledTimes(2);
+    expect(mockSend).not.toHaveBeenCalled();
+    openSpy.mockRestore();
+  });
+
+  it('PHASE 4B (00024) — slide overriding to internal navigates in-app from both slide surfaces', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/cover.jpg',
+      link: '#/phone-details?device=rec_abcdef12',
+      alt: 'Mixed gallery',
+      images: [
+        adImage('slide1.jpg', { position: 0, isCover: true, deviceId: DEVICE.id }),
+        adImage('slide2.jpg', {
+          position: 1,
+          deviceId: '',
+          destinationType: 'internal',
+          destination: { internal: { screen: 'showroom', params: { tab: 'offers' } } },
+        }),
+      ],
+    });
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByTestId('ad-carousel-thumb-1'));
+    fireEvent.load(screen.getByTestId('ad-carousel-current'));
+
+    // Main-image tap → the slide's internal screen (symmetric target).
+    fireEvent.click(screen.getByTestId('ad-slide-action'));
+    expect(screen.getByTestId('probe-screen').textContent).toBe('showroom');
+    expect(screen.getByTestId('probe-device').textContent).toBe('');
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'click', ctaType: 'ad_click', placement: 'home', deviceId: undefined });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('PHASE 4B (00024) — slide overriding to whatsapp hands off to the payload number (placement-only tracking)', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/cover.jpg',
+      link: '#/phone-details?device=rec_abcdef12',
+      alt: 'Mixed gallery',
+      images: [
+        adImage('slide1.jpg', { position: 0, isCover: true, deviceId: DEVICE.id }),
+        adImage('slide2.jpg', {
+          position: 1,
+          deviceId: '',
+          destinationType: 'whatsapp',
+          destination: { whatsapp: { number: '0556254007', message: 'عرض السلايد' } },
+        }),
+      ],
+    });
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByTestId('ad-carousel-thumb-1'));
+    fireEvent.load(screen.getByTestId('ad-carousel-current'));
+    fireEvent.click(screen.getByTestId('ad-slide-cta'));
+
+    // The slide chat opens to the slide payload number with its preset message.
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(openSpy).toHaveBeenCalledWith(
+      `https://wa.me/213556254007?text=${encodeURIComponent('عرض السلايد')}`,
+      '_blank',
+      'noopener',
+    );
+    // Placement-only tracking for the whatsapp override (no device) — in order.
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'click', ctaType: 'ad_click', placement: 'home' });
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'whatsapp_handoff_started', ctaType: 'inquiry', placement: 'home' });
+    // The legacy WhatsApp provider send is NEVER used for a whatsapp override.
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(screen.getByTestId('probe-screen').textContent).toBe('home');
+    openSpy.mockRestore();
+  });
+
+  it('PHASE 4B (00024) — an invalid slide override keeps the slide NON-interactive (no dead target)', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/cover.jpg',
+      link: '#/phone-details?device=rec_abcdef12',
+      alt: 'Mixed gallery',
+      images: [
+        adImage('slide1.jpg', { position: 0, isCover: true, deviceId: DEVICE.id }),
+        adImage('slide2.jpg', {
+          position: 1,
+          deviceId: '',
+          destinationType: 'external',
+          destination: { external: { url: 'javascript:alert(1)' } },
+        }),
+      ],
+    });
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByTestId('ad-carousel-thumb-1'));
+    fireEvent.load(screen.getByTestId('ad-carousel-current'));
+
+    // The invalid external override yields a non-interactive slide: no main-image
+    // target, no corner CTA — never a dead clickable target, never window.open.
+    expect(screen.queryByTestId('ad-slide-action')).toBeNull();
+    expect(screen.queryByTestId('ad-slide-cta')).toBeNull();
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(screen.getByTestId('probe-screen').textContent).toBe('home');
+    openSpy.mockRestore();
+  });
+
+  it('PHASE 4B (00024) — whatsapp ad: a slide overriding to internal navigates in-app from the slide CTA', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/cover.jpg',
+      link: '',
+      alt: 'WhatsApp gallery',
+      images: [
+        adImage('slide1.jpg', { position: 0, isCover: true, deviceId: '' }),
+        adImage('slide2.jpg', {
+          position: 1,
+          deviceId: '',
+          destinationType: 'internal',
+          destination: { internal: { screen: 'repair-home' } },
+        }),
+      ],
+      destinationType: 'whatsapp',
+      destination: { whatsapp: { number: '0556254007' } },
+    });
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Ad-level whatsapp branch: multi-frame carousel owns the interaction.
+    expect(screen.getByTestId('ad-carousel')).toBeTruthy();
+    expect(screen.queryByTestId('ad-whatsapp-cta')).toBeNull();
+
+    // Slide 2 carries its own internal destination → the slide CTA navigates
+    // in-app to the slide's allowlisted screen (never the ad chat).
+    fireEvent.click(screen.getByTestId('ad-carousel-thumb-1'));
+    fireEvent.load(screen.getByTestId('ad-carousel-current'));
+    fireEvent.click(screen.getByTestId('ad-slide-cta'));
+    expect(screen.getByTestId('probe-screen').textContent).toBe('repair-home');
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+});
+
+describe('AdContactBanner (PHASE 4E — single-image destination dispatch, 00024)', () => {
+  beforeEach(() => {
+    mock.__setState(DISABLED);
+    vi.clearAllMocks();
+    MockIntersectionObserver.instances = [];
+  });
+
+  it('single-image + external override: the whole banner converts to the image URL (never the legacy phone link)', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/cover.jpg',
+      link: '#/phone-details?device=rec_abcdef12',
+      alt: 'Single external',
+      images: [
+        adImage('cover.jpg', {
+          position: 0,
+          isCover: true,
+          destinationType: 'external',
+          destination: { external: { url: 'https://slide.example/campaign' } },
+        }),
+      ],
+    });
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // The single image carries its OWN destination → it wins over the legacy
+    // phone link and the ad-level phone target (strict separation).
+    const banner = screen.getByRole('banner');
+    expect(banner.tagName).toBe('A');
+    expect(banner.getAttribute('href')).toBe('https://slide.example/campaign');
+    expect(banner.getAttribute('target')).toBe('_blank');
+    expect(banner.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(screen.queryByRole('button')).toBeNull();
+    // No phone surfaces leak from the ad-level phone destination.
+    expect(screen.queryByTestId('ad-contact-details')).toBeNull();
+    expect(screen.queryByTestId('ad-contact-cta')).toBeNull();
+  });
+
+  it('single-image + whatsapp override: full-frame CTA hands off to the image payload (telemetry exactly once)', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/cover.jpg',
+      link: '#/phone-details?device=rec_abcdef12',
+      alt: 'Single WhatsApp',
+      images: [
+        adImage('cover.jpg', {
+          position: 0,
+          isCover: true,
+          destinationType: 'whatsapp',
+          destination: { whatsapp: { number: '0556254007', message: 'عرض الصورة' } },
+        }),
+      ],
+    });
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const banner = screen.getByRole('banner');
+    expect(banner.tagName).toBe('DIV');
+    expect(banner.querySelector('a')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('ad-whatsapp-cta'));
+
+    // The chat opens to the IMAGE payload number with its preset message.
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(openSpy).toHaveBeenCalledWith(
+      `https://wa.me/213556254007?text=${encodeURIComponent('عرض الصورة')}`,
+      '_blank',
+      'noopener',
+    );
+    // The override telemetry fires EXACTLY once (ad_click then handoff) — no
+    // ad-level phone events leak through, the provider send is never used.
+    expect(mockRecordIntent).toHaveBeenCalledTimes(2);
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'click', ctaType: 'ad_click', placement: 'home' });
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'whatsapp_handoff_started', ctaType: 'inquiry', placement: 'home' });
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(screen.getByTestId('probe-screen').textContent).toBe('home');
+    openSpy.mockRestore();
+  });
+
+  it('single-image + internal override: the banner navigates in-app to the image screen', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/cover.jpg',
+      link: '#/phone-details?device=rec_abcdef12',
+      alt: 'Single internal',
+      images: [
+        adImage('cover.jpg', {
+          position: 0,
+          isCover: true,
+          destinationType: 'internal',
+          destination: { internal: { screen: 'showroom', params: { tab: 'offers' } } },
+        }),
+      ],
+    });
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const banner = screen.getByRole('banner');
+    expect(banner.tagName).toBe('DIV');
+    expect(banner.querySelector('a')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('ad-internal-cta'));
+
+    // In-app navigation to the image's allowlisted screen with its params.
+    expect(screen.getByTestId('probe-screen').textContent).toBe('showroom');
+    expect(screen.getByTestId('probe-device').textContent).toBe('');
+    // ad_click placement-only (target is not phone-details → no deviceId).
+    expect(mockRecordIntent).toHaveBeenCalledTimes(1);
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'click', ctaType: 'ad_click', placement: 'home', deviceId: undefined });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('single-image + phone device: details open the image device; corner CTA hands off with deviceId', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/cover.jpg',
+      link: '',
+      alt: 'Single phone',
+      images: [adImage('cover.jpg', { position: 0, isCover: true, deviceId: DEVICE.id })],
+    });
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // The single image's device_id drives the banner — never an AdSpot, never
+    // a dead anchor, and the details surface opens THAT device.
+    const overlay = screen.getByTestId('ad-contact-details');
+    fireEvent.click(overlay);
+    expect(screen.getByTestId('probe-screen').textContent).toBe('phone-details');
+    expect(screen.getByTestId('probe-device').textContent).toBe(DEVICE.id);
+    expect(mockSend).not.toHaveBeenCalled();
+
+    const cta = screen.getByTestId('ad-contact-cta');
+    fireEvent.click(cta);
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'click', ctaType: 'ad_click', placement: 'home', deviceId: DEVICE.id });
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'whatsapp_handoff_started', ctaType: 'inquiry', placement: 'home', deviceId: DEVICE.id });
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    const [message] = mockSend.mock.calls[0] as [string];
+    expect(message).toContain('صورة الإعلان: https://cdn/cover.jpg');
+  });
+
+  it('single-image + NULL/NULL phone: inherits the ad-level destination (legacy single-image behavior preserved)', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/banner.png',
+      link: '#/phone-details?device=rec_abcdef12',
+      alt: 'Contact for this phone',
+      images: [adImage('banner.png', { position: 0, isCover: true })],
+    });
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // NULL/NULL on the single image → the ad-level phone destination drives:
+    // details page + guarded WhatsApp handoff with the ad device.
+    fireEvent.click(screen.getByTestId('ad-contact-details'));
+    expect(screen.getByTestId('probe-screen').textContent).toBe('phone-details');
+    expect(screen.getByTestId('probe-device').textContent).toBe(DEVICE.id);
+
+    fireEvent.click(screen.getByTestId('ad-contact-cta'));
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'click', ctaType: 'ad_click', placement: 'home', deviceId: DEVICE.id });
+    expect(mockRecordIntent).toHaveBeenCalledWith({ kind: 'whatsapp_handoff_started', ctaType: 'inquiry', placement: 'home', deviceId: DEVICE.id });
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('single-image + NULL/NULL external ad: inherits the ad-level external URL', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/banner.png',
+      link: '#/phone-details?device=legacy-ignored',
+      alt: 'External ad',
+      images: [adImage('banner.png', { position: 0, isCover: true })],
+      destinationType: 'external',
+      destination: { external: { url: 'https://go.example/campaign' } },
+    });
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const banner = screen.getByRole('banner');
+    expect(banner.tagName).toBe('A');
+    expect(banner.getAttribute('href')).toBe('https://go.example/campaign');
+    expect(banner.getAttribute('target')).toBe('_blank');
+    expect(banner.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  it('single-image + invalid slide destination: NON-interactive (no anchor, no CTA, no navigation)', async () => {
+    mock.__setState({
+      enabled: true,
+      image: 'https://cdn/cover.jpg',
+      link: '',
+      alt: 'Broken single',
+      images: [
+        adImage('cover.jpg', {
+          position: 0,
+          isCover: true,
+          destinationType: 'external',
+          destination: { external: { url: 'javascript:alert(1)' } },
+        }),
+      ],
+    });
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const banner = screen.getByRole('banner');
+    expect(banner.tagName).toBe('DIV');
+    expect(banner.querySelector('a')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(mockRecordIntent).not.toHaveBeenCalled();
+    expect(screen.getByTestId('probe-screen').textContent).toBe('home');
+    openSpy.mockRestore();
+  });
+
+  it('PHASE 4E regression — multi-image ads keep the 4D container + per-slide dispatch (single-image logic NOT triggered)', async () => {
+    mock.__setState(PHONE_GALLERY_AD);
+    renderBanner('home');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Multi-image: the carousel owns the interaction — no single-frame overlay.
+    expect(screen.getByTestId('ad-carousel')).toBeTruthy();
+    expect(screen.queryByTestId('ad-contact-details')).toBeNull();
+    expect(screen.queryByTestId('ad-contact-cta')).toBeNull();
+
+    fireEvent.load(screen.getByTestId('ad-carousel-current'));
+    fireEvent.click(screen.getByTestId('ad-slide-action'));
+    expect(screen.getByTestId('probe-screen').textContent).toBe('phone-details');
+    expect(screen.getByTestId('probe-device').textContent).toBe(DEVICE.id);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
 });

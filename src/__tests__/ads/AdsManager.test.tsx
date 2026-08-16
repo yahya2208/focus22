@@ -9,6 +9,8 @@ interface AdImageShape {
   position: number;
   isCover: boolean;
   deviceId?: string;
+  destinationType?: 'external' | 'whatsapp' | 'internal';
+  destination?: Record<string, unknown>;
 }
 
 interface AdConfigShape {
@@ -103,6 +105,15 @@ describe('AdsManager', () => {
     return el;
   }
 
+  function homeWithImages(images: AdImageShape[]) {
+    const ads = mock.__emptyAds();
+    ads.home = {
+      enabled: true, image: 'https://cdn/cover.jpg', link: '', alt: '', deviceId: '',
+      images,
+    };
+    mock.__setAds(ads);
+  }
+
   it('shows a loading note, then renders all placement cards', async () => {
     render(<AdsManager />);
     expect(screen.getByText('جارِ التحميل...')).toBeTruthy();
@@ -157,7 +168,7 @@ describe('AdsManager', () => {
     expect(mock.uploadAdImage).toHaveBeenCalledWith('home', expect.any(Blob));
     expect(mock.saveAd).toHaveBeenCalledWith(expect.objectContaining({ placement: 'home' }));
     await waitFor(() => expect(mock.replaceAdImages).toHaveBeenCalled());
-    expect(mock.replaceAdImages).toHaveBeenCalledWith('home', ['ads/home/new.jpg'], [true], ['']);
+    expect(mock.replaceAdImages).toHaveBeenCalledWith('home', ['ads/home/new.jpg'], [true], [''], [''], [null]);
   });
 
   it('removes the ad via resetAd when  إزالة is clicked', async () => {
@@ -241,7 +252,7 @@ describe('AdsManager', () => {
     fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
 
     await waitFor(() => expect(mock.replaceAdImages).toHaveBeenCalled());
-    expect(mock.replaceAdImages).toHaveBeenCalledWith('home', ['ads-images/home/b.jpg', 'ads-images/home/a.jpg'], [false, true], ['', '']);
+    expect(mock.replaceAdImages).toHaveBeenCalledWith('home', ['ads-images/home/b.jpg', 'ads-images/home/a.jpg'], [false, true], ['', ''], ['', ''], [null, null]);
   });
 
   it('assigns a per-slide device and persists deviceIds via replaceAdImages', async () => {
@@ -271,6 +282,8 @@ describe('AdsManager', () => {
       ['ads-images/home/a.jpg', 'ads-images/home/b.jpg'],
       [true, false],
       ['dev-samsung-1', ''],
+      ['', ''],
+      [null, null],
     );
   });
 
@@ -435,5 +448,251 @@ describe('AdsManager', () => {
     const args = (firstCall?.[0] as Record<string, unknown>) ?? {};
     expect(args).toMatchObject({ placement: 'home', deviceId: 'dev-samsung-1', link: '#/phone-details?device=dev-samsung-1' });
     expect(args).not.toHaveProperty('destination');
+  });
+
+  // ─── Phase 4C — per-slide destination authoring (00024) ───
+
+  it('4C: saves an external per-slide destination via the superset RPC', async () => {
+    homeWithImages([{ id: 'g1', path: 'ads-images/home/a.jpg', url: 'https://cdn/a.jpg', position: 0, isCover: true }]);
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.change(within(homeCard).getByTestId('ad-slide-dest-type-0'), { target: { value: 'external' } });
+    fireEvent.change(within(homeCard).getByTestId('ad-slide-dest-url-0'), { target: { value: 'https://slide.example/offer' } });
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(mock.replaceAdImages).toHaveBeenCalled());
+    expect(mock.replaceAdImages).toHaveBeenCalledWith(
+      'home',
+      ['ads-images/home/a.jpg'],
+      [true],
+      [''],
+      ['external'],
+      [{ external: { url: 'https://slide.example/offer' } }],
+    );
+  });
+
+  it('4C: saves a whatsapp per-slide destination', async () => {
+    homeWithImages([{ id: 'g1', path: 'ads-images/home/a.jpg', url: 'https://cdn/a.jpg', position: 0, isCover: true }]);
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.change(within(homeCard).getByTestId('ad-slide-dest-type-0'), { target: { value: 'whatsapp' } });
+    fireEvent.change(within(homeCard).getByTestId('ad-slide-dest-wa-number-0'), { target: { value: '+966512345678' } });
+    fireEvent.change(within(homeCard).getByTestId('ad-slide-dest-wa-message-0'), { target: { value: 'أستفسر عن هذا العرض' } });
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(mock.replaceAdImages).toHaveBeenCalled());
+    expect(mock.replaceAdImages).toHaveBeenCalledWith(
+      'home',
+      ['ads-images/home/a.jpg'],
+      [true],
+      [''],
+      ['whatsapp'],
+      [{ whatsapp: { number: '+966512345678', message: 'أستفسر عن هذا العرض' } }],
+    );
+  });
+
+  it('4C: saves an internal per-slide destination', async () => {
+    homeWithImages([{ id: 'g1', path: 'ads-images/home/a.jpg', url: 'https://cdn/a.jpg', position: 0, isCover: true }]);
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.change(within(homeCard).getByTestId('ad-slide-dest-type-0'), { target: { value: 'internal' } });
+    fireEvent.change(within(homeCard).getByTestId('ad-slide-dest-screen-0'), { target: { value: 'showroom' } });
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(mock.replaceAdImages).toHaveBeenCalled());
+    expect(mock.replaceAdImages).toHaveBeenCalledWith(
+      'home',
+      ['ads-images/home/a.jpg'],
+      [true],
+      [''],
+      ['internal'],
+      [{ internal: { screen: 'showroom', params: {} } }],
+    );
+  });
+
+  it('4C: a slide with no destination type inherits the ad destination (NULL/NULL)', async () => {
+    homeWithImages([{ id: 'g1', path: 'ads-images/home/a.jpg', url: 'https://cdn/a.jpg', position: 0, isCover: true }]);
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    const destTypeSelect = within(homeCard).getByTestId('ad-slide-dest-type-0') as HTMLSelectElement;
+    expect(destTypeSelect.value).toBe('');
+
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+    await waitFor(() => expect(mock.replaceAdImages).toHaveBeenCalled());
+    expect(mock.replaceAdImages).toHaveBeenCalledWith(
+      'home',
+      ['ads-images/home/a.jpg'],
+      [true],
+      [''],
+      [''],
+      [null],
+    );
+  });
+
+  it('4C: mixed gallery persists override slides and inherit slides in order', async () => {
+    homeWithImages([
+      { id: 'g1', path: 'ads-images/home/a.jpg', url: 'https://cdn/a.jpg', position: 0, isCover: true },
+      { id: 'g2', path: 'ads-images/home/b.jpg', url: 'https://cdn/b.jpg', position: 1, isCover: false },
+    ]);
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.change(within(homeCard).getByTestId('ad-slide-dest-type-0'), { target: { value: 'external' } });
+    fireEvent.change(within(homeCard).getByTestId('ad-slide-dest-url-0'), { target: { value: 'https://slide.example' } });
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(mock.replaceAdImages).toHaveBeenCalled());
+    expect(mock.replaceAdImages).toHaveBeenCalledWith(
+      'home',
+      ['ads-images/home/a.jpg', 'ads-images/home/b.jpg'],
+      [true, false],
+      ['', ''],
+      ['external', ''],
+      [{ external: { url: 'https://slide.example' } }, null],
+    );
+  });
+
+  it('4C: phone per-slide stays on device_id — the per-slide destination select never offers phone', async () => {
+    homeWithImages([{ id: 'g1', path: 'ads-images/home/a.jpg', url: 'https://cdn/a.jpg', position: 0, isCover: true }]);
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    const destTypeSelect = within(homeCard).getByTestId('ad-slide-dest-type-0') as HTMLSelectElement;
+    const options = Array.from(destTypeSelect.querySelectorAll('option')).map((o) => o.value);
+    expect(options).not.toContain('phone');
+
+    fireEvent.change(within(homeCard).getByTestId('ad-slide-device-0'), { target: { value: 'dev-samsung-1' } });
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(mock.replaceAdImages).toHaveBeenCalled());
+    expect(mock.replaceAdImages).toHaveBeenCalledWith(
+      'home',
+      ['ads-images/home/a.jpg'],
+      [true],
+      ['dev-samsung-1'],
+      [''],
+      [null],
+    );
+  });
+
+  it('4C: blocks save when a per-slide external destination is not a valid absolute URL', async () => {
+    homeWithImages([{ id: 'g1', path: 'ads-images/home/a.jpg', url: 'https://cdn/a.jpg', position: 0, isCover: true }]);
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.change(within(homeCard).getByTestId('ad-slide-dest-type-0'), { target: { value: 'external' } });
+    fireEvent.change(within(homeCard).getByTestId('ad-slide-dest-url-0'), { target: { value: 'javascript:alert(1)' } });
+
+    await waitFor(() => expect(within(homeCard).getByText(/الوجهة الخارجية تتطلب رابطًا مطلقًا صالحًا/)).toBeTruthy());
+    expect((within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(mock.replaceAdImages).not.toHaveBeenCalled();
+  });
+
+  it('4C: reload restores each slide destination exactly (save → reload → restore)', async () => {
+    homeWithImages([
+      {
+        id: 'g1', path: 'ads-images/home/a.jpg', url: 'https://cdn/a.jpg', position: 0, isCover: true,
+        destinationType: 'external', destination: { external: { url: 'https://slide.example/a' } },
+      },
+      {
+        id: 'g2', path: 'ads-images/home/b.jpg', url: 'https://cdn/b.jpg', position: 1, isCover: false,
+        destinationType: 'whatsapp', destination: { whatsapp: { number: '+966512345678', message: 'مرحبًا' } },
+      },
+      { id: 'g3', path: 'ads-images/home/c.jpg', url: 'https://cdn/c.jpg', position: 2, isCover: false },
+    ]);
+    const { unmount } = render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    expect((within(homeCard).getByTestId('ad-slide-dest-type-0') as HTMLSelectElement).value).toBe('external');
+    expect((within(homeCard).getByTestId('ad-slide-dest-url-0') as HTMLInputElement).value).toBe('https://slide.example/a');
+    expect((within(homeCard).getByTestId('ad-slide-dest-type-1') as HTMLSelectElement).value).toBe('whatsapp');
+    expect((within(homeCard).getByTestId('ad-slide-dest-wa-number-1') as HTMLInputElement).value).toBe('+966512345678');
+    expect((within(homeCard).getByTestId('ad-slide-dest-wa-message-1') as HTMLInputElement).value).toBe('مرحبًا');
+    expect((within(homeCard).getByTestId('ad-slide-dest-type-2') as HTMLSelectElement).value).toBe('');
+
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+    await waitFor(() => expect(mock.replaceAdImages).toHaveBeenCalled());
+    expect(mock.replaceAdImages).toHaveBeenCalledWith(
+      'home',
+      ['ads-images/home/a.jpg', 'ads-images/home/b.jpg', 'ads-images/home/c.jpg'],
+      [true, false, false],
+      ['', '', ''],
+      ['external', 'whatsapp', ''],
+      [
+        { external: { url: 'https://slide.example/a' } },
+        { whatsapp: { number: '+966512345678', message: 'مرحبًا' } },
+        null,
+      ],
+    );
+
+    // full reload — re-render from the same persisted source
+    unmount();
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+    const reloadedCard = cardFor('📍 الصفحة الرئيسية');
+    expect((within(reloadedCard).getByTestId('ad-slide-dest-type-0') as HTMLSelectElement).value).toBe('external');
+    expect((within(reloadedCard).getByTestId('ad-slide-dest-url-0') as HTMLInputElement).value).toBe('https://slide.example/a');
+    expect((within(reloadedCard).getByTestId('ad-slide-dest-type-1') as HTMLSelectElement).value).toBe('whatsapp');
+    expect((within(reloadedCard).getByTestId('ad-slide-dest-type-2') as HTMLSelectElement).value).toBe('');
+  });
+
+  it('4C: reordering preserves per-slide destinations while keeping cover/order', async () => {
+    homeWithImages([
+      {
+        id: 'g1', path: 'ads-images/home/a.jpg', url: 'https://cdn/a.jpg', position: 0, isCover: true,
+        destinationType: 'external', destination: { external: { url: 'https://slide.example/a' } },
+      },
+      { id: 'g2', path: 'ads-images/home/b.jpg', url: 'https://cdn/b.jpg', position: 1, isCover: false },
+    ]);
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.click(within(homeCard).getByRole('button', { name: 'رفع صورة 1' }));
+
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+    await waitFor(() => expect(mock.replaceAdImages).toHaveBeenCalled());
+    expect(mock.replaceAdImages).toHaveBeenCalledWith(
+      'home',
+      ['ads-images/home/b.jpg', 'ads-images/home/a.jpg'],
+      [false, true],
+      ['', ''],
+      ['', 'external'],
+      [null, { external: { url: 'https://slide.example/a' } }],
+    );
+  });
+
+  it('4C: legacy phone per-slide path stays untouched (device_id only, no destination JSONB)', async () => {
+    homeWithImages([
+      { id: 'g1', path: 'ads-images/home/a.jpg', url: 'https://cdn/a.jpg', position: 0, isCover: true, deviceId: 'dev-samsung-1' },
+    ]);
+    render(<AdsManager />);
+    await waitFor(() => expect(screen.queryByText('جارِ التحميل...')).toBeNull());
+
+    const homeCard = cardFor('📍 الصفحة الرئيسية');
+    fireEvent.click(within(homeCard).getByRole('button', { name: '💾 حفظ ونشر' }));
+
+    await waitFor(() => expect(mock.saveAd).toHaveBeenCalled());
+    await waitFor(() => expect(mock.replaceAdImages).toHaveBeenCalled());
+    expect(mock.replaceAdImages).toHaveBeenCalledWith(
+      'home',
+      ['ads-images/home/a.jpg'],
+      [true],
+      ['dev-samsung-1'],
+      [''],
+      [null],
+    );
   });
 });

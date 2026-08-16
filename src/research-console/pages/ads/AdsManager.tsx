@@ -44,12 +44,22 @@ function emptyConfig(): AdConfig {
 }
 
 /**
+ * Minimal authoring shape shared by the ad-level and per-slide validators —
+ * the same adapter predicates (external/whatsapp/internal) stay the single
+ * source of truth. phone is handled by the ad-level authoring only.
+ */
+type DestinationShape = {
+  destinationType?: AdDestinationType | undefined;
+  destination?: Record<string, unknown> | undefined;
+};
+
+/**
  * Live destination-payload validation — mirrors ads-service.validateAdInput
  * (same adapter predicates, adapter = source of truth) so the save button is
  * disabled before any upload happens. phone keeps the legacy permissive rules
  * (inventory checks happen at save time, as before).
  */
-function destinationError(cfg: AdConfig, validDeviceIds: ReadonlySet<string>): string | null {
+function destinationError(cfg: DestinationShape, validDeviceIds: ReadonlySet<string>): string | null {
   const type = cfg.destinationType ?? 'phone';
   if (type === 'phone') return null;
 
@@ -80,6 +90,25 @@ function destinationError(cfg: AdConfig, validDeviceIds: ReadonlySet<string>): s
   return null;
 }
 
+/**
+ * Phase 4C — per-slide destination validation. Reuses the SAME adapter
+ * predicates as destinationError (external/whatsapp/internal) so no competing
+ * validation logic exists. A slide WITHOUT a destinationType (undefined)
+ * INHERITS the ad destination → nothing to validate. 'phone' is never a valid
+ * per-slide destination_type (00024 CHECK excludes it) — phone slides stay
+ * expressed via ad_images.device_id (00021); a defensive phone value is
+ * rejected explicitly.
+ */
+function slideDestinationError(
+  item: { destinationType?: AdDestinationType; destination?: Record<string, unknown> },
+  validDeviceIds: ReadonlySet<string>,
+): string | null {
+  const type = item.destinationType;
+  if (type === undefined) return null;
+  if (type === 'phone') return 'وجهة الهاتف غير مسموحة لكل شريحة — استخدم اختيار الهاتف (device_id)';
+  return destinationError({ destinationType: type, destination: item.destination }, validDeviceIds);
+}
+
 function emptyMap(): Record<AdPlacement, AdConfig> {
   const init = {} as Record<AdPlacement, AdConfig>;
   for (const p of AD_PLACEMENTS) init[p] = emptyConfig();
@@ -87,15 +116,24 @@ function emptyMap(): Record<AdPlacement, AdConfig> {
 }
 
 /**
- * Phase C + 00021 — a placement gallery is an ordered list of images. `existing`
- * items are already in `ad_images`; `pending` items are local blob previews that
- * are uploaded only when the admin hits «حفظ ونشر». Each slide carries its own
- * device (deviceId, '' = none) so every carousel slide can drive its own
- * phone-details/WhatsApp handoff (supabase/ads-slide-devices, migration 00021).
+ * Phase C + 00021 + 00024 — a placement gallery is an ordered list of images.
+ * `existing` items are already in `ad_images`; `pending` items are local blob
+ * previews uploaded only when the admin hits «حفظ ونشر». Each slide carries its
+ * own device (deviceId, '' = none) and — Phase 4C — its own destination
+ * override: destinationType ∈ {external, whatsapp, internal}; BOTH
+ * destinationType and destination undefined = INHERIT the ad-level destination
+ * (NULL/NULL on ad_images). 'phone' is never a per-slide destination_type —
+ * phone slides stay expressed via ad_images.device_id (00021).
  */
 type GalleryItem =
-  | { kind: 'existing'; key: string; path: string; url: string; isCover: boolean; deviceId: string }
-  | { kind: 'pending'; key: string; url: string; isCover: boolean; deviceId: string; blob: Blob };
+  | {
+      kind: 'existing'; key: string; path: string; url: string; isCover: boolean; deviceId: string;
+      destinationType?: AdDestinationType; destination?: Record<string, unknown>;
+    }
+  | {
+      kind: 'pending'; key: string; url: string; isCover: boolean; deviceId: string; blob: Blob;
+      destinationType?: AdDestinationType; destination?: Record<string, unknown>;
+    };
 
 function emptyGalleryMap(): Record<AdPlacement, GalleryItem[]> {
   const init = {} as Record<AdPlacement, GalleryItem[]>;
@@ -135,6 +173,8 @@ export function AdsManager() {
           url: img.url,
           isCover: img.isCover,
           deviceId: img.deviceId ?? '',
+          destinationType: img.destinationType,
+          destination: img.destination,
         }));
       }
       return next;
@@ -199,6 +239,46 @@ export function AdsManager() {
     }));
   };
 
+  const patchSlide = (placement: AdPlacement, key: string, partial: Partial<GalleryItem>) => {
+    setGalleries((prev) => ({
+      ...prev,
+      [placement]: (prev[placement] ?? []).map((it) => (it.key === key ? { ...it, ...partial } : it)),
+    }));
+  };
+
+  /**
+   * Phase 4C — per-slide destination type. '' resets the slide to INHERIT the
+   * ad-level destination (NULL/NULL on ad_images → destinationType undefined).
+   * Choosing a type starts with an EMPTY payload ({} → non-interactive adapter
+   * until filled), mirroring the ad-level authoring.
+   */
+  const setSlideDestinationType = (placement: AdPlacement, key: string, type: string) => {
+    if (type === '') {
+      patchSlide(placement, key, { destinationType: undefined, destination: undefined });
+      return;
+    }
+    const value = type as AdDestinationType;
+    patchSlide(placement, key, { destinationType: value, destination: {} });
+  };
+
+  /**
+   * Phase 4C — per-slide destination payload (external/whatsapp/internal).
+   * Functional update merges into the slide's `destination` so editing one
+   * field never drops the sibling fields of the same type.
+   */
+  const setSlideDestinationPayload = (
+    placement: AdPlacement,
+    key: string,
+    updater: (current: Record<string, unknown>) => Record<string, unknown>,
+  ) => {
+    setGalleries((prev) => ({
+      ...prev,
+      [placement]: (prev[placement] ?? []).map((it) =>
+        it.key === key ? { ...it, destination: updater(it.destination ?? {}) } : it,
+      ),
+    }));
+  };
+
   const moveItem = (placement: AdPlacement, index: number, dir: -1 | 1) => {
     setGalleries((prev) => {
       const list = [...(prev[placement] ?? [])];
@@ -254,6 +334,14 @@ export function AdsManager() {
         setBusy(null);
         return;
       }
+      const slideDestError = items
+        .map((it) => slideDestinationError(it, validDeviceIds))
+        .find((msg) => msg !== null);
+      if (slideDestError) {
+        setStatus((prev) => ({ ...prev, [placement]: slideDestError }));
+        setBusy(null);
+        return;
+      }
       const pathByKey = new Map<string, string>();
       for (const item of items) {
         if (item.kind === 'pending') {
@@ -269,11 +357,17 @@ export function AdsManager() {
         : { placement, enabled: cfg.enabled, alt: cfg.alt, destinationType, destination: cfg.destination ?? {}, title: cfg.title ?? '' };
       await saveAd(input);
       if (items.length > 0) {
+        // Phase 4C — per-slide destination arrays (''/undefined type + null
+        // payload = INHERIT the ad destination, i.e. NULL/NULL). The service
+        // picks the 00024 superset RPC only when at least one slide overrides;
+        // legacy (00020/00021) calls stay unchanged otherwise.
         await replaceAdImages(
           placement,
           items.map((it) => pathByKey.get(it.key) ?? ''),
           items.map((it) => it.isCover),
           slideDeviceIds,
+          items.map((it) => it.destinationType ?? ('')),
+          items.map((it) => it.destination ?? null),
         );
       }
       for (const url of pendingObjectUrls.current) URL.revokeObjectURL(url);
@@ -334,6 +428,15 @@ export function AdsManager() {
     border: '1px solid #333', background: 'transparent', color: '#aaa',
   };
 
+  const slideFieldStyle: React.CSSProperties = {
+    width: '100%', fontSize: '0.62rem', marginTop: 2, padding: '2px', boxSizing: 'border-box',
+    background: '#1e1e2e', color: '#f0f0f0', border: '1px solid #333', borderRadius: 4,
+  };
+
+  const slideCaptionStyle: React.CSSProperties = {
+    color: '#666', fontSize: '0.6rem', marginTop: 3, textAlign: 'center',
+  };
+
   return (
     <div>
       <DashboardHeader
@@ -344,7 +447,8 @@ export function AdsManager() {
       <p style={{ color: '#666', fontSize: '0.8rem', margin: '0 0 1rem' }}>
         كل موضع يحمل معرض صور مرتب (JPEG مضغوط) — الصورة المميزة بـ«الغلاف» هي ما يظهر للزوار في البانر.
         ارفع عدة صور، رتّبها بالأسهم، حدّد الغلاف والرابط، ثم احفظ. يمكن ربط كل شريحة بهاتف مستقل (اختياري)
-        فيُشتق رابطها وقت العرض. التغييرات لا تنشر قبل الضغط على «حفظ ونشر».
+        فيُشتق رابطها وقت العرض، أو منحها وجهة مستقلة (رابط خارجي / واتساب / شاشة داخلية) مع خيار
+        «ترث من الإعلان» كافتراضي. التغييرات لا تنشر قبل الضغط على «حفظ ونشر».
       </p>
 
       {!loaded && <p style={{ color: '#888', fontSize: '0.8rem' }}>جارِ التحميل...</p>}
@@ -361,7 +465,12 @@ export function AdsManager() {
         const destInternal = cfg.destination?.internal as { screen?: string; params?: Record<string, string> } | undefined;
         const destInternalScreen = destInternal?.screen ?? '';
         const destInternalDevice = destInternal?.params?.device ?? '';
-        const liveError = destinationError(cfg, new Set(devices.map((d) => d.id)));
+        const validDeviceIds = new Set(devices.map((d) => d.id));
+        // Combined live validation: ad-level destination error OR any per-slide
+        // destination error → disables «حفظ ونشر» before any upload happens.
+        const liveError =
+          destinationError(cfg, validDeviceIds)
+          ?? items.map((it) => slideDestinationError(it, validDeviceIds)).find((msg) => msg !== null) ?? null;
         return (
           <div
             key={placement}
@@ -389,14 +498,23 @@ export function AdsManager() {
                 <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '4px' }}>معرض الصور</div>
                 {items.length > 0 ? (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                    {items.map((item, idx) => (
-                      <div
-                        key={item.key}
-                        style={{
-                          width: 68, border: item.isCover ? '2px solid #6366f1' : '1px solid #333',
-                          borderRadius: '8px', padding: 2,
-                        }}
-                      >
+                    {items.map((item, idx) => {
+                      const slideDestType = item.destinationType;
+                      const slideExtUrl = (item.destination?.external as { url?: string } | undefined)?.url ?? '';
+                      const slideWa = item.destination?.whatsapp as { number?: string; message?: string } | undefined;
+                      const slideWaNumber = slideWa?.number ?? '';
+                      const slideWaMessage = slideWa?.message ?? '';
+                      const slideInternal = item.destination?.internal as { screen?: string; params?: Record<string, string> } | undefined;
+                      const slideInternalScreen = slideInternal?.screen ?? '';
+                      const slideInternalDevice = slideInternal?.params?.device ?? '';
+                      return (
+                        <div
+                          key={item.key}
+                          style={{
+                            width: slideDestType ? 210 : 72, border: item.isCover ? '2px solid #6366f1' : '1px solid #333',
+                            borderRadius: '8px', padding: 2,
+                          }}
+                        >
                         <img
                           src={item.url}
                           alt=""
@@ -429,8 +547,101 @@ export function AdsManager() {
                             </option>
                           ))}
                         </select>
+                        <div style={slideCaptionStyle}>وجهة الشريحة</div>
+                        <select
+                          aria-label={`وجهة شريحة ${idx + 1}`}
+                          data-testid={`ad-slide-dest-type-${idx}`}
+                          value={slideDestType ?? ''}
+                          onChange={(e) => setSlideDestinationType(placement, item.key, e.target.value)}
+                          style={slideFieldStyle}
+                        >
+                          <option value="">ترث من الإعلان</option>
+                          <option value="external">رابط خارجي</option>
+                          <option value="whatsapp">واتساب</option>
+                          <option value="internal">شاشة داخلية</option>
+                        </select>
+                        {slideDestType === 'external' && (
+                          <input
+                            type="text"
+                            placeholder="https://..."
+                            value={slideExtUrl}
+                            onChange={(e) => setSlideDestinationPayload(placement, item.key, () => ({ external: { url: e.target.value } }))}
+                            data-testid={`ad-slide-dest-url-${idx}`}
+                            style={slideFieldStyle}
+                          />
+                        )}
+                        {slideDestType === 'whatsapp' && (
+                          <>
+                            <input
+                              type="text"
+                              placeholder="رقم واتساب"
+                              value={slideWaNumber}
+                              onChange={(e) => setSlideDestinationPayload(placement, item.key, (d) => ({
+                                whatsapp: { number: e.target.value, message: (d.whatsapp as { message?: string } | undefined)?.message ?? '' },
+                              }))}
+                              data-testid={`ad-slide-dest-wa-number-${idx}`}
+                              style={slideFieldStyle}
+                            />
+                            <input
+                              type="text"
+                              placeholder="رسالة مبدئية (اختياري)"
+                              value={slideWaMessage}
+                              onChange={(e) => setSlideDestinationPayload(placement, item.key, (d) => ({
+                                whatsapp: { number: (d.whatsapp as { number?: string } | undefined)?.number ?? '', message: e.target.value },
+                              }))}
+                              data-testid={`ad-slide-dest-wa-message-${idx}`}
+                              style={slideFieldStyle}
+                            />
+                          </>
+                        )}
+                        {slideDestType === 'internal' && (
+                          <>
+                            <select
+                              aria-label={`الشاشة الداخلية للشريحة ${idx + 1}`}
+                              value={slideInternalScreen}
+                              onChange={(e) => {
+                                const screen = e.target.value;
+                                setSlideDestinationPayload(placement, item.key, (d) => ({
+                                  internal: {
+                                    screen,
+                                    params: screen === 'phone-details' ? { device: (d.internal as { params?: Record<string, string> } | undefined)?.params?.device ?? '' } : {},
+                                  },
+                                }));
+                              }}
+                              data-testid={`ad-slide-dest-screen-${idx}`}
+                              style={slideFieldStyle}
+                            >
+                              <option value="">— الشاشة —</option>
+                              {INTERNAL_AD_ALLOWLIST.map((screen) => (
+                                <option key={screen} value={screen}>{INTERNAL_SCREEN_LABELS[screen]}</option>
+                              ))}
+                            </select>
+                            {slideInternalScreen === 'phone-details' && (
+                              <select
+                                aria-label={`هاتف وجهة الشريحة ${idx + 1}`}
+                                value={slideInternalDevice}
+                                onChange={(e) => setSlideDestinationPayload(placement, item.key, (d) => ({
+                                  internal: {
+                                    screen: (d.internal as { screen?: string } | undefined)?.screen ?? 'phone-details',
+                                    params: { device: e.target.value },
+                                  },
+                                }))}
+                                data-testid={`ad-slide-dest-device-${idx}`}
+                                style={slideFieldStyle}
+                              >
+                                <option value="">— اختر الهاتف —</option>
+                                {devices.map((d) => (
+                                  <option key={d.id} value={d.id}>
+                                    {`${d.brand} ${d.model} ${d.variant ?? ''}`.trim()}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div style={{ color: '#666', fontSize: '0.75rem', marginBottom: '8px' }}>

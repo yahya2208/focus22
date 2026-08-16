@@ -4,14 +4,15 @@ import {
   getAd,
   subscribeAds,
   type AdConfig,
+  type AdImage,
   type AdPlacement,
 } from '../../services/ads-service';
 import { AdSpot } from '../ads/AdSpot';
 import { AdBanner, type AdBannerStatus } from '../ads/AdBanner';
 import { recordIntent } from '../../services/intent-tracking';
 import { useWhatsApp } from '../../providers/WhatsAppProvider';
-import { useNavigate } from '../../store/navigation';
-import { resolveDestination } from '../../services/ad-destination-resolver';
+import { useNavigate, type ScreenName } from '../../store/navigation';
+import { resolveDestination, resolveSlideDestination } from '../../services/ad-destination-resolver';
 import { openExternalUrl } from '../../services/ad-adapters/external';
 import { openWhatsApp } from '../../services/whatsapp-service';
 
@@ -72,17 +73,65 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
   // logic in the ExternalDestinationAdapter (Step 4), the whatsapp logic in the
   // WhatsAppDestinationAdapter (Step 5) and the internal logic in the
   // InternalDestinationAdapter (Step 6) — all behavior-preserving.
-  const adapter = useMemo(
-    () =>
-      resolveDestination(ad ?? EMPTY_AD, {
-        placement,
-        navigateToDetails: (deviceId) => navigate.push('phone-details', { device: deviceId }),
-        whatsappSend: (message, context) => whatsapp.send(message, context),
-        openInNewTab: openExternalUrl,
-        openChat: openWhatsApp,
-        navigateTo: (screen, params) => navigate.push(screen, params),
-      }),
-    [ad, placement, navigate, whatsapp],
+  const deps = useMemo(
+    () => ({
+      placement,
+      navigateToDetails: (deviceId: string) => navigate.push('phone-details', { device: deviceId }),
+      whatsappSend: (message: string, context: { action: 'inquiry'; deviceId: string }) =>
+        whatsapp.send(message, context),
+      openInNewTab: openExternalUrl,
+      openChat: openWhatsApp,
+      navigateTo: (screen: ScreenName, params?: Record<string, string>) => navigate.push(screen, params),
+    }),
+    [placement, navigate, whatsapp],
+  );
+
+  // PHASE 4E (00024) — single-image destination. An ad with exactly ONE image
+  // resolves through the SAME per-image resolver the carousel uses
+  // (resolveSlideDestination): a single image carrying its own destination
+  // (destination_type + destination) wins; NULL/NULL (or a defensive 'phone')
+  // falls back to the ad-level destination — so legacy single-image phone ads
+  // behave EXACTLY as before. Multi-image ads keep the ad-level container
+  // adapter (4D) — only the slides dispatch.
+  const singleImage = useMemo(() => (ad && ad.images.length === 1 ? ad.images[0] : null), [ad]);
+  const adapter = useMemo(() => {
+    if (singleImage && ad) return resolveSlideDestination(ad, singleImage, deps);
+    return resolveDestination(ad ?? EMPTY_AD, deps);
+  }, [ad, singleImage, deps]);
+
+  // 00024 — a single-image phone ad is interactive when the single image's
+  // device (or the ad-level device fallback) resolves in the inventory.
+  const singleImagePhone = adapter.type === 'phone' && singleImage != null && adapter.canOpenDetails(singleImage);
+
+  // PHASE 4B (00024) — per-slide destination dispatch. Each carousel slide
+  // resolves its OWN destination adapter:
+  //   - the slide carries destination_type ∈ {external, whatsapp, internal} →
+  //     the slide's own target (its payload, never the legacy phone link).
+  //   - NULL/NULL (or a defensive 'phone') on the slide → inherit the ad-level
+  //     destination; the phone adapter still drives per-slide device_id via
+  //     ad.images, so inherited slides keep the existing carousel behavior.
+  // Each slide resolves to exactly ONE adapter, so a slide never double-tracks
+  // and never becomes a dead target.
+  const resolveSlide = useCallback(
+    (image: AdImage) => resolveSlideDestination(ad ?? EMPTY_AD, image, deps),
+    [ad, deps],
+  );
+
+  const handleSlideAction = useCallback(
+    (image: AdImage) => resolveSlide(image).callToAction(image),
+    [resolveSlide],
+  );
+  const canSlideAction = useCallback(
+    (image: AdImage) => resolveSlide(image).canCallToAction(image),
+    [resolveSlide],
+  );
+  const handleSlideDetails = useCallback(
+    (image: AdImage) => resolveSlide(image).openDetails(image),
+    [resolveSlide],
+  );
+  const canSlideDetails = useCallback(
+    (image: AdImage) => resolveSlide(image).canOpenDetails(image),
+    [resolveSlide],
   );
 
   const deviceId = adapter.type === 'phone' ? (adapter.deviceId ?? undefined) : undefined;
@@ -197,8 +246,8 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
                 images={ad.images}
                 alt={ad.alt || placement}
                 onStateChange={handleStateChange}
-                onSlideAction={adapter.callToAction}
-                canSlideAction={adapter.canCallToAction}
+                onSlideAction={handleSlideAction}
+                canSlideAction={canSlideAction}
               />
             </div>
             {ad.images.length <= 1 && (
@@ -240,8 +289,8 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
                 images={ad.images}
                 alt={ad.alt || placement}
                 onStateChange={handleStateChange}
-                onSlideAction={adapter.callToAction}
-                canSlideAction={adapter.canCallToAction}
+                onSlideAction={handleSlideAction}
+                canSlideAction={canSlideAction}
               />
             </div>
             {ad.images.length <= 1 && (
@@ -268,17 +317,18 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
             <AdBanner image={ad.image} images={ad.images} alt={ad.alt || placement} onStateChange={handleStateChange} />
           </div>
         )
-      ) : adapter.type === 'phone' && (adapter.hasSlideDevices || adapter.isContact || adapter.isUnresolvedPhoneLink) ? (
+      ) : adapter.type === 'phone' &&
+        (adapter.hasSlideDevices || adapter.isContact || adapter.isUnresolvedPhoneLink || singleImagePhone) ? (
         <div role="banner" aria-label={ad.alt || placement}>
           <AdBanner
             image={ad.image}
             images={ad.images}
             alt={ad.alt || placement}
             onStateChange={handleStateChange}
-            onSlideAction={adapter.callToAction}
-            canSlideAction={adapter.canCallToAction}
-            onSlideDetails={adapter.openDetails}
-            canSlideDetails={adapter.canOpenDetails}
+            onSlideAction={handleSlideAction}
+            canSlideAction={canSlideAction}
+            onSlideDetails={handleSlideDetails}
+            canSlideDetails={canSlideDetails}
           />
         </div>
       ) : (
@@ -289,13 +339,13 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
           page, the small corner button is the ONLY WhatsApp surface. Multi-frame
           ads let the carousel own the interaction, so NO full-frame overlay ever
           covers the slides/thumbnails. The main image NEVER converts directly. */}
-      {ad.images.length <= 1 && adapter.type === 'phone' && adapter.isContact ? (
+      {ad.images.length <= 1 && adapter.type === 'phone' && (adapter.isContact || singleImagePhone) ? (
         <>
           <button
             type="button"
             data-testid="ad-contact-details"
             aria-label={`${ad.alt || placement} — عرض التفاصيل`}
-            onClick={() => adapter.openDetails()}
+            onClick={() => adapter.openDetails(singleImage ?? undefined)}
             style={{
               position: 'absolute',
               inset: 0,
@@ -311,7 +361,7 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
             type="button"
             data-testid="ad-contact-cta"
             aria-label={`${ad.alt || placement} — فتح المحادثة`}
-            onClick={() => adapter.callToAction()}
+            onClick={() => adapter.callToAction(singleImage ?? undefined)}
             style={{
               position: 'absolute',
               insetInlineEnd: '0.6rem',
