@@ -8,10 +8,11 @@
 -- Goal:
 --   1) Confirm the three catalog tables are ABSENT (additivity proof).
 --   2) Confirm preconditions (admin present, gen_random_uuid, users.id=uuid).
---   3) ** RAW inventory_items COUNT check (not v_public_inventory). **
---      Per owner mandate: actual COUNT(*) must be 7. If it is NOT 7, this
+--   3) ** RAW inventory_items snapshot check (not v_public_inventory). **
+--      Protected by an OWNER-APPROVED, APPROVAL-TIME baseline: row count +
+--      content fingerprint. If count or fingerprint differ from baseline, this
 --      script RAISES an exception -> STOP, log the drift, do NOT apply GATE 1.
---      No row is modified. The assertion is never relaxed.
+--      No row is modified. This is NOT a permanent inventory-count invariant.
 -- ============================================================================
 
 -- 0) Context sanity
@@ -37,26 +38,36 @@ FROM information_schema.columns
 WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'id'
   AND data_type <> 'uuid';
 
--- 3) RAW inventory_items count (fail-closed on drift)
+-- 3) RAW inventory_items snapshot check (fail-closed on drift)
+--    Approval-time baseline (owner-confirmed on fmggysdqigtejxbfpgtg):
+--      count = 17 | content fingerprint = 1c5d9b8a117a93f03335e7296abddec1
+--    Baseline snapshot, NOT a permanent count invariant.
 DO $$
 DECLARE
   n_inventory bigint;
+  v_inv_fp text;
   v_db text;
   v_role text;
 BEGIN
   SELECT current_database(), current_user INTO v_db, v_role;
 
   -- This table MUST exist (it was applied in Phase 2C). Read-only.
-  SELECT count(*) INTO n_inventory FROM public.inventory_items;
+  SELECT count(*), md5(string_agg(
+      id::text || '|' || coalesce(source_key,'') || '|' || coalesce(model_id,'')
+        || '|' || coalesce(quantity,0)::text || '|' || coalesce(status,'')
+        || '|' || coalesce(is_published,false)::text,
+      ',' ORDER BY id))
+  INTO n_inventory, v_inv_fp
+  FROM public.inventory_items;
 
-  RAISE NOTICE 'PRE-FLIGHT: role=%, db=% , raw inventory_items COUNT(*) = % (expected 7)',
+  RAISE NOTICE 'PRE-FLIGHT: role=%, db=% , raw inventory_items COUNT(*) = % (expected 17)',
     v_role, v_db, n_inventory;
 
-  IF n_inventory <> 7 THEN
-    RAISE EXCEPTION 'PRE-FLIGHT FAIL: raw inventory_items COUNT(*) = % <> 7. STOP — log the drift, do NOT apply GATE 1. Assertion is never relaxed.', n_inventory;
+  IF n_inventory <> 17 OR v_inv_fp <> '1c5d9b8a117a93f03335e7296abddec1' THEN
+    RAISE EXCEPTION 'PRE-FLIGHT FAIL: inventory drift count=% fp=% (expected count=17 fp=1c5d9b8a117a93f03335e7296abddec1). STOP — log the drift, do NOT apply GATE 1. Baseline is an approval-time snapshot; re-approve before retry.', n_inventory, v_inv_fp;
   END IF;
 
-  RAISE NOTICE 'PRE-FLIGHT PASS: inventory_items = % , catalog tables absent confirmed, prerequisites met.', n_inventory;
+  RAISE NOTICE 'PRE-FLIGHT PASS: inventory snapshot unchanged (count=%, fp=%), catalog tables absent confirmed, prerequisites met.', n_inventory, v_inv_fp;
 END $$;
 
 -- ============================================================================

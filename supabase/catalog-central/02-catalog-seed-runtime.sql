@@ -6,7 +6,7 @@
 --               model ids = modelIdFor + MODEL_ID_OVERRIDES | variant ids = variantIdFor (FNV-1a base-36)
 --               status='known' | source_type='RUNTIME_CATALOG' | verified_at=NULL | region NULL
 -- Invariants  : 866 models | 1816 variants | 1816 distinct variant ids | 866 distinct model ids
---               75 x storage_gb=1024 | 0 collisions | inventory_items count=7 before AND after
+--               75 x storage_gb=1024 | 0 collisions | inventory_items protected by approval-time baseline (count + content fingerprint) before AND after
 -- Design      : fail-closed. NO ON CONFLICT, NO DO NOTHING. Any deviation -> RAISE EXCEPTION -> rollback
 -- Contract    : requires catalog_models.series (text) and catalog_models.release_year (integer)
 --               to preserve faithful import (GATE 1 schema must include them)
@@ -2773,13 +2773,23 @@ BEGIN
   END IF;
 END $$;
 
--- [4] INVENTORY UNTOUCHED -- pre-count (read-only, fail-closed)
+-- [4] INVENTORY UNTOUCHED -- pre-seed baseline (read-only, fail-closed)
+--      Approval-time baseline: count = 17 | content fingerprint = 1c5d9b8a117a93f03335e7296abddec1.
+--      Baseline snapshot, NOT a permanent count invariant.
 DO $$
-DECLARE n_inventory integer;
+DECLARE
+  n_inventory bigint;
+  v_inv_fp text;
 BEGIN
-  SELECT count(*) INTO n_inventory FROM public.inventory_items;
-  IF n_inventory <> 7 THEN
-    RAISE EXCEPTION 'GATE2 FAIL: inventory_items count before seed = % <> 7', n_inventory;
+  SELECT count(*), md5(string_agg(
+      id::text || '|' || coalesce(source_key,'') || '|' || coalesce(model_id,'')
+        || '|' || coalesce(quantity,0)::text || '|' || coalesce(status,'')
+        || '|' || coalesce(is_published,false)::text,
+      ',' ORDER BY id))
+  INTO n_inventory, v_inv_fp
+  FROM public.inventory_items;
+  IF n_inventory <> 17 OR v_inv_fp <> '1c5d9b8a117a93f03335e7296abddec1' THEN
+    RAISE EXCEPTION 'GATE2 FAIL: inventory drift before seed count=% fp=% (expected count=17 fp=1c5d9b8a117a93f03335e7296abddec1)', n_inventory, v_inv_fp;
   END IF;
 END $$;
 
@@ -2797,12 +2807,20 @@ JOIN public.catalog_models cm ON cm.canonical_id = s.model_canonical_id;
 -- [7] FINAL FAIL-CLOSED ASSERTIONS (any mismatch -> transaction aborts, full rollback)
 DO $$
 DECLARE
-  n_models integer; d_models integer; n_variants integer; d_variants integer; s1024 integer; n_inventory integer;
+  n_models integer; d_models integer; n_variants integer; d_variants integer; s1024 integer;
+  n_inventory bigint; v_inv_fp text;
 BEGIN
   SELECT count(*), count(DISTINCT canonical_id) INTO n_models, d_models FROM public.catalog_models;
   SELECT count(*), count(DISTINCT canonical_variant_id) INTO n_variants, d_variants FROM public.catalog_variants;
   SELECT count(*) INTO s1024 FROM public.catalog_variants WHERE storage_gb = 1024;
-  SELECT count(*) INTO n_inventory FROM public.inventory_items;
+  -- Approval-time inventory baseline (post-seed guard proves seed did NOT modify inventory).
+  SELECT count(*), md5(string_agg(
+      id::text || '|' || coalesce(source_key,'') || '|' || coalesce(model_id,'')
+        || '|' || coalesce(quantity,0)::text || '|' || coalesce(status,'')
+        || '|' || coalesce(is_published,false)::text,
+      ',' ORDER BY id))
+  INTO n_inventory, v_inv_fp
+  FROM public.inventory_items;
   IF n_models <> 866 THEN RAISE EXCEPTION 'GATE2 FAIL: models % <> 866', n_models; END IF;
   IF d_models <> 866 THEN RAISE EXCEPTION 'GATE2 FAIL: distinct model ids % <> 866', d_models; END IF;
   IF n_variants <> 1816 THEN RAISE EXCEPTION 'GATE2 FAIL: variants % <> 1816', n_variants; END IF;
@@ -2814,7 +2832,9 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.catalog_models GROUP BY brand_id, name HAVING count(*) > 1) THEN
     RAISE EXCEPTION 'GATE2 FAIL: duplicate (brand_id, name) in target';
   END IF;
-  IF n_inventory <> 7 THEN RAISE EXCEPTION 'GATE2 FAIL: inventory_items count after seed = % <> 7', n_inventory; END IF;
+  IF n_inventory <> 17 OR v_inv_fp <> '1c5d9b8a117a93f03335e7296abddec1' THEN
+    RAISE EXCEPTION 'GATE2 FAIL: inventory changed by seed count=% fp=% (expected count=17 fp=1c5d9b8a117a93f03335e7296abddec1)', n_inventory, v_inv_fp;
+  END IF;
   RAISE NOTICE 'GATE2 PASS: models=% variants=% distinct_model_ids=% distinct_variant_ids=% storage_1024=% inventory=%',
     n_models, n_variants, d_models, d_variants, s1024, n_inventory;
 END $$;

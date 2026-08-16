@@ -7,7 +7,7 @@
 --   * 3 tables exist
 --   * catalog_models.series (text) + release_year (integer) exist
 --   * all intended constraints / indexes / RLS / RPCs exist
---   * inventory_items NOT modified (raw count = 7)
+--   * inventory_items NOT modified (approval-time baseline: count + content fingerprint)
 --   * NO seed (catalog tables empty) / NO GATE 3 / NO GATE 4
 -- ============================================================================
 
@@ -178,15 +178,22 @@ BEGIN
   RAISE NOTICE '08_no_seed PASS (catalog tables empty)';
 END $$;
 
--- 9) Inventory NOT modified (raw count must still be 7 per owner mandate)
+-- 9) Inventory NOT modified (approval-time baseline: count + content fingerprint)
 DO $$
 DECLARE
   n_inventory bigint;
+  v_inv_fp text;
 BEGIN
-  SELECT count(*) INTO n_inventory FROM public.inventory_items;
-  RAISE NOTICE '09_inventory raw COUNT(*) = % (expected 7)', n_inventory;
-  IF n_inventory <> 7 THEN
-    RAISE EXCEPTION 'GATE1 VERIFY FAIL: inventory_items raw count = % <> 7 (inventory must NOT be modified; log drift, stop)', n_inventory;
+  SELECT count(*), md5(string_agg(
+      id::text || '|' || coalesce(source_key,'') || '|' || coalesce(model_id,'')
+        || '|' || coalesce(quantity,0)::text || '|' || coalesce(status,'')
+        || '|' || coalesce(is_published,false)::text,
+      ',' ORDER BY id))
+  INTO n_inventory, v_inv_fp
+  FROM public.inventory_items;
+  RAISE NOTICE '09_inventory raw COUNT(*) = % fp=% (expected count=17 fp=1c5d9b8a117a93f03335e7296abddec1)', n_inventory, v_inv_fp;
+  IF n_inventory <> 17 OR v_inv_fp <> '1c5d9b8a117a93f03335e7296abddec1' THEN
+    RAISE EXCEPTION 'GATE1 VERIFY FAIL: inventory drift count=% fp=% (inventory must NOT be modified; log drift, stop)', n_inventory, v_inv_fp;
   END IF;
 END $$;
 

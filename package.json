@@ -13,7 +13,12 @@
     "seed:catalog": "pnpm tsx src/database/seed-catalog.ts",
     "seed:catalog:force": "pnpm tsx src/database/seed-catalog.ts --force",
     "verify:catalog": "pnpm tsx src/database/verify-catalog.ts",
-    "audit:golden": "pnpm tsx src/database/golden-audit.ts"
+    "audit:golden": "pnpm tsx src/database/golden-audit.ts",
+    "catalog:generate": "pnpm tsx scripts/catalog-p1-generate.ts",
+    "catalog:generate:dry": "pnpm tsx scripts/catalog-p1-generate.ts --dry-run",
+    "catalog:generate:json": "pnpm tsx scripts/catalog-p1-generate.ts --from-json",
+    "catalog:validate": "pnpm tsx scripts/catalog-p1-validate.ts",
+    "catalog:reconcile": "pnpm tsx scripts/catalog-p1-reconcile.ts --from-json"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.6",
