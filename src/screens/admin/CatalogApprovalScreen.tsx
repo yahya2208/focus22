@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { getSupabaseClient } from '../../core/supabase/client';
+import { CatalogSearchBar, EMPTY_FILTERS, PAGE_SIZE, type CatalogFilters } from './CatalogSearchBar';
 
 // ─── DB Row Type ─────────────────────────────────────────────────────────────
 
@@ -9,8 +10,11 @@ interface CatalogModelRow {
   canonical_id: string;
   brand_id: string;
   name: string;
+  series: string | null;
+  release_year: number | null;
   status: string;
   approval_status: string;
+  variant_count: number;
   updated_at: string;
 }
 
@@ -39,69 +43,38 @@ function StatusBadge({ status, colors }: { status: string; colors: ReturnType<ty
   return <span style={{ ...style, background: colors.bgInput, color: colors.textMuted }}>{status}</span>;
 }
 
-// ─── Filter Button ───────────────────────────────────────────────────────────
-
-function FilterButton({ label, active, count, colors, onClick }: {
-  label: string;
-  active: boolean;
-  count: number;
-  colors: ReturnType<typeof useThemeColors>;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: '0.4rem 0.75rem',
-        borderRadius: '8px',
-        border: `1px solid ${active ? colors.accent : colors.border}`,
-        background: active ? `${colors.accent}22` : 'transparent',
-        color: active ? colors.accent : colors.textMuted,
-        cursor: 'pointer',
-        fontWeight: active ? 700 : 500,
-        fontSize: '0.8rem',
-        fontFamily: 'inherit',
-        transition: 'all 0.15s ease',
-      }}
-    >
-      {label} ({count})
-    </button>
-  );
-}
-
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function CatalogApprovalScreen() {
   const colors = useThemeColors();
   const [models, setModels] = useState<CatalogModelRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'draft' | 'approved' | 'rejected'>('draft');
   const [actingOn, setActingOn] = useState<string | null>(null);
+  const [filters, setFilters] = useState<CatalogFilters>(EMPTY_FILTERS);
 
-  const supabase = useMemo(() => getSupabaseClient(), []);
+  const supabase = getSupabaseClient();
 
-  const loadModels = useCallback(async () => {
+  const loadModels = useCallback(async (f: CatalogFilters) => {
     setLoading(true);
     setError(null);
     try {
-      const PAGE_SIZE = 1000;
-      let allModels: CatalogModelRow[] = [];
-      let from = 0;
-      for (;;) {
-        const { data, error: fetchErr } = await supabase
-          .from('catalog_models')
-          .select('id, canonical_id, brand_id, name, status, approval_status, updated_at')
-          .order('brand_id', { ascending: true })
-          .order('name', { ascending: true })
-          .range(from, from + PAGE_SIZE - 1);
-        if (fetchErr) throw new Error(fetchErr.message);
-        allModels = allModels.concat(data ?? []);
-        if ((data ?? []).length < PAGE_SIZE) break;
-        from += PAGE_SIZE;
-      }
-      setModels(allModels);
+      const offset = (f.page - 1) * PAGE_SIZE;
+      const { data, error: rpcErr, count } = await supabase.rpc('catalog_admin_list_models', {
+        p_search: f.search || null,
+        p_brand: f.brand || null,
+        p_approval: f.approval || null,
+        p_has_variants: f.has_variants,
+        p_limit: PAGE_SIZE,
+        p_offset: offset,
+        p_order_by: 'brand_id',
+        p_order_asc: true,
+      });
+      if (rpcErr) throw new Error(rpcErr.message);
+      setModels(data ?? []);
+      setTotalCount(count ?? 0);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -110,8 +83,12 @@ export function CatalogApprovalScreen() {
   }, [supabase]);
 
   useEffect(() => {
-    loadModels();
-  }, [loadModels]);
+    loadModels(filters);
+  }, [filters, loadModels]);
+
+  const handleFilterChange = useCallback((partial: Partial<CatalogFilters>) => {
+    setFilters((prev) => ({ ...prev, ...partial }));
+  }, []);
 
   const handleApprove = useCallback(async (model: CatalogModelRow) => {
     setActingOn(model.id);
@@ -125,13 +102,13 @@ export function CatalogApprovalScreen() {
       });
       if (rpcErr) throw new Error(rpcErr.message);
       setSuccess(`Approved: ${model.name}`);
-      await loadModels();
+      await loadModels(filters);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setActingOn(null);
     }
-  }, [supabase, loadModels]);
+  }, [supabase, loadModels, filters]);
 
   const handleReject = useCallback(async (model: CatalogModelRow) => {
     setActingOn(model.id);
@@ -145,25 +122,13 @@ export function CatalogApprovalScreen() {
       });
       if (rpcErr) throw new Error(rpcErr.message);
       setSuccess(`Rejected: ${model.name}`);
-      await loadModels();
+      await loadModels(filters);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setActingOn(null);
     }
-  }, [supabase, loadModels]);
-
-  const filtered = useMemo(
-    () => filter === 'all' ? models : models.filter(m => m.approval_status === filter),
-    [models, filter],
-  );
-
-  const stats = useMemo(() => ({
-    total: models.length,
-    draft: models.filter(m => m.approval_status === 'draft').length,
-    approved: models.filter(m => m.approval_status === 'approved').length,
-    rejected: models.filter(m => m.approval_status === 'rejected').length,
-  }), [models]);
+  }, [supabase, loadModels, filters]);
 
   return (
     <nav
@@ -183,7 +148,7 @@ export function CatalogApprovalScreen() {
           Catalog Approval
         </h1>
         <button
-          onClick={loadModels}
+          onClick={() => loadModels(filters)}
           disabled={loading}
           style={{
             padding: '0.35rem 0.75rem',
@@ -200,45 +165,13 @@ export function CatalogApprovalScreen() {
         </button>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <div style={{
-          padding: '0.5rem 0.75rem', borderRadius: '8px',
-          background: colors.bgCard, border: `1px solid ${colors.borderLight}`,
-          fontSize: '0.8rem', color: colors.textSecondary,
-        }}>
-          Total: <strong style={{ color: colors.text }}>{stats.total}</strong>
-        </div>
-        <div style={{
-          padding: '0.5rem 0.75rem', borderRadius: '8px',
-          background: colors.warningBg, border: `1px solid ${colors.warning}33`,
-          fontSize: '0.8rem', color: colors.warningText,
-        }}>
-          Draft: <strong>{stats.draft}</strong>
-        </div>
-        <div style={{
-          padding: '0.5rem 0.75rem', borderRadius: '8px',
-          background: colors.successBg, border: `1px solid ${colors.success}33`,
-          fontSize: '0.8rem', color: colors.successText,
-        }}>
-          Approved: <strong>{stats.approved}</strong>
-        </div>
-        <div style={{
-          padding: '0.5rem 0.75rem', borderRadius: '8px',
-          background: colors.dangerBg, border: `1px solid ${colors.danger}33`,
-          fontSize: '0.8rem', color: colors.dangerText,
-        }}>
-          Rejected: <strong>{stats.rejected}</strong>
-        </div>
-      </div>
-
-      {/* Filter */}
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <FilterButton label="All" active={filter === 'all'} count={stats.total} colors={colors} onClick={() => setFilter('all')} />
-        <FilterButton label="Draft" active={filter === 'draft'} count={stats.draft} colors={colors} onClick={() => setFilter('draft')} />
-        <FilterButton label="Approved" active={filter === 'approved'} count={stats.approved} colors={colors} onClick={() => setFilter('approved')} />
-        <FilterButton label="Rejected" active={filter === 'rejected'} count={stats.rejected} colors={colors} onClick={() => setFilter('rejected')} />
-      </div>
+      {/* Search + Filters + Pagination */}
+      <CatalogSearchBar
+        filters={filters}
+        total={totalCount}
+        loading={loading}
+        onChange={handleFilterChange}
+      />
 
       {/* Messages */}
       {error && (
@@ -265,13 +198,13 @@ export function CatalogApprovalScreen() {
         <div style={{ textAlign: 'center', color: colors.textMuted, padding: '2rem' }}>
           Loading catalog models...
         </div>
-      ) : filtered.length === 0 ? (
+      ) : models.length === 0 ? (
         <div style={{ textAlign: 'center', color: colors.textMuted, padding: '2rem' }}>
-          No models match the current filter.
+          No models match the current filters.
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {filtered.map(model => (
+          {models.map(model => (
             <div
               key={model.id}
               style={{
@@ -294,6 +227,7 @@ export function CatalogApprovalScreen() {
                 </div>
                 <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>
                   {model.brand_id} &middot; {model.status}
+                  {model.variant_count > 0 && ` \u00b7 ${model.variant_count} variants`}
                 </div>
               </div>
 
