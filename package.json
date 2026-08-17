@@ -17,8 +17,11 @@
     "catalog:generate": "pnpm tsx scripts/catalog-p1-generate.ts",
     "catalog:generate:dry": "pnpm tsx scripts/catalog-p1-generate.ts --dry-run",
     "catalog:generate:json": "pnpm tsx scripts/catalog-p1-generate.ts --from-json",
+    "catalog:generate:snapshot": "pnpm tsx scripts/catalog-p1-generate.ts --snapshot",
     "catalog:validate": "pnpm tsx scripts/catalog-p1-validate.ts",
-    "catalog:reconcile": "pnpm tsx scripts/catalog-p1-reconcile.ts --from-json"
+    "catalog:validate:live": "pnpm tsx scripts/catalog-p1-validate.ts --live-db",
+    "catalog:reconcile": "pnpm tsx scripts/catalog-p1-reconcile.ts --from-json",
+    "catalog:reconcile:live": "pnpm tsx scripts/catalog-p1-reconcile.ts --live-db"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.6",

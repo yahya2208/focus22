@@ -41,7 +41,8 @@ export type ScreenName =
   | 'sticker-scan'
   | 'showroom'
   | 'phone-details'
-  | 'design-system-playground';
+  | 'design-system-playground'
+  | 'catalog-approval';
 
 export interface SessionRecord {
   readonly id: string;
@@ -146,6 +147,7 @@ export const ALL_SCREEN_NAMES: readonly ScreenName[] = [
   'showroom',
   'phone-details',
   'design-system-playground',
+  'catalog-approval',
 ];
 
 const SCREEN_NAMES: ReadonlySet<string> = new Set<ScreenName>(ALL_SCREEN_NAMES);

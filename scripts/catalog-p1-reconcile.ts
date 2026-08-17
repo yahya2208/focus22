@@ -28,6 +28,7 @@ const BRANDS_DIR = join(ROOT, 'src', 'catalog', 'brands');
 const args = process.argv.slice(2);
 const FROM_JSON = args.includes('--from-json');
 const VERBOSE = args.includes('--verbose');
+const LIVE_DB = args.includes('--live-db');
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -308,6 +309,94 @@ async function main() {
   }
   console.log();
 
+  // P2: Live DB approval reconciliation
+  const p2Issues: string[] = [];
+  if (LIVE_DB && !FROM_JSON) {
+    console.log('=== P2 APPROVAL RECONCILIATION (live DB) ===');
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        console.log('  Skipped — SUPABASE_URL and SUPABASE_ANON_KEY required for --live-db mode');
+      } else {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        // Read all models from DB with approval info
+        const PAGE_SIZE = 1000;
+        const dbModels = new Map<string, { name: string; approval_status: string; status: string }>();
+        let from = 0;
+        for (;;) {
+          const { data, error } = await supabase
+            .from('catalog_models')
+            .select('name, approval_status, status')
+            .range(from, from + PAGE_SIZE - 1);
+          if (error) throw new Error(error.message);
+          for (const row of data ?? []) {
+            dbModels.set(row.name, row);
+          }
+          if ((data ?? []).length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
+
+        // Build JSON model name set
+        const jsonModelNames = new Set<string>();
+        for (const b of jsonBrands) {
+          for (const m of b.models) {
+            jsonModelNames.add(m.model);
+          }
+        }
+
+        // Check: every model in JSON is approved in DB
+        const draftInJson: string[] = [];
+        const rejectedInJson: string[] = [];
+        const inactiveInJson: string[] = [];
+        for (const name of jsonModelNames) {
+          const dbRow = dbModels.get(name);
+          if (!dbRow) {
+            p2Issues.push(`JSON model "${name}" not found in DB`);
+            continue;
+          }
+          if (dbRow.approval_status === 'draft') draftInJson.push(name);
+          if (dbRow.approval_status === 'rejected') rejectedInJson.push(name);
+          if (dbRow.status !== 'active') inactiveInJson.push(`${name} (${dbRow.status})`);
+        }
+
+        console.log(`  JSON models:          ${jsonModelNames.size}`);
+        console.log(`  Draft in JSON:        ${draftInJson.length}`);
+        console.log(`  Rejected in JSON:     ${rejectedInJson.length}`);
+        console.log(`  Inactive in JSON:     ${inactiveInJson.length}`);
+        console.log(`  Identity mismatches:  ${p2Issues.length}`);
+
+        if (draftInJson.length > 0) {
+          console.log(`  WARNING: ${draftInJson.length} draft models found in published JSON`);
+          for (const n of draftInJson.slice(0, 5)) console.log(`    - ${n}`);
+          if (draftInJson.length > 5) console.log(`    ... and ${draftInJson.length - 5} more`);
+          p2Issues.push(`${draftInJson.length} draft models in published JSON`);
+        }
+        if (rejectedInJson.length > 0) {
+          console.log(`  WARNING: ${rejectedInJson.length} rejected models found in published JSON`);
+          for (const n of rejectedInJson.slice(0, 5)) console.log(`    - ${n}`);
+          p2Issues.push(`${rejectedInJson.length} rejected models in published JSON`);
+        }
+        if (inactiveInJson.length > 0) {
+          console.log(`  WARNING: ${inactiveInJson.length} inactive models found in published JSON`);
+          for (const n of inactiveInJson.slice(0, 5)) console.log(`    - ${n}`);
+          p2Issues.push(`${inactiveInJson.length} inactive models in published JSON`);
+        }
+
+        if (p2Issues.length === 0) {
+          console.log('  P2 RECONCILIATION: PASS — all JSON models are approved and active');
+        }
+      }
+    } catch (err) {
+      console.log(`  P2 reconciliation error: ${(err as Error).message}`);
+      p2Issues.push(`P2 reconciliation error: ${(err as Error).message}`);
+    }
+    console.log();
+  }
+
   if (VERBOSE) {
     if (report.models.dbOnly.length > 0) {
       console.log('--- DB-only models ---');
@@ -342,7 +431,8 @@ async function main() {
     report.models.jsonOnly.length > 0 ||
     report.models.metadataMismatch.length > 0 ||
     report.variants.dbOnly.length > 0 ||
-    report.variants.jsonOnly.length > 0;
+    report.variants.jsonOnly.length > 0 ||
+    p2Issues.length > 0;
 
   if (hasIssues) {
     console.log('RECONCILIATION: ISSUES FOUND');

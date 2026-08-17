@@ -39,6 +39,7 @@ const ROLE_PERMISSIONS: Record<ResearchRole, readonly RolePermission[]> = {
     { resource: 'overview', actions: ['read'] },
     { resource: 'scientific', actions: ['read', 'export'] },
     { resource: 'sticker', actions: ['read', 'write', 'export'] },
+    { resource: 'catalog', actions: ['read', 'write'] },
   ],
   analyst: [
     { resource: 'sessions', actions: ['read', 'export'] },

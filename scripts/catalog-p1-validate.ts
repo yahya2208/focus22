@@ -11,6 +11,7 @@
  *   4. Identity: existing IDs preserved, stable
  *   5. Determinism: repeated parse produces identical output
  *   6. Compatibility: all consumers can load the data
+ *   7. (P2) No draft models in output: every model in JSON must be approved in DB
  *
  * Exit code 0 = all gates pass, 1 = any gate fails.
  */
@@ -20,6 +21,9 @@ import { join } from 'node:path';
 
 const ROOT = process.cwd();
 const BRANDS_DIR = join(ROOT, 'src', 'catalog', 'brands');
+
+const args = process.argv.slice(2);
+const LIVE_DB = args.includes('--live-db');
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -380,9 +384,137 @@ function gateCompatibility(brands: CatalogBrand[]): GateResult {
   return { gate: '6. Compatibility', pass: checks.every(c => c.pass), checks };
 }
 
+// ─── Gate 7 (P2): No Draft Models in Output ─────────────────────────────────
+
+async function gateP2Approval(brands: CatalogBrand[]): Promise<GateResult> {
+  const checks: { name: string; pass: boolean; detail: string }[] = [];
+
+  if (!LIVE_DB) {
+    checks.push({
+      name: 'P2 approval verification',
+      pass: true,
+      detail: 'skipped (requires --live-db flag)',
+    });
+    return { gate: '7. P2 Approval', pass: true, checks };
+  }
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+
+    const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      checks.push({
+        name: 'P2 approval verification',
+        pass: false,
+        detail: 'SUPABASE_URL and SUPABASE_ANON_KEY required for --live-db mode',
+      });
+      return { gate: '7. P2 Approval', pass: false, checks };
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Collect all model names from JSON
+    const jsonModelNames: string[] = [];
+    for (const b of brands) {
+      for (const m of b.models) {
+        jsonModelNames.push(m.model);
+      }
+    }
+
+    if (jsonModelNames.length === 0) {
+      checks.push({
+        name: 'P2 approval verification',
+        pass: true,
+        detail: 'no models in JSON to verify',
+      });
+      return { gate: '7. P2 Approval', pass: true, checks };
+    }
+
+    // Query DB for all models and their approval status (paginated)
+    const PAGE_SIZE = 1000;
+    const dbModels = new Map<string, { name: string; approval_status: string; status: string }>();
+    let from = 0;
+    for (;;) {
+      const { data, error } = await supabase
+        .from('catalog_models')
+        .select('name, approval_status, status')
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) throw new Error(error.message);
+      for (const row of data ?? []) {
+        dbModels.set(row.name, row);
+      }
+      if ((data ?? []).length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+
+    // Check: every model in JSON exists in DB and is approved + active
+    const notApproved: string[] = [];
+    const notActive: string[] = [];
+    const notInDb: string[] = [];
+    const draftInDb: string[] = [];
+    let approvedCount = 0;
+
+    for (const name of jsonModelNames) {
+      const dbRow = dbModels.get(name);
+      if (!dbRow) {
+        notInDb.push(name);
+        continue;
+      }
+      if (dbRow.approval_status !== 'approved') {
+        notApproved.push(`${name} (${dbRow.approval_status})`);
+        if (dbRow.approval_status === 'draft') {
+          draftInDb.push(name);
+        }
+        continue;
+      }
+      if (dbRow.status !== 'active') {
+        notActive.push(`${name} (${dbRow.status})`);
+        continue;
+      }
+      approvedCount++;
+    }
+
+    checks.push({
+      name: 'P2: all JSON models exist in DB',
+      pass: notInDb.length === 0,
+      detail: notInDb.length === 0 ? `all ${jsonModelNames.length} found` : `${notInDb.length} missing: ${notInDb.slice(0, 5).join(', ')}`,
+    });
+
+    checks.push({
+      name: 'P2: all JSON models approved in DB',
+      pass: notApproved.length === 0,
+      detail: notApproved.length === 0 ? `all ${approvedCount} approved` : `${notApproved.length} not approved: ${notApproved.slice(0, 5).join(', ')}`,
+    });
+
+    checks.push({
+      name: 'P2: all JSON models active in DB',
+      pass: notActive.length === 0,
+      detail: notActive.length === 0 ? `all ${approvedCount} active` : `${notActive.length} not active: ${notActive.slice(0, 5).join(', ')}`,
+    });
+
+    // Check: no draft models in output
+    checks.push({
+      name: 'P2: no draft models in output',
+      pass: draftInDb.length === 0,
+      detail: draftInDb.length === 0 ? '0 draft models' : `${draftInDb.length} draft models in JSON: ${draftInDb.slice(0, 5).join(', ')}`,
+    });
+
+  } catch (err) {
+    checks.push({
+      name: 'P2 approval verification',
+      pass: false,
+      detail: `error: ${(err as Error).message}`,
+    });
+  }
+
+  return { gate: '7. P2 Approval', pass: checks.every(c => c.pass), checks };
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────────
 
-function main() {
+async function main() {
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║         FOCUS P1 — CATALOG VALIDATION GATES                 ║');
   console.log('╚══════════════════════════════════════════════════════════════╝');
@@ -410,7 +542,7 @@ function main() {
   console.log();
 
   // Run all gates
-  const gates: GateResult[] = [
+  const syncGates: GateResult[] = [
     gateSyntax(),
     gateStructure(brands),
     gateIntegrity(brands),
@@ -418,6 +550,9 @@ function main() {
     gateDeterminism(brands),
     gateCompatibility(brands),
   ];
+
+  const asyncGate = await gateP2Approval(brands);
+  const gates: GateResult[] = [...syncGates, asyncGate];
 
   let allPass = true;
   for (const gate of gates) {

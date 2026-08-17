@@ -58,6 +58,7 @@ const StickerAnalyticsScreen = lazy(() => import('./screens/stickers/StickerAnal
 const ShowroomScreen = lazy(() => import('./screens/showroom/ShowroomScreen').then(m => ({ default: m.ShowroomScreen })));
 const ProductDetailsScreen = lazy(() => import('./screens/showroom/ProductDetailsScreen').then(m => ({ default: m.ProductDetailsScreen })));
 const BusinessIntelligenceCenter = lazy(() => import('./business-intelligence/BusinessIntelligenceCenter').then(m => ({ default: m.BusinessIntelligenceCenter })));
+const CatalogApprovalScreen = lazy(() => import('./screens/admin/CatalogApprovalScreen').then(m => ({ default: m.CatalogApprovalScreen })));
 
 const screens: Record<ScreenName, React.ComponentType> = {
   home: HomeScreen,
@@ -98,6 +99,7 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'showroom': ShowroomScreen,
   'phone-details': ProductDetailsScreen,
   'design-system-playground': DesignSystemPlayground,
+  'catalog-approval': CatalogApprovalScreen,
 };
 
 function HtmlSync() {
@@ -240,6 +242,12 @@ function ScreenRouter() {
     content = (
       <ProtectedRoute requiredResource="sticker" requiredAction="write">
         <StickerStudioScreen />
+      </ProtectedRoute>
+    );
+  } else if (currentScreen === 'catalog-approval') {
+    content = (
+      <ProtectedRoute requiredResource="catalog" requiredAction="write">
+        <CatalogApprovalScreen />
       </ProtectedRoute>
     );
   } else if (currentScreen === 'repair-diagnostics') {

@@ -50,6 +50,7 @@ const DRY_RUN = args.includes('--dry-run');
 const FROM_JSON = args.includes('--from-json');
 const FORCE = args.includes('--force');
 const VERBOSE = args.includes('--verbose');
+const SNAPSHOT = args.includes('--snapshot');
 
 // ─── Types (matching src/catalog/types.ts exactly) ──────────────────────────────
 
@@ -135,6 +136,25 @@ async function readFromSupabase(): Promise<{ models: DbModelRow[]; variants: DbV
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
+
+  // P2: Try consistent snapshot RPC first (D5 — single-transaction read).
+  // Falls back to paginated two-query reads if the RPC is not deployed.
+  if (SNAPSHOT) {
+    try {
+      const { data, error } = await supabase.rpc('catalog_export_snapshot');
+      if (error) throw new Error(error.message);
+      if (data && data.models && data.variants) {
+        const models = data.models as DbModelRow[];
+        const variants = data.variants as DbVariantRow[];
+        console.log(`  Snapshot: ${models.length} models, ${variants.length} variants (consistent read)`);
+        return { models, variants };
+      }
+      throw new Error('Snapshot returned empty data');
+    } catch (err) {
+      console.log(`  Snapshot RPC unavailable or failed: ${(err as Error).message}`);
+      console.log('  Falling back to paginated reads...');
+    }
+  }
 
   // Read all models (paginated — Supabase caps a single request at 1000 rows)
   const models = await paginate<DbModelRow>(
@@ -554,6 +574,28 @@ async function main() {
     }
   }
   console.log();
+
+  // P2 LEGACY SAFETY: Empty output with non-empty current JSON
+  const newModelCount = generatedBrands.reduce((n, b) => n + b.models.length, 0);
+  if (newModelCount === 0 && currentModelCount > 0) {
+    console.log('╔══════════════════════════════════════════════════════════════╗');
+    console.log('║  WARNING: ZERO ELIGIBLE MODELS — EMPTY PUBLICATION        ║');
+    console.log('║                                                            ║');
+    console.log(`║  Current JSON has ${currentModelCount} models.                   ║`);
+    console.log('║  Generated output has 0 models.                            ║');
+    console.log('║                                                            ║');
+    console.log('║  This will REPLACE the runtime catalog with an empty       ║');
+    console.log('║  catalog. End users will see NO phone models.              ║');
+    console.log('║                                                            ║');
+    console.log('║  If this is intentional (no models approved yet), run      ║');
+    console.log('║  with --force to acknowledge the replacement.              ║');
+    console.log('╚══════════════════════════════════════════════════════════════╝');
+    console.log();
+    if (!FORCE) {
+      console.log('ABORTED: Run with --force to publish an empty catalog.');
+      process.exit(1);
+    }
+  }
 
   // Step 7: Write (unless dry-run)
   if (DRY_RUN) {
