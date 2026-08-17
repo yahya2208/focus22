@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useAppDispatch } from '../../store/navigation';
 import { getSupabaseClient } from '../../core/supabase/client';
 import { CatalogSearchBar, EMPTY_FILTERS, PAGE_SIZE, type CatalogFilters } from './CatalogSearchBar';
 import { CatalogModelCard, type CatalogModelRow } from './CatalogModelCard';
@@ -10,6 +11,7 @@ export type { CatalogModelRow };
 
 export function CatalogApprovalScreen() {
   const colors = useThemeColors();
+  const navDispatch = useAppDispatch();
   const [models, setModels] = useState<CatalogModelRow[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -126,9 +128,27 @@ export function CatalogApprovalScreen() {
     >
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: colors.text, margin: 0 }}>
-          Catalog Approval
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button
+            onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'settings' })}
+            aria-label="Back to Settings"
+            style={{
+              padding: '0.35rem 0.75rem',
+              borderRadius: '8px',
+              border: `1px solid ${colors.border}`,
+              background: colors.bgCard,
+              color: colors.textSecondary,
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+              fontFamily: 'inherit',
+            }}
+          >
+            ← Back
+          </button>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: colors.text, margin: 0 }}>
+            Catalog Approval
+          </h1>
+        </div>
         <button
           onClick={() => loadModels(filters)}
           disabled={loading}
