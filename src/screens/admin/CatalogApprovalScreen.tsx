@@ -4,6 +4,9 @@ import { useAppDispatch } from '../../store/navigation';
 import { getSupabaseClient } from '../../core/supabase/client';
 import { CatalogSearchBar, EMPTY_FILTERS, PAGE_SIZE, type CatalogFilters } from './CatalogSearchBar';
 import { CatalogModelCard, type CatalogModelRow } from './CatalogModelCard';
+import { CatalogModelForm } from './CatalogModelForm';
+import { CatalogVariantForm } from './CatalogVariantForm';
+import type { VariantRow } from './CatalogVariantPanel';
 
 export type { CatalogModelRow };
 
@@ -54,6 +57,8 @@ export function CatalogApprovalScreen() {
   const handleFilterChange = useCallback((partial: Partial<CatalogFilters>) => {
     setFilters((prev) => ({ ...prev, ...partial }));
   }, []);
+
+  // ─── Model Actions ───────────────────────────────────────────────────────
 
   const handleApprove = useCallback(async (model: CatalogModelRow) => {
     setActingOn(model.id);
@@ -114,6 +119,57 @@ export function CatalogApprovalScreen() {
     }
   }, [supabase, loadModels, filters]);
 
+  // ─── Form State ──────────────────────────────────────────────────────────
+
+  const [modelForm, setModelForm] = useState<{
+    mode: 'create' | 'edit';
+    initial?: CatalogModelRow;
+  } | null>(null);
+
+  const [variantForm, setVariantForm] = useState<{
+    mode: 'create' | 'edit';
+    modelCanonicalId: string;
+    modelId: string;
+    initial?: VariantRow;
+  } | null>(null);
+
+  const handleCreateModel = useCallback(() => {
+    setModelForm({ mode: 'create' });
+  }, []);
+
+  const handleEditModel = useCallback((model: CatalogModelRow) => {
+    setModelForm({ mode: 'edit', initial: model });
+  }, []);
+
+  const handleAddVariant = useCallback((model: CatalogModelRow) => {
+    setVariantForm({
+      mode: 'create',
+      modelCanonicalId: model.canonical_id,
+      modelId: model.id,
+    });
+  }, []);
+
+  const handleEditVariant = useCallback((model: CatalogModelRow, variant: VariantRow) => {
+    setVariantForm({
+      mode: 'edit',
+      modelCanonicalId: model.canonical_id,
+      modelId: model.id,
+      initial: variant,
+    });
+  }, []);
+
+  const handleModelFormSuccess = useCallback(async () => {
+    setModelForm(null);
+    setSuccess(modelForm?.mode === 'create' ? 'Model created.' : 'Model updated.');
+    await loadModels(filters);
+  }, [modelForm, loadModels, filters]);
+
+  const handleVariantFormSuccess = useCallback(async () => {
+    setVariantForm(null);
+    setSuccess(variantForm?.mode === 'create' ? 'Variant added.' : 'Variant updated.');
+    await loadModels(filters);
+  }, [variantForm, loadModels, filters]);
+
   return (
     <nav
       aria-label="Catalog Approval"
@@ -143,28 +199,46 @@ export function CatalogApprovalScreen() {
               fontFamily: 'inherit',
             }}
           >
-            ← Back
+            {'\u2190'} Back
           </button>
           <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: colors.text, margin: 0 }}>
             Catalog Approval
           </h1>
         </div>
-        <button
-          onClick={() => loadModels(filters)}
-          disabled={loading}
-          style={{
-            padding: '0.35rem 0.75rem',
-            borderRadius: '8px',
-            border: `1px solid ${colors.border}`,
-            background: colors.bgCard,
-            color: colors.textSecondary,
-            cursor: loading ? 'wait' : 'pointer',
-            fontSize: '0.8rem',
-            fontFamily: 'inherit',
-          }}
-        >
-          {loading ? 'Loading...' : 'Refresh'}
-        </button>
+        <div style={{ display: 'flex', gap: '0.4rem' }}>
+          <button
+            onClick={handleCreateModel}
+            style={{
+              padding: '0.35rem 0.75rem',
+              borderRadius: '8px',
+              border: `1px solid ${colors.accent}`,
+              background: `${colors.accent}22`,
+              color: colors.accent,
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              fontFamily: 'inherit',
+            }}
+          >
+            + Create Model
+          </button>
+          <button
+            onClick={() => loadModels(filters)}
+            disabled={loading}
+            style={{
+              padding: '0.35rem 0.75rem',
+              borderRadius: '8px',
+              border: `1px solid ${colors.border}`,
+              background: colors.bgCard,
+              color: colors.textSecondary,
+              cursor: loading ? 'wait' : 'pointer',
+              fontSize: '0.8rem',
+              fontFamily: 'inherit',
+            }}
+          >
+            {loading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {/* Search + Filters + Pagination */}
@@ -214,6 +288,9 @@ export function CatalogApprovalScreen() {
               onApprove={handleApprove}
               onReject={handleReject}
               onReopen={handleReopen}
+              onEditModel={handleEditModel}
+              onAddVariant={handleAddVariant}
+              onEditVariant={handleEditVariant}
             />
           ))}
         </div>
@@ -223,6 +300,28 @@ export function CatalogApprovalScreen() {
       <div style={{ fontSize: '0.7rem', color: colors.textFaint, textAlign: 'center', paddingTop: '0.5rem' }}>
         Only draft models can be approved. Rejected models must be reopened to draft first.
       </div>
+
+      {/* Model Form Modal */}
+      {modelForm && (
+        <CatalogModelForm
+          mode={modelForm.mode}
+          initial={modelForm.mode === 'edit' ? modelForm.initial : undefined}
+          onSuccess={handleModelFormSuccess}
+          onClose={() => setModelForm(null)}
+        />
+      )}
+
+      {/* Variant Form Modal */}
+      {variantForm && (
+        <CatalogVariantForm
+          mode={variantForm.mode}
+          modelCanonicalId={variantForm.modelCanonicalId}
+          modelId={variantForm.modelId}
+          initial={variantForm.mode === 'edit' ? variantForm.initial : undefined}
+          onSuccess={handleVariantFormSuccess}
+          onClose={() => setVariantForm(null)}
+        />
+      )}
     </nav>
   );
 }

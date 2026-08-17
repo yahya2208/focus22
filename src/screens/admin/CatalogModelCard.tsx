@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { getSupabaseClient } from '../../core/supabase/client';
-import { CatalogVariantPanel } from './CatalogVariantPanel';
+import { CatalogVariantPanel, type VariantRow } from './CatalogVariantPanel';
 import { CatalogHistoryPanel } from './CatalogHistoryPanel';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -46,12 +46,15 @@ function StatusBadge({ status, colors }: { status: string; colors: ReturnType<ty
 
 // ─── Model Card ──────────────────────────────────────────────────────────────
 
-export function CatalogModelCard({ model, actingOn, onApprove, onReject, onReopen }: {
+export function CatalogModelCard({ model, actingOn, onApprove, onReject, onReopen, onEditModel, onAddVariant, onEditVariant }: {
   model: CatalogModelRow;
   actingOn: string | null;
   onApprove: (m: CatalogModelRow) => void;
   onReject: (m: CatalogModelRow) => void;
   onReopen: (m: CatalogModelRow) => void;
+  onEditModel: (m: CatalogModelRow) => void;
+  onAddVariant: (m: CatalogModelRow) => void;
+  onEditVariant: (m: CatalogModelRow, v: VariantRow) => void;
 }) {
   const colors = useThemeColors();
   const [expanded, setExpanded] = useState(false);
@@ -102,6 +105,42 @@ export function CatalogModelCard({ model, actingOn, onApprove, onReject, onReope
         <StatusBadge status={model.approval_status} colors={colors} />
 
         <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onEditModel(model); }}
+            disabled={actingOn !== null}
+            aria-label={`Edit ${model.name}`}
+            style={{
+              padding: '0.35rem 0.75rem',
+              borderRadius: '8px',
+              border: `1px solid ${colors.accent}`,
+              background: `${colors.accent}22`,
+              color: colors.accent,
+              cursor: actingOn ? 'wait' : 'pointer',
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              fontFamily: 'inherit',
+            }}
+          >
+            Edit Model
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onAddVariant(model); }}
+            disabled={actingOn !== null}
+            aria-label={`Add Variant to ${model.name}`}
+            style={{
+              padding: '0.35rem 0.75rem',
+              borderRadius: '8px',
+              border: `1px solid ${colors.info}`,
+              background: colors.infoBg,
+              color: colors.infoText,
+              cursor: actingOn ? 'wait' : 'pointer',
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              fontFamily: 'inherit',
+            }}
+          >
+            Add Variant
+          </button>
           {model.approval_status === 'draft' && (
             <button
               onClick={(e) => { e.stopPropagation(); onApprove(model); }}
@@ -209,11 +248,14 @@ export function CatalogModelCard({ model, actingOn, onApprove, onReject, onReope
             <CatalogVariantPanel
               modelId={model.id}
               modelName={model.name}
+              modelCanonicalId={model.canonical_id}
               supabase={supabase}
+              onEditVariant={(v) => onEditVariant(model, v)}
+              onAddVariant={() => onAddVariant(model)}
             />
           ) : (
             <CatalogHistoryPanel
-              modelId={model.id}
+              canonicalId={model.canonical_id}
               modelName={model.name}
               supabase={supabase}
             />

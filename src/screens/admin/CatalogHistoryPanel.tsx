@@ -5,10 +5,11 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 
 interface HistoryEntry {
   id: string;
-  model_id: string;
   action: string;
-  user_id: string;
-  details: string | null;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  actor_user_id: string | null;
+  actor_email: string | null;
   created_at: string;
 }
 
@@ -36,13 +37,16 @@ function ActionBadge({ action, colors }: { action: string; colors: ReturnType<ty
   if (action === 'CREATE') {
     return <span style={{ ...style, background: `${colors.accent}22`, color: colors.accent }}>{action}</span>;
   }
+  if (action === 'UPDATE') {
+    return <span style={{ ...style, background: colors.infoBg, color: colors.infoText }}>{action}</span>;
+  }
   return <span style={{ ...style, background: colors.bgInput, color: colors.textMuted }}>{action}</span>;
 }
 
 // ─── History Panel ───────────────────────────────────────────────────────────
 
-export function CatalogHistoryPanel({ modelId, modelName, supabase }: {
-  modelId: string;
+export function CatalogHistoryPanel({ canonicalId, modelName, supabase }: {
+  canonicalId: string;
   modelName: string;
   supabase: ReturnType<typeof import('../../core/supabase/client').getSupabaseClient>;
 }) {
@@ -58,7 +62,7 @@ export function CatalogHistoryPanel({ modelId, modelName, supabase }: {
     setError(null);
     try {
       const { data, error: rpcErr } = await supabase.rpc('catalog_admin_get_model_history', {
-        p_model_id: modelId,
+        p_canonical_id: canonicalId,
         p_limit: LIMIT,
         p_offset: off,
       });
@@ -70,7 +74,7 @@ export function CatalogHistoryPanel({ modelId, modelName, supabase }: {
     } finally {
       setLoading(false);
     }
-  }, [supabase, modelId]);
+  }, [supabase, canonicalId]);
 
   useEffect(() => {
     loadHistory(0);
@@ -134,7 +138,7 @@ export function CatalogHistoryPanel({ modelId, modelName, supabase }: {
         >
           <ActionBadge action={entry.action} colors={colors} />
           <span style={{ flex: 1, color: colors.textMuted, fontSize: '0.75rem' }}>
-            {entry.details || 'No details'}
+            {entry.actor_email ?? entry.actor_user_id ?? 'Unknown'}
           </span>
           <span style={{ color: colors.textFaint, fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
             {formatTimestamp(entry.created_at)}
