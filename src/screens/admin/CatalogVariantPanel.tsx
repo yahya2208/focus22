@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { variantCompactLabel } from './catalog-utils';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -36,24 +37,9 @@ function VariantStatusBadge({ status, colors }: { status: string; colors: Return
     return <span style={{ ...style, background: `${colors.accent}22`, color: colors.accent }}>{status}</span>;
   }
   if (status === 'archived') {
-    return <span style={{ ...style, background: colors.bgInput, color: colors.textFaint }}>{status}</span>;
+    return <span style={{ ...style, background: colors.bgInput, color: colors.textMuted }}>{status}</span>;
   }
   return <span style={{ ...style, background: colors.warningBg, color: colors.warningText }}>{status}</span>;
-}
-
-// ─── Format ──────────────────────────────────────────────────────────────────
-
-function formatRam(ramMb: number): string {
-  const gb = ramMb / 1024;
-  return gb % 1 === 0 ? `${gb} GB` : `${gb} GB`;
-}
-
-function formatStorage(storageGb: number): string {
-  if (storageGb >= 1024) {
-    const tb = storageGb / 1024;
-    return tb % 1 === 0 ? `${tb} TB` : `${storageGb} GB`;
-  }
-  return `${storageGb} GB`;
 }
 
 // ─── Variant Panel ───────────────────────────────────────────────────────────
@@ -126,7 +112,7 @@ export function CatalogVariantPanel({ modelId, modelName, modelCanonicalId, supa
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', color: colors.textMuted, padding: '1rem', fontSize: '0.8rem' }}>
+      <div role="status" aria-live="polite" style={{ textAlign: 'center', color: colors.textMuted, padding: '1rem', fontSize: '0.8rem' }}>
         Loading variants...
       </div>
     );
@@ -134,7 +120,7 @@ export function CatalogVariantPanel({ modelId, modelName, modelCanonicalId, supa
 
   if (error) {
     return (
-      <div style={{ padding: '0.5rem 0.75rem', borderRadius: '6px', background: colors.dangerBg, color: colors.dangerText, fontSize: '0.8rem' }}>
+      <div role="alert" style={{ padding: '0.5rem 0.75rem', borderRadius: '6px', background: colors.dangerBg, color: colors.dangerText, fontSize: '0.8rem' }}>
         {error}
       </div>
     );
@@ -187,10 +173,11 @@ export function CatalogVariantPanel({ modelId, modelName, modelCanonicalId, supa
           >
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, color: colors.text }}>
-                {formatRam(v.ram_mb)} / {formatStorage(v.storage_gb)}
+                {variantCompactLabel(v.ram_mb, v.storage_gb)}
               </div>
               <div style={{ color: colors.textMuted, fontSize: '0.7rem' }}>
                 {v.region ?? 'Global'}
+                {v.source_type !== 'unknown' && ` \u00b7 ${v.source_type}`}
                 {v.updated_at && ` \u00b7 updated ${formatTimestamp(v.updated_at)}`}
               </div>
             </div>
@@ -201,7 +188,7 @@ export function CatalogVariantPanel({ modelId, modelName, modelCanonicalId, supa
                 <button
                   onClick={() => onEditVariant(v)}
                   disabled={isActing}
-                  aria-label="Edit variant"
+                  aria-label={`Edit variant ${variantCompactLabel(v.ram_mb, v.storage_gb)}`}
                   style={{
                     padding: '0.2rem 0.4rem',
                     borderRadius: '4px',
@@ -221,7 +208,7 @@ export function CatalogVariantPanel({ modelId, modelName, modelCanonicalId, supa
                 <button
                   onClick={() => handleVerify(v)}
                   disabled={isActing}
-                  aria-label="Verify variant"
+                  aria-label={`Verify variant ${variantCompactLabel(v.ram_mb, v.storage_gb)}`}
                   style={{
                     padding: '0.2rem 0.4rem',
                     borderRadius: '4px',
@@ -241,7 +228,7 @@ export function CatalogVariantPanel({ modelId, modelName, modelCanonicalId, supa
                 <button
                   onClick={() => handleArchive(v)}
                   disabled={isActing}
-                  aria-label="Archive variant"
+                  aria-label={`Archive variant ${variantCompactLabel(v.ram_mb, v.storage_gb)}`}
                   style={{
                     padding: '0.2rem 0.4rem',
                     borderRadius: '4px',

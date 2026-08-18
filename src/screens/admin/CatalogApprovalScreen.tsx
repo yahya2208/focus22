@@ -55,7 +55,19 @@ export function CatalogApprovalScreen() {
   }, [filters, loadModels]);
 
   const handleFilterChange = useCallback((partial: Partial<CatalogFilters>) => {
-    setFilters((prev) => ({ ...prev, ...partial }));
+    setFilters((prev) => {
+      const next = { ...prev, ...partial };
+      if (
+        next.search === prev.search &&
+        next.brand === prev.brand &&
+        next.approval === prev.approval &&
+        next.has_variants === prev.has_variants &&
+        next.page === prev.page
+      ) {
+        return prev;
+      }
+      return next;
+    });
   }, []);
 
   // ─── Model Actions ───────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import { Modal } from '../../design-system/components/Modal';
 import { Input } from '../../design-system/components/Input';
 import { Select } from '../../design-system/components/Select';
 import { Button } from '../../design-system/components/Button';
+import { toRamMb, toStorageGb, REGION_OPTIONS } from './catalog-utils';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -23,18 +24,6 @@ export interface VariantFormInitial {
   region?: string | null;
   updated_at?: string;
 }
-
-// ─── Region Options ──────────────────────────────────────────────────────────
-
-const REGION_OPTIONS = [
-  { value: '', label: 'Global' },
-  { value: 'US', label: 'US' },
-  { value: 'EU', label: 'EU' },
-  { value: 'IN', label: 'IN' },
-  { value: 'CN', label: 'CN' },
-  { value: 'GL', label: 'Global (GL)' },
-  { value: 'MEA', label: 'MEA' },
-];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -64,13 +53,7 @@ function validate(form: VariantFormData): string | null {
   return null;
 }
 
-export function toRamMb(ramGb: string): number {
-  return Math.round(Number(ramGb) * 1024);
-}
-
-export function toStorageGb(storageGb: string): number {
-  return Math.round(Number(storageGb));
-}
+// toRamMb and toStorageGb are imported from ./catalog-utils
 
 // ─── Component ───────────────────────────────────────────────────────────────
 

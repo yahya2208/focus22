@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useCatalogBrands } from '../../hooks/useCatalogBrands';
 
 // ─── Filter State ─────────────────────────────────────────────────────────────
 
@@ -22,17 +23,7 @@ export const EMPTY_FILTERS: CatalogFilters = {
 };
 
 // ─── Brand List ───────────────────────────────────────────────────────────────
-
-const BRAND_OPTIONS = [
-  { value: '', label: 'All Brands' },
-  { value: 'apple', label: 'Apple' },
-  { value: 'samsung', label: 'Samsung' },
-  { value: 'google', label: 'Google' },
-  { value: 'oneplus', label: 'OnePlus' },
-  { value: 'xiaomi', label: 'Xiaomi' },
-  { value: 'sony', label: 'Sony' },
-  { value: 'huawei', label: 'Huawei' },
-];
+// Loaded dynamically from catalog_brands via useCatalogBrands hook (inside component).
 
 // ─── Debounced Input ──────────────────────────────────────────────────────────
 
@@ -178,6 +169,16 @@ export function CatalogSearchBar({ filters, total, loading, onChange }: {
   onChange: (partial: Partial<CatalogFilters>) => void;
 }) {
   const colors = useThemeColors();
+  const { brands } = useCatalogBrands();
+
+  const handleSearchChange = useCallback((search: string) => {
+    onChange({ search, page: 1 });
+  }, [onChange]);
+
+  const brandOptions = [
+    { value: '', label: 'All Brands' },
+    ...brands.map(b => ({ value: b.slug, label: b.display_name })),
+  ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -185,14 +186,14 @@ export function CatalogSearchBar({ filters, total, loading, onChange }: {
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         <DebouncedInput
           value={filters.search}
-          onDebouncedChange={(search) => onChange({ search, page: 1 })}
-          placeholder="Search by name or ID..."
+          onDebouncedChange={handleSearchChange}
+          placeholder="Search by name, brand, model number, or alias..."
           colors={colors}
         />
         <FilterSelect
           value={filters.brand}
           onChange={(brand) => onChange({ brand, page: 1 })}
-          options={BRAND_OPTIONS}
+          options={brandOptions}
           colors={colors}
         />
       </div>

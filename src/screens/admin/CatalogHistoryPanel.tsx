@@ -5,6 +5,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 
 interface HistoryEntry {
   id: string;
+  model_id: string;
   action: string;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;

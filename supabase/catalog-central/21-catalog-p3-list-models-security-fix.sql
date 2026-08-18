@@ -126,7 +126,12 @@ BEGIN
        FROM public.catalog_variants cv
        WHERE cv.model_id = cm.id
      ) vcnt ON true
-     WHERE ($1 IS NULL OR btrim($1) = '''' OR cm.name ILIKE ''%%'' || $1 || ''%%'' OR cm.canonical_id ILIKE ''%%'' || $1 || ''%%'')
+     WHERE ($1 IS NULL OR btrim($1) = '''' OR cm.name ILIKE ''%%'' || $1 || ''%%''
+                  OR cm.canonical_id ILIKE ''%%'' || $1 || ''%%''
+                  OR cm.brand_id ILIKE ''%%'' || $1 || ''%%''
+                  OR cm.series ILIKE ''%%'' || $1 || ''%%''
+                  OR EXISTS (SELECT 1 FROM unnest(cm.model_numbers) t(v) WHERE v ILIKE ''%%'' || $1 || ''%%'')
+                  OR EXISTS (SELECT 1 FROM unnest(cm.aliases) t(v) WHERE v ILIKE ''%%'' || $1 || ''%%''))
        AND ($2 IS NULL OR btrim($2) = '''' OR cm.brand_id = $2)
        AND ($3 IS NULL OR btrim($3) = '''' OR cm.approval_status = $3)
        AND ($4 IS NULL OR ($4 = true  AND vcnt.cnt > 0)

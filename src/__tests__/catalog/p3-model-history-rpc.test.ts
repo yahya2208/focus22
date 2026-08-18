@@ -19,6 +19,7 @@ import { describe, it, expect } from 'vitest';
 
 interface HistoryRow {
   id: string;
+  model_id: string;
   action: string;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
@@ -71,6 +72,7 @@ const MODEL_MAP = new Map([
 const HISTORY_ROWS: HistoryRow[] = [
   {
     id: 'h1',
+    model_id: 'm1',
     action: 'CREATE',
     before: null,
     after: { name: 'iPhone 16 Pro' },
@@ -80,6 +82,7 @@ const HISTORY_ROWS: HistoryRow[] = [
   },
   {
     id: 'h2',
+    model_id: 'm1',
     action: 'UPDATE',
     before: { name: 'iPhone 16 Pro' },
     after: { name: 'iPhone 16 Pro Max' },
@@ -89,6 +92,7 @@ const HISTORY_ROWS: HistoryRow[] = [
   },
   {
     id: 'h3',
+    model_id: 'm1',
     action: 'APPROVE',
     before: { approval_status: 'draft' },
     after: { approval_status: 'approved' },
@@ -98,6 +102,7 @@ const HISTORY_ROWS: HistoryRow[] = [
   },
   {
     id: 'h4',
+    model_id: 'm1',
     action: 'REOPEN',
     before: { approval_status: 'rejected' },
     after: { approval_status: 'draft' },
@@ -125,6 +130,27 @@ describe('P3 model history — basic retrieval', () => {
       offset: 0,
     });
     expect(result.rows?.[0]?.actor_email).toBeTruthy();
+  });
+
+  it('includes model_id in each row', () => {
+    const result = getHistory('apple-iphone-16-pro', HISTORY_ROWS, MODEL_MAP, {
+      limit: 50,
+      offset: 0,
+    });
+    for (const row of result.rows!) {
+      expect(row.model_id).toBeTruthy();
+      expect(typeof row.model_id).toBe('string');
+    }
+  });
+
+  it('id and model_id are different values (history row UUID ≠ model UUID)', () => {
+    const result = getHistory('apple-iphone-16-pro', HISTORY_ROWS, MODEL_MAP, {
+      limit: 50,
+      offset: 0,
+    });
+    for (const row of result.rows!) {
+      expect(row.id).not.toBe(row.model_id);
+    }
   });
 
   it('returns newest-first ordering', () => {
