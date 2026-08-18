@@ -12,6 +12,13 @@ import { ResultsScreen, RESULTS_SHOWROOM_AUTO_ADVANCE_MS } from '../../screens/r
 import { createDefaultCalibrationProfile } from '../../core/calibration';
 import { EDGES } from '../../core/navigation/reachability';
 
+vi.mock('../../core/auth/AuthProvider', () => ({
+  useAuth: () => ({
+    state: { status: 'authenticated', user: { id: 'user-1', displayName: 'Test' } },
+    researchRole: 'none',
+  }),
+}));
+
 const SAMPLE_RESULTS: NonNullable<AppState['results']> = {
   rawRts: [300, 280, 260, 290, 270],
   correctedRts: [275, 255, 235, 265, 245],

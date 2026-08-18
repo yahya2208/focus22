@@ -7,6 +7,9 @@ import { detectFatigue } from '../../core/engine/fatigue';
 import { useTranslation } from '../../hooks/useTranslation';
 import type { TranslationKey } from '../../i18n';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useAuth } from '../../core/auth/AuthProvider';
+import { useChallengeSubmission } from '../../hooks/useChallengeSubmission';
+import { ChallengeResultCard } from '../../components/challenge/ChallengeResultCard';
 import { Card } from '../../design-system/components/Card';
 import { Stack } from '../../design-system/components/Stack';
 import { Flex } from '../../design-system/components/Flex';
@@ -99,9 +102,23 @@ function ScoreRing({ score, colors }: { score: number; colors: ReturnType<typeof
 
 export const ResultsScreen = memo(function ResultsScreen() {
   const dispatch = useAppDispatch();
-  const { results } = useAppState();
+  const { results, currentSession } = useAppState();
   const { t } = useTranslation();
   const colors = useThemeColors();
+  const { state: authState } = useAuth();
+
+  const challenge = useChallengeSubmission({
+    authStatus: authState.status,
+    userId: authState.user?.id ?? null,
+    rawRts: results?.rawRts ?? [],
+    calibration: results?.calibration ?? {
+      refreshRate: 60, displayLagMs: 16.667, inputLagMs: 8,
+      confidence: 0.5, platform: 'unknown', timestamp: Date.now(),
+    },
+    sessionId: currentSession?.id ?? null,
+  });
+
+  const inChallenge = challenge.challengeId !== null;
 
   const analysis = useMemo(() => {
     if (!results) return null;
@@ -127,12 +144,15 @@ export const ResultsScreen = memo(function ResultsScreen() {
 
   // P0 Correction: single canonical exit — after a very short display window the
   // user is taken straight to the phone showroom. No CTA, no waiting for a choice.
+  // When in a challenge context, auto-advance is paused so the user can view
+  // the server-authoritative result and claim their prize.
   useEffect(() => {
+    if (inChallenge) return;
     const timer = setTimeout(() => {
       dispatch({ type: 'REPLACE', screen: 'showroom' });
     }, RESULTS_SHOWROOM_AUTO_ADVANCE_MS);
     return () => clearTimeout(timer);
-  }, [dispatch]);
+  }, [dispatch, inChallenge]);
 
   if (!results || !analysis) {
     return (
@@ -178,6 +198,16 @@ export const ResultsScreen = memo(function ResultsScreen() {
             </p>
           </div>
         </Card>
+
+        {/* Challenge Result — server-authoritative, shown only in challenge context */}
+        <ChallengeResultCard
+          challengeId={challenge.challengeId}
+          status={challenge.status}
+          result={challenge.result}
+          claimResult={challenge.claimResult}
+          error={challenge.error}
+          onClaim={challenge.claim}
+        />
 
         {/* Quick Stats */}
         <Grid columns={2} gap="md">
