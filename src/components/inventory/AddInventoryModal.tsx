@@ -25,6 +25,7 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
   const [batteryHealth, setBatteryHealth] = useState('');
   const [batteryError, setBatteryError] = useState('');
   const [images, setImages] = useState<string[]>([]);
+  const [sourceLabel, setSourceLabel] = useState('');
   const [saving, setSaving] = useState(false);
 
   const handleModelSelect = (result: CatalogSearchResult) => {
@@ -84,6 +85,7 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
         undefined,
         selectedCondition,
         batteryValue,
+        sourceLabel.trim() || undefined,
       );
       if (record && images.length > 0) {
         await InventoryService.updateImages(record.id, images);
@@ -252,6 +254,24 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
               {batteryError && <div style={{ color: colors.danger, fontSize: '0.7rem', marginTop: '4px' }}>{batteryError}</div>}
             </div>
           )}
+
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ color: colors.textMuted, fontSize: '0.75rem', display: 'block', marginBottom: '4px' }}>
+              مصدر الهاتف (اختياري)
+            </label>
+            <input
+              type="text"
+              value={sourceLabel}
+              onChange={e => setSourceLabel(e.target.value)}
+              placeholder="مثال: أحمد، وهران، المتجر..."
+              aria-label="Source Label"
+              style={{
+                width: '100%', padding: '9px', borderRadius: '8px', border: `1px solid ${colors.border}`,
+                background: colors.bgInput, color: colors.text, fontSize: '0.9rem', fontFamily: 'inherit',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
             <div>

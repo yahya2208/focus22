@@ -44,6 +44,7 @@ export interface FakeInventoryRow {
   city: string | null;
   description: string | null;
   is_published: boolean;
+  source_label: string | null;
 }
 
 export interface FakeMovementRow {
@@ -136,6 +137,7 @@ class FakeCentralDb {
       city: args.p_city != null ? String(args.p_city) : null,
       description: args.p_description != null ? String(args.p_description) : null,
       is_published: Boolean(args.p_is_published),
+      source_label: args.p_source_label != null && String(args.p_source_label).trim() !== '' ? String(args.p_source_label).trim() : null,
     };
     this.rows.push(row);
     this.movement(row, 'created', quantity);
@@ -228,6 +230,10 @@ class FakeCentralDb {
     ];
     for (const [key, value] of patch) {
       if (value != null) row[key] = value as never;
+    }
+    if (args.p_source_label != null) {
+      const trimmed = String(args.p_source_label).trim();
+      row.source_label = trimmed === '' ? null : trimmed;
     }
     row.updated_at = nowIso();
     this.movement(row, 'details_updated', null, { before: undefined });
@@ -322,6 +328,7 @@ export function seedFakeCentralDb(): void {
       city: null,
       description: null,
       is_published: true,
+      source_label: null,
     });
   }
 }

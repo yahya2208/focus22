@@ -80,6 +80,7 @@ interface FullRow {
   city: string | null;
   description: string | null;
   is_published: boolean;
+  source_label: string | null;
 }
 
 /** Raw row of `inventory_movements`. */
@@ -165,6 +166,7 @@ function mapFull(row: FullRow): InventoryRecord {
     city: row.city ?? undefined,
     description: row.description ?? undefined,
     code: row.code ?? undefined,
+    sourceLabel: row.source_label ?? undefined,
   };
 }
 
@@ -406,6 +408,7 @@ export async function centralAddItem(params: {
   buyPrice?: number;
   sellPrice?: number;
   batteryHealth?: number;
+  sourceLabel?: string;
 }): Promise<InventoryRecord> {
   const row = await rpcRow<FullRow>('inventory_add_item', {
     p_model_id: params.modelId,
@@ -426,6 +429,7 @@ export async function centralAddItem(params: {
     p_description: null,
     p_is_published: false,
     p_source_key: null,
+    p_source_label: params.sourceLabel ?? null,
   });
   return upsertAdminRow(row);
 }
@@ -506,7 +510,7 @@ export async function centralUpdatePrices(
 
 export async function centralUpdateDetails(
   recordId: string,
-  details: Partial<Pick<InventoryRecord, 'modelId' | 'brand' | 'model' | 'variant' | 'ram' | 'storage' | 'condition' | 'color' | 'code' | 'batteryHealth' | 'warranty' | 'city' | 'description'>>,
+  details: Partial<Pick<InventoryRecord, 'modelId' | 'brand' | 'model' | 'variant' | 'ram' | 'storage' | 'condition' | 'color' | 'code' | 'batteryHealth' | 'warranty' | 'city' | 'description' | 'sourceLabel'>>,
 ): Promise<InventoryRecord | null> {
   if (!getCachedAdmin().some((r) => r.id === recordId)) return null;
   const row = await rpcRow<FullRow>('inventory_update_details', {
@@ -525,6 +529,7 @@ export async function centralUpdateDetails(
     p_city: details.city ?? null,
     p_description: details.description ?? null,
     p_extra: null,
+    p_source_label: details.sourceLabel ?? null,
   });
   return upsertAdminRow(row);
 }

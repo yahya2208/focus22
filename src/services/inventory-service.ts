@@ -70,6 +70,11 @@ export interface InventoryRecord {
   description?: string;
   /** Short ad code used in WhatsApp {code}; fallback = short form of record.id. */
   code?: string;
+  /**
+   * Private operational label — phone source / owner tracking (Workstream A).
+   * Admin-only: NEVER exposed via v_public_inventory (customer-facing view).
+   */
+  sourceLabel?: string;
 }
 
 export type TimelineEventType =
@@ -146,6 +151,7 @@ export const InventoryService = {
     createdBy?: string,
     condition: string = 'New',
     batteryHealth?: number,
+    sourceLabel?: string,
   ): Promise<InventoryRecord> {
     const { variantLabel, ram, storage } = inventoryCentral.resolveVariantParams(variant);
     const normalizedModel = normalizeModelName(model);
@@ -182,6 +188,7 @@ export const InventoryService = {
       buyPrice,
       sellPrice,
       batteryHealth,
+      sourceLabel,
     });
   },
 
@@ -327,7 +334,7 @@ export const InventoryService = {
    */
   async updateDetails(
     recordId: string,
-    details: Partial<Pick<InventoryRecord, 'color' | 'batteryHealth' | 'warranty' | 'city' | 'description' | 'code'>>,
+    details: Partial<Pick<InventoryRecord, 'color' | 'batteryHealth' | 'warranty' | 'city' | 'description' | 'code' | 'sourceLabel'>>,
   ): Promise<InventoryRecord | null> {
     return inventoryCentral.centralUpdateDetails(recordId, details);
   },

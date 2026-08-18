@@ -34,6 +34,11 @@ export const InventoryRow = memo(function InventoryRow({ record, colors, busy = 
         <div style={{ color: colors.textMuted, fontSize: '0.65rem', marginTop: '2px' }}>
           {record.condition}
         </div>
+        {record.sourceLabel && (
+          <div style={{ color: colors.accent, fontSize: '0.6rem', marginTop: '2px', fontStyle: 'italic' }}>
+            {record.sourceLabel}
+          </div>
+        )}
       </div>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
         <div style={{ textAlign: 'center' }}>

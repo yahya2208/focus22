@@ -29,6 +29,7 @@ export const EditInventoryModal = memo(function EditInventoryModal({ record, col
   const [city, setCity] = useState(record.city ?? '');
   const [description, setDescription] = useState(record.description ?? '');
   const [code, setCode] = useState(record.code ?? '');
+  const [sourceLabel, setSourceLabel] = useState(record.sourceLabel ?? '');
 
   const handleSave = async () => {
     if (busy) return;
@@ -45,6 +46,7 @@ export const EditInventoryModal = memo(function EditInventoryModal({ record, col
       city: city.trim(),
       description: description.trim(),
       code: code.trim(),
+      sourceLabel: sourceLabel.trim() || undefined,
     });
     await onSave(record, quantity);
   };
@@ -123,6 +125,7 @@ export const EditInventoryModal = memo(function EditInventoryModal({ record, col
         </div>
         {field('رمز الإعلان (يظهر في واتساب)', <input type="text" value={code} onChange={e => setCode(e.target.value)} style={inputStyle()} />)}
         {field('الوصف', <textarea value={description} onChange={e => setDescription(e.target.value)} style={inputStyle(true)} />)}
+        {field('مصدر الهاتف (اختياري)', <input type="text" value={sourceLabel} onChange={e => setSourceLabel(e.target.value)} placeholder="مثال: أحمد، وهران، المتجر..." style={inputStyle()} />)}
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={onClose} style={{
             flex: 1, padding: '8px', borderRadius: '8px', border: `1px solid ${colors.border}`,

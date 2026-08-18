@@ -88,7 +88,7 @@ describe('AddInventoryModal', () => {
 
     expect(mock.addStock).toHaveBeenCalledWith(
       'Samsung', 'Galaxy S22', VARIANT, 1,
-      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', undefined,
+      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', undefined, undefined,
     );
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
   });
@@ -107,7 +107,7 @@ describe('AddInventoryModal', () => {
 
     expect(mock.addStock).toHaveBeenCalledWith(
       'Samsung', 'Galaxy S22', VARIANT, 3,
-      100000, undefined, 'purchase', undefined, undefined, undefined, 'Open Box', undefined,
+      100000, undefined, 'purchase', undefined, undefined, undefined, 'Open Box', undefined, undefined,
     );
   });
 
@@ -139,7 +139,7 @@ describe('AddInventoryModal', () => {
 
     expect(mock.addStock).toHaveBeenCalledWith(
       'Apple', 'iPhone SE (2016)', '', 1,
-      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', undefined,
+      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', undefined, undefined,
     );
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
   });
@@ -171,7 +171,7 @@ describe('AddInventoryModal', () => {
 
     expect(mock.addStock).toHaveBeenCalledWith(
       'Apple', 'iPhone 13', VARIANT, 1,
-      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', 87,
+      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', 87, undefined,
     );
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
   });
@@ -201,7 +201,7 @@ describe('AddInventoryModal', () => {
     fireEvent.click(save);
     expect(mock.addStock).toHaveBeenCalledWith(
       'Apple', 'iPhone 13', VARIANT, 1,
-      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', 87,
+      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', 87, undefined,
     );
   });
 
@@ -216,7 +216,7 @@ describe('AddInventoryModal', () => {
 
     expect(mock.addStock).toHaveBeenCalledWith(
       'Apple', 'iPhone 13', VARIANT, 1,
-      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', undefined,
+      undefined, undefined, 'purchase', undefined, undefined, undefined, 'New', undefined, undefined,
     );
   });
 });

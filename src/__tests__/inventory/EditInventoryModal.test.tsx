@@ -143,6 +143,7 @@ describe('EditInventoryModal', () => {
         city: 'الجزائر',
         description: 'حالة ممتازة',
         code: 'IP13-1',
+        sourceLabel: undefined,
       }),
     );
   });
