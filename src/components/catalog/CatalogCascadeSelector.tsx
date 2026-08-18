@@ -3,6 +3,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { searchCatalog } from '../../services/catalog-service';
 import { getDisplayVariants, formatVariant } from '../../data/phone-variants';
 import { getAllBrands, getSeries, getModelsBySeries } from '../../catalog/loader';
+import { fetchApprovedCatalogModels } from '../../services/catalog-approved-service';
 import type { CatalogCascadeProps, PhoneIdentity } from './CatalogIdentity';
 import { ARABIC_BRANDS, STEP_NAMES, getFavorites, getMostUsed, addFavorite, trackUsage, getStockForModel, getPriceSummary, StepIndicator, type CatalogSearchResult, type DeviceCondition } from './CatalogCascadeTypes';
 import CatalogStepSearch from './CatalogStepSearch'; import CatalogStepBrand from './CatalogStepBrand'; import CatalogStepSeries from './CatalogStepSeries'; import CatalogStepModel from './CatalogStepModel'; import CatalogStepVariant from './CatalogStepVariant'; import CatalogStepCondition from './CatalogStepCondition'; import CatalogStepAction from './CatalogStepAction';
@@ -25,8 +26,13 @@ export function CatalogCascadeSelector({
   const [selectedOperation, setSelectedOperation] = useState<string | null>(value.operation || null);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchIndex, setSearchIndex] = useState(0);
+  const [dbReady, setDbReady] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetchApprovedCatalogModels().then(() => setDbReady(true));
+  }, []);
 
   const catalogData = useMemo(() => {
     const brands = getAllBrands();
@@ -41,7 +47,7 @@ export function CatalogCascadeSelector({
       }
     }
     return { brands, seriesMap, modelMap };
-  }, []);
+  }, [dbReady]);
 
   const brandModels = useMemo(() => {
     const map: Record<string, { series: string[]; models: { name: string; id: string; series: string | null }[] }> = {};

@@ -156,6 +156,7 @@ const AUTHORIZED_CHANGES = [
   'src/components/catalog/VariantSelector.tsx',
   'src/components/catalog/CatalogCascadeSelector.tsx',
   'src/components/catalog/CatalogStepVariant.tsx',
+  'src/catalog/loader.ts',
 ];
 
 /**

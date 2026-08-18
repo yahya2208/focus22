@@ -5,8 +5,10 @@ import { useAuth } from '../../core/auth/AuthProvider';
 import { permissionGuard } from '../../core/research/permissions';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors, THEME_IDS, THEME_META } from '../../hooks/useThemeColors';
-import { Card } from '../../components/shared/Card';
-import { Button } from '../../components/shared/Button';
+import { Screen } from '../../design-system/layout';
+import { Card } from '../../design-system/components/Card';
+import { Button } from '../../design-system/components/Button';
+import { fontFamily } from '../../design-system/typography';
 import type { TranslationKey } from '../../i18n';
 
 function ThemeSwatch({ name, preview, active, onClick, colors }: {
@@ -66,133 +68,135 @@ export const SettingsScreen = memo(function SettingsScreen() {
   const canManage = permissionGuard.can(researchRole, 'scientific', 'read');
 
   return (
-    <nav aria-label="Settings" style={{ padding: '1.5rem 1.25rem', maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: colors.text, marginBottom: '0.5rem' }}>
-        {t('settings.title')}
-      </h1>
+    <Screen ariaLabel="Settings" style={{ fontFamily: fontFamily.sans }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: colors.text, marginBottom: '0.5rem' }}>
+          {t('settings.title')}
+        </h1>
 
-      {/* Account */}
-      <Card glass>
-        <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>{t('settings.account')}</h2>
-        {isAuthenticated ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <p style={{ color: colors.textSecondary, fontSize: '0.9rem', margin: 0 }}>
-              {state.user?.email || t('settings.guestUser')}
-            </p>
-            <p style={{ color: colors.textMuted, fontSize: '0.8rem', margin: 0 }}>
-              {t('settings.role')}: {state.user?.role ?? 'guest'}
-            </p>
-            {!state.user?.isAnonymous && (
-              <Button variant="secondary" size="sm" onClick={async () => { await service.signOut(); navDispatch({ type: 'NAVIGATE', screen: 'home' }); }} style={{ alignSelf: 'flex-start', marginTop: '0.25rem' }}>
-                {t('settings.signOut')}
-              </Button>
-            )}
-          </div>
-        ) : (
-          <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'login' })} style={{ width: '100%' }}>
-            {t('settings.signIn')}
-          </Button>
-        )}
-      </Card>
-
-      {/* Theme */}
-      <Card glass>
-        <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>{t('settings.theme')}</h2>
-        <div style={{
-          display: 'flex', gap: '0.25rem', overflowX: 'auto',
-          paddingBottom: '0.5rem', margin: '0 -0.25rem',
-          scrollbarWidth: 'none',
-        }}>
-          {THEME_IDS.map((id) => {
-            const meta = THEME_META[id];
-            return (
-              <ThemeSwatch
-                key={id}
-                name={t(`settings.${id}` as TranslationKey)}
-                preview={meta!.preview}
-                active={settings.theme === id}
-                onClick={() => update({ theme: id })}
-                colors={colors}
-              />
-            );
-          })}
-        </div>
-      </Card>
-
-      {/* Language */}
-      <Card glass>
-        <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>{t('settings.language')}</h2>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {(['en', 'tr', 'ar'] as const).map((lang) => (
-            <Button
-              key={lang}
-              variant={settings.language === lang ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={() => update({ language: lang })}
-            >
-              {lang.toUpperCase()}
+        {/* Account */}
+        <Card variant="glass" padding="1.5rem">
+          <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>{t('settings.account')}</h2>
+          {isAuthenticated ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <p style={{ color: colors.textSecondary, fontSize: '0.9rem', margin: 0 }}>
+                {state.user?.email || t('settings.guestUser')}
+              </p>
+              <p style={{ color: colors.textMuted, fontSize: '0.8rem', margin: 0 }}>
+                {t('settings.role')}: {state.user?.role ?? 'guest'}
+              </p>
+              {!state.user?.isAnonymous && (
+                <Button variant="secondary" size="sm" onClick={async () => { await service.signOut(); navDispatch({ type: 'NAVIGATE', screen: 'home' }); }} style={{ alignSelf: 'flex-start', marginTop: '0.25rem' }}>
+                  {t('settings.signOut')}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'login' })} style={{ width: '100%' }}>
+              {t('settings.signIn')}
             </Button>
-          ))}
-        </div>
-      </Card>
+          )}
+        </Card>
 
-      {/* Accessibility */}
-      <Card glass>
-        <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>{t('settings.accessibility')}</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: colors.textSecondary, cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={settings.reducedMotion}
-              onChange={(e) => update({ reducedMotion: e.target.checked })}
-              aria-label={t('settings.reducedMotion')}
-              style={{ accentColor: colors.accent, width: '18px', height: '18px' }}
-            />
-            <span style={{ fontSize: '0.9rem' }}>{t('settings.reducedMotion')}</span>
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: colors.textSecondary, cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={settings.highContrast}
-              onChange={(e) => update({ highContrast: e.target.checked })}
-              aria-label={t('settings.highContrast')}
-              style={{ accentColor: colors.accent, width: '18px', height: '18px' }}
-            />
-            <span style={{ fontSize: '0.9rem' }}>{t('settings.highContrast')}</span>
-          </label>
-        </div>
-      </Card>
-
-      {canManage && (
-        <Card glass>
-          <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>Business Intelligence</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'business-intelligence' })} style={{ width: '100%' }}>
-              🏴‍☠️ Treasure Mode — BI Center
-            </Button>
-            <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'research' })} style={{ width: '100%' }}>
-              {t('settings.researchConsole')}
-            </Button>
+        {/* Theme */}
+        <Card variant="glass" padding="1.5rem">
+          <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>{t('settings.theme')}</h2>
+          <div style={{
+            display: 'flex', gap: '0.25rem', overflowX: 'auto',
+            paddingBottom: '0.5rem', margin: '0 -0.25rem',
+            scrollbarWidth: 'none',
+          }}>
+            {THEME_IDS.map((id) => {
+              const meta = THEME_META[id];
+              return (
+                <ThemeSwatch
+                  key={id}
+                  name={t(`settings.${id}` as TranslationKey)}
+                  preview={meta!.preview}
+                  active={settings.theme === id}
+                  onClick={() => update({ theme: id })}
+                  colors={colors}
+                />
+              );
+            })}
           </div>
         </Card>
-      )}
 
-      <Card glass>
-        <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>{t('settings.administration')}</h2>
-        <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'admin-setup' })} style={{ width: '100%' }}>
-          {t('settings.adminSetup')}
-        </Button>
-        <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'design-system-playground' })} style={{ width: '100%', marginTop: '8px' }}>
-          {t('settings.designSystemQA')}
-        </Button>
-        <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'catalog-approval' })} style={{ width: '100%', marginTop: '8px' }}>
-          Catalog Approval
-        </Button>
-      </Card>
+        {/* Language */}
+        <Card variant="glass" padding="1.5rem">
+          <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>{t('settings.language')}</h2>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {(['en', 'tr', 'ar'] as const).map((lang) => (
+              <Button
+                key={lang}
+                variant={settings.language === lang ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => update({ language: lang })}
+              >
+                {lang.toUpperCase()}
+              </Button>
+            ))}
+          </div>
+        </Card>
 
-      <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'home' })} style={{ marginTop: '0.5rem' }}>
-        {t('settings.back')}
-      </Button>
-    </nav>
+        {/* Accessibility */}
+        <Card variant="glass" padding="1.5rem">
+          <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>{t('settings.accessibility')}</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: colors.textSecondary, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={settings.reducedMotion}
+                onChange={(e) => update({ reducedMotion: e.target.checked })}
+                aria-label={t('settings.reducedMotion')}
+                style={{ accentColor: colors.accent, width: '18px', height: '18px' }}
+              />
+              <span style={{ fontSize: '0.9rem' }}>{t('settings.reducedMotion')}</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: colors.textSecondary, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={settings.highContrast}
+                onChange={(e) => update({ highContrast: e.target.checked })}
+                aria-label={t('settings.highContrast')}
+                style={{ accentColor: colors.accent, width: '18px', height: '18px' }}
+              />
+              <span style={{ fontSize: '0.9rem' }}>{t('settings.highContrast')}</span>
+            </label>
+          </div>
+        </Card>
+
+        {canManage && (
+          <Card variant="glass" padding="1.5rem">
+            <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>Business Intelligence</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'business-intelligence' })} style={{ width: '100%' }}>
+                🏴‍☠️ Treasure Mode — BI Center
+              </Button>
+              <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'research' })} style={{ width: '100%' }}>
+                {t('settings.researchConsole')}
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        <Card variant="glass" padding="1.5rem">
+          <h2 style={{ color: colors.text, marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 700 }}>{t('settings.administration')}</h2>
+          <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'admin-setup' })} style={{ width: '100%' }}>
+            {t('settings.adminSetup')}
+          </Button>
+          <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'design-system-playground' })} style={{ width: '100%', marginTop: '8px' }}>
+            {t('settings.designSystemQA')}
+          </Button>
+          <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'catalog-approval' })} style={{ width: '100%', marginTop: '8px' }}>
+            Catalog Approval
+          </Button>
+        </Card>
+
+        <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'home' })} style={{ marginTop: '0.5rem' }}>
+          {t('settings.back')}
+        </Button>
+      </div>
+    </Screen>
   );
 });

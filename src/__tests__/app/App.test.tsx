@@ -65,13 +65,13 @@ describe('App', () => {
       // InitialRoute لا يزال يعالج #/hash — التوجيه المبدئي السليم محفوظ دون أي
       // فرع حملات: نفتح شاشة الإعدادات بدلاً من البقاء على home أو landing.
       await waitFor(() => {
-        expect(screen.getByRole('navigation', { name: 'Settings' })).toBeTruthy();
+        expect(screen.getByRole('main', { name: 'Settings' })).toBeTruthy();
       }, { timeout: 5000 });
 
       await new Promise((resolve) => setTimeout(resolve, 800));
       expect(screen.queryByText('Test Your Focus')).toBeNull();
       expect(screen.queryByText('Start Assessment')).toBeNull();
-      expect(screen.getByRole('navigation', { name: 'Settings' })).toBeTruthy();
+      expect(screen.getByRole('main', { name: 'Settings' })).toBeTruthy();
     }, 20000);
   });
 });

@@ -3,6 +3,7 @@ import type { PhoneVariant } from '../data/phone-variants';
 import { PHONE_VARIANTS, getVariantsForModel, formatVariant } from '../data/phone-variants';
 import { searchWithAliases, resolveAlias, buildAliasIndex } from './alias-engine';
 import { PhonePopularity } from './popularity-engine';
+import { getApprovedCatalogModelsCached } from './catalog-approved-service';
 
 export interface CatalogSearchResult {
   brand: string;
@@ -16,19 +17,48 @@ export interface CatalogSearchResult {
 export function searchCatalog(query: string, limit = 20): CatalogSearchResult[] {
   if (!query.trim()) return [];
   const aliasResults = searchWithAliases(query, limit);
-  const results = aliasResults.map(r => {
+  const seen = new Set<string>();
+  const results: CatalogSearchResult[] = [];
+
+  for (const r of aliasResults) {
     const pop = PhonePopularity.getScore(r.brand, r.model);
-    return {
+    const key = `${r.brand}|${r.model}`;
+    seen.add(key.toLowerCase());
+    results.push({
       brand: r.brand,
       model: r.model,
       normalized: r.model.toLowerCase().replace(/\s+/g, ''),
       score: r.score,
       matchedOn: r.matchedOn,
       popularityScore: pop.score,
-    };
-  });
+    });
+  }
 
-  // Smart ranking: sort by similarity score first, then by popularity
+  // Augment with DB-approved models (not in static catalog)
+  const q = query.toLowerCase().trim();
+  const dbBrands = getApprovedCatalogModelsCached();
+  if (dbBrands) {
+    for (const brand of dbBrands) {
+      const brandMatch = brand.brand.toLowerCase().includes(q)
+        || brand.aliases.some(a => a.toLowerCase().includes(q));
+      for (const model of brand.models) {
+        const key = `${brand.brand}|${model.model}`;
+        if (seen.has(key.toLowerCase())) continue;
+        const modelMatch = model.model.toLowerCase().includes(q);
+        if (brandMatch || modelMatch) {
+          seen.add(key.toLowerCase());
+          results.push({
+            brand: brand.brand,
+            model: model.model,
+            normalized: model.model.toLowerCase().replace(/\s+/g, ''),
+            score: brandMatch && modelMatch ? 0.9 : modelMatch ? 0.7 : 0.5,
+            matchedOn: brandMatch ? 'brand+model' : 'model',
+          });
+        }
+      }
+    }
+  }
+
   return results.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     return (b.popularityScore ?? 0) - (a.popularityScore ?? 0);

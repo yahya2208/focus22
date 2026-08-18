@@ -1,4 +1,5 @@
 import type { CatalogBrand, SearchResult, CatalogIndex, CatalogVariant } from './types';
+import { getApprovedCatalogModelsCached } from '../services/catalog-approved-service';
 import samsung from './brands/samsung.json';
 import apple from './brands/apple.json';
 import xiaomi from './brands/xiaomi.json';
@@ -67,15 +68,29 @@ export function getIndex(): CatalogIndex {
 }
 
 export function getAllBrands(): CatalogBrand[] {
-  return ALL_BRANDS;
+  const dbBrands = getApprovedCatalogModelsCached();
+  if (!dbBrands || dbBrands.length === 0) return ALL_BRANDS;
+  // Merge: static brands (fast path) + DB-approved brands (authoritative).
+  // Deduplicated by brand name — static wins on conflict.
+  const seen = new Set(ALL_BRANDS.map(b => b.brand.toLowerCase()));
+  const extras = dbBrands.filter(b => !seen.has(b.brand.toLowerCase()));
+  if (extras.length === 0) return ALL_BRANDS;
+  return [...ALL_BRANDS, ...extras].sort((a, b) => a.brand.localeCompare(b.brand));
 }
 
 export function getBrand(name: string): CatalogBrand | undefined {
-  return ALL_BRANDS.find(b => b.brand.toLowerCase() === name.toLowerCase());
+  const found = ALL_BRANDS.find(b => b.brand.toLowerCase() === name.toLowerCase());
+  if (found) return found;
+  // Fallback: DB-approved brands (loaded via catalog_approved_models_for_inventory RPC)
+  const dbBrands = getApprovedCatalogModelsCached();
+  if (dbBrands) {
+    return dbBrands.find(b => b.brand.toLowerCase() === name.toLowerCase());
+  }
+  return undefined;
 }
 
 export function getBrandsList(): string[] {
-  return ALL_BRANDS.map(b => b.brand).sort();
+  return getAllBrands().map(b => b.brand).sort();
 }
 
 export function getSeries(brandName: string): string[] {
@@ -127,11 +142,32 @@ export function getVariantsByName(modelName: string, brand?: string): CatalogVar
   const normalized = normalize(modelName);
   if (brand) {
     const b = getBrand(brand);
-    if (!b) return [];
-    const model = b.models.find(m => normalize(m.model) === normalized);
-    return model?.variants ?? [];
+    if (b) {
+      const model = b.models.find(m => normalize(m.model) === normalized);
+      if (model) return model.variants;
+    }
+    // Fallback: DB-approved models (loaded via catalog_approved_models_for_inventory RPC)
+    const dbBrands = getApprovedCatalogModelsCached();
+    if (dbBrands) {
+      const dbBrand = dbBrands.find(bb => bb.brand.toLowerCase() === brand.toLowerCase());
+      if (dbBrand) {
+        const dbModel = dbBrand.models.find(m => normalize(m.model) === normalized);
+        if (dbModel) return dbModel.variants;
+      }
+    }
+    return [];
   }
-  return ensureVariantsByName().get(normalized) ?? [];
+  // No brand specified: check static first, then DB
+  const staticResult = ensureVariantsByName().get(normalized);
+  if (staticResult) return staticResult;
+  const dbBrands = getApprovedCatalogModelsCached();
+  if (dbBrands) {
+    for (const dbBrand of dbBrands) {
+      const dbModel = dbBrand.models.find(m => normalize(m.model) === normalized);
+      if (dbModel) return dbModel.variants;
+    }
+  }
+  return [];
 }
 
 export function searchProgressive(query: string): { brands: string[]; series: string[]; models: string[] } {

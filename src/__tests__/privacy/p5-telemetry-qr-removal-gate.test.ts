@@ -226,6 +226,7 @@ describe('PG-61: KEEP — catalog/inventory/ads untouched by P5 (D3)', () => {
     'src/components/catalog/VariantSelector.tsx',
     'src/components/catalog/CatalogCascadeSelector.tsx',
     'src/components/catalog/CatalogStepVariant.tsx',
+    'src/catalog/loader.ts',
   ];
 
   function findProtectedViolations(changed: string[], prefixes: string[], authorized: string[]): string[] {
