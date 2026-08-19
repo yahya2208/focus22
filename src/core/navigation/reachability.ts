@@ -65,6 +65,7 @@ export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
   'design-system-playground': ['settings'],
   'catalog-approval': ['settings', 'home'],
   'challenge-admin': ['settings'],
+  'claim-verify': ['deep-link', 'home'],
 };
 
 export function assertNoOrphans(edges: Record<ScreenName, readonly EdgeSource[]> = EDGES): ScreenName[] {

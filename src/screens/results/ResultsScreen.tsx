@@ -10,6 +10,8 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useAuth } from '../../core/auth/AuthProvider';
 import { useChallengeSubmission } from '../../hooks/useChallengeSubmission';
 import { ChallengeResultCard } from '../../components/challenge/ChallengeResultCard';
+import { Leaderboard } from '../../components/challenge/Leaderboard';
+import { PersonalStats } from '../../components/challenge/PersonalStats';
 import { Card } from '../../design-system/components/Card';
 import { Stack } from '../../design-system/components/Stack';
 import { Flex } from '../../design-system/components/Flex';
@@ -207,7 +209,16 @@ export const ResultsScreen = memo(function ResultsScreen() {
           claimResult={challenge.claimResult}
           error={challenge.error}
           onClaim={challenge.claim}
+          onRetry={challenge.retry}
         />
+
+        {/* Challenge Leaderboard + Personal Stats — only when in a challenge */}
+        {inChallenge && challenge.challengeId && (
+          <>
+            <PersonalStats challengeId={challenge.challengeId} />
+            <Leaderboard challengeId={challenge.challengeId} limit={10} />
+          </>
+        )}
 
         {/* Quick Stats */}
         <Grid columns={2} gap="md">

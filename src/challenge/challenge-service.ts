@@ -198,6 +198,7 @@ export async function verifyClaimToken(
   if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
 
   const row = data as {
+    claim_id: string;
     status: string;
     challenge_name: string;
     focus_score: number;
@@ -208,6 +209,7 @@ export async function verifyClaimToken(
   };
 
   return {
+    claimId: row.claim_id,
     status: row.status as ChallengeVerifyResult['status'],
     challengeName: row.challenge_name,
     focusScore: row.focus_score,

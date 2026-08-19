@@ -13,6 +13,8 @@
  *   2. Auth-required errors pause submission and surface a sign-in CTA.
  *   3. Duplicate submissions are prevented via a ref guard.
  *   4. claim() is available only after a qualified submission.
+ *   5. retry() re-attempts a failed submission (network/transient errors).
+ *   6. Claim codes are persisted to localStorage as backup (not source of truth).
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -46,6 +48,7 @@ export interface UseChallengeSubmissionResult {
   readonly claimResult: ChallengeClaimResult | null;
   readonly error: ChallengeError | null;
   readonly claim: () => void;
+  readonly retry: () => void;
 }
 
 export interface UseChallengeSubmissionParams {
@@ -54,6 +57,36 @@ export interface UseChallengeSubmissionParams {
   readonly rawRts: readonly number[];
   readonly calibration: CalibrationProfile;
   readonly sessionId: string | null;
+}
+
+// ── localStorage Persistence ─────────────────────────────────────────────────
+
+const CLAIM_STORAGE_KEY = 'focus_claim_data';
+
+interface StoredClaimData {
+  submissionId: string;
+  claimId: string;
+  code: string;
+  token: string;
+  expiresAt: string;
+  challengeId: string;
+}
+
+function persistClaim(data: StoredClaimData): void {
+  try {
+    localStorage.setItem(CLAIM_STORAGE_KEY, JSON.stringify(data));
+  } catch { /* storage full or unavailable — non-critical */ }
+}
+
+function loadStoredClaim(challengeId: string): StoredClaimData | null {
+  try {
+    const raw = localStorage.getItem(CLAIM_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredClaimData;
+    if (parsed.challengeId !== challengeId) return null;
+    if (new Date(parsed.expiresAt) < new Date()) return null;
+    return parsed;
+  } catch { return null; }
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
@@ -73,13 +106,62 @@ export function useChallengeSubmission({
   const submittedRef = useRef(false);
   const challengeId = getActiveChallengeId();
 
+  // ── Check localStorage for previously claimed result ────────────────────
+  useEffect(() => {
+    if (!challengeId) return;
+    const stored = loadStoredClaim(challengeId);
+    if (stored) {
+      setClaimResult({
+        claimId: stored.claimId,
+        code: stored.code,
+        token: stored.token,
+        expiresAt: stored.expiresAt,
+      });
+      setResult({
+        submissionId: stored.submissionId,
+        focusScore: 0,
+        grade: 'A',
+        rank: 0,
+        isQualified: true,
+      });
+      setStatus('claimed');
+      submittedRef.current = true;
+    }
+  }, [challengeId]);
+
   // ── Auto-submit on mount ────────────────────────────────────────────────
+
+  const doSubmit = useCallback(async (rts: readonly number[], cal: CalibrationProfile, sid: string | null, cid: string) => {
+    setStatus('submitting');
+    setError(null);
+    try {
+      const res = await submitChallengeScore({
+        challengeId: cid,
+        rawRts: rts,
+        displayLagMs: cal.displayLagMs,
+        inputLagMs: cal.inputLagMs,
+        platform: cal.platform,
+        sessionId: sid ?? undefined,
+      });
+      setResult(res);
+      setStatus('submitted');
+    } catch (e) {
+      const err = e as ChallengeError;
+      setError(err);
+      if (err.code === 'AUTH_REQUIRED') {
+        setStatus('auth-required');
+      } else {
+        setStatus('error');
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!challengeId) {
       setStatus('disabled');
       return;
     }
+    if (status === 'claimed') return;
     if (authStatus !== 'authenticated' && authStatus !== 'anonymous') {
       setStatus('auth-required');
       return;
@@ -90,35 +172,24 @@ export function useChallengeSubmission({
     let cancelled = false;
 
     async function run() {
-      setStatus('submitting');
-      try {
-        const res = await submitChallengeScore({
-          challengeId: challengeId!,
-          rawRts,
-          displayLagMs: calibration.displayLagMs,
-          inputLagMs: calibration.inputLagMs,
-          platform: calibration.platform,
-          sessionId: sessionId ?? undefined,
-        });
-        if (cancelled) return;
-        setResult(res);
-        setStatus('submitted');
-      } catch (e) {
-        if (cancelled) return;
-        const err = e as ChallengeError;
-        setError(err);
-        if (err.code === 'AUTH_REQUIRED') {
-          setStatus('auth-required');
-        } else {
-          setStatus('error');
-        }
-      }
+      if (cancelled) return;
+      await doSubmit(rawRts, calibration, sessionId, challengeId!);
     }
 
     void run();
 
     return () => { cancelled = true; };
-  }, [challengeId, authStatus, rawRts, calibration, sessionId]);
+  }, [challengeId, authStatus, rawRts, calibration, sessionId, status, doSubmit]);
+
+  // ── Retry ──────────────────────────────────────────────────────────────
+
+  const retry = useCallback(async () => {
+    if (!challengeId) return;
+    if (status !== 'error') return;
+    setStatus('submitting');
+    setError(null);
+    await doSubmit(rawRts, calibration, sessionId, challengeId);
+  }, [challengeId, status, rawRts, calibration, sessionId, doSubmit]);
 
   // ── Claim ───────────────────────────────────────────────────────────────
 
@@ -131,12 +202,22 @@ export function useChallengeSubmission({
       const res = await createChallengeClaim(result.submissionId);
       setClaimResult(res);
       setStatus('claimed');
+
+      // Persist claim code to localStorage as backup (not source of truth)
+      persistClaim({
+        submissionId: result.submissionId,
+        claimId: res.claimId,
+        code: res.code,
+        token: res.token,
+        expiresAt: res.expiresAt,
+        challengeId: challengeId!,
+      });
     } catch (e) {
       const err = e as ChallengeError;
       setError(err);
       setStatus('submitted');
     }
-  }, [result, status]);
+  }, [result, status, challengeId]);
 
-  return { challengeId, status, result, claimResult, error, claim };
+  return { challengeId, status, result, claimResult, error, claim, retry };
 }

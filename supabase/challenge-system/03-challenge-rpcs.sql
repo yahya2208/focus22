@@ -412,6 +412,7 @@ BEGIN
   VALUES (v_claim.id, auth.uid(), 'claim_verified');
 
   RETURN jsonb_build_object(
+    'claim_id',      v_claim.id,
     'status',        v_claim.status,
     'challenge_name', v_challenge.name,
     'focus_score',   v_submission.computed_focus_score,

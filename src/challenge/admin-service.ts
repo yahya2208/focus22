@@ -22,7 +22,7 @@ function wrapError(error: unknown): ChallengeError {
     if (msg.includes('Admin access required')) return { code: 'ADMIN_REQUIRED', message: msg };
     if (msg.includes('Challenge not found')) return { code: 'CHALLENGE_NOT_FOUND', message: msg };
     if (msg.includes('Claim not found')) return { code: 'CHALLENGE_NOT_FOUND', message: msg };
-    if (msg.includes('Claim is not in pending status')) return { code: 'CLAIM_NOT_PENDING', message: msg };
+    if (msg.includes('Claim is not in pending status') || msg.includes('Claim cannot be revoked in current status')) return { code: 'CLAIM_NOT_PENDING', message: msg };
     if (msg.includes('Claim has expired')) return { code: 'CLAIM_EXPIRED', message: msg };
     if (msg.includes('Invalid action')) return { code: 'INVALID_ACTION', message: msg };
     return { code: 'UNKNOWN_ERROR', message: msg };
@@ -37,11 +37,17 @@ export async function adminListChallenges(
   limit = 50,
   offset = 0,
 ): Promise<AdminChallengeRow[]> {
-  const { data, error } = await getSupabaseClient().rpc('admin_list_challenges', {
-    p_status: status ?? null,
-    p_limit: limit,
-    p_offset: offset,
-  });
+  let data: unknown;
+  let error: unknown;
+  try {
+    ({ data, error } = await getSupabaseClient().rpc('admin_list_challenges', {
+      p_status: status ?? null,
+      p_limit: limit,
+      p_offset: offset,
+    }));
+  } catch (e) {
+    throw wrapError(e);
+  }
 
   if (error) throw wrapError(error);
   if (!data) return [];
@@ -78,9 +84,15 @@ export async function adminListChallenges(
 export async function adminGetChallengeDetails(
   challengeId: string,
 ): Promise<AdminChallengeDetail> {
-  const { data, error } = await getSupabaseClient().rpc('admin_get_challenge_details', {
-    p_challenge_id: challengeId,
-  });
+  let data: unknown;
+  let error: unknown;
+  try {
+    ({ data, error } = await getSupabaseClient().rpc('admin_get_challenge_details', {
+      p_challenge_id: challengeId,
+    }));
+  } catch (e) {
+    throw wrapError(e);
+  }
 
   if (error) throw wrapError(error);
   if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
@@ -109,15 +121,21 @@ export async function adminGetChallengeDetails(
 export async function adminCreateChallenge(
   params: AdminCreateChallengeParams,
 ): Promise<AdminChallengeDetail['challenge']> {
-  const { data, error } = await getSupabaseClient().rpc('admin_create_challenge', {
-    p_name: params.name,
-    p_description: params.description ?? null,
-    p_campaign_id: params.campaignId ?? null,
-    p_starts_at: params.startsAt ?? null,
-    p_ends_at: params.endsAt ?? null,
-    p_qualification_rules: params.qualificationRules ?? {},
-    p_prize_config: params.prizeConfig ?? {},
-  });
+  let data: unknown;
+  let error: unknown;
+  try {
+    ({ data, error } = await getSupabaseClient().rpc('admin_create_challenge', {
+      p_name: params.name,
+      p_description: params.description ?? null,
+      p_campaign_id: params.campaignId ?? null,
+      p_starts_at: params.startsAt ?? null,
+      p_ends_at: params.endsAt ?? null,
+      p_qualification_rules: params.qualificationRules ?? {},
+      p_prize_config: params.prizeConfig ?? {},
+    }));
+  } catch (e) {
+    throw wrapError(e);
+  }
 
   if (error) throw wrapError(error);
   if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
@@ -141,10 +159,16 @@ export async function adminUpdateChallenge(
   if (params.prizeConfig !== undefined) updates.prize_config = params.prizeConfig;
   if (params.campaignId !== undefined) updates.campaign_id = params.campaignId;
 
-  const { data, error } = await getSupabaseClient().rpc('admin_update_challenge', {
-    p_challenge_id: challengeId,
-    p_updates: updates,
-  });
+  let data: unknown;
+  let error: unknown;
+  try {
+    ({ data, error } = await getSupabaseClient().rpc('admin_update_challenge', {
+      p_challenge_id: challengeId,
+      p_updates: updates,
+    }));
+  } catch (e) {
+    throw wrapError(e);
+  }
 
   if (error) throw wrapError(error);
   if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
@@ -158,10 +182,16 @@ export async function adminProcessClaim(
   claimId: string,
   action: ClaimProcessAction,
 ): Promise<AdminClaimProcessResult> {
-  const { data, error } = await getSupabaseClient().rpc('admin_process_claim', {
-    p_claim_id: claimId,
-    p_action: action,
-  });
+  let data: unknown;
+  let error: unknown;
+  try {
+    ({ data, error } = await getSupabaseClient().rpc('admin_process_claim', {
+      p_claim_id: claimId,
+      p_action: action,
+    }));
+  } catch (e) {
+    throw wrapError(e);
+  }
 
   if (error) throw wrapError(error);
   if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;

@@ -7,6 +7,7 @@ import {
   adminCreateChallenge,
   adminUpdateChallenge,
 } from '../../challenge/admin-service';
+import { Leaderboard } from '../../components/challenge/Leaderboard';
 import type {
   AdminChallengeRow,
   AdminChallengeDetail,
@@ -216,6 +217,10 @@ function DetailPanel({
         Challenge ID
       </p>
       <code style={{ fontSize: '0.7rem', color: colors.accent, wordBreak: 'break-all' }}>{ch.id}</code>
+
+      <div style={{ marginTop: '0.75rem' }}>
+        <Leaderboard challengeId={ch.id} limit={10} />
+      </div>
     </div>
   );
 }

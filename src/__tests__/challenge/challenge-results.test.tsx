@@ -37,6 +37,14 @@ vi.mock('../../core/supabase/client', () => ({
   getSupabaseClient: () => ({ rpc: mockRpc }),
 }));
 
+vi.mock('../../components/challenge/PersonalStats', () => ({
+  PersonalStats: () => <div data-testid="personal-stats-placeholder" />,
+}));
+
+vi.mock('../../components/challenge/Leaderboard', () => ({
+  Leaderboard: () => <div data-testid="leaderboard-placeholder" />,
+}));
+
 vi.mock('../../core/auth/AuthProvider', () => ({
   useAuth: () => mockUseAuth(),
 }));
@@ -277,7 +285,7 @@ describe('P4 — RPC/server errors', () => {
     renderScreen({ challengeId: 'ch-1' });
 
     await waitFor(() => {
-      expect(screen.getByText('Too many submissions. Please try again later.')).toBeTruthy();
+      expect(screen.getByText('Too many submissions. Please try again in a moment.')).toBeTruthy();
     });
   });
 
@@ -306,6 +314,20 @@ describe('P4 — RPC/server errors', () => {
 });
 
 describe('P4 — Claim flow', () => {
+  it('does not show claim code for non-qualified results', async () => {
+    mockRpc.mockResolvedValue({ data: NOT_QUALIFIED_RESULT, error: null });
+
+    renderScreen({ challengeId: 'ch-1' });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('challenge-result-card')).toBeTruthy();
+    }, { timeout: 3000 });
+
+    expect(screen.getByText('45')).toBeTruthy();
+    expect(screen.queryByTestId('challenge-claim')).toBeNull();
+    expect(screen.queryByTestId('claim-code')).toBeNull();
+  });
+
   it('shows claim code after claiming', async () => {
     mockRpc
       .mockResolvedValueOnce({ data: QUALIFIED_RESULT, error: null })
@@ -326,17 +348,5 @@ describe('P4 — Claim flow', () => {
       expect(screen.getByTestId('claim-code')).toBeTruthy();
     });
     expect(screen.getByText('AB12CD34')).toBeTruthy();
-  });
-
-  it('does not show claim code for non-qualified results', async () => {
-    mockRpc.mockResolvedValue({ data: NOT_QUALIFIED_RESULT, error: null });
-
-    renderScreen({ challengeId: 'ch-1' });
-
-    await waitFor(() => {
-      expect(screen.getByText('45')).toBeTruthy();
-    });
-    expect(screen.queryByTestId('challenge-claim')).toBeNull();
-    expect(screen.queryByTestId('claim-code')).toBeNull();
   });
 });

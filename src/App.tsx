@@ -61,6 +61,7 @@ const ProductDetailsScreen = lazy(() => import('./screens/showroom/ProductDetail
 const BusinessIntelligenceCenter = lazy(() => import('./business-intelligence/BusinessIntelligenceCenter').then(m => ({ default: m.BusinessIntelligenceCenter })));
 const CatalogApprovalScreen = lazy(() => import('./screens/admin/CatalogApprovalScreen').then(m => ({ default: m.CatalogApprovalScreen })));
 const ChallengeAdminScreen = lazy(() => import('./screens/admin/ChallengeAdminScreen').then(m => ({ default: m.ChallengeAdminScreen })));
+const ClaimVerifyScreen = lazy(() => import('./screens/challenge/ClaimVerifyScreen').then(m => ({ default: m.ClaimVerifyScreen })));
 
 const screens: Record<ScreenName, React.ComponentType> = {
   home: HomeScreen,
@@ -103,6 +104,7 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'design-system-playground': DesignSystemPlayground,
   'catalog-approval': CatalogApprovalScreen,
   'challenge-admin': ChallengeAdminScreen,
+  'claim-verify': ClaimVerifyScreen,
 };
 
 function HtmlSync() {

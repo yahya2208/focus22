@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, type ReactNode } from 'react';
+import { memo, useCallback, useRef, type ReactNode, type HTMLAttributes } from 'react';
 import { useCardRecipe } from '../useTokens';
 import { type SpacingToken } from '../spacing';
 import { shadows, type ShadowToken } from '../shadows';
@@ -6,7 +6,7 @@ import { motion } from '../motion';
 
 export type CardVariant = 'surface' | 'glass' | 'outlined' | 'elevated' | 'interactive';
 
-export interface CardProps {
+export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   variant?: CardVariant;
   padding?: SpacingToken | string;
   shadow?: ShadowToken;
@@ -26,6 +26,7 @@ export const Card = memo(function Card({
   onClick,
   children,
   style,
+  ...rest
 }: CardProps) {
   const recipe = useCardRecipe(variant, padding, radius);
   const ref = useRef<HTMLDivElement>(null);
@@ -51,6 +52,7 @@ export const Card = memo(function Card({
   return (
     <div
       ref={ref}
+      {...rest}
       {...(onClick ? { onClick, role: 'button', tabIndex: 0, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') onClick?.(); } } : {})}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

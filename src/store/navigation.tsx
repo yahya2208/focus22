@@ -43,7 +43,8 @@ export type ScreenName =
   | 'phone-details'
   | 'design-system-playground'
   | 'catalog-approval'
-  | 'challenge-admin';
+  | 'challenge-admin'
+  | 'claim-verify';
 
 export interface SessionRecord {
   readonly id: string;
@@ -150,6 +151,7 @@ export const ALL_SCREEN_NAMES: readonly ScreenName[] = [
   'design-system-playground',
   'catalog-approval',
   'challenge-admin',
+  'claim-verify',
 ];
 
 const SCREEN_NAMES: ReadonlySet<string> = new Set<ScreenName>(ALL_SCREEN_NAMES);

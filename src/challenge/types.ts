@@ -38,6 +38,7 @@ export interface ChallengeClaimResult {
 export type ClaimVerifyStatus = 'pending' | 'claimed' | 'expired' | 'revoked' | 'invalid';
 
 export interface ChallengeVerifyResult {
+  readonly claimId: string;
   readonly status: ClaimVerifyStatus;
   readonly challengeName: string;
   readonly focusScore: number;

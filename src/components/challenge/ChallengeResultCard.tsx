@@ -4,7 +4,8 @@
  * SECURITY INVARIANTS:
  *   - ALL score/grade/rank values come from ChallengeSubmitResult (server-authoritative).
  *   - The client NEVER computes or overrides these values.
- *   - Claim codes are shown ONCE and never stored client-side.
+ *   - Claim codes are shown ONCE but persisted in localStorage as backup
+ *     (never as source of truth — server is authoritative).
  *
  * STATE MAP:
  *   disabled       → not in a challenge context — renders nothing
@@ -12,8 +13,8 @@
  *   submitting     → loading spinner
  *   submitted      → score/grade/rank + claim button (if qualified)
  *   claiming       → loading spinner on claim button
- *   claimed        → claim code displayed once
- *   error          → error message + retry not available (retry is a future P)
+ *   claimed        → claim code displayed once + persisted in localStorage
+ *   error          → error message + retry button (when retryable)
  */
 
 import { memo, useCallback } from 'react';
@@ -32,7 +33,14 @@ interface ChallengeResultCardProps {
   readonly claimResult: ChallengeClaimResult | null;
   readonly error: ChallengeError | null;
   readonly onClaim: () => void;
+  readonly onRetry?: () => void;
 }
+
+const RETRYABLE_ERROR_CODES = new Set([
+  'NETWORK_ERROR',
+  'UNKNOWN_ERROR',
+  'RATE_LIMIT_EXCEEDED',
+]);
 
 function gradeColor(grade: string, colors: ReturnType<typeof useThemeColors>): string {
   if (grade === 'A') return colors.success;
@@ -48,6 +56,7 @@ export const ChallengeResultCard = memo(function ChallengeResultCard({
   claimResult,
   error,
   onClaim,
+  onRetry,
 }: ChallengeResultCardProps) {
   const colors = useThemeColors();
   const navigate = useNavigate();
@@ -181,14 +190,14 @@ export const ChallengeResultCard = memo(function ChallengeResultCard({
           </div>
         )}
 
-        {/* ── Claimed — show code ONCE ──────────────────────────────── */}
+        {/* ── Claimed — show code + persist to localStorage ─────────── */}
         {status === 'claimed' && claimResult && (
           <div style={{ textAlign: 'center' }}>
             <p style={{ color: colors.success, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, margin: '0 0 0.3rem' }}>
               Prize Claimed
             </p>
             <p style={{ color: colors.textSecondary, fontSize: '0.8rem', margin: '0 0 0.5rem' }}>
-              Show this code at the shop to collect your prize. This code will not be shown again.
+              Show this code at the shop to collect your prize.
             </p>
 
             <Card variant="outlined" padding="md" style={{ margin: '0 auto', maxWidth: '280px' }}>
@@ -208,7 +217,11 @@ export const ChallengeResultCard = memo(function ChallengeResultCard({
             </Card>
 
             <p style={{ color: colors.textMuted, fontSize: '0.7rem', margin: '0.5rem 0 0' }}>
-              Expires: {new Date(claimResult.expiresAt).toLocaleDateString()}
+              Expires: {new Date(claimResult.expiresAt).toLocaleString()}
+            </p>
+
+            <p style={{ color: colors.textFaint, fontSize: '0.65rem', margin: '0.3rem 0 0', fontStyle: 'italic' }}>
+              Save this code — it won't be shown again.
             </p>
           </div>
         )}
@@ -219,9 +232,27 @@ export const ChallengeResultCard = memo(function ChallengeResultCard({
             <p style={{ color: colors.textMuted, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, margin: '0 0 0.4rem' }}>
               Challenge
             </p>
-            <p style={{ color: colors.warning, fontSize: '0.85rem', margin: 0, fontWeight: 600 }}>
+            <p style={{ color: colors.warning, fontSize: '0.85rem', margin: '0 0 0.3rem', fontWeight: 600 }}>
               {friendlyErrorMessage(error.code)}
             </p>
+
+            {/* Retry button for retryable errors */}
+            {onRetry && RETRYABLE_ERROR_CODES.has(error.code) && (
+              <button
+                type="button"
+                onClick={onRetry}
+                data-testid="challenge-retry"
+                style={{
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  padding: '0.5rem 1.2rem', borderRadius: '10px',
+                  border: `1px solid ${colors.accent}`, background: `${colors.accent}18`,
+                  color: colors.accent, fontSize: '0.8rem', fontWeight: 600,
+                  marginTop: '0.4rem',
+                }}
+              >
+                Retry
+              </button>
+            )}
           </div>
         )}
       </Stack>
@@ -236,10 +267,11 @@ function friendlyErrorMessage(code: string): string {
     case 'CHALLENGE_NOT_STARTED': return 'This challenge has not started yet.';
     case 'CHALLENGE_ENDED': return 'This challenge has ended.';
     case 'DUPLICATE_SUBMISSION': return 'You have already submitted to this challenge.';
-    case 'RATE_LIMIT_EXCEEDED': return 'Too many submissions. Please try again later.';
+    case 'RATE_LIMIT_EXCEEDED': return 'Too many submissions. Please try again in a moment.';
     case 'INVALID_RT_COUNT': return 'Invalid number of reaction times.';
     case 'INVALID_RT_RANGE': return 'Reaction times out of valid range.';
     case 'INVALID_CALIBRATION': return 'Invalid calibration data.';
+    case 'AUTH_REQUIRED': return 'Please sign in to submit your score.';
     case 'NETWORK_ERROR': return 'Network error — please check your connection.';
     default: return 'Could not submit your score. Please try again.';
   }
