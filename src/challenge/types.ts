@@ -97,3 +97,69 @@ export interface ChallengeError {
   readonly code: ChallengeErrorCode;
   readonly message: string;
 }
+
+// ── Admin Types ──────────────────────────────────────────────────────────────
+
+export type ChallengeStatus = 'draft' | 'active' | 'paused' | 'ended' | 'archived';
+
+export interface AdminChallengeRow {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string | null;
+  readonly campaignId: string | null;
+  readonly status: ChallengeStatus;
+  readonly startsAt: string | null;
+  readonly endsAt: string | null;
+  readonly participantCount: number;
+  readonly qualifiedCount: number;
+  readonly claimCount: number;
+  readonly createdAt: string;
+}
+
+export interface AdminChallengeDetail {
+  readonly challenge: {
+    readonly id: string;
+    readonly name: string;
+    readonly description: string | null;
+    readonly campaign_id: string | null;
+    readonly status: ChallengeStatus;
+    readonly starts_at: string | null;
+    readonly ends_at: string | null;
+    readonly qualification_rules: Record<string, unknown>;
+    readonly prize_config: Record<string, unknown>;
+    readonly created_by: string;
+    readonly created_at: string;
+  };
+  readonly participantCount: number;
+  readonly qualifiedCount: number;
+  readonly claimCount: number;
+  readonly pendingClaims: number;
+  readonly redeemedClaims: number;
+}
+
+export interface AdminCreateChallengeParams {
+  readonly name: string;
+  readonly description?: string;
+  readonly campaignId?: string;
+  readonly startsAt?: string;
+  readonly endsAt?: string;
+  readonly qualificationRules?: Record<string, unknown>;
+  readonly prizeConfig?: Record<string, unknown>;
+}
+
+export interface AdminUpdateChallengeParams {
+  readonly name?: string;
+  readonly description?: string;
+  readonly status?: ChallengeStatus;
+  readonly startsAt?: string;
+  readonly endsAt?: string;
+  readonly qualificationRules?: Record<string, unknown>;
+  readonly prizeConfig?: Record<string, unknown>;
+  readonly campaignId?: string;
+}
+
+export type ClaimProcessAction = 'redeem' | 'revoke';
+
+export interface AdminClaimProcessResult {
+  readonly status: string;
+}

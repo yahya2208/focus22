@@ -154,7 +154,7 @@ export const STICKER_CTA_URLS: Record<StickerCTA, (base: string, serial: string)
   buy_phone: (b, s) => `${b}/phones?action=buy&ref=sticker&s=${s}`,
   sell_phone: (b, s) => `${b}/phones?action=sell&ref=sticker&s=${s}`,
   recover_data: (b, s) => `${b}/data-recovery?ref=sticker&s=${s}`,
-  join_challenge: (b, s) => `${b}/challenge?ref=sticker&s=${s}`,
+  join_challenge: (b, s) => `${b}/game?ref=sticker&s=${s}`,
 };
 
 export const STICKER_THEME_CONFIG: Record<StickerTheme, {

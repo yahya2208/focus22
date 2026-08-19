@@ -15,6 +15,7 @@ import { WhatsAppProvider } from './providers/WhatsAppProvider';
 import { runSilentCalibration } from './core/calibration/silent';
 import { extractCampaignShortCodeFromLocation, lookupCampaign } from './services/campaign-lookup';
 import { recordScan } from './services/qr-measurement';
+import { setActiveChallengeId } from './challenge/challenge-context';
 import focusIcon from './assets/brand/focus-icon.svg';
 
 // Small/critical screens — lazy loaded to reduce initial bundle size
@@ -59,6 +60,7 @@ const ShowroomScreen = lazy(() => import('./screens/showroom/ShowroomScreen').th
 const ProductDetailsScreen = lazy(() => import('./screens/showroom/ProductDetailsScreen').then(m => ({ default: m.ProductDetailsScreen })));
 const BusinessIntelligenceCenter = lazy(() => import('./business-intelligence/BusinessIntelligenceCenter').then(m => ({ default: m.BusinessIntelligenceCenter })));
 const CatalogApprovalScreen = lazy(() => import('./screens/admin/CatalogApprovalScreen').then(m => ({ default: m.CatalogApprovalScreen })));
+const ChallengeAdminScreen = lazy(() => import('./screens/admin/ChallengeAdminScreen').then(m => ({ default: m.ChallengeAdminScreen })));
 
 const screens: Record<ScreenName, React.ComponentType> = {
   home: HomeScreen,
@@ -100,6 +102,7 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'phone-details': ProductDetailsScreen,
   'design-system-playground': DesignSystemPlayground,
   'catalog-approval': CatalogApprovalScreen,
+  'challenge-admin': ChallengeAdminScreen,
 };
 
 function HtmlSync() {
@@ -147,6 +150,14 @@ function InitialRoute() {
       return;
     }
 
+    // Challenge entry: detect challenge_id from query string or hash params
+    const queryChallengeId = new URLSearchParams(window.location.search).get('challenge_id');
+    if (queryChallengeId) {
+      setActiveChallengeId(queryChallengeId);
+      dispatch({ type: 'REPLACE', screen: 'game-intro' });
+      return;
+    }
+
     const hash = window.location.hash;
     if (hash.startsWith('#/')) {
       const rest = hash.slice(2);
@@ -159,6 +170,14 @@ function InitialRoute() {
           params[key] = value;
         });
       }
+
+      // Challenge entry via hash deep link: /#/game?challenge_id=XXX
+      if (params.challenge_id) {
+        setActiveChallengeId(params.challenge_id);
+        dispatch({ type: 'REPLACE', screen: 'game-intro' });
+        return;
+      }
+
       const target = screenPart === 'repair/track' ? 'repair-tracking' : screenPart;
       if (isScreenName(target) && target !== 'home') {
         dispatch({
@@ -248,6 +267,12 @@ function ScreenRouter() {
     content = (
       <ProtectedRoute requiredResource="catalog" requiredAction="write">
         <CatalogApprovalScreen />
+      </ProtectedRoute>
+    );
+  } else if (currentScreen === 'challenge-admin') {
+    content = (
+      <ProtectedRoute requiredResource="catalog" requiredAction="write">
+        <ChallengeAdminScreen />
       </ProtectedRoute>
     );
   } else if (currentScreen === 'repair-diagnostics') {

@@ -62,6 +62,7 @@ export const BACK_MATRIX: Record<ScreenName, BackMatrixRow> = {
   'phone-details': { screen: 'phone-details', backTarget: 'showroom', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'sales page; in-content Back → showroom (restores scroll/search/filters/sort)' },
   'design-system-playground': { screen: 'design-system-playground', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true },
   'catalog-approval': { screen: 'catalog-approval', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'protected; research_admin catalog workflow' },
+  'challenge-admin': { screen: 'challenge-admin', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'protected; challenge system admin' },
 };
 
 export function getBackMatrixRow(screen: ScreenName): BackMatrixRow | undefined {

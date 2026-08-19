@@ -1,5 +1,5 @@
 /**
- * Challenge System — Public API (P3 + P4)
+ * Challenge System — Public API (P3 + P4 + P5)
  *
  * Re-export all public types and service functions.
  */
@@ -11,6 +11,14 @@ export {
   getChallengeLeaderboard,
   getPersonalChallengeStats,
 } from './challenge-service';
+
+export {
+  adminListChallenges,
+  adminGetChallengeDetails,
+  adminCreateChallenge,
+  adminUpdateChallenge,
+  adminProcessClaim,
+} from './admin-service';
 
 export { generateNonce, isValidNonceFormat } from './nonce';
 
@@ -29,4 +37,11 @@ export type {
   ChallengeError,
   ChallengeErrorCode,
   ClaimVerifyStatus,
+  ChallengeStatus,
+  AdminChallengeRow,
+  AdminChallengeDetail,
+  AdminCreateChallengeParams,
+  AdminUpdateChallengeParams,
+  ClaimProcessAction,
+  AdminClaimProcessResult,
 } from './types';
