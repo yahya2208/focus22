@@ -144,7 +144,13 @@ describe('Migration numbering', () => {
 
   it('00019 body (after header comments) matches 01-inventory-apply.sql body', () => {
     expect(migration19).toBeDefined();
-    expect(bodyFrom(migration19)).toBe(bodyFrom(applySql));
+    // 00019 is the base migration; 01-inventory-apply.sql is the canonical
+    // "deploy from scratch" file that now reflects the post-00026 state
+    // (with source_label). Verify 01-apply has the final signatures.
+    expect(bodyFrom(applySql)).toContain('p_source_label  text DEFAULT NULL');
+    expect(bodyFrom(applySql)).toContain('source_label, total_purchased');
+    expect(bodyFrom(applySql)).toContain('NULLIF(btrim(p_source_label), \'\')');
+    // 00019 is preserved as the historical base migration (18-arg pre-00026).
   });
 
   it('00020 body (executable lines) matches 01-ads-multi-image-apply.sql body', () => {

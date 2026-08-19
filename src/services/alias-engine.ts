@@ -342,4 +342,8 @@ export function getModelsWithFewAliases(threshold: number): { brand: string; mod
   return result;
 }
 
+export function rebuildAliasIndex(): void {
+  buildAliasIndex();
+}
+
 buildAliasIndex();

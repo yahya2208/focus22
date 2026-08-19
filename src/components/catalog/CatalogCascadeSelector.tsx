@@ -4,6 +4,7 @@ import { searchCatalog } from '../../services/catalog-service';
 import { getDisplayVariants, formatVariant } from '../../data/phone-variants';
 import { getAllBrands, getSeries, getModelsBySeries } from '../../catalog/loader';
 import { fetchApprovedCatalogModels } from '../../services/catalog-approved-service';
+import { rebuildAliasIndex } from '../../services/alias-engine';
 import type { CatalogCascadeProps, PhoneIdentity } from './CatalogIdentity';
 import { ARABIC_BRANDS, STEP_NAMES, getFavorites, getMostUsed, addFavorite, trackUsage, getStockForModel, getPriceSummary, StepIndicator, type CatalogSearchResult, type DeviceCondition } from './CatalogCascadeTypes';
 import CatalogStepSearch from './CatalogStepSearch'; import CatalogStepBrand from './CatalogStepBrand'; import CatalogStepSeries from './CatalogStepSeries'; import CatalogStepModel from './CatalogStepModel'; import CatalogStepVariant from './CatalogStepVariant'; import CatalogStepCondition from './CatalogStepCondition'; import CatalogStepAction from './CatalogStepAction';
@@ -31,7 +32,10 @@ export function CatalogCascadeSelector({
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchApprovedCatalogModels().then(() => setDbReady(true));
+    fetchApprovedCatalogModels().then(() => {
+      rebuildAliasIndex();
+      setDbReady(true);
+    });
   }, []);
 
   const catalogData = useMemo(() => {

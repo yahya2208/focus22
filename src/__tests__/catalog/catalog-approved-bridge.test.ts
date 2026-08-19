@@ -123,7 +123,7 @@ describe('loader merge — DB-only brand added', () => {
     expect(list).toContain('Itel');
   });
 
-  it('static brand wins on name conflict — DB extras only fill gaps', async () => {
+  it('DB models merge INTO existing static brands (additive)', async () => {
     const conflictBrands = [
       {
         brand: 'Samsung',
@@ -144,8 +144,12 @@ describe('loader merge — DB-only brand added', () => {
 
     const samsung = getBrand('Samsung');
     expect(samsung).toBeDefined();
+    // New: DB models are merged INTO existing brands (additive).
     const hasPhantom = samsung!.models.some((m) => m.model === 'Phantom Model');
-    expect(hasPhantom).toBe(false);
+    expect(hasPhantom).toBe(true);
+    // Static models are still present.
+    const hasStaticModel = samsung!.models.some((m) => m.model !== 'Phantom Model');
+    expect(hasStaticModel).toBe(true);
   });
 
   it('getVariantsByName finds DB-only model', async () => {
@@ -162,5 +166,25 @@ describe('loader merge — DB-only brand added', () => {
 
     const variants = getVariantsByName('Blade A54', 'ZTE');
     expect(variants).toEqual([{ storage: '64', ram: '4' }]);
+  });
+
+  it('DB model added to existing brand is visible via getBrand().models', async () => {
+    rpcMock.mockResolvedValue({ data: DB_BRANDS, error: null });
+    await fetchApprovedCatalogModels();
+
+    const zte = getBrand('ZTE');
+    expect(zte).toBeDefined();
+    expect(zte!.models.map(m => m.model)).toContain('Blade A54');
+  });
+
+  it('DB-only brand is visible in getBrandsList (sorted)', async () => {
+    rpcMock.mockResolvedValue({ data: DB_BRANDS, error: null });
+    await fetchApprovedCatalogModels();
+
+    const list = getBrandsList();
+    expect(list).toContain('Itel');
+    // Itel should be sorted alphabetically among brands
+    const sorted = [...list].sort((a, b) => a.localeCompare(b));
+    expect(list).toEqual(sorted);
   });
 });

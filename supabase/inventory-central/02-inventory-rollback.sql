@@ -37,12 +37,12 @@ DROP FUNCTION IF EXISTS public.inventory_add_image(uuid, text, integer, boolean)
 DROP FUNCTION IF EXISTS public.inventory_set_published(uuid, boolean, text, text);
 DROP FUNCTION IF EXISTS public.inventory_restore(uuid, text, text);
 DROP FUNCTION IF EXISTS public.inventory_set_status(uuid, text, text, text);
-DROP FUNCTION IF EXISTS public.inventory_update_details(uuid, text, text, text, text, text, text, text, text, text, integer, text, text, text, jsonb);
+DROP FUNCTION IF EXISTS public.inventory_update_details(uuid, text, text, text, text, text, text, text, text, text, integer, text, text, text, jsonb, text);
 DROP FUNCTION IF EXISTS public.inventory_update_prices(uuid, numeric, numeric, text, text);
 DROP FUNCTION IF EXISTS public.inventory_adjust_stock(uuid, integer, text, jsonb, text);
 DROP FUNCTION IF EXISTS public.inventory_remove_stock(uuid, integer, text, jsonb, text);
 DROP FUNCTION IF EXISTS public.inventory_add_stock(uuid, integer, text, jsonb, text);
-DROP FUNCTION IF EXISTS public.inventory_add_item(text, text, text, text, text, text, text, text, integer, numeric, numeric, text, integer, text, text, text, boolean, text);
+DROP FUNCTION IF EXISTS public.inventory_add_item(text, text, text, text, text, text, text, text, integer, numeric, numeric, text, integer, text, text, text, boolean, text, text);
 DROP FUNCTION IF EXISTS public.inventory_management_list();
 DROP FUNCTION IF EXISTS public.inventory_calc_status(integer);
 DROP FUNCTION IF EXISTS public.inventory_is_admin();

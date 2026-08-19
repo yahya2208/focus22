@@ -27,6 +27,13 @@ const ALL_BRANDS: CatalogBrand[] = [
 
 let _index: CatalogIndex | null = null;
 
+// ── Merged brand cache ──────────────────────────────────────────────
+// Recomputed only when the DB cache reference changes (cold → warm, or
+// after invalidation).  Static brands are the base; DB-approved models
+// are merged IN (additive) so they become visible in browse + search.
+let _mergedBrands: CatalogBrand[] | null = null;
+let _lastDbCache: CatalogBrand[] | null = null;
+
 function normalize(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
 }
@@ -41,7 +48,7 @@ function buildIndex(): CatalogIndex {
   const aliasIndex = new Map<string, string[]>();
   const tokenIndex = new Map<string, { brand: string; model: string }[]>();
 
-  for (const brand of ALL_BRANDS) {
+  for (const brand of getAllBrands()) {
     brandIndex.set(brand.brand.toLowerCase(), brand);
     for (const alias of brand.aliases) aliasIndex.set(normalize(alias), [brand.brand]);
 
@@ -67,26 +74,61 @@ export function getIndex(): CatalogIndex {
   return _index;
 }
 
-export function getAllBrands(): CatalogBrand[] {
+/**
+ * Merge DB-approved brands into the static catalog.
+ *
+ * Rules:
+ * - Static catalog data is authoritative when the same model exists.
+ * - DB-approved models are additive (new models are appended).
+ * - New DB-only brands are appended.
+ * - Deduplication is case-insensitive for both brands and models.
+ * - Original static ALL_BRANDS objects are NOT mutated.
+ */
+function computeMergedBrands(dbBrands: CatalogBrand[]): CatalogBrand[] {
+  // Start with deep copies of static brands (avoid mutation).
+  const merged: CatalogBrand[] = ALL_BRANDS.map(b => ({
+    ...b,
+    models: b.models.map(m => ({ ...m, variants: m.variants.map(v => ({ ...v })) })),
+  }));
+
+  for (const dbBrand of dbBrands) {
+    const existing = merged.find(b => b.brand.toLowerCase() === dbBrand.brand.toLowerCase());
+    if (existing) {
+      // Merge: add DB models not already in static (case-insensitive dedup).
+      const existingModelKeys = new Set(existing.models.map(m => m.model.toLowerCase()));
+      for (const dbModel of dbBrand.models) {
+        if (!existingModelKeys.has(dbModel.model.toLowerCase())) {
+          existing.models.push(dbModel);
+        }
+      }
+    } else {
+      // New brand — append entire DB brand.
+      merged.push(dbBrand);
+    }
+  }
+
+  return merged.sort((a, b) => a.brand.localeCompare(b.brand));
+}
+
+function getMergedBrands(): CatalogBrand[] {
   const dbBrands = getApprovedCatalogModelsCached();
-  if (!dbBrands || dbBrands.length === 0) return ALL_BRANDS;
-  // Merge: static brands (fast path) + DB-approved brands (authoritative).
-  // Deduplicated by brand name — static wins on conflict.
-  const seen = new Set(ALL_BRANDS.map(b => b.brand.toLowerCase()));
-  const extras = dbBrands.filter(b => !seen.has(b.brand.toLowerCase()));
-  if (extras.length === 0) return ALL_BRANDS;
-  return [...ALL_BRANDS, ...extras].sort((a, b) => a.brand.localeCompare(b.brand));
+  // Recompute only when the DB cache reference changed.
+  if (dbBrands !== _lastDbCache) {
+    _lastDbCache = dbBrands;
+    _mergedBrands = dbBrands && dbBrands.length > 0
+      ? computeMergedBrands(dbBrands)
+      : null;
+  }
+  return _mergedBrands ?? ALL_BRANDS;
+}
+
+export function getAllBrands(): CatalogBrand[] {
+  return getMergedBrands();
 }
 
 export function getBrand(name: string): CatalogBrand | undefined {
-  const found = ALL_BRANDS.find(b => b.brand.toLowerCase() === name.toLowerCase());
-  if (found) return found;
-  // Fallback: DB-approved brands (loaded via catalog_approved_models_for_inventory RPC)
-  const dbBrands = getApprovedCatalogModelsCached();
-  if (dbBrands) {
-    return dbBrands.find(b => b.brand.toLowerCase() === name.toLowerCase());
-  }
-  return undefined;
+  const merged = getMergedBrands();
+  return merged.find(b => b.brand.toLowerCase() === name.toLowerCase());
 }
 
 export function getBrandsList(): string[] {

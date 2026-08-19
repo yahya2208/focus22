@@ -422,7 +422,8 @@ CREATE OR REPLACE FUNCTION public.inventory_add_item(
   p_city          text DEFAULT NULL,
   p_description   text DEFAULT NULL,
   p_is_published  boolean DEFAULT FALSE,
-  p_source_key    text DEFAULT NULL
+  p_source_key    text DEFAULT NULL,
+  p_source_label  text DEFAULT NULL
 )
 RETURNS public.inventory_items
 LANGUAGE plpgsql
@@ -449,14 +450,14 @@ BEGIN
     model_id, brand, model, variant, ram, storage, condition, color,
     quantity, status, buy_price, sell_price, code, battery_health,
     warranty, city, description, is_published, source_key,
-    total_purchased
+    source_label, total_purchased
   ) VALUES (
     btrim(p_model_id), btrim(p_brand), btrim(p_model), btrim(p_variant),
     p_ram, btrim(p_storage), p_condition, p_color,
     GREATEST(p_quantity, 0), public.inventory_calc_status(GREATEST(p_quantity, 0)),
     p_buy_price, p_sell_price, p_code, p_battery_health,
     p_warranty, p_city, p_description, p_is_published, p_source_key,
-    GREATEST(p_quantity, 0)
+    NULLIF(btrim(p_source_label), ''), GREATEST(p_quantity, 0)
   )
   RETURNING * INTO v_row;
 
@@ -466,7 +467,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.inventory_add_item(
   text, text, text, text, text, text, text, text, integer,
-  numeric, numeric, text, integer, text, text, text, boolean, text
+  numeric, numeric, text, integer, text, text, text, boolean, text, text
 ) TO authenticated;
 
 -- 8.4) Add stock. Single UPDATE — no lost updates. Refuses inactive items
@@ -675,7 +676,8 @@ CREATE OR REPLACE FUNCTION public.inventory_update_details(
   p_warranty       text DEFAULT NULL,
   p_city           text DEFAULT NULL,
   p_description    text DEFAULT NULL,
-  p_extra          jsonb DEFAULT NULL
+  p_extra          jsonb DEFAULT NULL,
+  p_source_label   text DEFAULT NULL
 )
 RETURNS public.inventory_items
 LANGUAGE plpgsql
@@ -705,7 +707,12 @@ BEGIN
       warranty       = COALESCE(NULLIF(p_warranty, ''), warranty),
       city           = COALESCE(NULLIF(p_city, ''), city),
       description    = COALESCE(NULLIF(p_description, ''), description),
-      extra          = COALESCE(p_extra, extra)
+      extra          = COALESCE(p_extra, extra),
+      source_label   = CASE
+        WHEN p_source_label IS NULL THEN source_label
+        WHEN btrim(p_source_label) = '' THEN NULL
+        ELSE btrim(p_source_label)
+      END
   WHERE id = p_inventory_id
   RETURNING * INTO v_row;
 
@@ -720,7 +727,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.inventory_update_details(
   uuid, text, text, text, text, text, text, text, text, text,
-  integer, text, text, text, jsonb
+  integer, text, text, text, jsonb, text
 ) TO authenticated;
 
 -- 8.9) Set admin state (archived / discontinued / deleted soft-delete / or
