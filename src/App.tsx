@@ -1,15 +1,16 @@
-import { useEffect, useRef, lazy, Suspense } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { AppProvider, useAppState, useAppDispatch } from './store/navigation';
 import { ThemeProvider } from './design-system/use-theme';
 import { SettingsProvider } from './hooks/useSettings';
 import { TranslationProvider, useTranslation } from './hooks/useTranslation';
-import { AuthProvider } from './core/auth/AuthProvider';
+import { AuthProvider, useAuth } from './core/auth/AuthProvider';
 import { useThemeSync } from './hooks/useThemeSync';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { ProtectedRoute } from './components/shared/ProtectedRoute';
 import { isScreenName, type ScreenName } from './store/navigation';
 import { useThemeColors } from './hooks/useThemeColors';
 import { AppShell } from './components/layout/AppShell';
+import { Button } from './components/shared/Button';
 import { BackProvider } from './core/navigation/BackProvider';
 import { WhatsAppProvider } from './providers/WhatsAppProvider';
 import { runSilentCalibration } from './core/calibration/silent';
@@ -121,10 +122,94 @@ function HtmlSync() {
   return null;
 }
 
-function InitialRoute() {
+function ChallengeAuthError({
+  error,
+  onRetry,
+  onLogin,
+  onBack,
+}: {
+  error: string;
+  onRetry: () => void;
+  onLogin: () => void;
+  onBack: () => void;
+}) {
+  const colors = useThemeColors();
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      minHeight: '100vh', flexDirection: 'column', gap: '1rem',
+      padding: '2rem', maxWidth: '400px', margin: '0 auto',
+      color: colors.text, background: colors.bg,
+    }}>
+      <p style={{ color: colors.danger, fontWeight: 600, textAlign: 'center', margin: 0 }}>
+        {error}
+      </p>
+      <p style={{ color: colors.textSecondary, fontSize: '0.85rem', textAlign: 'center', margin: 0 }}>
+        Could not start the Challenge. Please try again or sign in.
+      </p>
+      <Button onClick={onRetry}>Retry</Button>
+      <Button variant="secondary" onClick={onLogin}>Sign In</Button>
+      <button
+        type="button"
+        onClick={onBack}
+        style={{
+          background: 'none', border: 'none', color: colors.textMuted,
+          fontSize: '0.85rem', cursor: 'pointer', textAlign: 'center',
+        }}
+      >
+        Back to Home
+      </button>
+    </div>
+  );
+}
+
+export function InitialRoute() {
   const dispatch = useAppDispatch();
   const { currentScreen } = useAppState();
+  const { state: authState, service } = useAuth();
   const initialRoutingHandledRef = useRef(false);
+  const detectedChallengeIdRef = useRef<string | null>(null);
+  const [challengeAuthPending, setChallengeAuthPending] = useState(false);
+  const [challengeAuthError, setChallengeAuthError] = useState<string | null>(null);
+
+  // ── Challenge auth gate ──────────────────────────────────────────────────
+  // When a challenge_id is detected, wait for auth to resolve.
+  // If unauthenticated, attempt Challenge-scoped guest sign-in.
+  // Only navigates to game-intro once auth is anonymous or authenticated.
+  useEffect(() => {
+    if (!initialRoutingHandledRef.current) return;
+    const challengeId = detectedChallengeIdRef.current;
+    if (!challengeId) return;
+
+    if (authState.status === 'loading') return;
+
+    if (authState.status === 'authenticated' || authState.status === 'anonymous') {
+      setChallengeAuthPending(false);
+      dispatch({ type: 'REPLACE', screen: 'game-intro' });
+      return;
+    }
+
+    let cancelled = false;
+    setChallengeAuthPending(true);
+    setChallengeAuthError(null);
+    service.signInAsGuest()
+      .then(() => {
+        if (!cancelled) {
+          setChallengeAuthPending(false);
+          dispatch({ type: 'REPLACE', screen: 'game-intro' });
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setChallengeAuthPending(false);
+          setChallengeAuthError(
+            err instanceof Error ? err.message : 'Failed to initialize guest access',
+          );
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [authState.status, service, dispatch]);
 
   useEffect(() => {
     if (currentScreen !== 'home') return;
@@ -156,7 +241,8 @@ function InitialRoute() {
     const queryChallengeId = new URLSearchParams(window.location.search).get('challenge_id');
     if (queryChallengeId) {
       setActiveChallengeId(queryChallengeId);
-      dispatch({ type: 'REPLACE', screen: 'game-intro' });
+      detectedChallengeIdRef.current = queryChallengeId;
+      setChallengeAuthPending(true);
       return;
     }
 
@@ -176,7 +262,8 @@ function InitialRoute() {
       // Challenge entry via hash deep link: /#/game?challenge_id=XXX
       if (params.challenge_id) {
         setActiveChallengeId(params.challenge_id);
-        dispatch({ type: 'REPLACE', screen: 'game-intro' });
+        detectedChallengeIdRef.current = params.challenge_id;
+        setChallengeAuthPending(true);
         return;
       }
 
@@ -197,6 +284,40 @@ function InitialRoute() {
       }
     });
   }, [currentScreen, dispatch]);
+
+  if (challengeAuthError) {
+    const retryChallengeId = detectedChallengeIdRef.current
+      ?? new URLSearchParams(window.location.search).get('challenge_id');
+    return (
+      <ChallengeAuthError
+        error={challengeAuthError}
+        onRetry={() => {
+          setChallengeAuthError(null);
+          detectedChallengeIdRef.current = retryChallengeId;
+          setChallengeAuthPending(true);
+          authState.status === 'unauthenticated'
+            ? service.signInAsGuest()
+                .then(() => {
+                  dispatch({ type: 'REPLACE', screen: 'game-intro' });
+                })
+                .catch((err) => {
+                  setChallengeAuthError(
+                    err instanceof Error ? err.message : 'Failed to initialize guest access',
+                  );
+                })
+            : dispatch({ type: 'REPLACE', screen: 'game-intro' });
+        }}
+        onLogin={() => dispatch({ type: 'NAVIGATE', screen: 'login' })}
+        onBack={() => {
+          setActiveChallengeId(null);
+          detectedChallengeIdRef.current = null;
+          dispatch({ type: 'NAVIGATE', screen: 'home' });
+        }}
+      />
+    );
+  }
+
+  if (challengeAuthPending) return null;
 
   return null;
 }

@@ -28,6 +28,11 @@ const VALID_PAYLOAD: ChallengeSubmitPayload = {
   sessionId: 'session-123',
 };
 
+const VALID_PAYLOAD_WITH_GUEST: ChallengeSubmitPayload = {
+  ...VALID_PAYLOAD,
+  guestSessionId: 'guest-uuid-456',
+};
+
 describe('Challenge service — submitChallengeScore', () => {
   it('calls submit_challenge_score RPC with correct parameters', async () => {
     mockRpc.mockResolvedValue({
@@ -54,12 +59,25 @@ describe('Challenge service — submitChallengeScore', () => {
     expect(params.p_session_id).toBe('session-123');
     expect(typeof params.p_nonce).toBe('string');
     expect(params.p_nonce).toHaveLength(32);
+    expect(params.p_guest_session_id).toBeNull();
 
     expect(result.submissionId).toBe('sub-1');
     expect(result.focusScore).toBe(85);
     expect(result.grade).toBe('B');
     expect(result.rank).toBe(3);
     expect(result.isQualified).toBe(true);
+  });
+
+  it('passes guest_session_id when guestSessionId is provided', async () => {
+    mockRpc.mockResolvedValue({
+      data: { submission_id: 'sub-g', focus_score: 75, grade: 'C', rank: 10, is_qualified: false },
+      error: null,
+    });
+
+    await submitChallengeScore(VALID_PAYLOAD_WITH_GUEST);
+
+    const params = mockRpc.mock.calls[0]![1]!;
+    expect(params.p_guest_session_id).toBe('guest-uuid-456');
   });
 
   it('generates a fresh nonce for each submission (never reuses)', async () => {

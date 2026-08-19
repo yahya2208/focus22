@@ -14,6 +14,7 @@ export interface ChallengeSubmitPayload {
   readonly inputLagMs: number;
   readonly platform: string;
   readonly sessionId?: string;
+  readonly guestSessionId?: string;
 }
 
 export interface ChallengeSubmitResult {

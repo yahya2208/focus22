@@ -1,6 +1,7 @@
 import { memo, useState, useCallback } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useAuth } from '../../core/auth/AuthProvider';
+import { getActiveChallengeId } from '../../challenge/challenge-context';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Button } from '../../components/shared/Button';
@@ -16,6 +17,11 @@ export const LoginScreen = memo(function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const navigateAfterAuth = useCallback(() => {
+    const inChallenge = getActiveChallengeId() !== null;
+    dispatch({ type: inChallenge ? 'REPLACE' : 'NAVIGATE', screen: inChallenge ? 'results' : 'home' });
+  }, [dispatch]);
+
   const handleLogin = useCallback(async () => {
     if (!email.trim() || !password.trim()) {
       setError(t('login.fieldsRequired'));
@@ -25,13 +31,13 @@ export const LoginScreen = memo(function LoginScreen() {
     setError(null);
     try {
       await service.signInWithEmail(email, password);
-      dispatch({ type: 'NAVIGATE', screen: 'home' });
+      navigateAfterAuth();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('login.failed'));
     } finally {
       setIsLoading(false);
     }
-  }, [email, password, service, dispatch, t]);
+  }, [email, password, service, navigateAfterAuth, t]);
 
   const handleMagicLink = useCallback(async () => {
     if (!email.trim()) {
@@ -56,13 +62,13 @@ export const LoginScreen = memo(function LoginScreen() {
     setError(null);
     try {
       await service.signInAsGuest();
-      dispatch({ type: 'NAVIGATE', screen: 'home' });
+      navigateAfterAuth();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('login.failed'));
     } finally {
       setIsLoading(false);
     }
-  }, [service, dispatch, t]);
+  }, [service, navigateAfterAuth, t]);
 
   return (
     <nav aria-label="Login" style={{ padding: '2rem', maxWidth: '480px', margin: '0 auto' }}>

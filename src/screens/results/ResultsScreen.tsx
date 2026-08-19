@@ -118,6 +118,7 @@ export const ResultsScreen = memo(function ResultsScreen() {
       confidence: 0.5, platform: 'unknown', timestamp: Date.now(),
     },
     sessionId: currentSession?.id ?? null,
+    guestSessionId: authState.user?.isAnonymous ? authState.user.id : undefined,
   });
 
   const inChallenge = challenge.challengeId !== null;

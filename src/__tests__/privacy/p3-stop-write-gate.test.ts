@@ -180,11 +180,11 @@ describe('PG-01: لا signInAsGuest() تلقائياً لمجرد فتح الت�
     expect(auth).not.toMatch(/signInAsGuest\s*\(/);
   });
 
-  it('المسار اليدوي الوحيد المتبقي للدخول كضيف هو LoginScreen (E-8 محفوظ)', () => {
+  it('المسار اليدوي الوحيد المتبقي للدخول كضيف هو LoginScreen + Challenge entry gate في App.tsx (E-8 محفوظ)', () => {
     const callers = walkSrc()
       .filter((f) => f.content.includes('.signInAsGuest('))
       .map((f) => f.rel);
-    expect(callers).toEqual(['screens/auth/LoginScreen.tsx']);
+    expect(callers).toEqual(['App.tsx', 'screens/auth/LoginScreen.tsx']);
   });
 });
 

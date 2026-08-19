@@ -107,7 +107,7 @@ export async function submitChallengeScore(
       p_platform: payload.platform,
       p_nonce: nonce,
       p_session_id: payload.sessionId ?? null,
-      p_guest_session_id: null,
+      p_guest_session_id: payload.guestSessionId ?? null,
     }));
   } catch (e) {
     throw wrapError(e);

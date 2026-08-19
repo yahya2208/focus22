@@ -57,6 +57,7 @@ export interface UseChallengeSubmissionParams {
   readonly rawRts: readonly number[];
   readonly calibration: CalibrationProfile;
   readonly sessionId: string | null;
+  readonly guestSessionId?: string;
 }
 
 // ── localStorage Persistence ─────────────────────────────────────────────────
@@ -97,6 +98,7 @@ export function useChallengeSubmission({
   rawRts,
   calibration,
   sessionId,
+  guestSessionId,
 }: UseChallengeSubmissionParams): UseChallengeSubmissionResult {
   const [status, setStatus] = useState<SubmissionStatus>('disabled');
   const [result, setResult] = useState<ChallengeSubmitResult | null>(null);
@@ -131,7 +133,7 @@ export function useChallengeSubmission({
 
   // ── Auto-submit on mount ────────────────────────────────────────────────
 
-  const doSubmit = useCallback(async (rts: readonly number[], cal: CalibrationProfile, sid: string | null, cid: string) => {
+  const doSubmit = useCallback(async (rts: readonly number[], cal: CalibrationProfile, sid: string | null, cid: string, gsId: string | undefined) => {
     setStatus('submitting');
     setError(null);
     try {
@@ -142,6 +144,7 @@ export function useChallengeSubmission({
         inputLagMs: cal.inputLagMs,
         platform: cal.platform,
         sessionId: sid ?? undefined,
+        guestSessionId: gsId,
       });
       setResult(res);
       setStatus('submitted');
@@ -173,13 +176,13 @@ export function useChallengeSubmission({
 
     async function run() {
       if (cancelled) return;
-      await doSubmit(rawRts, calibration, sessionId, challengeId!);
+      await doSubmit(rawRts, calibration, sessionId, challengeId!, guestSessionId);
     }
 
     void run();
 
     return () => { cancelled = true; };
-  }, [challengeId, authStatus, rawRts, calibration, sessionId, status, doSubmit]);
+  }, [challengeId, authStatus, rawRts, calibration, sessionId, status, doSubmit, guestSessionId]);
 
   // ── Retry ──────────────────────────────────────────────────────────────
 
@@ -188,8 +191,8 @@ export function useChallengeSubmission({
     if (status !== 'error') return;
     setStatus('submitting');
     setError(null);
-    await doSubmit(rawRts, calibration, sessionId, challengeId);
-  }, [challengeId, status, rawRts, calibration, sessionId, doSubmit]);
+    await doSubmit(rawRts, calibration, sessionId, challengeId, guestSessionId);
+  }, [challengeId, status, rawRts, calibration, sessionId, doSubmit, guestSessionId]);
 
   // ── Claim ───────────────────────────────────────────────────────────────
 
