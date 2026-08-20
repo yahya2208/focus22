@@ -76,7 +76,10 @@ function mapRpcError(errorMessage: string): ChallengeError {
 
 function wrapError(error: unknown): ChallengeError {
   if (error && typeof error === 'object' && 'message' in error) {
-    return mapRpcError(String((error as { message: unknown }).message));
+    const rawMsg = String((error as { message: unknown }).message);
+    const mapped = mapRpcError(rawMsg);
+    console.error('[CHALLENGE CLAIM DEBUG] wrapError mapped:', { rawMessage: rawMsg, mappedCode: mapped.code, mappedMessage: mapped.message, errorKeys: Object.keys(error as object) });
+    return mapped;
   }
   if (typeof error === 'string') {
     const mapped = mapRpcError(error);
@@ -167,10 +170,22 @@ export async function createChallengeClaim(
       p_submission_id: submissionId,
     }));
   } catch (e) {
+    console.error('[CHALLENGE CLAIM DEBUG] createChallengeClaim threw:', e);
     throw wrapError(e);
   }
 
-  if (error) throw wrapError(error);
+  if (error) {
+    console.error('[CHALLENGE CLAIM DEBUG] createChallengeClaim rpc error:', {
+      rpc: 'create_challenge_claim',
+      submissionId,
+      status: (error as Record<string, unknown>)?.status ?? (error as Record<string, unknown>)?.statusCode ?? 'unknown',
+      code: (error as Record<string, unknown>)?.code ?? 'unknown',
+      message: (error as Record<string, unknown>)?.message ?? 'unknown',
+      details: (error as Record<string, unknown>)?.details ?? 'none',
+      hint: (error as Record<string, unknown>)?.hint ?? 'none',
+    });
+    throw wrapError(error);
+  }
   if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
 
   const row = data as {
@@ -505,10 +520,23 @@ export async function createGuestClaim(
       p_guest_session_id: guestSessionId,
     }));
   } catch (e) {
+    console.error('[CHALLENGE CLAIM DEBUG] createGuestClaim threw:', e);
     throw wrapError(e);
   }
 
-  if (error) throw wrapError(error);
+  if (error) {
+    console.error('[CHALLENGE CLAIM DEBUG] createGuestClaim rpc error:', {
+      rpc: 'create_guest_claim',
+      submissionId,
+      guestSessionId: guestSessionId.substring(0, 8) + '...',
+      status: (error as Record<string, unknown>)?.status ?? (error as Record<string, unknown>)?.statusCode ?? 'unknown',
+      code: (error as Record<string, unknown>)?.code ?? 'unknown',
+      message: (error as Record<string, unknown>)?.message ?? 'unknown',
+      details: (error as Record<string, unknown>)?.details ?? 'none',
+      hint: (error as Record<string, unknown>)?.hint ?? 'none',
+    });
+    throw wrapError(error);
+  }
   if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
 
   const row = data as {

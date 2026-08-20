@@ -114,11 +114,21 @@ export function ChallengeWinnerScreen() {
 
   const handleClaim = useCallback(async () => {
     if (!submissionId || !challengeId) return;
+    console.log('[CHALLENGE CLAIM DEBUG] ChallengeWinnerScreen.handleClaim:', {
+      challengeId,
+      submissionId,
+      isAuthenticated,
+      isAnonymous,
+      isWinner,
+      hasUser: !!authState.user,
+    });
     setClaimStatus('claiming');
     setClaimError(null);
     try {
       if (isAuthenticated) {
+        console.log('[CHALLENGE CLAIM DEBUG] claimPath: authenticated → createChallengeClaim');
         const res = await createChallengeClaim(submissionId);
+        console.log('[CHALLENGE CLAIM DEBUG] createChallengeClaim succeeded');
         setClaimResult(res);
         setClaimStatus('claimed');
         persistClaim({
@@ -130,13 +140,18 @@ export function ChallengeWinnerScreen() {
           challengeId,
         });
       } else if (isAnonymous && authState.user) {
+        console.log('[CHALLENGE CLAIM DEBUG] claimPath: anonymous → try createChallengeClaim, fallback createGuestClaim');
         let res;
         try {
           res = await createChallengeClaim(submissionId);
+          console.log('[CHALLENGE CLAIM DEBUG] createChallengeClaim succeeded');
         } catch (e) {
           const inner = e as ChallengeError;
+          console.error('[CHALLENGE CLAIM DEBUG] createChallengeClaim failed:', { code: inner.code, message: inner.message });
           if (inner.code === 'NOT_YOUR_SUBMISSION') {
+            console.log('[CHALLENGE CLAIM DEBUG] NOT_YOUR_SUBMISSION → falling back to createGuestClaim');
             res = await createGuestClaim(submissionId, authState.user!.id);
+            console.log('[CHALLENGE CLAIM DEBUG] createGuestClaim succeeded');
           } else {
             throw e;
           }
@@ -151,9 +166,13 @@ export function ChallengeWinnerScreen() {
           expiresAt: res.expiresAt,
           challengeId,
         });
+      } else {
+        console.error('[CHALLENGE CLAIM DEBUG] No claim path matched:', { isAuthenticated, isAnonymous, hasUser: !!authState.user });
       }
     } catch (err) {
-      setClaimError((err as ChallengeError).message ?? 'Failed to claim prize');
+      const claimErr = err as ChallengeError;
+      console.error('[CHALLENGE CLAIM DEBUG] handleClaim FAILED:', { code: claimErr.code, message: claimErr.message, fullError: err });
+      setClaimError(claimErr.message ?? 'Failed to claim prize');
       setClaimStatus('error');
     }
   }, [submissionId, challengeId, isAuthenticated, isWinner, authState]);

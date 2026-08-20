@@ -216,22 +216,38 @@ export function useChallengeSubmission({
     if (!result || !result.isQualified) return;
     if (status === 'claiming' || status === 'claimed') return;
 
+    console.log('[CHALLENGE CLAIM DEBUG] claim() started:', {
+      challengeId,
+      submissionId: result?.submissionId,
+      authStatus,
+      guestSessionId: guestSessionId ? guestSessionId.substring(0, 8) + '...' : null,
+      isQualified: result?.isQualified,
+      currentStatus: status,
+    });
+
     setStatus('claiming');
     try {
       let res: ChallengeClaimResult;
       if (authStatus === 'anonymous' && guestSessionId) {
+        console.log('[CHALLENGE CLAIM DEBUG] claimPath: anonymous → try createChallengeClaim, fallback createGuestClaim');
         try {
           res = await createChallengeClaim(result.submissionId);
+          console.log('[CHALLENGE CLAIM DEBUG] createChallengeClaim succeeded');
         } catch (e) {
           const inner = e as ChallengeError;
+          console.error('[CHALLENGE CLAIM DEBUG] createChallengeClaim failed:', { code: inner.code, message: inner.message });
           if (inner.code === 'NOT_YOUR_SUBMISSION') {
+            console.log('[CHALLENGE CLAIM DEBUG] NOT_YOUR_SUBMISSION → falling back to createGuestClaim');
             res = await createGuestClaim(result.submissionId, guestSessionId);
+            console.log('[CHALLENGE CLAIM DEBUG] createGuestClaim succeeded');
           } else {
             throw e;
           }
         }
       } else {
+        console.log('[CHALLENGE CLAIM DEBUG] claimPath: authenticated → createChallengeClaim');
         res = await createChallengeClaim(result.submissionId);
+        console.log('[CHALLENGE CLAIM DEBUG] createChallengeClaim succeeded');
       }
       setClaimResult(res);
       setStatus('claimed');
@@ -247,6 +263,7 @@ export function useChallengeSubmission({
       });
     } catch (e) {
       const err = e as ChallengeError;
+      console.error('[CHALLENGE CLAIM DEBUG] claim() FAILED:', { code: err.code, message: err.message, fullError: e });
       setError(err);
       setStatus('error');
     }
