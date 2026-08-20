@@ -231,15 +231,73 @@ export const ChallengeResultCard = memo(function ChallengeResultCard({
         {/* ── Error ─────────────────────────────────────────────────── */}
         {status === 'error' && error && (
           <div style={{ textAlign: 'center' }}>
-            <p style={{ color: colors.textMuted, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, margin: '0 0 0.4rem' }}>
-              Challenge
-            </p>
-            <p style={{ color: colors.warning, fontSize: '0.85rem', margin: '0 0 0.3rem', fontWeight: 600 }}>
+            {result ? (
+              <>
+                {result.isQualified ? (
+                  <>
+                    <p style={{ color: colors.success, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, margin: '0 0 0.3rem' }}>
+                      Qualified
+                    </p>
+                    <p style={{ color: colors.text, fontSize: '1.1rem', fontWeight: 800, margin: '0 0 0.2rem' }}>
+                      You qualified for the prize!
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ color: colors.textMuted, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, margin: '0 0 0.4rem' }}>
+                      Challenge
+                    </p>
+                    <p style={{ color: colors.textSecondary, fontSize: '0.85rem', margin: '0 0 0.3rem' }}>
+                      Score submitted to the challenge.
+                    </p>
+                  </>
+                )}
+
+                <Flex gap="md" justify="center" style={{ margin: '0.6rem 0' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ color: colors.textMuted, fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 0.15rem' }}>Score</p>
+                    <p style={{ color: colors.text, fontSize: '1.6rem', fontWeight: 800, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{result.focusScore}</p>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ color: colors.textMuted, fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 0.15rem' }}>Grade</p>
+                    <p style={{ color: gradeColor(result.grade, colors), fontSize: '1.6rem', fontWeight: 800, margin: 0 }}>{result.grade}</p>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ color: colors.textMuted, fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 0.15rem' }}>Rank</p>
+                    <p style={{ color: colors.text, fontSize: '1.6rem', fontWeight: 800, margin: 0, fontVariantNumeric: 'tabular-nums' }}>#{result.rank}</p>
+                  </div>
+                </Flex>
+              </>
+            ) : (
+              <>
+                <p style={{ color: colors.textMuted, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, margin: '0 0 0.4rem' }}>
+                  Challenge
+                </p>
+              </>
+            )}
+
+            <p style={{ color: colors.warning, fontSize: '0.85rem', margin: '0.5rem 0 0.3rem', fontWeight: 600 }}>
               {friendlyErrorMessage(error.code)}
             </p>
 
-            {/* Retry button for retryable errors */}
-            {onRetry && RETRYABLE_ERROR_CODES.has(error.code) && (
+            {onClaim && result?.isQualified && (
+              <button
+                type="button"
+                onClick={onClaim}
+                data-testid="challenge-claim"
+                style={{
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  padding: '0.6rem 1.4rem', borderRadius: '12px', border: 'none',
+                  background: `linear-gradient(135deg, ${colors.success} 0%, ${colors.accent} 100%)`,
+                  color: '#fff', fontSize: '0.85rem', fontWeight: 700,
+                  marginTop: '0.5rem',
+                }}
+              >
+                Claim Prize
+              </button>
+            )}
+
+            {onRetry && !result && RETRYABLE_ERROR_CODES.has(error.code) && (
               <button
                 type="button"
                 onClick={onRetry}

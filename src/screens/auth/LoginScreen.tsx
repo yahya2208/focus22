@@ -9,7 +9,7 @@ import { Card } from '../../components/shared/Card';
 
 export const LoginScreen = memo(function LoginScreen() {
   const dispatch = useAppDispatch();
-  const { service } = useAuth();
+  const { state: authState, service } = useAuth();
   const { t } = useTranslation();
   const colors = useThemeColors();
   const [email, setEmail] = useState('');
@@ -17,9 +17,13 @@ export const LoginScreen = memo(function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isAnonymous = authState.status === 'anonymous';
+  const inChallenge = getActiveChallengeId() !== null;
+  const challengeConversionMode = isAnonymous && inChallenge;
+
   const navigateAfterAuth = useCallback(() => {
-    const inChallenge = getActiveChallengeId() !== null;
-    dispatch({ type: inChallenge ? 'REPLACE' : 'NAVIGATE', screen: inChallenge ? 'results' : 'home' });
+    const inC = getActiveChallengeId() !== null;
+    dispatch({ type: inC ? 'REPLACE' : 'NAVIGATE', screen: inC ? 'results' : 'home' });
   }, [dispatch]);
 
   const handleLogin = useCallback(async () => {
@@ -30,14 +34,18 @@ export const LoginScreen = memo(function LoginScreen() {
     setIsLoading(true);
     setError(null);
     try {
-      await service.signInWithEmail(email, password);
+      if (challengeConversionMode) {
+        await service.convertGuestToUser(email, password);
+      } else {
+        await service.signInWithEmail(email, password);
+      }
       navigateAfterAuth();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('login.failed'));
     } finally {
       setIsLoading(false);
     }
-  }, [email, password, service, navigateAfterAuth, t]);
+  }, [email, password, service, navigateAfterAuth, t, challengeConversionMode]);
 
   const handleMagicLink = useCallback(async () => {
     if (!email.trim()) {
@@ -78,6 +86,16 @@ export const LoginScreen = memo(function LoginScreen() {
       <p style={{ color: colors.textMuted, textAlign: 'center', marginBottom: '2rem' }}>
         {t('login.subtitle')}
       </p>
+
+      {challengeConversionMode && (
+        <div style={{
+          padding: '0.75rem 1rem', borderRadius: '10px', marginBottom: '1.5rem',
+          background: `${colors.accent}12`, border: `1px solid ${colors.accent}33`,
+          color: colors.accent, fontSize: '0.8rem', fontWeight: 600, textAlign: 'center',
+        }}>
+          You have an active challenge session. Register to save your progress with a new account.
+        </div>
+      )}
 
       <Card>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -124,7 +142,7 @@ export const LoginScreen = memo(function LoginScreen() {
           )}
 
           <Button onClick={handleLogin} loading={isLoading}>
-            {t('login.signIn')}
+            {challengeConversionMode ? 'Save Challenge Account' : t('login.signIn')}
           </Button>
 
           <Button variant="secondary" onClick={handleMagicLink} disabled={isLoading}>
@@ -134,18 +152,37 @@ export const LoginScreen = memo(function LoginScreen() {
       </Card>
 
       <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        <Button variant="secondary" onClick={handleGuest} disabled={isLoading} style={{ width: '100%' }}>
-          {t('login.continueGuest')}
-        </Button>
-        <button
-          onClick={() => dispatch({ type: 'NAVIGATE', screen: 'register' })}
-          style={{
-            background: 'none', border: 'none', color: colors.accent,
-            fontSize: '0.9rem', cursor: 'pointer', textAlign: 'center',
-          }}
-        >
-          {t('login.noAccount')}
-        </button>
+        {challengeConversionMode ? (
+          <>
+            <Button variant="secondary" onClick={handleGuest} disabled={isLoading} style={{ width: '100%' }}>
+              {t('login.continueGuest')}
+            </Button>
+            <button
+              onClick={() => dispatch({ type: 'NAVIGATE', screen: 'register' })}
+              style={{
+                background: 'none', border: 'none', color: colors.accent,
+                fontSize: '0.9rem', cursor: 'pointer', textAlign: 'center', fontWeight: 600,
+              }}
+            >
+              Register a new account to save your progress
+            </button>
+          </>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={handleGuest} disabled={isLoading} style={{ width: '100%' }}>
+              {t('login.continueGuest')}
+            </Button>
+            <button
+              onClick={() => dispatch({ type: 'NAVIGATE', screen: 'register' })}
+              style={{
+                background: 'none', border: 'none', color: colors.accent,
+                fontSize: '0.9rem', cursor: 'pointer', textAlign: 'center',
+              }}
+            >
+              {t('login.noAccount')}
+            </button>
+          </>
+        )}
         <button
           onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })}
           style={{

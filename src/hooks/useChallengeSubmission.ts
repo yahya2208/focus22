@@ -21,6 +21,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   submitChallengeScore,
   createChallengeClaim,
+  createGuestClaim,
 } from '../challenge/challenge-service';
 import { getActiveChallengeId } from '../challenge/challenge-context';
 import type {
@@ -217,7 +218,21 @@ export function useChallengeSubmission({
 
     setStatus('claiming');
     try {
-      const res = await createChallengeClaim(result.submissionId);
+      let res: ChallengeClaimResult;
+      if (authStatus === 'anonymous' && guestSessionId) {
+        try {
+          res = await createChallengeClaim(result.submissionId);
+        } catch (e) {
+          const inner = e as ChallengeError;
+          if (inner.code === 'NOT_YOUR_SUBMISSION') {
+            res = await createGuestClaim(result.submissionId, guestSessionId);
+          } else {
+            throw e;
+          }
+        }
+      } else {
+        res = await createChallengeClaim(result.submissionId);
+      }
       setClaimResult(res);
       setStatus('claimed');
 
@@ -233,9 +248,9 @@ export function useChallengeSubmission({
     } catch (e) {
       const err = e as ChallengeError;
       setError(err);
-      setStatus('submitted');
+      setStatus('error');
     }
-  }, [result, status, challengeId]);
+  }, [result, status, challengeId, authStatus, guestSessionId]);
 
   return { challengeId, status, result, claimResult, error, claim, retry };
 }

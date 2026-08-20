@@ -130,7 +130,17 @@ export function ChallengeWinnerScreen() {
           challengeId,
         });
       } else if (isAnonymous && authState.user) {
-        const res = await createGuestClaim(submissionId, authState.user.id);
+        let res;
+        try {
+          res = await createChallengeClaim(submissionId);
+        } catch (e) {
+          const inner = e as ChallengeError;
+          if (inner.code === 'NOT_YOUR_SUBMISSION') {
+            res = await createGuestClaim(submissionId, authState.user!.id);
+          } else {
+            throw e;
+          }
+        }
         setClaimResult(res);
         setClaimStatus('claimed');
         persistClaim({
@@ -146,7 +156,7 @@ export function ChallengeWinnerScreen() {
       setClaimError((err as ChallengeError).message ?? 'Failed to claim prize');
       setClaimStatus('error');
     }
-  }, [submissionId, challengeId, isAuthenticated, isAnonymous, isWinner, authState]);
+  }, [submissionId, challengeId, isAuthenticated, isWinner, authState]);
 
   const handleConvertGuest = useCallback(async () => {
     if (!submissionId) return;

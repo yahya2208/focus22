@@ -6,10 +6,11 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { Button } from '../../components/shared/Button';
 import { Card } from '../../components/shared/Card';
 import { recordFunnel, getActiveCampaignId } from '../../services/qr-measurement';
+import { getActiveChallengeId } from '../../challenge/challenge-context';
 
 export const RegisterScreen = memo(function RegisterScreen() {
   const dispatch = useAppDispatch();
-  const { service } = useAuth();
+  const { state: authState, service } = useAuth();
   const { t } = useTranslation();
   const colors = useThemeColors();
   const [email, setEmail] = useState('');
@@ -17,6 +18,10 @@ export const RegisterScreen = memo(function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isAnonymous = authState.status === 'anonymous';
+  const inChallenge = getActiveChallengeId() !== null;
+  const canConvertGuest = isAnonymous && inChallenge;
 
   const handleContinueGuest = useCallback(() => {
     dispatch({ type: 'NAVIGATE', screen: 'home' });
@@ -34,7 +39,11 @@ export const RegisterScreen = memo(function RegisterScreen() {
     setIsLoading(true);
     setError(null);
     try {
-      await service.signUpWithEmail(email, password, displayName || undefined);
+      if (canConvertGuest) {
+        await service.convertGuestToUser(email, password, displayName || undefined);
+      } else {
+        await service.signUpWithEmail(email, password, displayName || undefined);
+      }
       recordFunnel(getActiveCampaignId() ?? '', 'registration');
       dispatch({ type: 'NAVIGATE', screen: 'home' });
     } catch (err) {
@@ -42,7 +51,7 @@ export const RegisterScreen = memo(function RegisterScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [email, password, displayName, service, dispatch, t]);
+  }, [email, password, displayName, service, dispatch, t, canConvertGuest]);
 
   const handleMagicLink = useCallback(async () => {
     if (!email.trim()) {
@@ -69,6 +78,16 @@ export const RegisterScreen = memo(function RegisterScreen() {
       <p style={{ color: colors.textMuted, textAlign: 'center', marginBottom: '2rem' }}>
         {t('register.subtitle')}
       </p>
+
+      {canConvertGuest && (
+        <div style={{
+          padding: '0.75rem 1rem', borderRadius: '10px', marginBottom: '1.5rem',
+          background: `${colors.accent}12`, border: `1px solid ${colors.accent}33`,
+          color: colors.accent, fontSize: '0.8rem', fontWeight: 600, textAlign: 'center',
+        }}>
+          Register to save your challenge progress. Your current session will be preserved.
+        </div>
+      )}
 
       <Card>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -133,7 +152,7 @@ export const RegisterScreen = memo(function RegisterScreen() {
           )}
 
           <Button onClick={handleRegister} loading={isLoading}>
-            {t('register.createAccount')}
+            {canConvertGuest ? 'Save Challenge Account' : t('register.createAccount')}
           </Button>
 
           <Button variant="secondary" onClick={handleMagicLink} disabled={isLoading}>
