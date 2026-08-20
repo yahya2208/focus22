@@ -66,6 +66,7 @@ export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
   'catalog-approval': ['settings', 'home'],
   'challenge-admin': ['settings'],
   'challenge-page': ['deep-link'],
+  'challenge-winner': ['results'],
   'claim-verify': ['deep-link', 'home'],
 };
 

@@ -7,6 +7,8 @@
 export {
   submitChallengeScore,
   createChallengeClaim,
+  claimGuestSubmission,
+  createGuestClaim,
   recoverCurrentLeaderState,
   getChallengePublicInfo,
   verifyClaimToken,
@@ -20,6 +22,7 @@ export {
   adminCreateChallenge,
   adminUpdateChallenge,
   adminProcessClaim,
+  adminProcessGuestClaim,
   finalizeChallenge,
 } from './admin-service';
 
@@ -29,12 +32,20 @@ export { generateNonce, isValidNonceFormat } from './nonce';
 
 export { getActiveChallengeId, setActiveChallengeId } from './challenge-context';
 
+export {
+  resolveDefaultGameEntry,
+  invalidateActiveChallengeCache,
+  resetActiveChallengeCache,
+} from './active-challenge-resolver';
+
 export type { SubmissionStatus, UseChallengeSubmissionResult, UseChallengeSubmissionParams } from '../hooks/useChallengeSubmission';
 
 export type {
   ChallengeSubmitPayload,
   ChallengeSubmitResult,
   ChallengeClaimResult,
+  GuestClaimResult,
+  GuestOwnershipTransferResult,
   ChallengeVerifyResult,
   ChallengePublicInfo,
   CurrentLeaderRecoveryState,

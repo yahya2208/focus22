@@ -22,6 +22,8 @@ import type {
   ChallengeSubmitPayload,
   ChallengeSubmitResult,
   ChallengeClaimResult,
+  GuestClaimResult,
+  GuestOwnershipTransferResult,
   ChallengeVerifyResult,
   LeaderboardEntry,
   LeaderboardPeriod,
@@ -39,6 +41,7 @@ const RPC_ERROR_MAP: ReadonlyMap<string, ChallengeErrorCode> = new Map([
   ['Challenge is not active', 'CHALLENGE_NOT_ACTIVE'],
   ['Challenge has not started', 'CHALLENGE_NOT_STARTED'],
   ['Challenge has ended', 'CHALLENGE_ENDED'],
+  ['Challenge has not been finalized', 'CHALLENGE_NOT_FINALIZED'],
   ['Duplicate submission', 'DUPLICATE_SUBMISSION'],
   ['Rate limit exceeded', 'RATE_LIMIT_EXCEEDED'],
   ['Expected exactly 7 reaction times', 'INVALID_RT_COUNT'],
@@ -210,6 +213,7 @@ export async function verifyClaimToken(
     display_name: string;
     expires_at: string;
     claimed_at: string | null;
+    is_guest_claim: boolean;
   };
 
   return {
@@ -221,6 +225,7 @@ export async function verifyClaimToken(
     displayName: row.display_name,
     expiresAt: row.expires_at,
     claimedAt: row.claimed_at,
+    isGuestClaim: row.is_guest_claim,
   };
 }
 
@@ -386,6 +391,9 @@ export async function getChallengePublicInfo(
       starts_at: string | null;
       ends_at: string | null;
       prize_description: string | null;
+      is_finalized: boolean;
+      final_winner_name: string | null;
+      winner_submission_id: string | null;
     };
     top_5: Array<{
       rank: number;
@@ -396,6 +404,7 @@ export async function getChallengePublicInfo(
     user: {
       best_score: number | null;
       best_grade: string | null;
+      best_submission_id: string | null;
       personal_rank: number;
       total_submissions: number;
     } | null;
@@ -410,6 +419,9 @@ export async function getChallengePublicInfo(
       startsAt: row.challenge.starts_at,
       endsAt: row.challenge.ends_at,
       prizeDescription: row.challenge.prize_description,
+      isFinalized: row.challenge.is_finalized,
+      finalWinnerName: row.challenge.final_winner_name,
+      winnerSubmissionId: row.challenge.winner_submission_id,
     },
     top5: (row.top_5 ?? []).map((e) => ({
       rank: e.rank,
@@ -420,8 +432,88 @@ export async function getChallengePublicInfo(
     user: row.user ? {
       bestScore: row.user.best_score,
       bestGrade: row.user.best_grade,
+      bestSubmissionId: row.user.best_submission_id,
       personalRank: row.user.personal_rank,
       totalSubmissions: row.user.total_submissions,
     } : null,
+  };
+}
+
+// ── Guest Claim ───────────────────────────────────────────────────────────────
+
+/**
+ * Transfers a guest submission to the authenticated user's account.
+ * Requires authentication.
+ * Must be called BEFORE claiming — unlocks the claim button.
+ *
+ * @returns Transfer confirmation including updated rank.
+ */
+export async function claimGuestSubmission(
+  submissionId: string,
+): Promise<GuestOwnershipTransferResult> {
+  let data: unknown;
+  let error: unknown;
+  try {
+    ({ data, error } = await getSupabaseClient().rpc('claim_guest_submission', {
+      p_submission_id: submissionId,
+    }));
+  } catch (e) {
+    throw wrapError(e);
+  }
+
+  if (error) throw wrapError(error);
+  if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
+
+  const row = data as {
+    submission_id: string;
+    focus_score: number;
+    grade: string;
+    rank: number;
+  };
+
+  return {
+    submissionId: row.submission_id,
+    focusScore: row.focus_score,
+    grade: row.grade,
+    rank: row.rank,
+  };
+}
+
+/**
+ * Creates a prize claim for a guest submission (anonymous flow).
+ * No authentication required — uses guest_session_id.
+ *
+ * @returns Guest claim credentials (code, token) — shown once, never stored.
+ */
+export async function createGuestClaim(
+  submissionId: string,
+  guestSessionId: string,
+): Promise<GuestClaimResult> {
+  let data: unknown;
+  let error: unknown;
+  try {
+    ({ data, error } = await getSupabaseClient().rpc('create_guest_claim', {
+      p_submission_id: submissionId,
+      p_guest_session_id: guestSessionId,
+    }));
+  } catch (e) {
+    throw wrapError(e);
+  }
+
+  if (error) throw wrapError(error);
+  if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
+
+  const row = data as {
+    claim_id: string;
+    code: string;
+    token: string;
+    expires_at: string;
+  };
+
+  return {
+    claimId: row.claim_id,
+    code: row.code,
+    token: row.token,
+    expiresAt: row.expires_at,
   };
 }

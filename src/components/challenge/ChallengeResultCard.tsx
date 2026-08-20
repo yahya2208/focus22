@@ -34,6 +34,7 @@ interface ChallengeResultCardProps {
   readonly error: ChallengeError | null;
   readonly onClaim: () => void;
   readonly onRetry?: () => void;
+  readonly isFinalWinner?: boolean | undefined;
 }
 
 const RETRYABLE_ERROR_CODES = new Set([
@@ -57,6 +58,7 @@ export const ChallengeResultCard = memo(function ChallengeResultCard({
   error,
   onClaim,
   onRetry,
+  isFinalWinner = true,
 }: ChallengeResultCardProps) {
   const colors = useThemeColors();
   const navigate = useNavigate();
@@ -161,8 +163,8 @@ export const ChallengeResultCard = memo(function ChallengeResultCard({
               </div>
             </Flex>
 
-            {/* Claim button — only for qualified */}
-            {result.isQualified && (
+            {/* Claim button — only for final winners (or when winner status unknown) */}
+            {result.isQualified && isFinalWinner !== false && (
               <button
                 type="button"
                 onClick={onClaim}
@@ -266,6 +268,7 @@ function friendlyErrorMessage(code: string): string {
     case 'CHALLENGE_NOT_ACTIVE': return 'This challenge is not currently active.';
     case 'CHALLENGE_NOT_STARTED': return 'This challenge has not started yet.';
     case 'CHALLENGE_ENDED': return 'This challenge has ended.';
+    case 'CHALLENGE_NOT_FINALIZED': return 'This challenge has not been finalized yet.';
     case 'DUPLICATE_SUBMISSION': return 'You have already submitted to this challenge.';
     case 'RATE_LIMIT_EXCEEDED': return 'Too many submissions. Please try again in a moment.';
     case 'INVALID_RT_COUNT': return 'Invalid number of reaction times.';

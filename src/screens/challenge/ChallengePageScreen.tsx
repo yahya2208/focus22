@@ -147,6 +147,7 @@ export function ChallengePageScreen() {
   const { challenge, top5, user } = info;
   const isEnded = challenge.status === 'ended';
   const isLeader = recovery?.isCurrentLeader === true;
+  const isFinalized = challenge.isFinalized;
 
   return (
     <div style={{
@@ -324,6 +325,34 @@ export function ChallengePageScreen() {
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Finalized winner banner */}
+      {isFinalized && (
+        <div style={{
+          padding: '1rem 1.25rem', borderRadius: '12px',
+          border: `2px solid ${colors.accent}44`, background: `${colors.accent}12`,
+          textAlign: 'center',
+        }}>
+          <p style={{ margin: '0 0 0.3rem', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, color: colors.accent }}>
+            Challenge Finalized
+          </p>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: colors.textSecondary }}>
+            Winner: <strong style={{ color: colors.accent }}>{challenge.finalWinnerName ?? 'N/A'}</strong>
+          </p>
+          <button
+            type="button"
+            onClick={() => dispatch({ type: 'NAVIGATE', screen: 'challenge-winner' })}
+            style={{
+              marginTop: '0.6rem', padding: '0.5rem 1.2rem', borderRadius: '10px',
+              border: 'none', cursor: 'pointer',
+              background: `linear-gradient(135deg, ${colors.success} 0%, ${colors.accent} 100%)`,
+              color: '#fff', fontSize: '0.85rem', fontWeight: 700, fontFamily: 'inherit',
+            }}
+          >
+            View Winner Results
+          </button>
         </div>
       )}
 

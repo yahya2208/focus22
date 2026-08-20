@@ -17,6 +17,7 @@ import { runSilentCalibration } from './core/calibration/silent';
 import { extractCampaignShortCodeFromLocation, lookupCampaign } from './services/campaign-lookup';
 import { recordScan } from './services/qr-measurement';
 import { setActiveChallengeId } from './challenge/challenge-context';
+import { resolveDefaultGameEntry } from './challenge/active-challenge-resolver';
 import focusIcon from './assets/brand/focus-icon.svg';
 
 // Small/critical screens — lazy loaded to reduce initial bundle size
@@ -64,6 +65,7 @@ const CatalogApprovalScreen = lazy(() => import('./screens/admin/CatalogApproval
 const ChallengeAdminScreen = lazy(() => import('./screens/admin/ChallengeAdminScreen').then(m => ({ default: m.ChallengeAdminScreen })));
 const ClaimVerifyScreen = lazy(() => import('./screens/challenge/ClaimVerifyScreen').then(m => ({ default: m.ClaimVerifyScreen })));
 const ChallengePageScreen = lazy(() => import('./screens/challenge/ChallengePageScreen').then(m => ({ default: m.ChallengePageScreen })));
+const ChallengeWinnerScreen = lazy(() => import('./screens/challenge/ChallengeWinnerScreen').then(m => ({ default: m.ChallengeWinnerScreen })));
 
 const screens: Record<ScreenName, React.ComponentType> = {
   home: HomeScreen,
@@ -107,6 +109,7 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'catalog-approval': CatalogApprovalScreen,
   'challenge-admin': ChallengeAdminScreen,
   'challenge-page': ChallengePageScreen,
+  'challenge-winner': ChallengeWinnerScreen,
   'claim-verify': ClaimVerifyScreen,
 };
 
@@ -271,6 +274,22 @@ export function InitialRoute() {
 
       const target = screenPart === 'repair/track' ? 'repair-tracking' : screenPart;
       if (isScreenName(target) && target !== 'home') {
+        // Gate game entry screens through the active challenge resolver.
+        // If a playable challenge exists, redirect to challenge-page.
+        // Explicit challenge deep links (?challenge_id) are handled above and
+        // take priority — they never reach this branch.
+        const GAME_ENTRY_SCREENS: ReadonlySet<string> = new Set(['game', 'game-intro', 'countdown']);
+        if (GAME_ENTRY_SCREENS.has(target)) {
+          resolveDefaultGameEntry().then((resolved) => {
+            dispatch({
+              type: 'REPLACE',
+              screen: resolved,
+              params: Object.keys(params).length > 0 ? params : undefined,
+            });
+          });
+          return;
+        }
+
         dispatch({
           type: 'REPLACE',
           screen: target,

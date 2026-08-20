@@ -35,6 +35,20 @@ export interface ChallengeClaimResult {
   readonly expiresAt: string;
 }
 
+export interface GuestClaimResult {
+  readonly claimId: string;
+  readonly code: string;
+  readonly token: string;
+  readonly expiresAt: string;
+}
+
+export interface GuestOwnershipTransferResult {
+  readonly submissionId: string;
+  readonly focusScore: number;
+  readonly grade: string;
+  readonly rank: number;
+}
+
 // ── Public Challenge Info ───────────────────────────────────────────────────
 
 export interface ChallengePublicInfo {
@@ -46,6 +60,9 @@ export interface ChallengePublicInfo {
     readonly startsAt: string | null;
     readonly endsAt: string | null;
     readonly prizeDescription: string | null;
+    readonly isFinalized: boolean;
+    readonly finalWinnerName: string | null;
+    readonly winnerSubmissionId: string | null;
   };
   readonly top5: ReadonlyArray<{
     readonly rank: number;
@@ -56,6 +73,7 @@ export interface ChallengePublicInfo {
   readonly user: {
     readonly bestScore: number | null;
     readonly bestGrade: string | null;
+    readonly bestSubmissionId: string | null;
     readonly personalRank: number;
     readonly totalSubmissions: number;
   } | null;
@@ -85,6 +103,7 @@ export interface ChallengeVerifyResult {
   readonly displayName: string;
   readonly expiresAt: string;
   readonly claimedAt: string | null;
+  readonly isGuestClaim: boolean;
 }
 
 // ── Leaderboard ──────────────────────────────────────────────────────────────
@@ -116,6 +135,7 @@ export type ChallengeErrorCode =
   | 'CHALLENGE_NOT_ACTIVE'
   | 'CHALLENGE_NOT_STARTED'
   | 'CHALLENGE_ENDED'
+  | 'CHALLENGE_NOT_FINALIZED'
   | 'DUPLICATE_SUBMISSION'
   | 'RATE_LIMIT_EXCEEDED'
   | 'INVALID_RT_COUNT'
@@ -169,12 +189,20 @@ export interface AdminChallengeDetail {
     readonly prize_config: Record<string, unknown>;
     readonly created_by: string;
     readonly created_at: string;
+    readonly final_winner_submission_id: string | null;
   };
   readonly participantCount: number;
   readonly qualifiedCount: number;
   readonly claimCount: number;
   readonly pendingClaims: number;
   readonly redeemedClaims: number;
+  readonly winnerSubmissionId: string | null;
+  readonly winnerName: string | null;
+  readonly winnerScore: number | null;
+  readonly winnerGrade: string | null;
+  readonly winnerIsGuest: boolean;
+  readonly winnerClaimStatus: string | null;
+  readonly winnerClaimId: string | null;
 }
 
 export interface AdminCreateChallengeParams {

@@ -45,6 +45,7 @@ export type ScreenName =
   | 'catalog-approval'
   | 'challenge-admin'
   | 'challenge-page'
+  | 'challenge-winner'
   | 'claim-verify';
 
 export interface SessionRecord {
@@ -153,6 +154,7 @@ export const ALL_SCREEN_NAMES: readonly ScreenName[] = [
   'catalog-approval',
   'challenge-admin',
   'challenge-page',
+  'challenge-winner',
   'claim-verify',
 ];
 

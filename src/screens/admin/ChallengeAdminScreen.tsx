@@ -224,18 +224,53 @@ function DetailPanel({
       {/* Finalize button — only for ended challenges */}
       {ch.status === 'ended' && (
         <div style={{ marginTop: '0.75rem' }}>
-          {finalizeResult ? (
+          {detail.winnerSubmissionId || finalizeResult ? (
             <div style={{
               padding: '0.6rem 0.85rem', borderRadius: '8px',
               border: `1px solid ${colors.success}33`, background: `${colors.success}12`,
-              fontSize: '0.8rem', color: colors.success,
+              fontSize: '0.8rem',
             }}>
-              {finalizeResult.alreadyFinalized
-                ? 'Challenge was already finalized.'
-                : finalizeResult.winnerId
-                  ? `Final winner: ${finalizeResult.displayName ?? 'Unknown'} — Score: ${finalizeResult.focusScore} — Grade: ${finalizeResult.grade}`
-                  : 'Finalized — no qualified submissions.'
-              }
+              <p style={{ margin: '0 0 0.3rem', color: colors.success, fontWeight: 700 }}>
+                {finalizeResult?.alreadyFinalized ? 'Challenge was already finalized.' : 'Challenge Finalized'}
+              </p>
+              {detail.winnerSubmissionId && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.3rem 0.75rem' }}>
+                  <div>
+                    <span style={{ color: colors.textMuted, fontSize: '0.7rem' }}>Winner: </span>
+                    <span style={{ color: colors.text, fontWeight: 600 }}>{detail.winnerName ?? 'Unknown'}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: colors.textMuted, fontSize: '0.7rem' }}>Score: </span>
+                    <span style={{ color: colors.text, fontWeight: 600 }}>{detail.winnerScore ?? '—'}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: colors.textMuted, fontSize: '0.7rem' }}>Grade: </span>
+                    <span style={{ color: colors.text, fontWeight: 600 }}>{detail.winnerGrade ?? '—'}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: colors.textMuted, fontSize: '0.7rem' }}>Type: </span>
+                    <span style={{ color: colors.text, fontWeight: 600 }}>{detail.winnerIsGuest ? 'Guest' : 'Registered'}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: colors.textMuted, fontSize: '0.7rem' }}>Claim: </span>
+                    <span style={{ color: detail.winnerClaimStatus === 'redeemed' ? colors.success : colors.text, fontWeight: 600 }}>{detail.winnerClaimStatus ?? 'No claim yet'}</span>
+                  </div>
+                  {detail.winnerClaimId && (
+                    <div>
+                      <span style={{ color: colors.textMuted, fontSize: '0.7rem' }}>Claim ID: </span>
+                      <span style={{ color: colors.accent, fontWeight: 600, fontSize: '0.7rem', wordBreak: 'break-all' }}>{detail.winnerClaimId}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {!detail.winnerSubmissionId && finalizeResult?.winnerId && (
+                <p style={{ margin: 0, color: colors.success }}>
+                  Final winner: {finalizeResult.displayName ?? 'Unknown'} — Score: {finalizeResult.focusScore} — Grade: {finalizeResult.grade}
+                </p>
+              )}
+              {!detail.winnerSubmissionId && !finalizeResult?.winnerId && (
+                <p style={{ margin: 0, color: colors.textMuted }}>No qualified submissions.</p>
+              )}
             </div>
           ) : (
             <button

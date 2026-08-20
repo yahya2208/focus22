@@ -4,6 +4,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Card } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
+import { resolveDefaultGameEntry } from '../../challenge/active-challenge-resolver';
 
 export const PreGameMessageScreen = memo(function PreGameMessageScreen() {
   const dispatch = useAppDispatch();
@@ -19,8 +20,9 @@ export const PreGameMessageScreen = memo(function PreGameMessageScreen() {
         <p style={{ color: colors.textSecondary, fontSize: '1rem', marginBottom: '2rem' }}>
           {t('message.subtitle')}
         </p>
-        <Button onClick={() => {
-          dispatch({ type: 'NAVIGATE', screen: 'countdown' });
+        <Button onClick={async () => {
+          const target = await resolveDefaultGameEntry();
+          dispatch({ type: 'NAVIGATE', screen: target });
         }} style={{ width: '100%' }}>
           {t('landing.startNow')}
         </Button>

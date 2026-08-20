@@ -104,6 +104,13 @@ export async function adminGetChallengeDetails(
     claim_count: number;
     pending_claims: number;
     redeemed_claims: number;
+    winner_submission_id: string | null;
+    winner_name: string | null;
+    winner_score: number | null;
+    winner_grade: string | null;
+    winner_is_guest: boolean;
+    winner_claim_status: string | null;
+    winner_claim_id: string | null;
   };
 
   return {
@@ -113,6 +120,13 @@ export async function adminGetChallengeDetails(
     claimCount: row.claim_count,
     pendingClaims: row.pending_claims,
     redeemedClaims: row.redeemed_claims,
+    winnerSubmissionId: row.winner_submission_id,
+    winnerName: row.winner_name,
+    winnerScore: row.winner_score,
+    winnerGrade: row.winner_grade,
+    winnerIsGuest: row.winner_is_guest,
+    winnerClaimStatus: row.winner_claim_status,
+    winnerClaimId: row.winner_claim_id,
   };
 }
 
@@ -249,4 +263,33 @@ export async function finalizeChallenge(
     displayName: row.display_name ?? null,
     alreadyFinalized: row.already_finalized ?? false,
   };
+}
+
+// ── Process Guest Claim ───────────────────────────────────────────────────────
+
+/**
+ * Admin processes a guest claim (redeem or revoke).
+ * Requires admin authorization.
+ *
+ * @returns Updated claim status.
+ */
+export async function adminProcessGuestClaim(
+  claimId: string,
+  action: ClaimProcessAction,
+): Promise<AdminClaimProcessResult> {
+  let data: unknown;
+  let error: unknown;
+  try {
+    ({ data, error } = await getSupabaseClient().rpc('admin_process_guest_claim', {
+      p_claim_id: claimId,
+      p_action: action,
+    }));
+  } catch (e) {
+    throw wrapError(e);
+  }
+
+  if (error) throw wrapError(error);
+  if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
+
+  return { status: (data as { status: string }).status };
 }

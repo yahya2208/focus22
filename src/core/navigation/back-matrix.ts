@@ -64,6 +64,7 @@ export const BACK_MATRIX: Record<ScreenName, BackMatrixRow> = {
   'catalog-approval': { screen: 'catalog-approval', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'protected; research_admin catalog workflow' },
   'challenge-admin': { screen: 'challenge-admin', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'protected; challenge system admin' },
   'challenge-page': { screen: 'challenge-page', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'public challenge page; deep-linkable' },
+  'challenge-winner': { screen: 'challenge-winner', backTarget: 'previous', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'final winner display; back = previous (results or challenge-page)' },
   'claim-verify': { screen: 'claim-verify', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'shop staff claim verification; deep-linkable' },
 };
 

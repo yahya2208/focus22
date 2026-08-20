@@ -16,6 +16,7 @@ import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 import { InventoryService, type InventoryRecord } from '../../services/inventory-service';
 import { getInventoryReady, subscribeCentralInventory } from '../../services/inventory-central-service';
 import { useInventoryImages } from '../../hooks/useInventoryImages';
+import { resolveDefaultGameEntry } from '../../challenge/active-challenge-resolver';
 
 function getGreetingKey() {
   const h = new Date().getHours();
@@ -212,9 +213,14 @@ export const HomeScreen = memo(function HomeScreen() {
     }));
   }, [sessions]);
 
-  const startTest = () => {
-    dispatch({ type: 'SELECT_GAME', gameMode: 'reaction-light' });
-    dispatch({ type: 'NAVIGATE', screen: 'countdown' });
+  const startTest = async () => {
+    const target = await resolveDefaultGameEntry();
+    if (target === 'challenge-page') {
+      dispatch({ type: 'NAVIGATE', screen: 'challenge-page' });
+    } else {
+      dispatch({ type: 'SELECT_GAME', gameMode: 'reaction-light' });
+      dispatch({ type: 'NAVIGATE', screen: 'countdown' });
+    }
   };
 
   const openService = (item: (typeof SERVICE_ITEMS)[number]) => {

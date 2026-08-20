@@ -63,6 +63,7 @@ export interface UseChallengeSubmissionParams {
 // ── localStorage Persistence ─────────────────────────────────────────────────
 
 const CLAIM_STORAGE_KEY = 'focus_claim_data';
+const SUBMISSION_STORAGE_KEY = 'focus_challenge_submission_id';
 
 interface StoredClaimData {
   submissionId: string;
@@ -71,6 +72,11 @@ interface StoredClaimData {
   token: string;
   expiresAt: string;
   challengeId: string;
+}
+
+interface StoredSubmissionData {
+  challengeId: string;
+  submissionId: string;
 }
 
 function persistClaim(data: StoredClaimData): void {
@@ -88,6 +94,12 @@ function loadStoredClaim(challengeId: string): StoredClaimData | null {
     if (new Date(parsed.expiresAt) < new Date()) return null;
     return parsed;
   } catch { return null; }
+}
+
+function persistSubmission(data: StoredSubmissionData): void {
+  try {
+    localStorage.setItem(SUBMISSION_STORAGE_KEY, JSON.stringify(data));
+  } catch { /* storage full or unavailable — non-critical */ }
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
@@ -149,6 +161,8 @@ export function useChallengeSubmission({
       });
       setResult(res);
       setStatus('submitted');
+
+      persistSubmission({ challengeId: cid, submissionId: res.submissionId });
     } catch (e) {
       const err = e as ChallengeError;
       setError(err);
