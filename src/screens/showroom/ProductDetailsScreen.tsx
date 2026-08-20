@@ -171,6 +171,9 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
             <button type="button" data-action="favorite" aria-label={t('phoneDetails.favorite')} onClick={handleFavorite} style={headerBtn}>
               ♥ {t('phoneDetails.favorite')}
             </button>
+            <button type="button" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })} style={headerBtn}>
+              🏠 الرئيسية
+            </button>
           </div>
         </div>
 
@@ -243,6 +246,10 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
         <AdContactBanner placement={PRODUCT_DETAILS_AD_PLACEMENT} />
 
         <SimilarPhones devices={similar} onSelect={handleSimilarSelect} />
+
+        <button type="button" onClick={handleBack} style={{ ...headerBtn, width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}>
+          {dir === 'rtl' ? '→' : '←'} {t('phoneDetails.title')}
+        </button>
       </Stack>
 
       {favorites.showToast && (

@@ -127,6 +127,7 @@ beforeEach(() => {
   mockRpc.mockReset();
   resetChallengeContextForTests();
   mockAuthState = { status: 'authenticated', user: { id: 'user-1', displayName: 'Test' } };
+  localStorage.clear();
 });
 
 afterEach(() => {

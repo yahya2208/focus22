@@ -159,6 +159,52 @@ export const ResultsScreen = memo(function ResultsScreen() {
   }, [dispatch, inChallenge]);
 
   if (!results || !analysis) {
+    if (inChallenge && challenge.result) {
+      return (
+        <Screen ariaLabel="Challenge results">
+          <Stack gap="lg">
+            <div style={{ textAlign: 'center' }}>
+              <h1 style={{ fontSize: '1.4rem', fontWeight: 700, margin: '0 0 0.15rem', color: colors.text }}>
+                {t('results.title')}
+              </h1>
+            </div>
+
+            <ChallengeResultCard
+              challengeId={challenge.challengeId}
+              status={challenge.status}
+              result={challenge.result}
+              claimResult={challenge.claimResult}
+              error={challenge.error}
+              onClaim={challenge.claim}
+              onRetry={challenge.retry}
+            />
+
+            {challenge.result.isCurrentLeader && challenge.status === 'submitted' && (
+              <Card variant="glass" padding="lg" style={{ border: `2px solid ${colors.accent}44` }}>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ margin: 0, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, color: colors.accent }}>
+                    You're the Current Leader
+                  </p>
+                  <p style={{ margin: '0.3rem 0 0', fontSize: '0.8rem', color: colors.textSecondary }}>
+                    Your score is currently #1 in this challenge.
+                  </p>
+                  <p style={{ margin: '0.2rem 0 0', fontSize: '0.7rem', color: colors.textMuted, fontStyle: 'italic' }}>
+                    This position is subject to change until the challenge ends.
+                  </p>
+                </div>
+              </Card>
+            )}
+
+            {challenge.challengeId && (
+              <>
+                <PersonalStats challengeId={challenge.challengeId} />
+                <Leaderboard challengeId={challenge.challengeId} limit={5} />
+              </>
+            )}
+          </Stack>
+        </Screen>
+      );
+    }
     return (
       <Screen ariaLabel="Results">
         <Stack gap="lg">

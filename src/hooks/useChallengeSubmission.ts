@@ -65,6 +65,7 @@ export interface UseChallengeSubmissionParams {
 
 const CLAIM_STORAGE_KEY = 'focus_claim_data';
 const SUBMISSION_STORAGE_KEY = 'focus_challenge_submission_id';
+const RESULT_STORAGE_KEY = 'focus_challenge_result';
 
 interface StoredClaimData {
   submissionId: string;
@@ -78,6 +79,17 @@ interface StoredClaimData {
 interface StoredSubmissionData {
   challengeId: string;
   submissionId: string;
+}
+
+interface StoredResultData {
+  challengeId: string;
+  submissionId: string;
+  focusScore: number;
+  grade: string;
+  rank: number;
+  isQualified: boolean;
+  isCurrentLeader: boolean;
+  timestamp: number;
 }
 
 function persistClaim(data: StoredClaimData): void {
@@ -103,6 +115,22 @@ function persistSubmission(data: StoredSubmissionData): void {
   } catch { /* storage full or unavailable — non-critical */ }
 }
 
+function persistResult(data: StoredResultData): void {
+  try {
+    localStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify(data));
+  } catch { /* storage full or unavailable — non-critical */ }
+}
+
+function loadStoredResult(challengeId: string): StoredResultData | null {
+  try {
+    const raw = localStorage.getItem(RESULT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredResultData;
+    if (parsed.challengeId !== challengeId) return null;
+    return parsed;
+  } catch { return null; }
+}
+
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useChallengeSubmission({
@@ -121,24 +149,42 @@ export function useChallengeSubmission({
   const submittedRef = useRef(false);
   const challengeId = getActiveChallengeId();
 
-  // ── Check localStorage for previously claimed result ────────────────────
+  // ── Check localStorage for previously submitted/claimed result ──────────
   useEffect(() => {
     if (!challengeId) return;
-    const stored = loadStoredClaim(challengeId);
-    if (stored) {
-      setClaimResult({
-        claimId: stored.claimId,
-        code: stored.code,
-        token: stored.token,
-        expiresAt: stored.expiresAt,
-      });
+
+    const storedClaim = loadStoredClaim(challengeId);
+    const storedResult = loadStoredResult(challengeId);
+
+    if (storedResult) {
       setResult({
-        submissionId: stored.submissionId,
-        focusScore: 0,
-        grade: 'A',
-        rank: 0,
-        isQualified: true,
-        isCurrentLeader: false,
+        submissionId: storedResult.submissionId,
+        focusScore: storedResult.focusScore,
+        grade: storedResult.grade as ChallengeSubmitResult['grade'],
+        rank: storedResult.rank,
+        isQualified: storedResult.isQualified,
+        isCurrentLeader: storedResult.isCurrentLeader,
+      });
+      submittedRef.current = true;
+
+      if (storedClaim) {
+        setClaimResult({
+          claimId: storedClaim.claimId,
+          code: storedClaim.code,
+          token: storedClaim.token,
+          expiresAt: storedClaim.expiresAt,
+        });
+        setStatus('claimed');
+      } else {
+        setStatus('submitted');
+      }
+    } else if (storedClaim) {
+      // Claim exists but result wasn't persisted — restore claim only
+      setClaimResult({
+        claimId: storedClaim.claimId,
+        code: storedClaim.code,
+        token: storedClaim.token,
+        expiresAt: storedClaim.expiresAt,
       });
       setStatus('claimed');
       submittedRef.current = true;
@@ -164,6 +210,16 @@ export function useChallengeSubmission({
       setStatus('submitted');
 
       persistSubmission({ challengeId: cid, submissionId: res.submissionId });
+      persistResult({
+        challengeId: cid,
+        submissionId: res.submissionId,
+        focusScore: res.focusScore,
+        grade: res.grade,
+        rank: res.rank,
+        isQualified: res.isQualified,
+        isCurrentLeader: res.isCurrentLeader,
+        timestamp: Date.now(),
+      });
     } catch (e) {
       const err = e as ChallengeError;
       setError(err);
@@ -186,6 +242,7 @@ export function useChallengeSubmission({
       return;
     }
     if (submittedRef.current) return;
+    if (rawRts.length === 0) return;
     submittedRef.current = true;
 
     let cancelled = false;

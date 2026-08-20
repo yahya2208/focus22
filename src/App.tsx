@@ -190,7 +190,15 @@ export function InitialRoute() {
 
     if (authState.status === 'authenticated' || authState.status === 'anonymous') {
       setChallengeAuthPending(false);
-      dispatch({ type: 'REPLACE', screen: 'challenge-page' });
+      const hasStoredResult = (() => {
+        try {
+          const raw = localStorage.getItem('focus_challenge_result');
+          if (!raw) return false;
+          const parsed = JSON.parse(raw);
+          return parsed.challengeId === challengeId;
+        } catch { return false; }
+      })();
+      dispatch({ type: 'REPLACE', screen: hasStoredResult ? 'results' : 'challenge-page' });
       return;
     }
 
@@ -201,7 +209,15 @@ export function InitialRoute() {
       .then(() => {
         if (!cancelled) {
           setChallengeAuthPending(false);
-          dispatch({ type: 'REPLACE', screen: 'challenge-page' });
+          const hasStoredResult = (() => {
+            try {
+              const raw = localStorage.getItem('focus_challenge_result');
+              if (!raw) return false;
+              const parsed = JSON.parse(raw);
+              return parsed.challengeId === challengeId;
+            } catch { return false; }
+          })();
+          dispatch({ type: 'REPLACE', screen: hasStoredResult ? 'results' : 'challenge-page' });
         }
       })
       .catch((err) => {

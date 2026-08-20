@@ -198,8 +198,8 @@ BEGIN
     RAISE EXCEPTION 'A claim already exists for this submission';
   END IF;
 
-  v_code  := upper(encode(gen_random_bytes(4), 'hex'));
-  v_token := replace(replace(replace(encode(gen_random_bytes(24), 'base64'), '+', '-'), '/', '_'), '=', '');
+  v_code  := upper(encode(extensions.gen_random_bytes(4), 'hex'));
+  v_token := replace(replace(replace(encode(extensions.gen_random_bytes(24), 'base64'), '+', '-'), '/', '_'), '=', '');
 
   v_code_hash  := encode(extensions.digest(v_code, 'sha256'), 'hex');
   v_token_hash := encode(extensions.digest(v_token, 'sha256'), 'hex');
