@@ -281,6 +281,13 @@ export const GameScreen = memo(function GameScreen() {
     if (bestTimeRef.current === null || rt < bestTimeRef.current) {
       bestTimeRef.current = rt;
     }
+    console.error('[CHALLENGE RT DEBUG] round_tap', {
+      round: roundRef.current + 1,
+      rawRt: Math.round(rt * 100) / 100,
+      stimulusTime: Math.round(stimulusTimeRef.current),
+      now: Math.round(performance.now()),
+      totalRounds: rawRtsRef.current.length,
+    });
     emitDiagnosticLog({ service: 'game', action: 'round_completed', caller: 'game-screen', trigger: 'lamp_tap', sessionId: sessionIdRef.current ?? undefined, detail: `round=${roundRef.current + 1} rt=${Math.round(rt)}ms` });
 
     setPhase('hit');
