@@ -18,6 +18,7 @@
 
 import { getSupabaseClient } from '../core/supabase/client';
 import { generateNonce } from './nonce';
+import { REACTION } from '../core/scientific/constants';
 import type {
   ChallengeSubmitPayload,
   ChallengeSubmitResult,
@@ -100,13 +101,20 @@ export async function submitChallengeScore(
   payload: ChallengeSubmitPayload,
 ): Promise<ChallengeSubmitResult> {
   const nonce = generateNonce();
+  const roundedRts = payload.rawRts.map((rt) => Math.round(rt));
+
+  for (const rt of roundedRts) {
+    if (rt < REACTION.MIN_RT_MS || rt > REACTION.MAX_RT_MS) {
+      throw { code: 'INVALID_RT_RANGE', message: 'Reaction time out of valid range' } as ChallengeError;
+    }
+  }
 
   let data: unknown;
   let error: unknown;
   try {
     ({ data, error } = await getSupabaseClient().rpc('submit_challenge_score', {
       p_challenge_id: payload.challengeId,
-      p_raw_rts: payload.rawRts.map((rt) => Math.round(rt)),
+      p_raw_rts: roundedRts,
       p_display_lag_ms: payload.displayLagMs,
       p_input_lag_ms: payload.inputLagMs,
       p_platform: payload.platform,

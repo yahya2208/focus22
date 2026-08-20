@@ -149,7 +149,7 @@ describe('Challenge service — submitChallengeScore', () => {
     });
   });
 
-  it('throws structured error for invalid RT range', async () => {
+  it('throws structured error for invalid RT range from server', async () => {
     mockRpc.mockResolvedValue({
       data: null,
       error: { message: 'Reaction time out of valid range' },
@@ -158,6 +158,116 @@ describe('Challenge service — submitChallengeScore', () => {
     await expect(submitChallengeScore(VALID_PAYLOAD)).rejects.toMatchObject({
       code: 'INVALID_RT_RANGE',
     });
+  });
+
+  it('rejects RT = 99 before reaching RPC (below MIN_RT_MS)', async () => {
+    const payload: ChallengeSubmitPayload = {
+      ...VALID_PAYLOAD,
+      rawRts: [99, 200, 210, 205, 215, 200, 210],
+    };
+
+    await expect(submitChallengeScore(payload)).rejects.toMatchObject({
+      code: 'INVALID_RT_RANGE',
+    });
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('accepts RT = 100 (exactly MIN_RT_MS) and calls RPC', async () => {
+    mockRpc.mockResolvedValue({
+      data: { submission_id: 's1', focus_score: 80, grade: 'B', rank: 1, is_qualified: true },
+      error: null,
+    });
+
+    const payload: ChallengeSubmitPayload = {
+      ...VALID_PAYLOAD,
+      rawRts: [100, 200, 210, 205, 215, 200, 210],
+    };
+
+    await submitChallengeScore(payload);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    const params = mockRpc.mock.calls[0]![1]!;
+    expect(params.p_raw_rts[0]).toBe(100);
+  });
+
+  it('accepts RT = 2000 (exactly MAX_RT_MS) and calls RPC', async () => {
+    mockRpc.mockResolvedValue({
+      data: { submission_id: 's1', focus_score: 80, grade: 'B', rank: 1, is_qualified: true },
+      error: null,
+    });
+
+    const payload: ChallengeSubmitPayload = {
+      ...VALID_PAYLOAD,
+      rawRts: [2000, 200, 210, 205, 215, 200, 210],
+    };
+
+    await submitChallengeScore(payload);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    const params = mockRpc.mock.calls[0]![1]!;
+    expect(params.p_raw_rts[0]).toBe(2000);
+  });
+
+  it('rejects RT = 2001 before reaching RPC (above MAX_RT_MS)', async () => {
+    const payload: ChallengeSubmitPayload = {
+      ...VALID_PAYLOAD,
+      rawRts: [2001, 200, 210, 205, 215, 200, 210],
+    };
+
+    await expect(submitChallengeScore(payload)).rejects.toMatchObject({
+      code: 'INVALID_RT_RANGE',
+    });
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('one RT > 2000 blocks submission — no RPC call is made', async () => {
+    const payload: ChallengeSubmitPayload = {
+      ...VALID_PAYLOAD,
+      rawRts: [200, 210, 195, 2500, 215, 200, 210],
+    };
+
+    await expect(submitChallengeScore(payload)).rejects.toMatchObject({
+      code: 'INVALID_RT_RANGE',
+    });
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('rounds float RTs then validates — 99.4 rounds to 99 → rejected', async () => {
+    const payload: ChallengeSubmitPayload = {
+      ...VALID_PAYLOAD,
+      rawRts: [99.4, 200, 210, 205, 215, 200, 210],
+    };
+
+    await expect(submitChallengeScore(payload)).rejects.toMatchObject({
+      code: 'INVALID_RT_RANGE',
+    });
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('rounds float RTs then validates — 99.6 rounds to 100 → accepted', async () => {
+    mockRpc.mockResolvedValue({
+      data: { submission_id: 's1', focus_score: 80, grade: 'B', rank: 1, is_qualified: true },
+      error: null,
+    });
+
+    const payload: ChallengeSubmitPayload = {
+      ...VALID_PAYLOAD,
+      rawRts: [99.6, 200, 210, 205, 215, 200, 210],
+    };
+
+    await submitChallengeScore(payload);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    const params = mockRpc.mock.calls[0]![1]!;
+    expect(params.p_raw_rts[0]).toBe(100);
+  });
+
+  it('normal 7 RTs all in range → submission proceeds to RPC', async () => {
+    mockRpc.mockResolvedValue({
+      data: { submission_id: 's1', focus_score: 80, grade: 'B', rank: 1, is_qualified: true },
+      error: null,
+    });
+
+    await submitChallengeScore(VALID_PAYLOAD);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc.mock.calls[0]![0]).toBe('submit_challenge_score');
   });
 
   it('throws NETWORK_ERROR for non-Error throws', async () => {

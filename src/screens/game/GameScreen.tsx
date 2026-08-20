@@ -238,7 +238,7 @@ export const GameScreen = memo(function GameScreen() {
       const correctedRts = rts.map((rt) => correctReactionTime(rt, calibration).correctedRtMs);
       const validRounds = rts.filter((rt) => {
         const corrected = rt - calibration.displayLagMs - calibration.inputLagMs;
-        return corrected >= REACTION.MIN_RT_MS;
+        return corrected >= REACTION.MIN_RT_MS && rt <= REACTION.MAX_RT_MS;
       }).length;
       const results = {
         rawRts: rts,
