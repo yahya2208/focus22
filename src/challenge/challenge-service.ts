@@ -26,6 +26,8 @@ import type {
   LeaderboardEntry,
   LeaderboardPeriod,
   PersonalChallengeStats,
+  ChallengePublicInfo,
+  CurrentLeaderRecoveryState,
   ChallengeError,
   ChallengeErrorCode,
 } from './types';
@@ -101,7 +103,7 @@ export async function submitChallengeScore(
   try {
     ({ data, error } = await getSupabaseClient().rpc('submit_challenge_score', {
       p_challenge_id: payload.challengeId,
-      p_raw_rts: payload.rawRts as unknown as number[],
+      p_raw_rts: payload.rawRts.map((rt) => Math.round(rt)),
       p_display_lag_ms: payload.displayLagMs,
       p_input_lag_ms: payload.inputLagMs,
       p_platform: payload.platform,
@@ -122,6 +124,7 @@ export async function submitChallengeScore(
     grade: string;
     rank: number;
     is_qualified: boolean;
+    is_current_leader: boolean;
   };
 
   return {
@@ -130,6 +133,7 @@ export async function submitChallengeScore(
     grade: row.grade as ChallengeSubmitResult['grade'],
     rank: row.rank,
     isQualified: row.is_qualified,
+    isCurrentLeader: row.is_current_leader,
   };
 }
 
@@ -300,5 +304,124 @@ export async function getPersonalChallengeStats(
     totalSubmissions: row.total_submissions,
     lastSubmissionAt: row.last_submission_at,
     personalRank: row.personal_rank,
+  };
+}
+
+// ── Recovery ─────────────────────────────────────────────────────────────────
+
+/**
+ * Recovers the current leader state after a browser refresh.
+ * Requires authentication.
+ *
+ * @returns Recovery state including submission, rank, leadership status.
+ *          is_current_leader is INFORMATIONAL ONLY — no claim rights.
+ * @throws ChallengeError on auth or network errors.
+ */
+export async function recoverCurrentLeaderState(
+  challengeId: string,
+): Promise<CurrentLeaderRecoveryState> {
+  let data: unknown;
+  let error: unknown;
+  try {
+    ({ data, error } = await getSupabaseClient().rpc('recover_current_leader_state', {
+      p_challenge_id: challengeId,
+    }));
+  } catch (e) {
+    throw wrapError(e);
+  }
+
+  if (error) throw wrapError(error);
+  if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
+
+  const row = data as {
+    submission_id: string | null;
+    focus_score?: number;
+    grade?: string;
+    rank?: number;
+    is_qualified?: boolean;
+    is_current_leader?: boolean;
+  };
+
+  return {
+    submissionId: row.submission_id,
+    focusScore: row.focus_score,
+    grade: row.grade,
+    rank: row.rank,
+    isQualified: row.is_qualified,
+    isCurrentLeader: row.is_current_leader,
+  };
+}
+
+// ── Public Challenge Info ────────────────────────────────────────────────────
+
+/**
+ * Fetches safe public information for a challenge page.
+ * Accessible without authentication (anon + authenticated).
+ *
+ * @returns Challenge details, top 5 leaderboard, and user's own stats (if authenticated).
+ * @throws ChallengeError on not-found or network errors.
+ */
+export async function getChallengePublicInfo(
+  challengeId: string,
+): Promise<ChallengePublicInfo> {
+  let data: unknown;
+  let error: unknown;
+  try {
+    ({ data, error } = await getSupabaseClient().rpc('get_challenge_public_info', {
+      p_challenge_id: challengeId,
+    }));
+  } catch (e) {
+    throw wrapError(e);
+  }
+
+  if (error) throw wrapError(error);
+  if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
+
+  const row = data as {
+    challenge: {
+      id: string;
+      name: string;
+      description: string | null;
+      status: string;
+      starts_at: string | null;
+      ends_at: string | null;
+      prize_description: string | null;
+    };
+    top_5: Array<{
+      rank: number;
+      display_name: string;
+      focus_score: number;
+      grade: string;
+    }> | null;
+    user: {
+      best_score: number | null;
+      best_grade: string | null;
+      personal_rank: number;
+      total_submissions: number;
+    } | null;
+  };
+
+  return {
+    challenge: {
+      id: row.challenge.id,
+      name: row.challenge.name,
+      description: row.challenge.description,
+      status: row.challenge.status as ChallengePublicInfo['challenge']['status'],
+      startsAt: row.challenge.starts_at,
+      endsAt: row.challenge.ends_at,
+      prizeDescription: row.challenge.prize_description,
+    },
+    top5: (row.top_5 ?? []).map((e) => ({
+      rank: e.rank,
+      displayName: e.display_name,
+      focusScore: e.focus_score,
+      grade: e.grade,
+    })),
+    user: row.user ? {
+      bestScore: row.user.best_score,
+      bestGrade: row.user.best_grade,
+      personalRank: row.user.personal_rank,
+      totalSubmissions: row.user.total_submissions,
+    } : null,
   };
 }

@@ -31,7 +31,7 @@ export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
   calibration: ['intro'],
   countdown: ['home', 'message'],
   game: ['calibration', 'countdown', 'game-intro'],
-  'game-intro': ['deep-link'],
+  'game-intro': ['deep-link', 'challenge-page'],
   results: ['game'],
   history: ['home'],
   settings: ['home'],
@@ -65,6 +65,7 @@ export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
   'design-system-playground': ['settings'],
   'catalog-approval': ['settings', 'home'],
   'challenge-admin': ['settings'],
+  'challenge-page': ['deep-link'],
   'claim-verify': ['deep-link', 'home'],
 };
 

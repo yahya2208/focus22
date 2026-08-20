@@ -122,6 +122,7 @@ export const ResultsScreen = memo(function ResultsScreen() {
   });
 
   const inChallenge = challenge.challengeId !== null;
+  const isLeader = challenge.result?.isCurrentLeader === true && challenge.status === 'submitted';
 
   const analysis = useMemo(() => {
     if (!results) return null;
@@ -213,11 +214,28 @@ export const ResultsScreen = memo(function ResultsScreen() {
           onRetry={challenge.retry}
         />
 
+        {/* Current Leader informational badge — no claim rights */}
+        {isLeader && inChallenge && (
+          <Card variant="glass" padding="lg" style={{ border: `2px solid ${colors.accent}44` }}>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ margin: 0, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, color: colors.accent }}>
+                You're the Current Leader
+              </p>
+              <p style={{ margin: '0.3rem 0 0', fontSize: '0.8rem', color: colors.textSecondary }}>
+                Your score is currently #1 in this challenge.
+              </p>
+              <p style={{ margin: '0.2rem 0 0', fontSize: '0.7rem', color: colors.textMuted, fontStyle: 'italic' }}>
+                This position is subject to change until the challenge ends.
+              </p>
+            </div>
+          </Card>
+        )}
+
         {/* Challenge Leaderboard + Personal Stats — only when in a challenge */}
         {inChallenge && challenge.challengeId && (
           <>
             <PersonalStats challengeId={challenge.challengeId} />
-            <Leaderboard challengeId={challenge.challengeId} limit={10} />
+            <Leaderboard challengeId={challenge.challengeId} limit={5} />
           </>
         )}
 

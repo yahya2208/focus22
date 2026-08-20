@@ -125,6 +125,7 @@ export function useChallengeSubmission({
         grade: 'A',
         rank: 0,
         isQualified: true,
+        isCurrentLeader: false,
       });
       setStatus('claimed');
       submittedRef.current = true;

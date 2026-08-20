@@ -23,6 +23,7 @@ export interface ChallengeSubmitResult {
   readonly grade: 'A' | 'B' | 'C' | 'D' | 'F';
   readonly rank: number;
   readonly isQualified: boolean;
+  readonly isCurrentLeader: boolean;
 }
 
 // ── Claim ────────────────────────────────────────────────────────────────────
@@ -32,6 +33,43 @@ export interface ChallengeClaimResult {
   readonly code: string;
   readonly token: string;
   readonly expiresAt: string;
+}
+
+// ── Public Challenge Info ───────────────────────────────────────────────────
+
+export interface ChallengePublicInfo {
+  readonly challenge: {
+    readonly id: string;
+    readonly name: string;
+    readonly description: string | null;
+    readonly status: ChallengeStatus;
+    readonly startsAt: string | null;
+    readonly endsAt: string | null;
+    readonly prizeDescription: string | null;
+  };
+  readonly top5: ReadonlyArray<{
+    readonly rank: number;
+    readonly displayName: string;
+    readonly focusScore: number;
+    readonly grade: string;
+  }>;
+  readonly user: {
+    readonly bestScore: number | null;
+    readonly bestGrade: string | null;
+    readonly personalRank: number;
+    readonly totalSubmissions: number;
+  } | null;
+}
+
+// ── Current Leader Recovery ────────────────────────────────────────────────
+
+export interface CurrentLeaderRecoveryState {
+  readonly submissionId: string | null;
+  readonly focusScore?: number;
+  readonly grade?: string;
+  readonly rank?: number;
+  readonly isQualified?: boolean;
+  readonly isCurrentLeader?: boolean;
 }
 
 // ── Verify ───────────────────────────────────────────────────────────────────

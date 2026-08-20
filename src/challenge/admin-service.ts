@@ -198,3 +198,55 @@ export async function adminProcessClaim(
 
   return { status: (data as { status: string }).status };
 }
+
+// ── Finalize Challenge ───────────────────────────────────────────────────────
+
+export interface FinalizeChallengeResult {
+  readonly winnerId: string | null;
+  readonly focusScore: number | null;
+  readonly grade: string | null;
+  readonly displayName: string | null;
+  readonly alreadyFinalized: boolean;
+}
+
+/**
+ * Finalizes a challenge after it has ended.
+ * Requires admin authorization. Atomic and idempotent.
+ *
+ * @returns Final winner information, or null winner if no qualified submissions.
+ * @throws ChallengeError on auth, validation, or network errors.
+ */
+export async function finalizeChallenge(
+  challengeId: string,
+): Promise<FinalizeChallengeResult> {
+  let data: unknown;
+  let error: unknown;
+  try {
+    ({ data, error } = await getSupabaseClient().rpc('finalize_challenge', {
+      p_challenge_id: challengeId,
+    }));
+  } catch (e) {
+    throw wrapError(e);
+  }
+
+  if (error) throw wrapError(error);
+  if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
+
+  const row = data as {
+    winner_id?: string | null;
+    winner?: string | null;
+    focus_score?: number | null;
+    grade?: string | null;
+    display_name?: string | null;
+    already_finalized?: boolean;
+    message?: string;
+  };
+
+  return {
+    winnerId: row.winner_id ?? row.winner ?? null,
+    focusScore: row.focus_score ?? null,
+    grade: row.grade ?? null,
+    displayName: row.display_name ?? null,
+    alreadyFinalized: row.already_finalized ?? false,
+  };
+}

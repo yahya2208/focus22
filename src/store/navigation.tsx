@@ -44,6 +44,7 @@ export type ScreenName =
   | 'design-system-playground'
   | 'catalog-approval'
   | 'challenge-admin'
+  | 'challenge-page'
   | 'claim-verify';
 
 export interface SessionRecord {
@@ -151,6 +152,7 @@ export const ALL_SCREEN_NAMES: readonly ScreenName[] = [
   'design-system-playground',
   'catalog-approval',
   'challenge-admin',
+  'challenge-page',
   'claim-verify',
 ];
 

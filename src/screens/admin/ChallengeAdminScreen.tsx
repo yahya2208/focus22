@@ -6,7 +6,9 @@ import {
   adminGetChallengeDetails,
   adminCreateChallenge,
   adminUpdateChallenge,
+  finalizeChallenge,
 } from '../../challenge/admin-service';
+import type { FinalizeChallengeResult } from '../../challenge/admin-service';
 import { Leaderboard } from '../../components/challenge/Leaderboard';
 import type {
   AdminChallengeRow,
@@ -154,10 +156,16 @@ function DetailPanel({
   detail,
   colors,
   onClose,
+  onFinalize,
+  finalizing,
+  finalizeResult,
 }: {
   detail: AdminChallengeDetail;
   colors: ReturnType<typeof useThemeColors>;
   onClose: () => void;
+  onFinalize: () => void;
+  finalizing: boolean;
+  finalizeResult: FinalizeChallengeResult | null;
 }) {
   const ch = detail.challenge;
   return (
@@ -213,6 +221,43 @@ function DetailPanel({
         </p>
       )}
 
+      {/* Finalize button — only for ended challenges */}
+      {ch.status === 'ended' && (
+        <div style={{ marginTop: '0.75rem' }}>
+          {finalizeResult ? (
+            <div style={{
+              padding: '0.6rem 0.85rem', borderRadius: '8px',
+              border: `1px solid ${colors.success}33`, background: `${colors.success}12`,
+              fontSize: '0.8rem', color: colors.success,
+            }}>
+              {finalizeResult.alreadyFinalized
+                ? 'Challenge was already finalized.'
+                : finalizeResult.winnerId
+                  ? `Final winner: ${finalizeResult.displayName ?? 'Unknown'} — Score: ${finalizeResult.focusScore} — Grade: ${finalizeResult.grade}`
+                  : 'Finalized — no qualified submissions.'
+              }
+            </div>
+          ) : (
+            <button
+              onClick={onFinalize}
+              disabled={finalizing}
+              style={{
+                padding: '0.4rem 0.85rem', borderRadius: '6px',
+                border: `1px solid ${colors.accent}`, background: `${colors.accent}22`,
+                color: colors.accent, cursor: finalizing ? 'wait' : 'pointer',
+                fontSize: '0.8rem', fontWeight: 600, fontFamily: 'inherit',
+                opacity: finalizing ? 0.5 : 1,
+              }}
+            >
+              {finalizing ? 'Finalizing…' : 'Finalize Challenge'}
+            </button>
+          )}
+          <p style={{ margin: '0.3rem 0 0', fontSize: '0.7rem', color: colors.textMuted, fontStyle: 'italic' }}>
+            Finalizes the challenge and declares the final winner. This action is atomic and idempotent.
+          </p>
+        </div>
+      )}
+
       <p style={{ margin: '0.75rem 0 0.25rem', fontSize: '0.7rem', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
         Challenge ID
       </p>
@@ -238,6 +283,8 @@ function CreateForm({
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [startsAt, setStartsAt] = useState('');
+  const [endsAt, setEndsAt] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -250,6 +297,8 @@ function CreateForm({
       const params: AdminCreateChallengeParams = {
         name: name.trim(),
         ...(description.trim() ? { description: description.trim() } : {}),
+        ...(startsAt ? { startsAt } : {}),
+        ...(endsAt ? { endsAt } : {}),
       };
       await adminCreateChallenge(params);
       onSuccess();
@@ -258,7 +307,7 @@ function CreateForm({
     } finally {
       setLoading(false);
     }
-  }, [name, description, onSuccess]);
+  }, [name, description, startsAt, endsAt, onSuccess]);
 
   return (
     <div style={{
@@ -298,6 +347,38 @@ function CreateForm({
             color: colors.text, fontSize: '0.85rem', fontFamily: 'inherit', resize: 'vertical',
           }}
         />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', color: colors.textMuted, marginBottom: '0.2rem' }}>
+              Starts At
+            </label>
+            <input
+              type="datetime-local"
+              value={startsAt}
+              onChange={(e) => setStartsAt(e.target.value)}
+              style={{
+                padding: '0.45rem 0.65rem', borderRadius: '6px', width: '100%',
+                border: `1px solid ${colors.border}`, background: colors.bg,
+                color: colors.text, fontSize: '0.85rem', fontFamily: 'inherit',
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', color: colors.textMuted, marginBottom: '0.2rem' }}>
+              Ends At
+            </label>
+            <input
+              type="datetime-local"
+              value={endsAt}
+              onChange={(e) => setEndsAt(e.target.value)}
+              style={{
+                padding: '0.45rem 0.65rem', borderRadius: '6px', width: '100%',
+                border: `1px solid ${colors.border}`, background: colors.bg,
+                color: colors.text, fontSize: '0.85rem', fontFamily: 'inherit',
+              }}
+            />
+          </div>
+        </div>
         <div style={{ display: 'flex', gap: '0.4rem' }}>
           <button
             type="submit"
@@ -344,6 +425,9 @@ export function ChallengeAdminScreen() {
   const [statusFilter, setStatusFilter] = useState<ChallengeStatus | ''>('');
   const [detail, setDetail] = useState<AdminChallengeDetail | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+  const [finalizeResult, setFinalizeResult] = useState<FinalizeChallengeResult | null>(null);
+  const [finalizeError, setFinalizeError] = useState<string | null>(null);
 
   const loadChallenges = useCallback(async () => {
     setLoading(true);
@@ -392,6 +476,20 @@ export function ChallengeAdminScreen() {
     setSuccess('Challenge created.');
     await loadChallenges();
   }, [loadChallenges]);
+
+  const handleFinalize = useCallback(async () => {
+    if (!detail) return;
+    setFinalizing(true);
+    setFinalizeError(null);
+    try {
+      const result = await finalizeChallenge(detail.challenge.id);
+      setFinalizeResult(result);
+    } catch (err) {
+      setFinalizeError((err as Error).message);
+    } finally {
+      setFinalizing(false);
+    }
+  }, [detail]);
 
   return (
     <nav
@@ -499,8 +597,21 @@ export function ChallengeAdminScreen() {
         <DetailPanel
           detail={detail}
           colors={colors}
-          onClose={() => { setDetail(null); }}
+          onClose={() => { setDetail(null); setFinalizeResult(null); }}
+          onFinalize={handleFinalize}
+          finalizing={finalizing}
+          finalizeResult={finalizeResult}
         />
+      )}
+
+      {finalizeError && (
+        <div style={{
+          padding: '0.5rem 0.75rem', borderRadius: '6px',
+          background: colors.dangerBg, border: `1px solid ${colors.danger}33`,
+          color: colors.dangerText, fontSize: '0.8rem',
+        }}>
+          Finalize error: {finalizeError}
+        </div>
       )}
 
       {/* Challenge List */}

@@ -7,6 +7,8 @@
 export {
   submitChallengeScore,
   createChallengeClaim,
+  recoverCurrentLeaderState,
+  getChallengePublicInfo,
   verifyClaimToken,
   getChallengeLeaderboard,
   getPersonalChallengeStats,
@@ -18,7 +20,10 @@ export {
   adminCreateChallenge,
   adminUpdateChallenge,
   adminProcessClaim,
+  finalizeChallenge,
 } from './admin-service';
+
+export type { FinalizeChallengeResult } from './admin-service';
 
 export { generateNonce, isValidNonceFormat } from './nonce';
 
@@ -31,6 +36,8 @@ export type {
   ChallengeSubmitResult,
   ChallengeClaimResult,
   ChallengeVerifyResult,
+  ChallengePublicInfo,
+  CurrentLeaderRecoveryState,
   LeaderboardEntry,
   LeaderboardPeriod,
   PersonalChallengeStats,

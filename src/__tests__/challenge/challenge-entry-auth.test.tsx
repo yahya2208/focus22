@@ -2,9 +2,9 @@
  * Challenge Entry Auth Gate Tests (CE-01 through CE-05).
  *
  * Validates that:
- *   CE-01: Authenticated user → game-intro immediately
- *   CE-02: Anonymous user → game-intro immediately
- *   CE-03: Unauthenticated → guest sign-in → game-intro
+ *   CE-01: Authenticated user → challenge-page immediately
+ *   CE-02: Anonymous user → challenge-page immediately
+ *   CE-03: Unauthenticated → guest sign-in → challenge-page
  *   CE-04: Guest auth failure → error screen with retry/login
  *   CE-05: Non-challenge entry → no auth gate
  */
@@ -101,7 +101,7 @@ afterEach(() => {
 });
 
 describe('CE-01: Challenge entry while already authenticated', () => {
-  it('navigates to game-intro immediately', async () => {
+  it('navigates to challenge-page immediately', async () => {
     window.location.hash = '#/game?challenge_id=ch-test-01';
 
     renderGate();
@@ -112,14 +112,14 @@ describe('CE-01: Challenge entry while already authenticated', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('screen').textContent).toBe('game-intro');
+      expect(screen.getByTestId('screen').textContent).toBe('challenge-page');
     });
     expect(mockSignInAsGuest).not.toHaveBeenCalled();
   });
 });
 
 describe('CE-02: Challenge entry while anonymous', () => {
-  it('navigates to game-intro immediately', async () => {
+  it('navigates to challenge-page immediately', async () => {
     window.location.hash = '#/game?challenge_id=ch-test-02';
 
     renderGate();
@@ -130,14 +130,14 @@ describe('CE-02: Challenge entry while anonymous', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('screen').textContent).toBe('game-intro');
+      expect(screen.getByTestId('screen').textContent).toBe('challenge-page');
     });
     expect(mockSignInAsGuest).not.toHaveBeenCalled();
   });
 });
 
 describe('CE-03: Challenge entry while unauthenticated', () => {
-  it('calls signInAsGuest and navigates to game-intro on success', async () => {
+  it('calls signInAsGuest and navigates to challenge-page on success', async () => {
     mockSignInAsGuest.mockResolvedValue({ id: 'anon-auto', displayName: null });
     window.location.hash = '#/game?challenge_id=ch-test-03';
 
@@ -152,7 +152,7 @@ describe('CE-03: Challenge entry while unauthenticated', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('screen').textContent).toBe('game-intro');
+      expect(screen.getByTestId('screen').textContent).toBe('challenge-page');
     });
   });
 });

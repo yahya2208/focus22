@@ -63,6 +63,7 @@ const BusinessIntelligenceCenter = lazy(() => import('./business-intelligence/Bu
 const CatalogApprovalScreen = lazy(() => import('./screens/admin/CatalogApprovalScreen').then(m => ({ default: m.CatalogApprovalScreen })));
 const ChallengeAdminScreen = lazy(() => import('./screens/admin/ChallengeAdminScreen').then(m => ({ default: m.ChallengeAdminScreen })));
 const ClaimVerifyScreen = lazy(() => import('./screens/challenge/ClaimVerifyScreen').then(m => ({ default: m.ClaimVerifyScreen })));
+const ChallengePageScreen = lazy(() => import('./screens/challenge/ChallengePageScreen').then(m => ({ default: m.ChallengePageScreen })));
 
 const screens: Record<ScreenName, React.ComponentType> = {
   home: HomeScreen,
@@ -105,6 +106,7 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'design-system-playground': DesignSystemPlayground,
   'catalog-approval': CatalogApprovalScreen,
   'challenge-admin': ChallengeAdminScreen,
+  'challenge-page': ChallengePageScreen,
   'claim-verify': ClaimVerifyScreen,
 };
 
@@ -175,7 +177,7 @@ export function InitialRoute() {
   // ── Challenge auth gate ──────────────────────────────────────────────────
   // When a challenge_id is detected, wait for auth to resolve.
   // If unauthenticated, attempt Challenge-scoped guest sign-in.
-  // Only navigates to game-intro once auth is anonymous or authenticated.
+  // Only navigates to challenge-page once auth is anonymous or authenticated.
   useEffect(() => {
     if (!initialRoutingHandledRef.current) return;
     const challengeId = detectedChallengeIdRef.current;
@@ -185,7 +187,7 @@ export function InitialRoute() {
 
     if (authState.status === 'authenticated' || authState.status === 'anonymous') {
       setChallengeAuthPending(false);
-      dispatch({ type: 'REPLACE', screen: 'game-intro' });
+      dispatch({ type: 'REPLACE', screen: 'challenge-page' });
       return;
     }
 
@@ -196,7 +198,7 @@ export function InitialRoute() {
       .then(() => {
         if (!cancelled) {
           setChallengeAuthPending(false);
-          dispatch({ type: 'REPLACE', screen: 'game-intro' });
+          dispatch({ type: 'REPLACE', screen: 'challenge-page' });
         }
       })
       .catch((err) => {
@@ -298,14 +300,14 @@ export function InitialRoute() {
           authState.status === 'unauthenticated'
             ? service.signInAsGuest()
                 .then(() => {
-                  dispatch({ type: 'REPLACE', screen: 'game-intro' });
+                  dispatch({ type: 'REPLACE', screen: 'challenge-page' });
                 })
                 .catch((err) => {
                   setChallengeAuthError(
                     err instanceof Error ? err.message : 'Failed to initialize guest access',
                   );
                 })
-            : dispatch({ type: 'REPLACE', screen: 'game-intro' });
+            : dispatch({ type: 'REPLACE', screen: 'challenge-page' });
         }}
         onLogin={() => dispatch({ type: 'NAVIGATE', screen: 'login' })}
         onBack={() => {

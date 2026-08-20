@@ -17,6 +17,9 @@
 --   prize_redeemed, claim_expired, claim_revoked
 -- ============================================================================
 
+-- ── Remove obsolete function from prior version ─────────────────────────────
+DROP FUNCTION IF EXISTS public.create_current_leader_claim(uuid);
+
 -- ============================================================================
 -- 1) submit_challenge_score — post-game server submission
 --    ACCESS: anon + authenticated (guests may submit, but claims require auth)
@@ -53,6 +56,8 @@ DECLARE
   v_challenge_limit integer;
   v_valid_rounds    integer;
   v_i               integer;
+  v_submission_at   timestamptz;
+  v_is_current_leader boolean DEFAULT false;
 BEGIN
   -- ── Challenge validation ──────────────────────────────────────────────
   SELECT * INTO v_challenge FROM public.challenges WHERE id = p_challenge_id;
@@ -178,21 +183,50 @@ BEGIN
   )
   RETURNING id INTO v_submission_id;
 
+  -- ── Capture submission timestamp for rank + leader computation ─────
+  SELECT submitted_at INTO v_submission_at
+    FROM public.challenge_submissions WHERE id = v_submission_id;
+
   -- ── Deterministic rank (Point 9: score DESC, submitted_at ASC, id ASC)
   SELECT count(*) + 1 INTO v_rank FROM public.challenge_submissions
     WHERE challenge_id = p_challenge_id
+      AND is_qualified = true
       AND (
         computed_focus_score > v_focus_score
         OR (
           computed_focus_score = v_focus_score
-          AND submitted_at < (SELECT submitted_at FROM public.challenge_submissions WHERE id = v_submission_id)
+          AND submitted_at < v_submission_at
         )
         OR (
           computed_focus_score = v_focus_score
-          AND submitted_at = (SELECT submitted_at FROM public.challenge_submissions WHERE id = v_submission_id)
+          AND submitted_at = v_submission_at
           AND id < v_submission_id
         )
       );
+
+  -- ── Current Leader detection (server-side only) ───────────────────
+  v_is_current_leader := (
+    v_rank = 1
+    AND v_is_qualified = true
+    AND NOT EXISTS (
+      SELECT 1 FROM public.challenge_submissions cs2
+      WHERE cs2.challenge_id = p_challenge_id
+        AND cs2.is_qualified = true
+        AND cs2.id != v_submission_id
+        AND (
+          cs2.computed_focus_score > v_focus_score
+          OR (
+            cs2.computed_focus_score = v_focus_score
+            AND cs2.submitted_at < v_submission_at
+          )
+          OR (
+            cs2.computed_focus_score = v_focus_score
+            AND cs2.submitted_at = v_submission_at
+            AND cs2.id < v_submission_id
+          )
+        )
+    )
+  );
 
   -- ── Audit log ────────────────────────────────────────────────────────
   INSERT INTO public.challenge_audit_log (challenge_id, submission_id, user_id, action, detail)
@@ -210,11 +244,12 @@ BEGIN
 
   -- ── Return (NO claim generation — Point 3) ──────────────────────────
   RETURN jsonb_build_object(
-    'submission_id',  v_submission_id,
-    'focus_score',    v_focus_score,
-    'grade',          v_grade,
-    'rank',           v_rank,
-    'is_qualified',   v_is_qualified
+    'submission_id',     v_submission_id,
+    'focus_score',       v_focus_score,
+    'grade',             v_grade,
+    'rank',              v_rank,
+    'is_qualified',      v_is_qualified,
+    'is_current_leader', v_is_current_leader
   );
 END;
 $$;
@@ -225,10 +260,11 @@ GRANT EXECUTE ON FUNCTION public.submit_challenge_score(uuid, integer[], real, r
 
 
 -- ============================================================================
--- 2) create_challenge_claim — manual claim (Point 3)
+-- 2) create_challenge_claim — final winner claim only
 --    ACCESS: authenticated only
 --    ATOMICITY: FOR UPDATE on challenges row prevents race conditions (Point 5)
 --    SECURITY: gen_random_bytes for credentials, SHA-256 hashed (Point 4)
+--    FINAL WINNER ONLY: requires final_winner_submission_id = p_submission_id
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.create_challenge_claim(
@@ -243,9 +279,6 @@ DECLARE
   v_user_id        uuid := auth.uid();
   v_submission     public.challenge_submissions%ROWTYPE;
   v_challenge      public.challenges%ROWTYPE;
-  v_prize_config   jsonb;
-  v_max_winners    integer;
-  v_current_winners integer;
   v_claim_id       uuid;
   v_code           text;
   v_token          text;
@@ -253,7 +286,6 @@ DECLARE
   v_token_hash     text;
   v_ttl_hours      integer;
   v_claim_expires  timestamptz;
-  v_tier           jsonb;
 BEGIN
   -- ── Auth required ────────────────────────────────────────────────────
   IF v_user_id IS NULL THEN
@@ -280,8 +312,15 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Challenge not found';
   END IF;
-  IF v_challenge.status NOT IN ('active', 'ended') THEN
-    RAISE EXCEPTION 'Challenge is not in a valid state for claiming';
+
+  -- ── Challenge must be finalized (final_winner_submission_id set) ────
+  IF v_challenge.final_winner_submission_id IS NULL THEN
+    RAISE EXCEPTION 'Challenge has not been finalized';
+  END IF;
+
+  -- ── Only the final winner may create a claim ─────────────────────────
+  IF v_challenge.final_winner_submission_id IS DISTINCT FROM p_submission_id THEN
+    RAISE EXCEPTION 'Submission is not the final winner';
   END IF;
 
   -- ── No existing claim for this submission ────────────────────────────
@@ -292,38 +331,6 @@ BEGIN
     RAISE EXCEPTION 'A claim already exists for this submission';
   END IF;
 
-  -- ── Winner limits (atomic, under FOR UPDATE lock — Point 5) ─────────
-  v_prize_config := COALESCE(v_challenge.prize_config, '{}'::jsonb);
-  v_max_winners := COALESCE((v_prize_config->>'max_winners')::integer, 999999);
-
-  SELECT count(*) INTO v_current_winners FROM public.challenge_claims cc
-    JOIN public.challenge_submissions cs ON cs.id = cc.submission_id
-    WHERE cs.challenge_id = v_submission.challenge_id
-      AND cc.status IN ('pending', 'claimed');
-
-  IF v_current_winners >= v_max_winners THEN
-    RAISE EXCEPTION 'Maximum number of winners has been reached';
-  END IF;
-
-  -- Tier-specific winner limits
-  IF v_prize_config->'tiers' IS NOT NULL THEN
-    FOR v_tier IN SELECT * FROM jsonb_array_elements(v_prize_config->'tiers')
-    LOOP
-      IF (v_tier->>'grade') = v_submission.computed_grade THEN
-        IF (v_tier->>'max_winners') IS NOT NULL THEN
-          SELECT count(*) INTO v_current_winners FROM public.challenge_claims cc
-            JOIN public.challenge_submissions cs ON cs.id = cc.submission_id
-            WHERE cs.challenge_id = v_submission.challenge_id
-              AND cs.computed_grade = v_submission.computed_grade
-              AND cc.status IN ('pending', 'claimed');
-          IF v_current_winners >= (v_tier->>'max_winners')::integer THEN
-            RAISE EXCEPTION 'Maximum winners for this grade tier has been reached';
-          END IF;
-        END IF;
-      END IF;
-    END LOOP;
-  END IF;
-
   -- ── Generate cryptographically secure credentials (Point 4) ──────────
   v_code  := upper(encode(gen_random_bytes(4), 'hex'));
   v_token := encode(gen_random_bytes(24), 'base64url');
@@ -331,7 +338,7 @@ BEGIN
   v_code_hash  := encode(extensions.digest(v_code, 'sha256'), 'hex');
   v_token_hash := encode(extensions.digest(v_token, 'sha256'), 'hex');
 
-  v_ttl_hours := COALESCE((v_prize_config->>'claim_ttl_hours')::integer, 24);
+  v_ttl_hours := COALESCE((v_challenge.prize_config->>'claim_ttl_hours')::integer, 24);
   v_claim_expires := now() + make_interval(hours => v_ttl_hours);
 
   -- ── Atomic insert ────────────────────────────────────────────────────
@@ -825,3 +832,336 @@ $$;
 REVOKE ALL ON FUNCTION public.admin_update_challenge(uuid, jsonb) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.admin_update_challenge(uuid, jsonb) FROM anon;
 GRANT EXECUTE ON FUNCTION public.admin_update_challenge(uuid, jsonb) TO authenticated;
+
+
+-- NOTE: create_current_leader_claim() has been REMOVED.
+-- Being #1 during an active challenge is informational only.
+-- Only the final winner (determined by finalize_challenge()) may create a prize claim
+-- via create_challenge_claim().
+
+
+-- ============================================================================
+-- 12) recover_current_leader_state — refresh recovery for challenge flow
+--     ACCESS: authenticated only
+--     PURPOSE: allows frontend to recover state after browser refresh
+--              without forcing a replay
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.recover_current_leader_state(
+  p_challenge_id uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id         uuid := auth.uid();
+  v_submission      public.challenge_submissions%ROWTYPE;
+  v_best_submission public.challenge_submissions%ROWTYPE;
+  v_rank            integer;
+  v_is_current_leader boolean := false;
+  v_submitted_at    timestamptz;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  -- ── Find user's latest submission for this challenge ───────────────
+  SELECT * INTO v_submission FROM public.challenge_submissions
+    WHERE challenge_id = p_challenge_id AND user_id = v_user_id
+    ORDER BY submitted_at DESC
+    LIMIT 1;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('submission_id', null);
+  END IF;
+
+  -- ── Find user's best qualified submission (for rank computation) ───
+  SELECT * INTO v_best_submission FROM public.challenge_submissions
+    WHERE challenge_id = p_challenge_id AND user_id = v_user_id AND is_qualified = true
+    ORDER BY computed_focus_score DESC, submitted_at ASC
+    LIMIT 1;
+
+  IF v_best_submission.id IS NULL THEN
+    RETURN jsonb_build_object(
+      'submission_id', v_submission.id,
+      'is_qualified', false
+    );
+  END IF;
+
+  -- ── Compute rank of best submission server-side ────────────────────
+  v_submitted_at := v_best_submission.submitted_at;
+
+  SELECT count(*) + 1 INTO v_rank FROM public.challenge_submissions
+    WHERE challenge_id = p_challenge_id
+      AND is_qualified = true
+      AND (
+        computed_focus_score > v_best_submission.computed_focus_score
+        OR (
+          computed_focus_score = v_best_submission.computed_focus_score
+          AND submitted_at < v_submitted_at
+        )
+        OR (
+          computed_focus_score = v_best_submission.computed_focus_score
+          AND submitted_at = v_submitted_at
+          AND id < v_best_submission.id
+        )
+      );
+
+  -- ── Determine current leader status ────────────────────────────────
+  v_is_current_leader := (
+    v_rank = 1
+    AND NOT EXISTS (
+      SELECT 1 FROM public.challenge_submissions cs2
+      WHERE cs2.challenge_id = p_challenge_id
+        AND cs2.is_qualified = true
+        AND cs2.id != v_best_submission.id
+        AND (
+          cs2.computed_focus_score > v_best_submission.computed_focus_score
+          OR (
+            cs2.computed_focus_score = v_best_submission.computed_focus_score
+            AND cs2.submitted_at < v_submitted_at
+          )
+          OR (
+            cs2.computed_focus_score = v_best_submission.computed_focus_score
+            AND cs2.submitted_at = v_submitted_at
+            AND cs2.id < v_best_submission.id
+          )
+        )
+    )
+  );
+
+  RETURN jsonb_build_object(
+    'submission_id',     v_best_submission.id,
+    'focus_score',       v_best_submission.computed_focus_score,
+    'grade',             v_best_submission.computed_grade,
+    'rank',              v_rank,
+    'is_qualified',      true,
+    'is_current_leader', v_is_current_leader
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.recover_current_leader_state(uuid) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.recover_current_leader_state(uuid) FROM anon;
+GRANT EXECUTE ON FUNCTION public.recover_current_leader_state(uuid) TO authenticated;
+
+
+-- ============================================================================
+-- 13) get_challenge_public_info — public challenge page data
+--     ACCESS: anon + authenticated
+--     Returns ONLY safe public information
+--     NEVER exposes: raw_rts, user_id, nonce, session_id, claim hashes
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.get_challenge_public_info(
+  p_challenge_id uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_challenge   public.challenges%ROWTYPE;
+  v_user_id     uuid := auth.uid();
+  v_best_score  integer;
+  v_best_grade  text;
+  v_total       integer;
+  v_rank        bigint;
+  v_top5        jsonb;
+BEGIN
+  -- ── Load challenge ──────────────────────────────────────────────────
+  SELECT * INTO v_challenge FROM public.challenges WHERE id = p_challenge_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Challenge not found';
+  END IF;
+
+  -- ── Top 5 leaderboard ──────────────────────────────────────────────
+  SELECT jsonb_agg(jsonb_build_object(
+    'rank',         r.rk,
+    'display_name', r.dn,
+    'focus_score',  r.computed_focus_score,
+    'grade',        r.computed_grade
+  )) INTO v_top5
+  FROM (
+    SELECT
+      cs.computed_focus_score,
+      cs.computed_grade,
+      COALESCE(u.display_name, 'Anonymous') AS dn,
+      ROW_NUMBER() OVER (
+        ORDER BY cs.computed_focus_score DESC, cs.submitted_at ASC, cs.id ASC
+      ) AS rk
+    FROM public.challenge_submissions cs
+    LEFT JOIN public.users u ON u.id = cs.user_id
+    WHERE cs.challenge_id = p_challenge_id AND cs.is_qualified = true
+  ) r
+  WHERE r.rk <= 5;
+
+  -- ── Authenticated user's own info ──────────────────────────────────
+  IF v_user_id IS NOT NULL THEN
+    SELECT computed_focus_score, computed_grade
+      INTO v_best_score, v_best_grade
+    FROM public.challenge_submissions
+    WHERE challenge_id = p_challenge_id AND user_id = v_user_id AND is_qualified = true
+    ORDER BY computed_focus_score DESC, submitted_at ASC
+    LIMIT 1;
+
+    SELECT count(*) INTO v_total FROM public.challenge_submissions
+      WHERE challenge_id = p_challenge_id AND user_id = v_user_id;
+
+    WITH leaderboard AS (
+      SELECT cs.id,
+             ROW_NUMBER() OVER (
+               ORDER BY cs.computed_focus_score DESC, cs.submitted_at ASC, cs.id ASC
+             ) AS rk
+      FROM public.challenge_submissions cs
+      WHERE cs.challenge_id = p_challenge_id AND cs.is_qualified = true
+    )
+    SELECT lk.rk INTO v_rank FROM leaderboard lk
+      JOIN public.challenge_submissions cs2 ON cs2.id = lk.id
+      WHERE cs2.user_id = v_user_id AND cs2.is_qualified = true
+    ORDER BY cs2.computed_focus_score DESC, cs2.submitted_at ASC
+    LIMIT 1;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'challenge', jsonb_build_object(
+      'id',                 v_challenge.id,
+      'name',               v_challenge.name,
+      'description',        v_challenge.description,
+      'status',             v_challenge.status,
+      'starts_at',          v_challenge.starts_at,
+      'ends_at',            v_challenge.ends_at,
+      'prize_description',  v_challenge.prize_config->>'description'
+    ),
+    'top_5', COALESCE(v_top5, '[]'::jsonb),
+    'user', CASE WHEN v_user_id IS NOT NULL THEN jsonb_build_object(
+      'best_score',        v_best_score,
+      'best_grade',        v_best_grade,
+      'personal_rank',     COALESCE(v_rank, 0),
+      'total_submissions',  COALESCE(v_total, 0)
+    ) ELSE null END
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.get_challenge_public_info(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_challenge_public_info(uuid) TO anon;
+GRANT EXECUTE ON FUNCTION public.get_challenge_public_info(uuid) TO authenticated;
+
+
+-- ============================================================================
+-- 14) finalize_challenge — admin finalization after challenge ends
+--     ACCESS: authenticated + catalog_is_admin()
+--     ATOMIC: FOR UPDATE prevents concurrent finalization
+--     IDEMPOTENT: calling twice returns existing winner without recalculation
+--     ONLY WRITER of final_winner_submission_id
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.finalize_challenge(
+  p_challenge_id uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_challenge     public.challenges%ROWTYPE;
+  v_winner_id     uuid;
+  v_winner_score  integer;
+  v_winner_grade  text;
+  v_winner_name   text;
+BEGIN
+  IF NOT public.catalog_is_admin() THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+
+  -- ── Lock challenge row (FOR UPDATE) ─────────────────────────────────
+  SELECT * INTO v_challenge FROM public.challenges
+    WHERE id = p_challenge_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Challenge not found';
+  END IF;
+
+  -- ── Require ended status ────────────────────────────────────────────
+  IF v_challenge.status != 'ended' THEN
+    RAISE EXCEPTION 'Challenge must be ended before finalizing';
+  END IF;
+
+  -- ── Idempotent: return existing winner if already finalized ─────────
+  IF v_challenge.final_winner_submission_id IS NOT NULL THEN
+    SELECT cs.computed_focus_score, cs.computed_grade,
+           COALESCE(u.display_name, 'Anonymous')
+      INTO v_winner_score, v_winner_grade, v_winner_name
+    FROM public.challenge_submissions cs
+    LEFT JOIN public.users u ON u.id = cs.user_id
+    WHERE cs.id = v_challenge.final_winner_submission_id;
+
+    RETURN jsonb_build_object(
+      'winner_id',          v_challenge.final_winner_submission_id,
+      'focus_score',        v_winner_score,
+      'grade',              v_winner_grade,
+      'display_name',       v_winner_name,
+      'already_finalized',  true
+    );
+  END IF;
+
+  -- ── Find final #1 qualified submission ──────────────────────────────
+  SELECT cs.id INTO v_winner_id
+  FROM public.challenge_submissions cs
+  WHERE cs.challenge_id = p_challenge_id
+    AND cs.is_qualified = true
+  ORDER BY cs.computed_focus_score DESC, cs.submitted_at ASC, cs.id ASC
+  LIMIT 1;
+
+  -- ── No qualified submissions ────────────────────────────────────────
+  IF v_winner_id IS NULL THEN
+    INSERT INTO public.challenge_audit_log (challenge_id, user_id, action, detail)
+    VALUES (p_challenge_id, auth.uid(), 'challenge_finalized', jsonb_build_object(
+      'winner', null,
+      'reason', 'no_qualified_submissions'
+    ));
+
+    RETURN jsonb_build_object(
+      'winner',   null,
+      'message',  'No qualified submissions'
+    );
+  END IF;
+
+  -- ── Write final winner ──────────────────────────────────────────────
+  UPDATE public.challenges
+    SET final_winner_submission_id = v_winner_id
+  WHERE id = p_challenge_id;
+
+  -- ── Get winner info ─────────────────────────────────────────────────
+  SELECT cs.computed_focus_score, cs.computed_grade,
+         COALESCE(u.display_name, 'Anonymous')
+    INTO v_winner_score, v_winner_grade, v_winner_name
+  FROM public.challenge_submissions cs
+  LEFT JOIN public.users u ON u.id = cs.user_id
+  WHERE cs.id = v_winner_id;
+
+  -- ── Audit ───────────────────────────────────────────────────────────
+  INSERT INTO public.challenge_audit_log (challenge_id, submission_id, user_id, action, detail)
+  VALUES (p_challenge_id, v_winner_id, auth.uid(), 'challenge_finalized', jsonb_build_object(
+    'winner_id',   v_winner_id,
+    'focus_score', v_winner_score,
+    'grade',       v_winner_grade,
+    'display_name', v_winner_name
+  ));
+
+  RETURN jsonb_build_object(
+    'winner_id',    v_winner_id,
+    'focus_score',  v_winner_score,
+    'grade',        v_winner_grade,
+    'display_name', v_winner_name
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.finalize_challenge(uuid) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.finalize_challenge(uuid) FROM anon;
+GRANT EXECUTE ON FUNCTION public.finalize_challenge(uuid) TO authenticated;
