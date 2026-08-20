@@ -80,9 +80,6 @@ export function ChallengeWinnerScreen() {
     setClaimError(null);
     try {
       if (isAuthenticated) {
-        if (isWinner) {
-          await claimGuestSubmission(submissionId);
-        }
         const res = await createChallengeClaim(submissionId);
         setClaimResult(res);
         setClaimStatus('claimed');
