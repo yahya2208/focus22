@@ -178,6 +178,7 @@ describe('Result restoration from localStorage', () => {
 
     mockRpc.mockResolvedValue({ data: { submission_id: 'sub-1', focus_score: 75, grade: 'B', rank: 3, is_qualified: false, is_current_leader: false }, error: null });
 
+    setActiveChallengeId('ch-different');
     renderWithResults('ch-different');
 
     await waitFor(() => {

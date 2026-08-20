@@ -3,6 +3,7 @@ import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useBackOverlay, useBackGuard } from '../../core/navigation/BackProvider';
 import { correctReactionTime } from '../../core/measurement';
 import { REACTION } from '../../core/scientific/constants';
+import { getActiveChallengeId } from '../../challenge/challenge-context';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { getGlobalSessionService } from '../../core/session/service';
@@ -281,7 +282,7 @@ export const GameScreen = memo(function GameScreen() {
       }
 
       dispatch({ type: 'SET_RESULTS', results });
-      dispatch({ type: 'REPLACE', screen: 'results' });
+      dispatch({ type: 'REPLACE', screen: 'results', params: getActiveChallengeId() ? { challenge_id: getActiveChallengeId()! } : undefined });
       return;
     }
     startRound();

@@ -17,6 +17,7 @@ import { InventoryService, type InventoryRecord } from '../../services/inventory
 import { getInventoryReady, subscribeCentralInventory } from '../../services/inventory-central-service';
 import { useInventoryImages } from '../../hooks/useInventoryImages';
 import { resolveDefaultGameEntry } from '../../challenge/active-challenge-resolver';
+import { getActiveChallengeId } from '../../challenge/challenge-context';
 
 function getGreetingKey() {
   const h = new Date().getHours();
@@ -216,7 +217,7 @@ export const HomeScreen = memo(function HomeScreen() {
   const startTest = async () => {
     const target = await resolveDefaultGameEntry();
     if (target === 'challenge-page') {
-      dispatch({ type: 'NAVIGATE', screen: 'challenge-page' });
+      dispatch({ type: 'NAVIGATE', screen: 'challenge-page', params: getActiveChallengeId() ? { challenge_id: getActiveChallengeId()! } : undefined });
     } else {
       dispatch({ type: 'SELECT_GAME', gameMode: 'reaction-light' });
       dispatch({ type: 'NAVIGATE', screen: 'countdown' });

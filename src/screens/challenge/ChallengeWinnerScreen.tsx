@@ -190,8 +190,8 @@ export function ChallengeWinnerScreen() {
   }, [submissionId, navigate]);
 
   const handleBack = useCallback(() => {
-    navigate.replace('challenge-page');
-  }, [navigate]);
+    navigate.replace('challenge-page', challengeId ? { challenge_id: challengeId } : undefined);
+  }, [navigate, challengeId]);
 
   if (!challengeId) {
     return (

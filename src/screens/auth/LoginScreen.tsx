@@ -22,8 +22,8 @@ export const LoginScreen = memo(function LoginScreen() {
   const challengeConversionMode = isAnonymous && inChallenge;
 
   const navigateAfterAuth = useCallback(() => {
-    const inC = getActiveChallengeId() !== null;
-    dispatch({ type: inC ? 'REPLACE' : 'NAVIGATE', screen: inC ? 'results' : 'home' });
+    const cid = getActiveChallengeId();
+    dispatch({ type: cid ? 'REPLACE' : 'NAVIGATE', screen: cid ? 'results' : 'home', params: cid ? { challenge_id: cid } : undefined });
   }, [dispatch]);
 
   const handleLogin = useCallback(async () => {

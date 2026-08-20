@@ -23,7 +23,7 @@ import {
   createChallengeClaim,
   createGuestClaim,
 } from '../challenge/challenge-service';
-import { getActiveChallengeId } from '../challenge/challenge-context';
+import { getActiveChallengeId, setActiveChallengeId } from '../challenge/challenge-context';
 import type {
   ChallengeSubmitResult,
   ChallengeClaimResult,
@@ -147,14 +147,51 @@ export function useChallengeSubmission({
   const [error, setError] = useState<ChallengeError | null>(null);
 
   const submittedRef = useRef(false);
-  const challengeId = getActiveChallengeId();
+  const activeChallengeId = getActiveChallengeId();
+
+  // ── B. localStorage fallback: recover challengeId when module state lost ──
+  let challengeId = activeChallengeId;
+  let restoreSource: 'active-state' | 'localStorage' = 'active-state';
+
+  if (!challengeId) {
+    try {
+      const raw = localStorage.getItem(RESULT_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as StoredResultData;
+        if (parsed.challengeId) {
+          challengeId = parsed.challengeId;
+          setActiveChallengeId(parsed.challengeId);
+          restoreSource = 'localStorage';
+        }
+      }
+    } catch { /* corrupt data — non-critical */ }
+  }
+
+  console.log('[P1 RESTORE DEBUG] challengeId resolved:', {
+    activeChallengeId,
+    resolvedChallengeId: challengeId,
+    restoreSource,
+    storedRaw: localStorage.getItem(RESULT_STORAGE_KEY) ? 'exists' : 'missing',
+    hash: window.location.hash,
+    search: window.location.search,
+  });
 
   // ── Check localStorage for previously submitted/claimed result ──────────
   useEffect(() => {
-    if (!challengeId) return;
+    if (!challengeId) {
+      console.log('[P1 RESTORE DEBUG] SKIP: no challengeId after fallback');
+      return;
+    }
 
     const storedClaim = loadStoredClaim(challengeId);
     const storedResult = loadStoredResult(challengeId);
+
+    console.log('[P1 RESTORE DEBUG] restore check:', {
+      challengeId,
+      restoreSource,
+      storedResult: storedResult ? { challengeId: storedResult.challengeId, score: storedResult.focusScore, grade: storedResult.grade } : null,
+      storedClaim: storedClaim ? { code: storedClaim.code } : null,
+    });
 
     if (storedResult) {
       setResult({

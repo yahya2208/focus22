@@ -188,7 +188,7 @@ export function InitialRoute() {
 
     if (authState.status === 'loading') return;
 
-    if (authState.status === 'authenticated' || authState.status === 'anonymous') {
+      if (authState.status === 'authenticated' || authState.status === 'anonymous') {
       setChallengeAuthPending(false);
       const hasStoredResult = (() => {
         try {
@@ -198,7 +198,7 @@ export function InitialRoute() {
           return parsed.challengeId === challengeId;
         } catch { return false; }
       })();
-      dispatch({ type: 'REPLACE', screen: hasStoredResult ? 'results' : 'challenge-page' });
+      dispatch({ type: 'REPLACE', screen: hasStoredResult ? 'results' : 'challenge-page', params: { challenge_id: challengeId } });
       return;
     }
 
@@ -217,7 +217,7 @@ export function InitialRoute() {
               return parsed.challengeId === challengeId;
             } catch { return false; }
           })();
-          dispatch({ type: 'REPLACE', screen: hasStoredResult ? 'results' : 'challenge-page' });
+          dispatch({ type: 'REPLACE', screen: hasStoredResult ? 'results' : 'challenge-page', params: { challenge_id: challengeId } });
         }
       })
       .catch((err) => {
@@ -261,6 +261,12 @@ export function InitialRoute() {
     // Challenge entry: detect challenge_id from query string or hash params
     const queryChallengeId = new URLSearchParams(window.location.search).get('challenge_id');
     if (queryChallengeId) {
+      console.log('[P1 ROUTE DEBUG] InitialRoute:', {
+        hash: window.location.hash,
+        search: window.location.search,
+        queryChallengeId,
+        resolvedChallengeId: queryChallengeId,
+      });
       setActiveChallengeId(queryChallengeId);
       detectedChallengeIdRef.current = queryChallengeId;
       setChallengeAuthPending(true);
@@ -282,6 +288,12 @@ export function InitialRoute() {
 
       // Challenge entry via hash deep link: /#/game?challenge_id=XXX
       if (params.challenge_id) {
+        console.log('[P1 ROUTE DEBUG] InitialRoute:', {
+          hash: window.location.hash,
+          search: window.location.search,
+          queryChallengeId: null,
+          resolvedChallengeId: params.challenge_id,
+        });
         // challenge-winner can resolve its own auth — dispatch directly with params
         if (screenPart === 'challenge-winner') {
           setActiveChallengeId(params.challenge_id);
@@ -345,14 +357,14 @@ export function InitialRoute() {
           authState.status === 'unauthenticated'
             ? service.signInAsGuest()
                 .then(() => {
-                  dispatch({ type: 'REPLACE', screen: 'challenge-page' });
+                  dispatch({ type: 'REPLACE', screen: 'challenge-page', params: { challenge_id: retryChallengeId! } });
                 })
                 .catch((err) => {
                   setChallengeAuthError(
                     err instanceof Error ? err.message : 'Failed to initialize guest access',
                   );
                 })
-            : dispatch({ type: 'REPLACE', screen: 'challenge-page' });
+            : dispatch({ type: 'REPLACE', screen: 'challenge-page', params: { challenge_id: retryChallengeId! } });
         }}
         onLogin={() => dispatch({ type: 'NAVIGATE', screen: 'login' })}
         onBack={() => {
