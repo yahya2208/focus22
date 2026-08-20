@@ -163,6 +163,8 @@ export const GameScreen = memo(function GameScreen() {
   const stoppedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const roundTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const roundTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const roundResolvedRef = useRef(false);
   const phaseRef = useRef<Phase>('waiting');
   const roundRef = useRef(0);
 
@@ -228,7 +230,20 @@ export const GameScreen = memo(function GameScreen() {
       const nextCell = pickPosition(lampCellRef.current);
       lampCellRef.current = nextCell;
       stimulusTimeRef.current = performance.now();
+      roundResolvedRef.current = false;
       setPhase('visible');
+
+      roundTimeoutRef.current = setTimeout(() => {
+        if (roundResolvedRef.current) return;
+        roundResolvedRef.current = true;
+        rawRtsRef.current.push(REACTION.MAX_RT_MS);
+        console.error('[CHALLENGE RT DEBUG] round_timeout', {
+          round: roundRef.current + 1,
+          timeoutMs: REACTION.MAX_RT_MS,
+          totalRounds: rawRtsRef.current.length,
+        });
+        setRound((r) => r + 1);
+      }, REACTION.MAX_RT_MS);
     }, delay);
   }, []);
 
@@ -250,6 +265,13 @@ export const GameScreen = memo(function GameScreen() {
         sessionEnd: Date.now(),
       };
 
+      console.error('[CHALLENGE RT DEBUG] game_complete', {
+        rawRts: rts,
+        correctedRts,
+        rounds: TOTAL_ROUNDS,
+        timeouts: rts.filter((rt) => rt >= REACTION.MAX_RT_MS).length,
+      });
+
       const sessionId = sessionIdRef.current;
       if (sessionId) {
         completedRef.current = true;
@@ -266,6 +288,7 @@ export const GameScreen = memo(function GameScreen() {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
       if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
+      if (roundTimeoutRef.current) clearTimeout(roundTimeoutRef.current);
     };
   }, [round, calibration, dispatch, startRound]);
 
@@ -274,6 +297,15 @@ export const GameScreen = memo(function GameScreen() {
     if (phaseRef.current !== 'visible') {
       return;
     }
+    if (roundResolvedRef.current) {
+      console.error('[CHALLENGE RT DEBUG] late_tap_blocked', {
+        round: roundRef.current + 1,
+        lateRtMs: Math.round(performance.now() - stimulusTimeRef.current),
+      });
+      return;
+    }
+    roundResolvedRef.current = true;
+    if (roundTimeoutRef.current) clearTimeout(roundTimeoutRef.current);
 
     const rt = performance.now() - stimulusTimeRef.current;
     rawRtsRef.current.push(rt);
@@ -304,6 +336,7 @@ export const GameScreen = memo(function GameScreen() {
     stoppedRef.current = true;
     if (timerRef.current) clearTimeout(timerRef.current);
     if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
+    if (roundTimeoutRef.current) clearTimeout(roundTimeoutRef.current);
     const sessionId = sessionIdRef.current;
     completedRef.current = true;
     if (sessionId) {
