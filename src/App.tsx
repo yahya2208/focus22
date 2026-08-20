@@ -266,6 +266,16 @@ export function InitialRoute() {
 
       // Challenge entry via hash deep link: /#/game?challenge_id=XXX
       if (params.challenge_id) {
+        // challenge-winner can resolve its own auth — dispatch directly with params
+        if (screenPart === 'challenge-winner') {
+          setActiveChallengeId(params.challenge_id);
+          dispatch({
+            type: 'REPLACE',
+            screen: 'challenge-winner',
+            params,
+          });
+          return;
+        }
         setActiveChallengeId(params.challenge_id);
         detectedChallengeIdRef.current = params.challenge_id;
         setChallengeAuthPending(true);

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useAppState, useNavigate } from '../../store/navigation';
 import { useAuth } from '../../core/auth/AuthProvider';
-import { getActiveChallengeId } from '../../challenge/challenge-context';
+import { getActiveChallengeId, setActiveChallengeId } from '../../challenge/challenge-context';
 import {
   getChallengePublicInfo,
   createChallengeClaim,
@@ -21,6 +21,7 @@ const GRADE_COLORS: Record<string, string> = {
 };
 
 const SUBMISSION_STORAGE_KEY = 'focus_challenge_submission_id';
+const CLAIM_STORAGE_KEY = 'focus_claim_data';
 
 function loadSubmissionId(challengeId: string): string | null {
   try {
@@ -32,12 +33,34 @@ function loadSubmissionId(challengeId: string): string | null {
   } catch { return null; }
 }
 
+function loadStoredClaim(challengeId: string): { submissionId: string; claimId: string; code: string; token: string; expiresAt: string } | null {
+  try {
+    const raw = localStorage.getItem(CLAIM_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { submissionId: string; claimId: string; code: string; token: string; expiresAt: string; challengeId: string };
+    if (parsed.challengeId !== challengeId) return null;
+    if (new Date(parsed.expiresAt) < new Date()) return null;
+    return parsed;
+  } catch { return null; }
+}
+
+function persistClaim(data: { submissionId: string; claimId: string; code: string; token: string; expiresAt: string; challengeId: string }): void {
+  try {
+    localStorage.setItem(CLAIM_STORAGE_KEY, JSON.stringify(data));
+  } catch { /* storage full or unavailable — non-critical */ }
+}
+
 export function ChallengeWinnerScreen() {
   const colors = useThemeColors();
   const navigate = useNavigate();
   const { state: authState } = useAuth();
   const { routeParams } = useAppState();
-  const challengeId = getActiveChallengeId();
+
+  const challengeId = routeParams.challenge_id ?? getActiveChallengeId();
+
+  useEffect(() => {
+    if (routeParams.challenge_id) setActiveChallengeId(routeParams.challenge_id);
+  }, [routeParams.challenge_id]);
 
   const [info, setInfo] = useState<ChallengePublicInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,6 +74,21 @@ export function ChallengeWinnerScreen() {
   const isAuthenticated = authState.status === 'authenticated';
   const isAnonymous = authState.status === 'anonymous';
   const submissionId = routeParams.submissionId ?? loadSubmissionId(challengeId ?? '');
+
+  // ── Restore claim state from localStorage on mount ─────────────────────
+  useEffect(() => {
+    if (!challengeId || !submissionId) return;
+    const stored = loadStoredClaim(challengeId);
+    if (stored && stored.submissionId === submissionId) {
+      setClaimResult({
+        claimId: stored.claimId,
+        code: stored.code,
+        token: stored.token,
+        expiresAt: stored.expiresAt,
+      });
+      setClaimStatus('claimed');
+    }
+  }, [challengeId, submissionId]);
 
   const loadInfo = useCallback(async () => {
     if (!challengeId) return;
@@ -83,10 +121,26 @@ export function ChallengeWinnerScreen() {
         const res = await createChallengeClaim(submissionId);
         setClaimResult(res);
         setClaimStatus('claimed');
+        persistClaim({
+          submissionId,
+          claimId: res.claimId,
+          code: res.code,
+          token: res.token,
+          expiresAt: res.expiresAt,
+          challengeId,
+        });
       } else if (isAnonymous && authState.user) {
         const res = await createGuestClaim(submissionId, authState.user.id);
         setClaimResult(res);
         setClaimStatus('claimed');
+        persistClaim({
+          submissionId,
+          claimId: res.claimId,
+          code: res.code,
+          token: res.token,
+          expiresAt: res.expiresAt,
+          challengeId,
+        });
       }
     } catch (err) {
       setClaimError((err as ChallengeError).message ?? 'Failed to claim prize');

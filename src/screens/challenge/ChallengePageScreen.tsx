@@ -343,7 +343,24 @@ export function ChallengePageScreen() {
           </p>
           <button
             type="button"
-            onClick={() => dispatch({ type: 'NAVIGATE', screen: 'challenge-winner' })}
+            onClick={() => {
+              const stored = (() => {
+                try {
+                  const raw = localStorage.getItem('focus_challenge_submission_id');
+                  if (!raw) return null;
+                  const parsed = JSON.parse(raw) as { challengeId: string; submissionId: string };
+                  return parsed.challengeId === challengeId ? parsed.submissionId : null;
+                } catch { return null; }
+              })();
+              dispatch({
+                type: 'NAVIGATE',
+                screen: 'challenge-winner',
+                params: {
+                  challenge_id: challengeId,
+                  ...(stored ? { submissionId: stored } : {}),
+                },
+              });
+            }}
             style={{
               marginTop: '0.6rem', padding: '0.5rem 1.2rem', borderRadius: '10px',
               border: 'none', cursor: 'pointer',
