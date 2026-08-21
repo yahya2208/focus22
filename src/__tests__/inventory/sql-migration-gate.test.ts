@@ -127,12 +127,12 @@ describe('Migration numbering', () => {
     expect(legacy).toEqual(['003_add_session_lifecycle.sql', '004_add_analytics_events_indexes.sql']);
   });
 
-  it('00027 is the highest migration number; 00020..00027 all exist', () => {
+  it('00029 is the highest migration number; 00020..00029 all exist', () => {
     const nums = Object.keys(MIGRATIONS)
       .map(basename)
       .map(numericPrefix)
       .filter((n): n is number => n !== null);
-    expect(Math.max(...nums)).toBe(27);
+    expect(Math.max(...nums)).toBe(29);
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00020_ads_multi_image.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00021_ad_images_device_id.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00022_generic_ads_destinations.sql');
@@ -141,6 +141,8 @@ describe('Migration numbering', () => {
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00025_catalog_inventory_bridge.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00026_inventory_source_label.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00027_fix_gen_random_bytes_schema_qualification.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00028_ads_images_staff_read_policy.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00029_phone_view_counters.sql');
   });
 
   it('00019 body (after header comments) matches 01-inventory-apply.sql body', () => {

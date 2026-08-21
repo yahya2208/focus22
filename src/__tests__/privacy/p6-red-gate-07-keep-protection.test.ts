@@ -64,9 +64,10 @@ describe('P6-PROTECT: KEEP surfaces preserved', () => {
     expect(read('services/catalog-service.ts')).toContain('PhonePopularity');
   });
 
-  it('Showroom view counter preserved', () => {
-    expect(exists('hooks/useViewCounter.ts')).toBe(true);
-    expect(read('screens/showroom/ProductDetailsScreen.tsx')).toContain('useViewCounter');
+  it('Showroom view counter preserved (server-backed)', () => {
+    expect(exists('hooks/useServerViewCounter.ts')).toBe(true);
+    expect(exists('services/view-counter-service.ts')).toBe(true);
+    expect(read('screens/showroom/ProductDetailsScreen.tsx')).toContain('useServerViewCounter');
   });
 
   it('WhatsApp helpers preserved', () => {
