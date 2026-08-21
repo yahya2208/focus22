@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
 import { PhoneShowroom } from '../../components/showroom/PhoneShowroom';
+import { USE_NEW_GALLERY } from '../../components/showroom/phone-gallery';
 import { ThemeProvider } from '../../design-system/use-theme';
 import { TranslationProvider } from '../../hooks/useTranslation';
 import type { InventoryRecord } from '../../services/inventory-service';
@@ -38,7 +39,7 @@ function renderGrid(devices: InventoryRecord[], onSelect: (d: InventoryRecord) =
 }
 
 describe('Phase 3B §3.1/§3.2 — PhoneShowroom card', () => {
-  it('card shows name, price, condition badge, city, multi-image icon; image fills the card', () => {
+  it('card shows name, price, condition badge, city, image area; image fills the card', () => {
     const device = makeDevice();
     renderGrid([device], () => {});
     const card = screen.getByRole('button', { name: /Apple iPhone 13/ });
@@ -48,7 +49,12 @@ describe('Phase 3B §3.1/§3.2 — PhoneShowroom card', () => {
     expect(card.textContent).toContain('98,000 د.ج');
     expect(card.textContent).toContain('New'); // condition badge
     expect(card.textContent).toContain('الجزائر');
-    expect(card.textContent).toContain('2 📷'); // multi-image indicator
+    if (USE_NEW_GALLERY) {
+      // New gallery: dots replace the multi-image text indicator
+      expect(screen.getByTestId('phone-card-dots')).toBeTruthy();
+    } else {
+      expect(card.textContent).toContain('2 📷'); // legacy multi-image indicator
+    }
     expect(card.querySelector('img')).toBeTruthy(); // image fills the card
   });
 

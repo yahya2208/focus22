@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -7,12 +7,14 @@ import { Card } from '../../design-system/components/Card';
 import { Toast } from '../../design-system/components/Toast';
 import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 import { ProductImageGallery } from '../../components/showroom/ProductImageGallery';
+import { PhoneGallery, USE_NEW_GALLERY } from '../../components/showroom/phone-gallery';
 import { ContactOwnerAction } from '../../components/showroom/ContactOwnerAction';
 import { ProductNotFound } from '../../components/showroom/ProductNotFound';
 import { SimilarPhones } from '../../components/showroom/SimilarPhones';
 import { useProductDetails } from '../../hooks/useProductDetails';
 import { useSimilarPhones } from '../../hooks/useSimilarPhones';
-import { useViewCounter } from '../../hooks/useViewCounter';
+import { useServerViewCounter } from '../../hooks/useServerViewCounter';
+import { usePhoneViewCounts } from '../../hooks/usePhoneViewCounts';
 import { useInventoryImages } from '../../hooks/useInventoryImages';
 import { useWhatsApp } from '../../providers/WhatsAppProvider';
 import { useFavorites } from '../../hooks/useFavorites';
@@ -68,7 +70,21 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
   const deviceId = routeParams.device;
   const { device, notFound } = useProductDetails(deviceId);
   const similar = useSimilarPhones(device);
-  const { count: views } = useViewCounter(deviceId);
+  // Keep useServerViewCounter for its side-effect (fires recordPhoneView).
+  // The displayed count comes from the server via usePhoneViewCounts.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { count: _views } = useServerViewCounter(deviceId, 'detail_view', { autoStart: true });
+  const { counts: serverCounts, refetch: refetchViews } = usePhoneViewCounts(deviceId ? [deviceId] : []);
+  const serverViews = deviceId ? (serverCounts[deviceId]?.total_views ?? 0) : 0;
+
+  // Re-fetch after the view event fires (2s) + buffer, so the UI shows the updated server count
+  const refetchedRef = useRef(false);
+  useEffect(() => {
+    if (!deviceId || refetchedRef.current) return;
+    refetchedRef.current = true;
+    const timer = setTimeout(refetchViews, 2500);
+    return () => clearTimeout(timer);
+  }, [deviceId, refetchViews]);
   const whatsapp = useWhatsApp();
   const favorites = useFavorites();
   const images = useInventoryImages(device?.id, device?.images ?? []);
@@ -179,7 +195,29 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
 
         <Card variant="glass" padding="lg">
           <Stack gap="md">
-            <ProductImageGallery images={images} name={`${device.brand} ${device.model}`} />
+            {USE_NEW_GALLERY ? (
+              <PhoneGallery images={images} name={`${device.brand} ${device.model}`} />
+            ) : (
+              <ProductImageGallery images={images} name={`${device.brand} ${device.model}`} />
+            )}
+
+            {USE_NEW_GALLERY && (
+              <button
+                type="button"
+                onClick={() => dispatch({
+                  type: 'NAVIGATE', screen: 'showroom',
+                  params: { feed: 'true', device: deviceId ?? '' },
+                })}
+                style={{
+                  width: '100%', padding: '0.6rem', borderRadius: '12px',
+                  border: `1px solid ${colors.border}`, background: 'transparent',
+                  color: colors.textSecondary, fontWeight: 700, fontSize: '0.78rem',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                ▶ Browse all phones
+              </button>
+            )}
 
             <div>
               <h1 style={{ margin: 0, color: colors.text, fontSize: '1.25rem', fontWeight: 800, lineHeight: 1.3 }}>
@@ -208,7 +246,7 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem', marginTop: '0.6rem', color: colors.textMuted, fontSize: '0.72rem' }}>
                 {device.city && <span>📍 {device.city}</span>}
                 <span>📅 {t('phoneDetails.dateAdded')}: {formatDate(device.createdAt, locale)}</span>
-                {views > 0 && <span>👁 {views} {t('phoneDetails.views')}</span>}
+                {serverViews > 0 && <span>👁 {serverViews} {t('phoneDetails.views')}</span>}
               </div>
             </div>
 

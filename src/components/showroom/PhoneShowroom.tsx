@@ -2,6 +2,8 @@ import { memo, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useInventoryImages } from '../../hooks/useInventoryImages';
+import { useServerViewCounter } from '../../hooks/useServerViewCounter';
+import { PhoneCardCarousel, USE_NEW_GALLERY } from './phone-gallery';
 import type { InventoryRecord } from '../../services/inventory-service';
 
 export interface PhoneCardProps {
@@ -21,6 +23,7 @@ export const PhoneCard = memo(function PhoneCard({ device, compact = false, onSe
   const { t } = useTranslation();
   const images = useInventoryImages(device.id, device.images ?? []);
   const primary = images[0];
+  const { observe } = useServerViewCounter(device.id, 'card_view');
 
   const handleClick = useCallback(() => {
     onSelect(device);
@@ -70,37 +73,50 @@ export const PhoneCard = memo(function PhoneCard({ device, compact = false, onSe
 
   const content = (
     <>
-      <div
-        style={{
-          aspectRatio: compact ? '1 / 1' : '4 / 3',
-          position: 'relative',
-          background: `linear-gradient(150deg, ${colors.bgCard} 0%, ${colors.bg} 100%)`,
-          overflow: 'hidden',
-        }}
-      >
-        {primary ? (
-          <img
-            src={primary}
-            alt={`${device.brand} ${device.model}`}
-            loading="lazy"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+      {USE_NEW_GALLERY ? (
+        <div style={{ position: 'relative' }}>
+          <PhoneCardCarousel
+            images={images}
+            name={`${device.brand} ${device.model}`}
+            aspectRatio={compact ? '1 / 1' : '3 / 4'}
           />
-        ) : (
-          <div
-            role="img"
-            aria-label={`${device.brand} ${device.model}`}
-            style={{
-              width: '100%', height: '100%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: compact ? '2rem' : '2.6rem',
-            }}
-          >
-            📱
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, pointerEvents: 'none' }}>
+            {badge}
           </div>
-        )}
-        {badge}
-        {multiIndicator}
-      </div>
+        </div>
+      ) : (
+        <div
+          style={{
+            aspectRatio: compact ? '1 / 1' : '4 / 3',
+            position: 'relative',
+            background: `linear-gradient(150deg, ${colors.bgCard} 0%, ${colors.bg} 100%)`,
+            overflow: 'hidden',
+          }}
+        >
+          {primary ? (
+            <img
+              src={primary}
+              alt={`${device.brand} ${device.model}`}
+              loading="lazy"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          ) : (
+            <div
+              role="img"
+              aria-label={`${device.brand} ${device.model}`}
+              style={{
+                width: '100%', height: '100%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: compact ? '2rem' : '2.6rem',
+              }}
+            >
+              📱
+            </div>
+          )}
+          {badge}
+          {multiIndicator}
+        </div>
+      )}
       <div style={{ padding: compact ? '0.5rem 0.55rem 0.55rem' : '0.65rem 0.7rem 0.75rem' }}>
         <div style={{ color: colors.accent, fontWeight: 700, fontSize: compact ? '0.6rem' : '0.7rem', marginBottom: '0.1rem' }}>
           {device.brand}
@@ -140,6 +156,7 @@ export const PhoneCard = memo(function PhoneCard({ device, compact = false, onSe
       data-device-id={device.id}
       aria-label={`${device.brand} ${device.model} ${device.variant}`}
       onClick={handleClick}
+      ref={observe}
       style={{
         textAlign: 'right', padding: 0, margin: 0, border: 'none', cursor: 'pointer',
         fontFamily: 'inherit', background: 'transparent', display: 'block', width: '100%',

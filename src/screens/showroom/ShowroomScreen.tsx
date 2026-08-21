@@ -1,10 +1,11 @@
-import { memo, useEffect, useState } from 'react';
-import { useAppDispatch } from '../../store/navigation';
+import { memo, useCallback, useEffect, useState } from 'react';
+import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Screen, Stack, Grid } from '../../design-system/layout';
 import { Card } from '../../design-system/components/Card';
 import { PhoneShowroom } from '../../components/showroom/PhoneShowroom';
+import { ReelsFeed, USE_NEW_GALLERY } from '../../components/showroom/phone-gallery';
 import { ShowroomControls } from '../../components/showroom/ShowroomControls';
 import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 import { InventoryService } from '../../services/inventory-service';
@@ -33,12 +34,15 @@ const navBtn: React.CSSProperties = {
 
 export const ShowroomScreen = memo(function ShowroomScreen() {
   const dispatch = useAppDispatch();
+  const { routeParams } = useAppState();
   const { t, dir } = useTranslation();
   const colors = useThemeColors();
   const [devices, setDevices] = useState<InventoryRecord[]>([]);
   const [ready, setReady] = useState<boolean>(() => getInventoryReady());
+  const [feedOpen, setFeedOpen] = useState(false);
+  const [feedDeviceId, setFeedDeviceId] = useState<string | undefined>(undefined);
   const { state, update } = useShowroomState();
-  useScrollPreservation(devices.length > 0);
+  useScrollPreservation(devices.length > 0 && !feedOpen);
 
   useEffect(() => {
     return subscribeCentralInventory(() => setReady(getInventoryReady()));
@@ -48,11 +52,29 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
     if (ready) setDevices(InventoryService.getExchangeableDevices());
   }, [ready]);
 
+  // Auto-open feed if navigated with ?feed=true&device=X
+  useEffect(() => {
+    if (routeParams.feed === 'true') {
+      setFeedDeviceId(routeParams.device);
+      setFeedOpen(true);
+    }
+  }, [routeParams.feed, routeParams.device]);
+
   const visible = filterAndSortDevices(devices, state);
 
-  const handleSelect = (device: InventoryRecord) => {
+  const handleSelect = useCallback((device: InventoryRecord) => {
     dispatch({ type: 'NAVIGATE', screen: 'phone-details', params: { device: device.id } });
-  };
+  }, [dispatch]);
+
+  const handleFeedSelect = useCallback((deviceId: string) => {
+    setFeedOpen(false);
+    dispatch({ type: 'NAVIGATE', screen: 'phone-details', params: { device: deviceId } });
+  }, [dispatch]);
+
+  const handleFeedClose = useCallback(() => {
+    setFeedOpen(false);
+    setFeedDeviceId(undefined);
+  }, []);
 
   const backArrow = dir === 'rtl' ? '→' : '←';
 
@@ -82,6 +104,22 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
 
         <ShowroomControls devices={devices} state={state} onChange={update} />
 
+        {USE_NEW_GALLERY && visible.length > 0 && (
+          <button
+            type="button"
+            onClick={() => { setFeedDeviceId(undefined); setFeedOpen(true); }}
+            style={{
+              width: '100%', padding: '0.75rem', borderRadius: '14px',
+              border: 'none', background: colors.accent, color: '#000',
+              fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer',
+              fontFamily: 'inherit', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: '0.5rem',
+            }}
+          >
+            ▶ Browse all phones
+          </button>
+        )}
+
         <Grid columns={1} gap="md">
           <PhoneShowroom
             devices={visible}
@@ -94,6 +132,15 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
           {backArrow} {t('showroom.back')}
         </button>
       </Stack>
+
+      {feedOpen && (
+        <ReelsFeed
+          devices={visible}
+          initialDeviceId={feedDeviceId}
+          onSelectDevice={handleFeedSelect}
+          onClose={handleFeedClose}
+        />
+      )}
     </Screen>
   );
 });
