@@ -166,4 +166,113 @@ export interface TreasureModeData {
 
 export type BIDashboardId = 'treasure' | 'command' | 'customers' | 'devices' | 'campaigns' | 'commerce'
   | 'actions' | 'smart-offers' | 'trade-prices' | 'inventory' | 'notifications' | 'ai-assistant' | 'staff' | 'opportunities' | 'competitive'
-  | 'ceo' | 'recommendations' | 'feedback' | 'rules' | 'quality';
+  | 'ceo' | 'recommendations' | 'feedback' | 'rules' | 'quality' | 'phone-intelligence';
+
+// ── Phone Intelligence types ────────────────────────────────────────────────
+
+export interface PhoneDeviceView {
+  device_id: string;
+  brand: string;
+  model: string;
+  variant: string;
+  total_views: number;
+  unique_views: number;
+  card_views: number;
+  detail_views: number;
+  last_viewed_at: string | null;
+}
+
+export interface PhoneLowDemandItem {
+  device_id: string;
+  brand: string;
+  model: string;
+  variant: string;
+  total_views: number;
+  unique_views: number;
+  detail_views: number;
+  reason: 'zero_views' | 'low_views' | 'high_views_zero_detail' | 'ok';
+}
+
+export interface PhoneSearchAnalyticsRow {
+  query: string;
+  search_count: number;
+  avg_results_count: number;
+  selection_count: number;
+  search_to_selection_rate: number;
+}
+
+export interface PhoneSearchWithoutSelection {
+  query: string;
+  search_count: number;
+}
+
+export interface PhoneSearchToPhone {
+  device_id: string;
+  brand: string;
+  model: string;
+  variant: string;
+  selection_count: number;
+  associated_search_count: number;
+  search_to_selection_rate: number;
+}
+
+export interface PhoneDetailEngagement {
+  device_id: string;
+  brand: string;
+  model: string;
+  variant: string;
+  card_views: number;
+  detail_views: number;
+  unique_viewers: number;
+  unique_detail_viewers: number;
+  detail_card_ratio: number;
+}
+
+export interface PhoneWhatsAppIntent {
+  device_id: string;
+  brand: string;
+  model: string;
+  variant: string;
+  whatsapp_intents: number;
+  clicks: number;
+  ad_views: number;
+}
+
+export interface PhoneBrandAggregation {
+  brand: string;
+  model: string;
+  variants: string;
+  total_views: number;
+  unique_views: number;
+  detail_views: number;
+  selections: number;
+  whatsapp_intents: number;
+  demand_score: number;
+}
+
+export interface PhoneDemandOverview {
+  device_id: string;
+  brand: string;
+  model: string;
+  variant: string;
+  total_views: number;
+  unique_views: number;
+  detail_views: number;
+  selections: number;
+  whatsapp_intents: number;
+  demand_score: number;
+}
+
+export interface PhoneIntelligenceData {
+  time_range: string;
+  brand_filter: string;
+  top_viewed: PhoneDeviceView[];
+  low_demand: PhoneLowDemandItem[];
+  search_analytics: PhoneSearchAnalyticsRow[];
+  search_without_selection: PhoneSearchWithoutSelection[];
+  search_to_phone: PhoneSearchToPhone[];
+  detail_engagement: PhoneDetailEngagement[];
+  whatsapp_intent: PhoneWhatsAppIntent[];
+  brand_aggregation: PhoneBrandAggregation[];
+  demand_overview: PhoneDemandOverview[];
+}

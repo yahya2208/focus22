@@ -18,6 +18,7 @@ import { CEOMode } from './actions/CEOMode';
 import { RuleEngine } from './actions/RuleEngine';
 import { AIFeedbackLoop } from './actions/AIFeedbackLoop';
 import { RecommendationEngine } from './actions/RecommendationEngine';
+import { PhoneIntelligenceBI } from './pages/PhoneIntelligenceBI';
 
 const api: BusinessAPI = createBusinessAPI();
 
@@ -41,6 +42,7 @@ const dashboards: { id: BIDashboardId; label: string; icon: string }[] = [
   { id: 'feedback', label: 'AI Feedback', icon: '👍' },
   { id: 'rules', label: 'Rule Engine', icon: '⚙️' },
   { id: 'quality', label: 'Data Quality', icon: '🔍' },
+  { id: 'phone-intelligence', label: 'Phone Intelligence', icon: '📊' },
 ];
 
 export function BusinessIntelligenceCenter() {
@@ -77,6 +79,7 @@ export function BusinessIntelligenceCenter() {
       case 'feedback': return <AIFeedbackLoop recommendations={[]} />;
       case 'rules': return <RuleEngine />;
       case 'quality': return <QualityDashboard />;
+      case 'phone-intelligence': return <PhoneIntelligenceBI />;
     }
   };
 
