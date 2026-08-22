@@ -7,12 +7,14 @@ import {
   getChallengePublicInfo,
   createChallengeClaim,
   createGuestClaim,
-  claimGuestSubmission,
+  recoverMyChallengeState,
 } from '../../challenge/challenge-service';
 import { WinnerCertificate } from '../../components/challenge/WinnerCertificate';
+import { ClaimReceipt } from '../../components/challenge/ClaimReceipt';
 import type {
   ChallengePublicInfo,
   GuestClaimResult,
+  RecoveredChallengeState,
   ChallengeError,
 } from '../../challenge/types';
 
@@ -20,18 +22,7 @@ const GRADE_COLORS: Record<string, string> = {
   A: '#10b981', B: '#3b82f6', C: '#f59e0b', D: '#f97316', F: '#ef4444',
 };
 
-const SUBMISSION_STORAGE_KEY = 'focus_challenge_submission_id';
 const CLAIM_STORAGE_KEY = 'focus_claim_data';
-
-function loadSubmissionId(challengeId: string): string | null {
-  try {
-    const raw = localStorage.getItem(SUBMISSION_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { challengeId: string; submissionId: string };
-    if (parsed.challengeId !== challengeId) return null;
-    return parsed.submissionId;
-  } catch { return null; }
-}
 
 function loadStoredClaim(challengeId: string): { submissionId: string; claimId: string; code: string; token: string; expiresAt: string } | null {
   try {
@@ -69,17 +60,35 @@ export function ChallengeWinnerScreen() {
   const [claimStatus, setClaimStatus] = useState<'idle' | 'claiming' | 'claimed' | 'error'>('idle');
   const [claimResult, setClaimResult] = useState<GuestClaimResult | null>(null);
   const [claimError, setClaimError] = useState<string | null>(null);
-  const [transferStatus, setTransferStatus] = useState<'idle' | 'transferring' | 'done' | 'error'>('idle');
+  const [recovery, setRecovery] = useState<RecoveredChallengeState | null>(null);
 
   const isAuthenticated = authState.status === 'authenticated';
   const isAnonymous = authState.status === 'anonymous';
-  const submissionId = routeParams.submissionId ?? loadSubmissionId(challengeId ?? '');
 
-  // ── Restore claim state from localStorage on mount ─────────────────────
+  // ── SERVER-FIRST winner recovery ─────────────────────────────────────────
+  // Ownership is proven by auth.uid() inside the SECURITY DEFINER RPC.
+  // localStorage and URL params are NEVER used to determine winner status —
+  // a /winner?submissionId=<victim> URL can no longer fabricate the banner.
   useEffect(() => {
-    if (!challengeId || !submissionId) return;
+    if (!challengeId) return;
+    if (!isAuthenticated && !isAnonymous) { setRecovery(null); return; }
+    let cancelled = false;
+    recoverMyChallengeState(challengeId)
+      .then((state) => { if (!cancelled) setRecovery(state); })
+      .catch(() => { if (!cancelled) setRecovery(null); });
+    return () => { cancelled = true; };
+  }, [challengeId, isAuthenticated, isAnonymous]);
+
+  // ── Plaintext claim-code cache: shown ONLY for the SAME server-verified ──
+  // submission, the SAME claim_id, AND a server status that can still be
+  // redeemed ('pending'). Pure UX convenience — never a source of truth.
+  useEffect(() => {
+    const serverSubmissionId = recovery?.submissionId ?? null;
+    if (!challengeId || !serverSubmissionId) return;
+    if (recovery?.claim == null) return;
+    if (recovery.claim.status !== 'pending') return;
     const stored = loadStoredClaim(challengeId);
-    if (stored && stored.submissionId === submissionId) {
+    if (stored && stored.submissionId === serverSubmissionId && stored.claimId === recovery.claim.claimId) {
       setClaimResult({
         claimId: stored.claimId,
         code: stored.code,
@@ -88,7 +97,7 @@ export function ChallengeWinnerScreen() {
       });
       setClaimStatus('claimed');
     }
-  }, [challengeId, submissionId]);
+  }, [challengeId, recovery]);
 
   const loadInfo = useCallback(async () => {
     if (!challengeId) return;
@@ -106,33 +115,35 @@ export function ChallengeWinnerScreen() {
 
   useEffect(() => { loadInfo(); }, [loadInfo]);
 
+  // Winner status derives EXCLUSIVELY from server-linked identity:
+  //   ownSubmissionId comes from recover_my_challenge_state (auth.uid())
+  //   or the authenticated user block of get_challenge_public_info.
+  const ownSubmissionId = recovery?.submissionId ?? info?.user?.bestSubmissionId ?? null;
+
   const isWinner = info != null
     && info.challenge.isFinalized
     && info.challenge.winnerSubmissionId != null
-    && submissionId != null
-    && info.challenge.winnerSubmissionId === submissionId;
+    && ownSubmissionId != null
+    && info.challenge.winnerSubmissionId === ownSubmissionId;
+
+  const existingClaim = recovery?.claim ?? null;
 
   const handleClaim = useCallback(async () => {
-    if (!submissionId || !challengeId) return;
-    console.log('[CHALLENGE CLAIM DEBUG] ChallengeWinnerScreen.handleClaim:', {
-      challengeId,
-      submissionId,
-      isAuthenticated,
-      isAnonymous,
-      isWinner,
-      hasUser: !!authState.user,
-    });
+    if (!ownSubmissionId || !challengeId) return;
+    // Server-side claim state is authoritative: never attempt creation when
+    // an existing claim is present. The status card below renders the true
+    // server status (pending/claimed/expired/revoked) — do NOT flip local
+    // claimStatus here, that would mask expired/revoked states.
+    if (existingClaim) return;
     setClaimStatus('claiming');
     setClaimError(null);
     try {
       if (isAuthenticated) {
-        console.log('[CHALLENGE CLAIM DEBUG] claimPath: authenticated → createChallengeClaim');
-        const res = await createChallengeClaim(submissionId);
-        console.log('[CHALLENGE CLAIM DEBUG] createChallengeClaim succeeded');
+        const res = await createChallengeClaim(ownSubmissionId);
         setClaimResult(res);
         setClaimStatus('claimed');
         persistClaim({
-          submissionId,
+          submissionId: ownSubmissionId,
           claimId: res.claimId,
           code: res.code,
           token: res.token,
@@ -140,18 +151,13 @@ export function ChallengeWinnerScreen() {
           challengeId,
         });
       } else if (isAnonymous && authState.user) {
-        console.log('[CHALLENGE CLAIM DEBUG] claimPath: anonymous → try createChallengeClaim, fallback createGuestClaim');
         let res;
         try {
-          res = await createChallengeClaim(submissionId);
-          console.log('[CHALLENGE CLAIM DEBUG] createChallengeClaim succeeded');
+          res = await createChallengeClaim(ownSubmissionId);
         } catch (e) {
           const inner = e as ChallengeError;
-          console.error('[CHALLENGE CLAIM DEBUG] createChallengeClaim failed:', { code: inner.code, message: inner.message });
           if (inner.code === 'NOT_YOUR_SUBMISSION') {
-            console.log('[CHALLENGE CLAIM DEBUG] NOT_YOUR_SUBMISSION → falling back to createGuestClaim');
-            res = await createGuestClaim(submissionId, authState.user!.id);
-            console.log('[CHALLENGE CLAIM DEBUG] createGuestClaim succeeded');
+            res = await createGuestClaim(ownSubmissionId, authState.user.id);
           } else {
             throw e;
           }
@@ -159,35 +165,29 @@ export function ChallengeWinnerScreen() {
         setClaimResult(res);
         setClaimStatus('claimed');
         persistClaim({
-          submissionId,
+          submissionId: ownSubmissionId,
           claimId: res.claimId,
           code: res.code,
           token: res.token,
           expiresAt: res.expiresAt,
           challengeId,
         });
-      } else {
-        console.error('[CHALLENGE CLAIM DEBUG] No claim path matched:', { isAuthenticated, isAnonymous, hasUser: !!authState.user });
       }
     } catch (err) {
       const claimErr = err as ChallengeError;
-      console.error('[CHALLENGE CLAIM DEBUG] handleClaim FAILED:', { code: claimErr.code, message: claimErr.message, fullError: err });
       setClaimError(claimErr.message ?? 'Failed to claim prize');
       setClaimStatus('error');
     }
-  }, [submissionId, challengeId, isAuthenticated, isWinner, authState]);
+  }, [ownSubmissionId, existingClaim, challengeId, isAuthenticated, isWinner, authState]);
 
-  const handleConvertGuest = useCallback(async () => {
-    if (!submissionId) return;
-    setTransferStatus('transferring');
-    try {
-      await claimGuestSubmission(submissionId);
-      setTransferStatus('done');
-      navigate.replace('login');
-    } catch {
-      setTransferStatus('error');
-    }
-  }, [submissionId, navigate]);
+  // Guest → Auth conversion goes through the challenge-conversion login mode:
+  // auth.updateUser upgrades the SAME uid in place, so submission ownership
+  // (user_id = that uid) survives with NO transfer and NO new submission.
+  // The old pre-login transfer RPC cannot run here by design: these
+  // submissions already carry user_id ('Submission already has an owner').
+  const handleConvertGuest = useCallback(() => {
+    navigate.replace('login');
+  }, [navigate]);
 
   const handleBack = useCallback(() => {
     navigate.replace('challenge-page', challengeId ? { challenge_id: challengeId } : undefined);
@@ -280,23 +280,54 @@ export function ChallengeWinnerScreen() {
         </div>
       )}
 
-      {/* ── Claim Section (winner only) ────────────────────────────────── */}
-      {isWinner && claimStatus !== 'claimed' && (
+      {/* ── Existing server-side claim state (reused, never recreated) ──── */}
+      {isWinner && existingClaim && claimStatus !== 'claimed' && (
+        <div style={{ padding: '1.25rem', borderRadius: '12px', border: `1px solid ${colors.border}`, background: colors.bgCard, textAlign: 'center' }}>
+          <p style={{ margin: '0 0 0.3rem', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, color: colors.accent }}>
+            Prize Claim
+          </p>
+          {existingClaim.status === 'pending' && (
+            <>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: colors.text }}>Your claim is active and awaiting redemption.</p>
+              <p style={{ margin: '0.3rem 0 0', fontSize: '0.7rem', color: colors.textMuted, fontStyle: 'italic' }}>
+                Show the saved code / receipt at the shop. For security the code is displayed only once —
+                use your downloaded receipt or ask staff to verify claim #{existingClaim.claimId.slice(0, 8)}.
+              </p>
+            </>
+          )}
+          {existingClaim.status === 'claimed' && (
+            <p style={{ margin: 0, fontSize: '0.85rem', color: colors.success, fontWeight: 600 }}>
+              Prize already redeemed. Thank you!
+            </p>
+          )}
+          {existingClaim.status === 'expired' && (
+            <p style={{ margin: 0, fontSize: '0.85rem', color: colors.danger }}>
+              This claim has expired. Contact staff with your winner details.
+            </p>
+          )}
+          {existingClaim.status === 'revoked' && (
+            <p style={{ margin: 0, fontSize: '0.85rem', color: colors.danger }}>
+              This claim was revoked by staff. Contact support.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── Claim Section (winner only, no existing claim) ──────────────── */}
+      {isWinner && !existingClaim && claimStatus !== 'claimed' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {isAnonymous && (
             <button
               type="button"
               onClick={handleConvertGuest}
-              disabled={transferStatus === 'transferring'}
               style={{
                 width: '100%', padding: '0.75rem 1rem', borderRadius: '12px',
                 border: `1px solid ${colors.accent}`, background: `${colors.accent}18`,
                 color: colors.accent, fontSize: '0.85rem', fontWeight: 700, fontFamily: 'inherit',
-                cursor: transferStatus === 'transferring' ? 'not-allowed' : 'pointer',
-                opacity: transferStatus === 'transferring' ? 0.6 : 1,
+                cursor: 'pointer',
               }}
             >
-              {transferStatus === 'transferring' ? 'Signing in…' : 'Sign In to Claim as Registered User'}
+              Sign In to Claim as Registered User
             </button>
           )}
 
@@ -343,6 +374,22 @@ export function ChallengeWinnerScreen() {
           <p style={{ margin: '0.3rem 0 0', fontSize: '0.65rem', color: colors.textFaint, fontStyle: 'italic' }}>
             Save this code — it won't be shown again.
           </p>
+
+          {/* ── Claim Receipt Download ───────────────────────────────────── */}
+          <div style={{ marginTop: '0.75rem' }}>
+            <ClaimReceipt
+              challengeName={challenge.name}
+              displayName={authState.user?.displayName ?? 'Winner'}
+              focusScore={info.user?.bestScore ?? 0}
+              grade={info.user?.bestGrade ?? 'A'}
+              rank={info.top5.find((e) => e.rank === 1 && e.displayName === (authState.user?.displayName ?? 'Winner'))?.rank ?? 1}
+              claimCode={claimResult.code}
+              claimId={claimResult.claimId}
+              verificationToken={claimResult.token}
+              issuedAt={new Date().toISOString()}
+              expiresAt={claimResult.expiresAt}
+            />
+          </div>
         </div>
       )}
 

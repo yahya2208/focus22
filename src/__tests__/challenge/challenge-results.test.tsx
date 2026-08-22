@@ -31,7 +31,11 @@ import {
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
-const mockRpc = vi.fn();
+const recoverRpc = vi.fn<(fn: string, args?: unknown) => Promise<unknown>>(async () => ({ data: null, error: { message: 'recovery disabled in test' } }));
+const otherRpc = vi.fn<(fn: string, args?: unknown) => Promise<unknown>>();
+const mockRpc = vi.fn((fn: string, args?: unknown) =>
+  fn === 'recover_my_challenge_state' ? recoverRpc(fn, args) : otherRpc(fn, args),
+);
 
 vi.mock('../../core/supabase/client', () => ({
   getSupabaseClient: () => ({ rpc: mockRpc }),
@@ -124,7 +128,9 @@ function renderScreen({ challengeId, authState }: { challengeId?: string; authSt
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  mockRpc.mockReset();
+  recoverRpc.mockClear();
+  recoverRpc.mockImplementation(async () => ({ data: null, error: { message: 'recovery disabled in test' } }));
+  otherRpc.mockReset();
   resetChallengeContextForTests();
   mockAuthState = { status: 'authenticated', user: { id: 'user-1', displayName: 'Test' } };
   localStorage.clear();
@@ -158,22 +164,22 @@ describe('P4 — Normal non-challenge result remains unchanged', () => {
 
 describe('P4 — Authenticated challenge submission', () => {
   it('auto-submits when challengeId is present and user is authenticated', async () => {
-    mockRpc.mockResolvedValue({ data: QUALIFIED_RESULT, error: null });
+    otherRpc.mockResolvedValue({ data: QUALIFIED_RESULT, error: null });
 
     renderScreen({ challengeId: 'ch-1' });
 
     await waitFor(() => {
-      expect(mockRpc).toHaveBeenCalledTimes(1);
+      expect(otherRpc).toHaveBeenCalledTimes(1);
     });
 
-    const [rpcName, params] = mockRpc.mock.calls[0]!;
+    const [rpcName, params] = otherRpc.mock.calls[0]! as [string, Record<string, unknown>];
     expect(rpcName).toBe('submit_challenge_score');
     expect(params.p_challenge_id).toBe('ch-1');
   });
 
   it('does NOT auto-advance when in challenge context', async () => {
     vi.useFakeTimers();
-    mockRpc.mockResolvedValue({ data: QUALIFIED_RESULT, error: null });
+    otherRpc.mockResolvedValue({ data: QUALIFIED_RESULT, error: null });
 
     try {
       renderScreen({ challengeId: 'ch-1' });
@@ -189,7 +195,7 @@ describe('P4 — Authenticated challenge submission', () => {
 
 describe('P4 — Unauthenticated challenge state', () => {
   it('shows sign-in CTA when user is not authenticated', async () => {
-    mockRpc.mockResolvedValue({ data: null, error: { message: 'Authentication required' } });
+    otherRpc.mockResolvedValue({ data: null, error: { message: 'Authentication required' } });
 
     renderScreen({
       challengeId: 'ch-1',
@@ -215,7 +221,7 @@ describe('P4 — Unauthenticated challenge state', () => {
 
 describe('P4 — Qualified result with server-authoritative score/grade/rank', () => {
   it('displays server score, grade, and rank after submission', async () => {
-    mockRpc.mockResolvedValue({ data: QUALIFIED_RESULT, error: null });
+    otherRpc.mockResolvedValue({ data: QUALIFIED_RESULT, error: null });
 
     renderScreen({ challengeId: 'ch-1' });
 
@@ -229,7 +235,7 @@ describe('P4 — Qualified result with server-authoritative score/grade/rank', (
   });
 
   it('shows claim button when qualified', async () => {
-    mockRpc.mockResolvedValue({ data: QUALIFIED_RESULT, error: null });
+    otherRpc.mockResolvedValue({ data: QUALIFIED_RESULT, error: null });
 
     renderScreen({ challengeId: 'ch-1' });
 
@@ -241,7 +247,7 @@ describe('P4 — Qualified result with server-authoritative score/grade/rank', (
 
 describe('P4 — Non-qualified result', () => {
   it('does NOT show claim button when not qualified', async () => {
-    mockRpc.mockResolvedValue({ data: NOT_QUALIFIED_RESULT, error: null });
+    otherRpc.mockResolvedValue({ data: NOT_QUALIFIED_RESULT, error: null });
 
     renderScreen({ challengeId: 'ch-1' });
 
@@ -254,7 +260,7 @@ describe('P4 — Non-qualified result', () => {
   });
 
   it('shows neutral message for non-qualified', async () => {
-    mockRpc.mockResolvedValue({ data: NOT_QUALIFIED_RESULT, error: null });
+    otherRpc.mockResolvedValue({ data: NOT_QUALIFIED_RESULT, error: null });
 
     renderScreen({ challengeId: 'ch-1' });
 
@@ -266,19 +272,19 @@ describe('P4 — Non-qualified result', () => {
 
 describe('P4 — Duplicate-submit prevention', () => {
   it('only calls RPC once even if hook re-renders', async () => {
-    mockRpc.mockResolvedValue({ data: QUALIFIED_RESULT, error: null });
+    otherRpc.mockResolvedValue({ data: QUALIFIED_RESULT, error: null });
 
     renderScreen({ challengeId: 'ch-1' });
 
     await waitFor(() => {
-      expect(mockRpc).toHaveBeenCalledTimes(1);
+      expect(otherRpc).toHaveBeenCalledTimes(1);
     });
   });
 });
 
 describe('P4 — RPC/server errors', () => {
   it('shows rate-limit error message', async () => {
-    mockRpc.mockResolvedValue({
+    otherRpc.mockResolvedValue({
       data: null,
       error: { message: 'Rate limit exceeded' },
     });
@@ -291,7 +297,7 @@ describe('P4 — RPC/server errors', () => {
   });
 
   it('shows generic error for unknown errors', async () => {
-    mockRpc.mockResolvedValue({
+    otherRpc.mockResolvedValue({
       data: null,
       error: { message: 'Something unexpected' },
     });
@@ -304,7 +310,7 @@ describe('P4 — RPC/server errors', () => {
   });
 
   it('shows network error for thrown exceptions', async () => {
-    mockRpc.mockRejectedValue(new Error('fetch failed'));
+    otherRpc.mockRejectedValue(new Error('fetch failed'));
 
     renderScreen({ challengeId: 'ch-1' });
 
@@ -316,7 +322,7 @@ describe('P4 — RPC/server errors', () => {
 
 describe('P4 — Claim flow', () => {
   it('does not show claim code for non-qualified results', async () => {
-    mockRpc.mockResolvedValue({ data: NOT_QUALIFIED_RESULT, error: null });
+    otherRpc.mockResolvedValue({ data: NOT_QUALIFIED_RESULT, error: null });
 
     renderScreen({ challengeId: 'ch-1' });
 
@@ -324,13 +330,15 @@ describe('P4 — Claim flow', () => {
       expect(screen.getByTestId('challenge-result-card')).toBeTruthy();
     }, { timeout: 3000 });
 
-    expect(screen.getByText('45')).toBeTruthy();
     expect(screen.queryByTestId('challenge-claim')).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByText('45')).toBeTruthy();
+    });
     expect(screen.queryByTestId('claim-code')).toBeNull();
   });
 
   it('shows claim code after claiming', async () => {
-    mockRpc
+    otherRpc
       .mockResolvedValueOnce({ data: QUALIFIED_RESULT, error: null })
       .mockResolvedValueOnce({ data: CLAIM_RESULT, error: null });
 

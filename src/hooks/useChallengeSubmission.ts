@@ -22,6 +22,7 @@ import {
   submitChallengeScore,
   createChallengeClaim,
   createGuestClaim,
+  recoverMyChallengeState,
 } from '../challenge/challenge-service';
 import { getActiveChallengeId, setActiveChallengeId } from '../challenge/challenge-context';
 import type {
@@ -79,6 +80,7 @@ interface StoredClaimData {
 interface StoredSubmissionData {
   challengeId: string;
   submissionId: string;
+  guestSessionId?: string;
 }
 
 interface StoredResultData {
@@ -145,13 +147,13 @@ export function useChallengeSubmission({
   const [result, setResult] = useState<ChallengeSubmitResult | null>(null);
   const [claimResult, setClaimResult] = useState<ChallengeClaimResult | null>(null);
   const [error, setError] = useState<ChallengeError | null>(null);
+  const [restoreChecked, setRestoreChecked] = useState(false);
 
   const submittedRef = useRef(false);
   const activeChallengeId = getActiveChallengeId();
 
   // ── B. localStorage fallback: recover challengeId when module state lost ──
   let challengeId = activeChallengeId;
-  let restoreSource: 'active-state' | 'localStorage' = 'active-state';
 
   if (!challengeId) {
     try {
@@ -161,50 +163,92 @@ export function useChallengeSubmission({
         if (parsed.challengeId) {
           challengeId = parsed.challengeId;
           setActiveChallengeId(parsed.challengeId);
-          restoreSource = 'localStorage';
         }
       }
     } catch { /* corrupt data — non-critical */ }
   }
 
-  console.log('[P1 RESTORE DEBUG] challengeId resolved:', {
-    activeChallengeId,
-    resolvedChallengeId: challengeId,
-    restoreSource,
-    storedRaw: localStorage.getItem(RESULT_STORAGE_KEY) ? 'exists' : 'missing',
-    hash: window.location.hash,
-    search: window.location.search,
-  });
-
-  // ── Check localStorage for previously submitted/claimed result ──────────
+  // ── Restore state: SERVER FIRST, localStorage as fallback/cache ─────────
+  // Priority (Winner Persistence Fix): recover_my_challenge_state proves
+  // ownership via auth.uid() alone — it survives deleted storage, closed
+  // browsers and device switches for the same identity. localStorage is only
+  // consulted when the server reports no submission (offline/error paths).
   useEffect(() => {
-    if (!challengeId) {
-      console.log('[P1 RESTORE DEBUG] SKIP: no challengeId after fallback');
-      return;
-    }
+    if (!challengeId) return;
+    let cancelled = false;
+    setRestoreChecked(false);
 
-    const storedClaim = loadStoredClaim(challengeId);
-    const storedResult = loadStoredResult(challengeId);
+    (async () => {
+      // 1) SERVER TRUTH
+      try {
+        const rec = await recoverMyChallengeState(challengeId);
+        if (cancelled) return;
+        if (rec.hasSubmission && rec.submissionId) {
+          setResult({
+            submissionId: rec.submissionId,
+            focusScore: rec.focusScore ?? 0,
+            grade: (rec.grade ?? 'F') as ChallengeSubmitResult['grade'],
+            rank: rec.personalRank ?? 0,
+            isQualified: rec.isQualified ?? true,
+            isCurrentLeader: false, // informational-only field; server truth has no live leadership post-hoc
+          });
+          submittedRef.current = true;
+          if (rec.claim) {
+            // Reuse existing server claim — never create a duplicate.
+            // Status mapping stays server-authoritative: only a genuinely
+            // 'claimed' claim surfaces the claimed view (and cached plaintext
+            // when the ids match); pending/expired/revoked keep the plain
+            // submitted result so the UI never fabricates claim state.
+            if (rec.claim.status === 'claimed') {
+              const cached = loadStoredClaim(challengeId);
+              if (cached && cached.claimId === rec.claim.claimId) {
+                setClaimResult({
+                  claimId: cached.claimId,
+                  code: cached.code,
+                  token: cached.token,
+                  expiresAt: cached.expiresAt,
+                });
+              } else {
+                setClaimResult(null);
+              }
+              setStatus('claimed');
+            } else {
+              setClaimResult(null);
+              setStatus('submitted');
+            }
+          } else {
+            setStatus('submitted');
+          }
+          return;
+        }
+      } catch { /* offline/RPC error → localStorage fallback below */ }
+      if (cancelled) return;
 
-    console.log('[P1 RESTORE DEBUG] restore check:', {
-      challengeId,
-      restoreSource,
-      storedResult: storedResult ? { challengeId: storedResult.challengeId, score: storedResult.focusScore, grade: storedResult.grade } : null,
-      storedClaim: storedClaim ? { code: storedClaim.code } : null,
-    });
-
-    if (storedResult) {
-      setResult({
-        submissionId: storedResult.submissionId,
-        focusScore: storedResult.focusScore,
-        grade: storedResult.grade as ChallengeSubmitResult['grade'],
-        rank: storedResult.rank,
-        isQualified: storedResult.isQualified,
-        isCurrentLeader: storedResult.isCurrentLeader,
-      });
-      submittedRef.current = true;
-
-      if (storedClaim) {
+      // 2) LOCALSTORAGE FALLBACK (cache / offline UX)
+      const storedClaim = loadStoredClaim(challengeId);
+      const storedResult = loadStoredResult(challengeId);
+      if (storedResult) {
+        setResult({
+          submissionId: storedResult.submissionId,
+          focusScore: storedResult.focusScore,
+          grade: storedResult.grade as ChallengeSubmitResult['grade'],
+          rank: storedResult.rank,
+          isQualified: storedResult.isQualified,
+          isCurrentLeader: storedResult.isCurrentLeader,
+        });
+        submittedRef.current = true;
+        if (storedClaim) {
+          setClaimResult({
+            claimId: storedClaim.claimId,
+            code: storedClaim.code,
+            token: storedClaim.token,
+            expiresAt: storedClaim.expiresAt,
+          });
+          setStatus('claimed');
+        } else {
+          setStatus('submitted');
+        }
+      } else if (storedClaim) {
         setClaimResult({
           claimId: storedClaim.claimId,
           code: storedClaim.code,
@@ -212,20 +256,16 @@ export function useChallengeSubmission({
           expiresAt: storedClaim.expiresAt,
         });
         setStatus('claimed');
-      } else {
-        setStatus('submitted');
+        submittedRef.current = true;
       }
-    } else if (storedClaim) {
-      // Claim exists but result wasn't persisted — restore claim only
-      setClaimResult({
-        claimId: storedClaim.claimId,
-        code: storedClaim.code,
-        token: storedClaim.token,
-        expiresAt: storedClaim.expiresAt,
-      });
-      setStatus('claimed');
-      submittedRef.current = true;
-    }
+    })().finally(() => {
+      // Gate auto-submit until restore resolution completes — prevents the
+      // synchronous submit effect from racing the async server probe and
+      // firing a duplicate submission for an identity that already has one.
+      if (!cancelled) setRestoreChecked(true);
+    });
+
+    return () => { cancelled = true; };
   }, [challengeId]);
 
   // ── Auto-submit on mount ────────────────────────────────────────────────
@@ -246,7 +286,7 @@ export function useChallengeSubmission({
       setResult(res);
       setStatus('submitted');
 
-      persistSubmission({ challengeId: cid, submissionId: res.submissionId });
+      persistSubmission({ challengeId: cid, submissionId: res.submissionId, guestSessionId: gsId });
       persistResult({
         challengeId: cid,
         submissionId: res.submissionId,
@@ -278,6 +318,7 @@ export function useChallengeSubmission({
       setStatus('auth-required');
       return;
     }
+    if (!restoreChecked) return; // wait for server-first restore resolution
     if (submittedRef.current) return;
     if (rawRts.length === 0) return;
     submittedRef.current = true;
@@ -292,7 +333,7 @@ export function useChallengeSubmission({
     void run();
 
     return () => { cancelled = true; };
-  }, [challengeId, authStatus, rawRts, calibration, sessionId, status, doSubmit, guestSessionId]);
+  }, [challengeId, authStatus, rawRts, calibration, sessionId, status, doSubmit, guestSessionId, restoreChecked]);
 
   // ── Retry ──────────────────────────────────────────────────────────────
 
@@ -310,38 +351,22 @@ export function useChallengeSubmission({
     if (!result || !result.isQualified) return;
     if (status === 'claiming' || status === 'claimed') return;
 
-    console.log('[CHALLENGE CLAIM DEBUG] claim() started:', {
-      challengeId,
-      submissionId: result?.submissionId,
-      authStatus,
-      guestSessionId: guestSessionId ? guestSessionId.substring(0, 8) + '...' : null,
-      isQualified: result?.isQualified,
-      currentStatus: status,
-    });
-
     setStatus('claiming');
     try {
       let res: ChallengeClaimResult;
       if (authStatus === 'anonymous' && guestSessionId) {
-        console.log('[CHALLENGE CLAIM DEBUG] claimPath: anonymous → try createChallengeClaim, fallback createGuestClaim');
         try {
           res = await createChallengeClaim(result.submissionId);
-          console.log('[CHALLENGE CLAIM DEBUG] createChallengeClaim succeeded');
         } catch (e) {
           const inner = e as ChallengeError;
-          console.error('[CHALLENGE CLAIM DEBUG] createChallengeClaim failed:', { code: inner.code, message: inner.message });
           if (inner.code === 'NOT_YOUR_SUBMISSION') {
-            console.log('[CHALLENGE CLAIM DEBUG] NOT_YOUR_SUBMISSION → falling back to createGuestClaim');
             res = await createGuestClaim(result.submissionId, guestSessionId);
-            console.log('[CHALLENGE CLAIM DEBUG] createGuestClaim succeeded');
           } else {
             throw e;
           }
         }
       } else {
-        console.log('[CHALLENGE CLAIM DEBUG] claimPath: authenticated → createChallengeClaim');
         res = await createChallengeClaim(result.submissionId);
-        console.log('[CHALLENGE CLAIM DEBUG] createChallengeClaim succeeded');
       }
       setClaimResult(res);
       setStatus('claimed');
@@ -357,7 +382,6 @@ export function useChallengeSubmission({
       });
     } catch (e) {
       const err = e as ChallengeError;
-      console.error('[CHALLENGE CLAIM DEBUG] claim() FAILED:', { code: err.code, message: err.message, fullError: e });
       setError(err);
       setStatus('error');
     }

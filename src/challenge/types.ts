@@ -90,6 +90,29 @@ export interface CurrentLeaderRecoveryState {
   readonly isCurrentLeader?: boolean;
 }
 
+/**
+ * SERVER-TRUTH recovery payload (recover_my_challenge_state RPC).
+ * Ownership proven exclusively by auth.uid() — never by client-supplied ids.
+ */
+export interface RecoveredChallengeState {
+  readonly hasSubmission: boolean;
+  readonly submissionId?: string;
+  readonly focusScore?: number;
+  readonly grade?: string;
+  readonly isQualified?: boolean;
+  readonly personalRank?: number;
+  readonly totalSubmissions?: number;
+  readonly submittedAt?: string;
+  readonly isFinalWinner?: boolean;
+  readonly claim: {
+    readonly claimId: string;
+    readonly status: 'pending' | 'claimed' | 'expired' | 'revoked';
+    readonly expiresAt: string;
+    readonly claimedAt: string | null;
+    readonly isGuestClaim: boolean;
+  } | null;
+}
+
 // ── Verify ───────────────────────────────────────────────────────────────────
 
 export type ClaimVerifyStatus = 'pending' | 'claimed' | 'expired' | 'revoked' | 'invalid';

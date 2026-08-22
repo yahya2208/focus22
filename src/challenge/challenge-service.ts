@@ -31,6 +31,7 @@ import type {
   PersonalChallengeStats,
   ChallengePublicInfo,
   CurrentLeaderRecoveryState,
+  RecoveredChallengeState,
   ChallengeError,
   ChallengeErrorCode,
 } from './types';
@@ -77,9 +78,7 @@ function mapRpcError(errorMessage: string): ChallengeError {
 function wrapError(error: unknown): ChallengeError {
   if (error && typeof error === 'object' && 'message' in error) {
     const rawMsg = String((error as { message: unknown }).message);
-    const mapped = mapRpcError(rawMsg);
-    console.error('[CHALLENGE CLAIM DEBUG] wrapError mapped:', { rawMessage: rawMsg, mappedCode: mapped.code, mappedMessage: mapped.message, errorKeys: Object.keys(error as object) });
-    return mapped;
+    return mapRpcError(rawMsg);
   }
   if (typeof error === 'string') {
     const mapped = mapRpcError(error);
@@ -185,22 +184,10 @@ export async function createChallengeClaim(
       p_submission_id: submissionId,
     }));
   } catch (e) {
-    console.error('[CHALLENGE CLAIM DEBUG] createChallengeClaim threw:', e);
     throw wrapError(e);
   }
 
-  if (error) {
-    console.error('[CHALLENGE CLAIM DEBUG] createChallengeClaim rpc error:', {
-      rpc: 'create_challenge_claim',
-      submissionId,
-      status: (error as Record<string, unknown>)?.status ?? (error as Record<string, unknown>)?.statusCode ?? 'unknown',
-      code: (error as Record<string, unknown>)?.code ?? 'unknown',
-      message: (error as Record<string, unknown>)?.message ?? 'unknown',
-      details: (error as Record<string, unknown>)?.details ?? 'none',
-      hint: (error as Record<string, unknown>)?.hint ?? 'none',
-    });
-    throw wrapError(error);
-  }
+  if (error) throw wrapError(error);
   if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
 
   const row = data as {
@@ -482,18 +469,26 @@ export async function getChallengePublicInfo(
 /**
  * Transfers a guest submission to the authenticated user's account.
  * Requires authentication.
- * Must be called BEFORE claiming — unlocks the claim button.
+ *
+ * RPC signature (08-guest-claims.sql:65-68) — matched LITERALLY:
+ *   claim_guest_submission(p_submission_id uuid, p_guest_session_id text)
+ * The server rejects submissions that already carry a user_id
+ * ('Submission already has an owner') — i.e. this attaches ORPHAN guest rows
+ * only. Same-session guest→auth upgrade must use convertGuestToUser()
+ * (auth.updateUser keeps the SAME uid, so ownership never moves).
  *
  * @returns Transfer confirmation including updated rank.
  */
 export async function claimGuestSubmission(
   submissionId: string,
+  guestSessionId: string,
 ): Promise<GuestOwnershipTransferResult> {
   let data: unknown;
   let error: unknown;
   try {
     ({ data, error } = await getSupabaseClient().rpc('claim_guest_submission', {
       p_submission_id: submissionId,
+      p_guest_session_id: guestSessionId,
     }));
   } catch (e) {
     throw wrapError(e);
@@ -518,6 +513,71 @@ export async function claimGuestSubmission(
 }
 
 /**
+ * Rebuilds the caller's FULL challenge state from SERVER TRUTH — no
+ * localStorage, no URL params, no device state. Ownership is proven
+ * exclusively by auth.uid() inside the SECURITY DEFINER RPC
+ * (00034_recover_my_challenge_state.sql). Works for authenticated users on
+ * ANY device and for guests within the same Supabase anonymous session.
+ *
+ * Returns the existing claim when one exists (pending/claimed/expired) so the
+ * UI reuses server state instead of creating duplicates.
+ */
+export async function recoverMyChallengeState(
+  challengeId: string,
+): Promise<RecoveredChallengeState> {
+  let data: unknown;
+  let error: unknown;
+  try {
+    ({ data, error } = await getSupabaseClient().rpc('recover_my_challenge_state', {
+      p_challenge_id: challengeId,
+    }));
+  } catch (e) {
+    throw wrapError(e);
+  }
+
+  if (error) throw wrapError(error);
+  if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
+
+  const row = data as {
+    has_submission: boolean;
+    submission_id?: string;
+    focus_score?: number;
+    grade?: string;
+    is_qualified?: boolean;
+    personal_rank?: number;
+    total_submissions?: number;
+    submitted_at?: string;
+    is_final_winner?: boolean;
+    claim: {
+      claim_id: string;
+      status: 'pending' | 'claimed' | 'expired' | 'revoked';
+      expires_at: string;
+      claimed_at: string | null;
+      is_guest_claim: boolean;
+    } | null;
+  };
+
+  return {
+    hasSubmission: row.has_submission,
+    submissionId: row.submission_id,
+    focusScore: row.focus_score,
+    grade: row.grade,
+    isQualified: row.is_qualified,
+    personalRank: row.personal_rank,
+    totalSubmissions: row.total_submissions,
+    submittedAt: row.submitted_at,
+    isFinalWinner: row.is_final_winner,
+    claim: row.claim ? {
+      claimId: row.claim.claim_id,
+      status: row.claim.status,
+      expiresAt: row.claim.expires_at,
+      claimedAt: row.claim.claimed_at,
+      isGuestClaim: row.claim.is_guest_claim,
+    } : null,
+  };
+}
+
+/**
  * Creates a prize claim for a guest submission (anonymous flow).
  * No authentication required — uses guest_session_id.
  *
@@ -535,23 +595,10 @@ export async function createGuestClaim(
       p_guest_session_id: guestSessionId,
     }));
   } catch (e) {
-    console.error('[CHALLENGE CLAIM DEBUG] createGuestClaim threw:', e);
     throw wrapError(e);
   }
 
-  if (error) {
-    console.error('[CHALLENGE CLAIM DEBUG] createGuestClaim rpc error:', {
-      rpc: 'create_guest_claim',
-      submissionId,
-      guestSessionId: guestSessionId.substring(0, 8) + '...',
-      status: (error as Record<string, unknown>)?.status ?? (error as Record<string, unknown>)?.statusCode ?? 'unknown',
-      code: (error as Record<string, unknown>)?.code ?? 'unknown',
-      message: (error as Record<string, unknown>)?.message ?? 'unknown',
-      details: (error as Record<string, unknown>)?.details ?? 'none',
-      hint: (error as Record<string, unknown>)?.hint ?? 'none',
-    });
-    throw wrapError(error);
-  }
+  if (error) throw wrapError(error);
   if (!data) throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as ChallengeError;
 
   const row = data as {

@@ -22,7 +22,12 @@ import {
   resetChallengeContextForTests,
 } from '../../challenge/challenge-context';
 
-const mockRpc = vi.fn();
+// Name-routed dispatcher: recovery probe is isolated from submit/claim mocks
+const recoverRpc = vi.fn<(fn: string, args?: unknown) => Promise<unknown>>(async () => ({ data: null, error: { message: 'recovery disabled in test' } }));
+const otherRpc = vi.fn<(fn: string, args?: unknown) => Promise<unknown>>();
+const mockRpc = vi.fn((fn: string, args?: unknown) =>
+  fn === 'recover_my_challenge_state' ? recoverRpc(fn, args) : otherRpc(fn, args),
+);
 
 vi.mock('../../core/supabase/client', () => ({
   getSupabaseClient: () => ({ rpc: mockRpc }),
@@ -105,7 +110,9 @@ function SeedChallengeOnly({ challengeId }: { challengeId: string }) {
 }
 
 beforeEach(() => {
-  mockRpc.mockReset();
+  recoverRpc.mockClear();
+  recoverRpc.mockImplementation(async () => ({ data: null, error: { message: 'recovery disabled in test' } }));
+  otherRpc.mockReset();
   resetChallengeContextForTests();
   localStorage.clear();
 });
@@ -132,7 +139,7 @@ describe('Result restoration from localStorage', () => {
     expect(screen.getByText('#1')).toBeTruthy();
     expect(screen.queryByText('Qualified')).toBeTruthy();
 
-    expect(mockRpc).not.toHaveBeenCalled();
+    expect(otherRpc).not.toHaveBeenCalled();
   });
 
   it('sets status to claimed when both result and claim are stored', async () => {
@@ -161,7 +168,7 @@ describe('Result restoration from localStorage', () => {
       expect(screen.getByTestId('claim-code')).toBeTruthy();
     });
     expect(screen.getByText('AB12CD34')).toBeTruthy();
-    expect(mockRpc).not.toHaveBeenCalled();
+    expect(otherRpc).not.toHaveBeenCalled();
   });
 
   it('ignores stored result for a different challenge ID', async () => {
@@ -176,13 +183,13 @@ describe('Result restoration from localStorage', () => {
       timestamp: Date.now(),
     }));
 
-    mockRpc.mockResolvedValue({ data: { submission_id: 'sub-1', focus_score: 75, grade: 'B', rank: 3, is_qualified: false, is_current_leader: false }, error: null });
+    otherRpc.mockResolvedValue({ data: { submission_id: 'sub-1', focus_score: 75, grade: 'B', rank: 3, is_qualified: false, is_current_leader: false }, error: null });
 
     setActiveChallengeId('ch-different');
     renderWithResults('ch-different');
 
     await waitFor(() => {
-      expect(mockRpc).toHaveBeenCalledTimes(1);
+      expect(otherRpc).toHaveBeenCalledTimes(1);
     });
     expect(screen.getByText('75')).toBeTruthy();
   });
@@ -255,7 +262,7 @@ describe('ResultsScreen challenge-only render path', () => {
 
 describe('Prevents auto-submit with empty rawRts', () => {
   it('does not submit when rawRts is empty even with valid challenge ID', async () => {
-    mockRpc.mockResolvedValue({ data: { submission_id: 'sub-1', focus_score: 88, grade: 'A', rank: 1, is_qualified: true, is_current_leader: true }, error: null });
+    otherRpc.mockResolvedValue({ data: { submission_id: 'sub-1', focus_score: 88, grade: 'A', rank: 1, is_qualified: true, is_current_leader: true }, error: null });
 
     render(
       <AppProvider>
@@ -269,7 +276,7 @@ describe('Prevents auto-submit with empty rawRts', () => {
     );
 
     await new Promise(r => setTimeout(r, 200));
-    expect(mockRpc).not.toHaveBeenCalled();
+    expect(otherRpc).not.toHaveBeenCalled();
   });
 });
 

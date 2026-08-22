@@ -28,7 +28,11 @@ import {
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
-const mockRpc = vi.fn();
+const recoverRpc = vi.fn<(fn: string, args?: unknown) => Promise<unknown>>(async () => ({ data: null, error: { message: 'recovery disabled in test' } }));
+const otherRpc = vi.fn<(fn: string, args?: unknown) => Promise<unknown>>();
+const mockRpc = vi.fn((fn: string, args?: unknown) =>
+  fn === 'recover_my_challenge_state' ? recoverRpc(fn, args) : otherRpc(fn, args),
+);
 
 vi.mock('../../core/supabase/client', () => ({
   getSupabaseClient: () => ({ rpc: mockRpc }),
@@ -122,7 +126,9 @@ function renderScreen({
 // ── Setup / Teardown ─────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  mockRpc.mockReset();
+  recoverRpc.mockClear();
+  recoverRpc.mockImplementation(async () => ({ data: null, error: { message: 'recovery disabled in test' } }));
+  otherRpc.mockReset();
   resetChallengeContextForTests();
   mockAuthState = {
     status: 'authenticated',
@@ -163,11 +169,11 @@ describe('P5.7 — AUTH_REQUIRED shows correctly', () => {
     });
 
     // Should NOT have called submit_challenge_score
-    expect(mockRpc).not.toHaveBeenCalled();
+    expect(otherRpc).not.toHaveBeenCalled();
   });
 
   it('shows loading state during submission', async () => {
-    mockRpc.mockImplementation(() => new Promise(() => {})); // never resolves
+    otherRpc.mockImplementation(() => new Promise(() => {})); // never resolves
 
     renderScreen({ challengeId: 'ch-1' });
 
@@ -179,7 +185,7 @@ describe('P5.7 — AUTH_REQUIRED shows correctly', () => {
 
 describe('P5.7 — Retry without duplicate submission', () => {
   it('retry button appears only for retryable errors (NETWORK_ERROR)', async () => {
-    mockRpc.mockRejectedValue(new Error('fetch failed'));
+    otherRpc.mockRejectedValue(new Error('fetch failed'));
 
     renderScreen({ challengeId: 'ch-1' });
 
@@ -189,7 +195,7 @@ describe('P5.7 — Retry without duplicate submission', () => {
   });
 
   it('retry button does NOT appear for non-retryable errors (DUPLICATE_SUBMISSION)', async () => {
-    mockRpc.mockResolvedValue({
+    otherRpc.mockResolvedValue({
       data: null,
       error: { message: 'Duplicate submission' },
     });
@@ -204,9 +210,9 @@ describe('P5.7 — Retry without duplicate submission', () => {
 
   it('retry does NOT cause duplicate RPC calls (unique nonces)', async () => {
     // First call fails
-    mockRpc.mockRejectedValueOnce(new Error('fetch failed'));
+    otherRpc.mockRejectedValueOnce(new Error('fetch failed'));
     // Retry call succeeds
-    mockRpc.mockResolvedValueOnce({ data: QUALIFIED_RESULT, error: null });
+    otherRpc.mockResolvedValueOnce({ data: QUALIFIED_RESULT, error: null });
 
     renderScreen({ challengeId: 'ch-1' });
 
@@ -215,7 +221,7 @@ describe('P5.7 — Retry without duplicate submission', () => {
     });
 
     // First submission failed
-    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(otherRpc).toHaveBeenCalledTimes(1);
 
     // Click retry
     await act(async () => {
@@ -223,18 +229,18 @@ describe('P5.7 — Retry without duplicate submission', () => {
     });
 
     await waitFor(() => {
-      expect(mockRpc).toHaveBeenCalledTimes(2);
+      expect(otherRpc).toHaveBeenCalledTimes(2);
     });
 
     // Nonces must be unique
-    const nonce1 = mockRpc.mock.calls[0]![1]!['p_nonce'] as string;
-    const nonce2 = mockRpc.mock.calls[1]![1]!['p_nonce'] as string;
+    const nonce1 = (otherRpc.mock.calls[0]![1] as Record<string, unknown>)['p_nonce'] as string;
+    const nonce2 = (otherRpc.mock.calls[1]![1] as Record<string, unknown>)['p_nonce'] as string;
     expect(nonce1).not.toBe(nonce2);
   });
 
   it('retry transitions: error → submitting → submitted', async () => {
-    mockRpc.mockRejectedValueOnce(new Error('fetch failed'));
-    mockRpc.mockResolvedValueOnce({ data: QUALIFIED_RESULT, error: null });
+    otherRpc.mockRejectedValueOnce(new Error('fetch failed'));
+    otherRpc.mockResolvedValueOnce({ data: QUALIFIED_RESULT, error: null });
 
     renderScreen({ challengeId: 'ch-1' });
 
@@ -254,7 +260,7 @@ describe('P5.7 — Retry without duplicate submission', () => {
 
 describe('P5.7 — Claim persistence via localStorage', () => {
   it('persists claim data to localStorage after successful claim', async () => {
-    mockRpc
+    otherRpc
       .mockResolvedValueOnce({ data: QUALIFIED_RESULT, error: null })
       .mockResolvedValueOnce({ data: CLAIM_RESULT, error: null });
 
@@ -285,7 +291,7 @@ describe('P5.7 — Claim persistence via localStorage', () => {
 
 describe('P5.7 — Failed claim does NOT hide original result', () => {
   it('shows original score/grade/rank after claim failure', async () => {
-    mockRpc
+    otherRpc
       .mockResolvedValueOnce({ data: QUALIFIED_RESULT, error: null })
       .mockRejectedValueOnce(new Error('Network error'));
 
@@ -312,7 +318,7 @@ describe('P5.7 — Failed claim does NOT hide original result', () => {
   });
 
   it('claim failure keeps "Claim Prize" button available for retry', async () => {
-    mockRpc
+    otherRpc
       .mockResolvedValueOnce({ data: QUALIFIED_RESULT, error: null })
       .mockRejectedValueOnce(new Error('Network error'));
 
@@ -335,7 +341,7 @@ describe('P5.7 — Failed claim does NOT hide original result', () => {
 
 describe('P5.7 — Loading states', () => {
   it('shows "Submitting your score…" during submission', async () => {
-    mockRpc.mockImplementation(() => new Promise(() => {})); // hang forever
+    otherRpc.mockImplementation(() => new Promise(() => {})); // hang forever
 
     renderScreen({ challengeId: 'ch-1' });
 
@@ -345,7 +351,7 @@ describe('P5.7 — Loading states', () => {
   });
 
   it('shows "Generating your claim code…" during claim', async () => {
-    mockRpc
+    otherRpc
       .mockResolvedValueOnce({ data: QUALIFIED_RESULT, error: null })
       .mockImplementation(() => new Promise(() => {})); // hang on claim
 
@@ -368,7 +374,7 @@ describe('P5.7 — Loading states', () => {
 describe('P5.7 — Score still visible after error', () => {
   it('shows server result alongside error when submission succeeds but then errors', async () => {
     // This tests that the result persists even if the challenge system errors
-    mockRpc.mockResolvedValueOnce({ data: QUALIFIED_RESULT, error: null });
+    otherRpc.mockResolvedValueOnce({ data: QUALIFIED_RESULT, error: null });
 
     renderScreen({ challengeId: 'ch-1' });
 
