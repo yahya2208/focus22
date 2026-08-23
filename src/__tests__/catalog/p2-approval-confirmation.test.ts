@@ -203,7 +203,7 @@ describe('P2 state transitions', () => {
 
 describe('P2 confirmation dialog state', () => {
   it('starts as null', () => {
-    let confirmAction: ConfirmAction = null;
+    const confirmAction: ConfirmAction = null;
     expect(confirmAction).toBeNull();
   });
 

@@ -354,17 +354,19 @@ export function InitialRoute() {
           setChallengeAuthError(null);
           detectedChallengeIdRef.current = retryChallengeId;
           setChallengeAuthPending(true);
-          authState.status === 'unauthenticated'
-            ? service.signInAsGuest()
-                .then(() => {
-                  dispatch({ type: 'REPLACE', screen: 'challenge-page', params: { challenge_id: retryChallengeId! } });
-                })
-                .catch((err) => {
-                  setChallengeAuthError(
-                    err instanceof Error ? err.message : 'Failed to initialize guest access',
-                  );
-                })
-            : dispatch({ type: 'REPLACE', screen: 'challenge-page', params: { challenge_id: retryChallengeId! } });
+          if (authState.status === 'unauthenticated') {
+            service.signInAsGuest()
+              .then(() => {
+                dispatch({ type: 'REPLACE', screen: 'challenge-page', params: { challenge_id: retryChallengeId! } });
+              })
+              .catch((err) => {
+                setChallengeAuthError(
+                  err instanceof Error ? err.message : 'Failed to initialize guest access',
+                );
+              });
+          } else {
+            dispatch({ type: 'REPLACE', screen: 'challenge-page', params: { challenge_id: retryChallengeId! } });
+          }
         }}
         onLogin={() => dispatch({ type: 'NAVIGATE', screen: 'login' })}
         onBack={() => {

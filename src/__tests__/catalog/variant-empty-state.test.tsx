@@ -18,10 +18,13 @@ const mock = vi.hoisted(() => ({
   getExchangeableDevices: vi.fn(() => []),
 }));
 
-vi.mock('../../components/catalog/CatalogAutocomplete', () => ({
-  CatalogAutocomplete: ({ onSelect }: { onSelect: (r: { brand: string; model: string; normalized: string; score: number }) => void }) => (
-    <button type="button" onClick={() => onSelect(mock.selectResult)}>
-      mock-autocomplete
+vi.mock('../../components/catalog/CatalogCascadeSelector', () => ({
+  CatalogCascadeSelector: ({ onChange }: { onChange: (id: { brandName?: string; modelName?: string }) => void }) => (
+    <button
+      type="button"
+      onClick={() => onChange({ brandName: mock.selectResult.brand, modelName: mock.selectResult.model })}
+    >
+      mock-cascade
     </button>
   ),
 }));
@@ -123,7 +126,7 @@ describe('empty variant state: no fabricated configs, workflow continues without
 
   it('CustomerPhoneFlow: model with no variants → skip → condition step shows "بدون تحديد إصدار"', () => {
     renderWithTheme(<CustomerPhoneFlow />);
-    fireEvent.click(screen.getByRole('button', { name: 'mock-autocomplete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'mock-cascade' }));
 
     expect(screen.getByText('متابعة بدون تحديد إصدار')).toBeTruthy();
     expect(screen.queryByText('4/64')).toBeNull();
@@ -137,7 +140,7 @@ describe('empty variant state: no fabricated configs, workflow continues without
   it('CustomerPhoneFlow: model WITH real variants still shows them on the variant step', () => {
     mock.selectResult = { brand: 'Samsung', model: 'Galaxy A14', normalized: 'galaxy a14', score: 100 };
     renderWithTheme(<CustomerPhoneFlow />);
-    fireEvent.click(screen.getByRole('button', { name: 'mock-autocomplete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'mock-cascade' }));
 
     expect(screen.getByRole('button', { name: /4\/64/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /4\/128/ })).toBeTruthy();

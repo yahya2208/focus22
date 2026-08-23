@@ -1,6 +1,6 @@
-import { memo, useState } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { CatalogAutocomplete } from '../../components/catalog/CatalogAutocomplete';
+import { CatalogCascadeSelector } from '../../components/catalog/CatalogCascadeSelector';
 import type { CatalogSearchResult } from '../../services/catalog-service';
 import { VariantSelector } from '../../components/catalog/VariantSelector';
 import { getDisplayVariants, type PhoneVariant, type StorageOnlyVariant } from '../../data/phone-variants';
@@ -10,6 +10,8 @@ import type { InventoryRecord } from '../../services/inventory-service';
 import { buildWhatsAppForActionMessage, buildModelNotFoundMessage } from '../../services/whatsapp-service';
 import { useWhatsApp } from '../../providers/WhatsAppProvider';
 import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
+import { recordPhoneSearch } from '../../services/phone-search-service';
+import { useSearchAnalytics } from '../../hooks/useSearchAnalytics';
 
 type FlowStep = 'search' | 'variant' | 'condition' | 'action' | 'whatsapp';
 type CustomerAction = 'sell' | 'buy' | 'exchange';
@@ -39,6 +41,17 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
         r.variant.includes(searchQuery.toLowerCase())
       );
 
+  // ── Phone search analytics (catalog context) ─────────────────────────────
+  // Exchange-target picker: debounced recording of the inventory filter, with
+  // selection linking when a target device is chosen. Model search (step 1)
+  // records a single fire-and-forget event on commit — no device id exists yet.
+  const { recordSearch, linkSelection, reset } = useSearchAnalytics('catalog');
+
+  useEffect(() => {
+    if (step !== 'whatsapp') return;
+    recordSearch(searchQuery, inventory.length);
+  }, [step, searchQuery, inventory.length, recordSearch]);
+
   const handleSendWhatsApp = () => {
     if (!selectedResult || !action) return;
     const message = buildWhatsAppForActionMessage(action, {
@@ -54,6 +67,12 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
   const handleSearchSelect = (result: CatalogSearchResult) => {
     setSelectedResult(result);
     setStep('variant');
+  };
+
+  const handleModelSearchCommitted = (query: string, resultsCount: number) => {
+    if (query.length >= 2) {
+      void recordPhoneSearch(query, resultsCount, 'catalog');
+    }
   };
 
   const handleVariantSelect = (variant: PhoneVariant | StorageOnlyVariant) => {
@@ -75,10 +94,12 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
     setAction(chosen);
     setTargetDevice(null);
     setSearchQuery('');
+    reset();
     setStep('whatsapp');
   };
 
   const handleTargetSelect = (device: InventoryRecord) => {
+    linkSelection(device.id);
     setTargetDevice(device);
   };
 
@@ -89,6 +110,7 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
     setAction(null);
     setTargetDevice(null);
     setSearchQuery('');
+    reset();
   };
 
   const handleBack = () => {
@@ -207,12 +229,22 @@ export const CustomerPhoneFlow = memo(function CustomerPhoneFlow({ onBack }: Cus
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
       }}>
-        <CatalogAutocomplete
-          onSelect={handleSearchSelect}
-          placeholder="ابحث عن هاتف..."
-          autoFocus
-          label="اسم الموديل أو العلامة"
+        <CatalogCascadeSelector
+          value={{}}
+          onChange={(id) => {
+            if (id.modelName && id.brandName) {
+              handleSearchSelect({
+                brand: id.brandName,
+                model: id.modelName,
+                normalized: id.modelName.toLowerCase().replace(/\s+/g, ''),
+                score: 100,
+              });
+            }
+          }}
+          showSearch
+          showFavorites
           onModelNotFound={(brand, model) => whatsapp.send(buildModelNotFoundMessage(brand, model))}
+          onSearchCommitted={handleModelSearchCommitted}
         />
       </div>
     </div>

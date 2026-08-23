@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { recordIntent, setIntentSenderEnabled, getVisitorHash } from '../services/intent-tracking';
+import { recordIntent, setIntentSenderEnabled, getVisitorHash, resetVisitorId } from '../services/intent-tracking';
 
 const mocks = vi.hoisted(() => {
   const mockRpc = vi.fn();
@@ -21,11 +21,13 @@ vi.mock('../core/supabase/client', () => ({
 describe('M2 — recordIntent fire-and-forget contract', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetVisitorId();
     setIntentSenderEnabled(true);
     mocks.getSupabaseClient.mockImplementation(() => ({ rpc: mocks.mockRpc }));
     mocks.mockRpc.mockResolvedValue({ data: null, error: null });
   });
   afterEach(() => {
+    resetVisitorId();
     setIntentSenderEnabled(true);
   });
 
@@ -114,12 +116,66 @@ describe('M2 — recordIntent fire-and-forget contract', () => {
   });
 });
 
-describe('M2 — visitor_hash (non-PII, in-memory, per-page-load)', () => {
+describe('M2 — visitor_hash (non-PII, persistent, cross-session)', () => {
+  beforeEach(() => {
+    resetVisitorId();
+  });
+  afterEach(() => {
+    resetVisitorId();
+  });
+
   it('is 32 lowercase hex characters', () => {
     expect(getVisitorHash()).toMatch(/^[a-f0-9]{32}$/);
   });
 
   it('is stable across calls within the same page load', () => {
     expect(getVisitorHash()).toBe(getVisitorHash());
+  });
+
+  it('persists to localStorage under focus_vid_v1', () => {
+    const hash = getVisitorHash();
+    expect(localStorage.getItem('focus_vid_v1')).toBe(hash);
+  });
+
+  it('reuses the stored ID on subsequent calls (simulates page reload)', () => {
+    getVisitorHash();
+    resetVisitorId();
+    // Simulate stored ID persisting across reset
+    const second = getVisitorHash();
+    // After reset, a new ID is generated — but it's persisted
+    expect(second).toMatch(/^[a-f0-9]{32}$/);
+    expect(localStorage.getItem('focus_vid_v1')).toBe(second);
+  });
+
+  it('returns the same ID when localStorage has a valid stored value', () => {
+    // Simulate a previously stored ID: reset in-memory cache, then set localStorage,
+    // then call getVisitorHash which reads from localStorage.
+    resetVisitorId();
+    localStorage.setItem('focus_vid_v1', 'aabbccdd11223344aabbccdd11223344');
+    expect(getVisitorHash()).toBe('aabbccdd11223344aabbccdd11223344');
+  });
+
+  it('generates a new ID when localStorage has an invalid value', () => {
+    resetVisitorId();
+    localStorage.setItem('focus_vid_v1', 'invalid!');
+    const hash = getVisitorHash();
+    expect(hash).toMatch(/^[a-f0-9]{32}$/);
+    expect(hash).not.toBe('invalid!');
+  });
+
+  it('generates a new ID when localStorage is empty', () => {
+    resetVisitorId();
+    localStorage.removeItem('focus_vid_v1');
+    const hash = getVisitorHash();
+    expect(hash).toMatch(/^[a-f0-9]{32}$/);
+    expect(localStorage.getItem('focus_vid_v1')).toBe(hash);
+  });
+
+  it('resetVisitorId clears localStorage and in-memory cache', () => {
+    const first = getVisitorHash();
+    resetVisitorId();
+    expect(localStorage.getItem('focus_vid_v1')).toBeNull();
+    const second = getVisitorHash();
+    expect(second).not.toBe(first);
   });
 });

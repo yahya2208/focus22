@@ -27,10 +27,10 @@ vi.mock('../components/catalog/VariantSelector', () => ({
   },
 }));
 
-vi.mock('../components/catalog/CatalogAutocomplete', () => ({
-  CatalogAutocomplete: ({ onSelect }: { onSelect: (r: { brand: string; model: string; normalized: string; score: number }) => void }) => (
-    <button type="button" onClick={() => onSelect({ brand: 'Vivo', model: 'X50', normalized: 'x50', score: 100 })}>
-      mock-autocomplete
+vi.mock('../components/catalog/CatalogCascadeSelector', () => ({
+  CatalogCascadeSelector: ({ onChange }: { onChange: (id: { brandName?: string; modelName?: string }) => void }) => (
+    <button type="button" onClick={() => onChange({ brandName: 'Vivo', modelName: 'X50' })}>
+      mock-cascade
     </button>
   ),
 }));
@@ -105,7 +105,7 @@ describe('S3 Acceptance Gate: UI must forward brand to VariantSelector', () => {
       </ThemeProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'mock-autocomplete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'mock-cascade' }));
 
     expect(mock.lastVariantProps.current).toEqual(
       expect.objectContaining({ brand: 'Vivo', modelName: 'X50' }),
@@ -119,7 +119,7 @@ describe('S3 Acceptance Gate: UI must forward brand to VariantSelector', () => {
       </ThemeProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'mock-autocomplete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'mock-cascade' }));
 
     expect(mock.lastVariantProps.current).toEqual(
       expect.objectContaining({ brand: 'Vivo', modelName: 'X50' }),

@@ -13,8 +13,13 @@
  *   - a tracking failure can never block or delay WhatsApp.
  *
  * Identity (non-PII, P7-compliant):
- *   - `visitor_hash` is a crypto-random 32-hex id generated once per page load
- *     and held in memory ONLY — never persisted, never sent anywhere but the RPC.
+ *   - `visitor_hash` is a crypto-random 32-hex id, persisted in localStorage
+ *     under key `focus_vid_v1`. On first visit a fresh ID is generated and
+ *     stored. On subsequent visits the stored ID is reused, providing
+ *     cross-session persistence for dedup (view counter, campaign intents).
+ *   - Clearing browser site data resets the identity (user-controlled).
+ *   - Incognito/private browsing creates a fresh ID per session (by design).
+ *   - The server validates `^[a-f0-9]{16,64}$`; the value is non-PII.
  *   - device identity = the phone's short `device` id (already non-PII);
  *   - ad identity = `placement`; campaign = `campaign_id` (admin-bound, never
  *     from the QR system).
@@ -46,6 +51,9 @@ export function setIntentSenderEnabled(enabled: boolean): void {
 
 let visitorHash: string | null = null;
 
+const VISITOR_ID_KEY = 'focus_vid_v1';
+const VALID_HEX_RE = /^[a-f0-9]{16,64}$/;
+
 function generateVisitorHash(): string {
   try {
     const bytes = new Uint8Array(16);
@@ -56,13 +64,47 @@ function generateVisitorHash(): string {
   }
 }
 
+function loadStoredVisitorHash(): string | null {
+  try {
+    const v = localStorage.getItem(VISITOR_ID_KEY);
+    return v && VALID_HEX_RE.test(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistVisitorHash(id: string): void {
+  try {
+    localStorage.setItem(VISITOR_ID_KEY, id);
+  } catch {
+    // storage unavailable — degrade to per-page-load identity
+  }
+}
+
 /**
- * Non-PII, crypto-random, per-page-load visitor identity. In-memory ONLY
- * (never persisted — P7-02); the server validates `^[a-f0-9]{16,64}$`.
+ * Non-PII, crypto-random visitor identity. Persisted in localStorage
+ * under `focus_vid_v1` for cross-session dedup. Cleared when the user
+ * clears site data. The server validates `^[a-f0-9]{16,64}$`.
  */
 export function getVisitorHash(): string {
-  if (!visitorHash) visitorHash = generateVisitorHash();
+  if (!visitorHash) {
+    visitorHash = loadStoredVisitorHash() ?? generateVisitorHash();
+    persistVisitorHash(visitorHash);
+  }
   return visitorHash;
+}
+
+/**
+ * Resets the persisted visitor identity. Next call to getVisitorHash()
+ * generates a fresh ID. Useful for privacy controls or tests.
+ */
+export function resetVisitorId(): void {
+  try {
+    localStorage.removeItem(VISITOR_ID_KEY);
+  } catch {
+    // ignore
+  }
+  visitorHash = null;
 }
 
 /**

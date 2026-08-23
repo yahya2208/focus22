@@ -9,12 +9,17 @@ import type { CatalogCascadeProps, PhoneIdentity } from './CatalogIdentity';
 import { ARABIC_BRANDS, STEP_NAMES, getFavorites, getMostUsed, addFavorite, trackUsage, getStockForModel, getPriceSummary, StepIndicator, type CatalogSearchResult, type DeviceCondition } from './CatalogCascadeTypes';
 import CatalogStepSearch from './CatalogStepSearch'; import CatalogStepBrand from './CatalogStepBrand'; import CatalogStepSeries from './CatalogStepSeries'; import CatalogStepModel from './CatalogStepModel'; import CatalogStepVariant from './CatalogStepVariant'; import CatalogStepCondition from './CatalogStepCondition'; import CatalogStepAction from './CatalogStepAction';
 
+/** Opt-in analytics hook: fired only when a typed search result is committed. */
+type CatalogCascadeSelectorProps = CatalogCascadeProps & {
+  onSearchCommitted?: (query: string, resultsCount: number) => void;
+};
+
 export function CatalogCascadeSelector({
   value, onChange, allowSeries = true, allowVariant = true,
   allowCondition = true, allowOperation = true,
   showSearch = true, showFavorites = true, disabled,
-  onModelNotFound,
-}: CatalogCascadeProps) {
+  onModelNotFound, onSearchCommitted,
+}: CatalogCascadeSelectorProps) {
   const colors = useThemeColors();
   const [step, setStep] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -141,6 +146,7 @@ export function CatalogCascadeSelector({
   const emitChange = useCallback((updates: Record<string, unknown>) => onChange({ ...value, ...updates }), [value, onChange]);
 
   const handleSearchSelect = (result: CatalogSearchResult) => {
+    onSearchCommitted?.(searchQuery.trim(), searchResults.length);
     setSearchQuery(`${result.brand} ${result.model}`);
     setShowSearchResults(false);
     setSelectedBrand(result.brand);

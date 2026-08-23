@@ -13,6 +13,7 @@ import type { InventoryRecord } from '../../services/inventory-service';
 import { getInventoryReady, subscribeCentralInventory } from '../../services/inventory-central-service';
 import { useShowroomState, filterAndSortDevices } from '../../hooks/useShowroomState';
 import { useScrollPreservation } from '../../hooks/useScrollPreservation';
+import { useSearchAnalytics } from '../../hooks/useSearchAnalytics';
 
 /** F-102 — the Showroom listing surface has its own unique ad placement key. */
 export const SHOWROOM_AD_PLACEMENT = 'showroom' as const;
@@ -44,6 +45,9 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
   const { state, update } = useShowroomState();
   useScrollPreservation(devices.length > 0 && !feedOpen);
 
+  // ── Phone search analytics (Phase 1) ──────────────────────────────────────
+  const { recordSearch, linkSelection } = useSearchAnalytics('showroom');
+
   useEffect(() => {
     return subscribeCentralInventory(() => setReady(getInventoryReady()));
   }, []);
@@ -62,14 +66,25 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
 
   const visible = filterAndSortDevices(devices, state);
 
+  // Debounced search recording: record a meaningful search after 400ms of inactivity.
+  // Avoids recording every keystroke; deduplicates identical queries server-side.
+  useEffect(() => {
+    recordSearch(state.query, visible.length);
+  }, [state.query, visible.length, recordSearch]);
+
   const handleSelect = useCallback((device: InventoryRecord) => {
+    // Link selection to originating search event if available
+    linkSelection(device.id);
     dispatch({ type: 'NAVIGATE', screen: 'phone-details', params: { device: device.id } });
-  }, [dispatch]);
+  }, [dispatch, linkSelection]);
 
   const handleFeedSelect = useCallback((deviceId: string) => {
+    // The feed renders the filtered (search-result) set, so a feed pick is a
+    // search selection too — link it like grid card picks.
+    linkSelection(deviceId);
     setFeedOpen(false);
     dispatch({ type: 'NAVIGATE', screen: 'phone-details', params: { device: deviceId } });
-  }, [dispatch]);
+  }, [dispatch, linkSelection]);
 
   const handleFeedClose = useCallback(() => {
     setFeedOpen(false);
@@ -102,7 +117,9 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
 
         <AdContactBanner placement={SHOWROOM_AD_PLACEMENT} />
 
-        <ShowroomControls devices={devices} state={state} onChange={update} />
+        {/* state is a module-level singleton mutated in place; memo(ShowroomControls)
+            needs a fresh identity to re-render when its content changes. */}
+        <ShowroomControls devices={devices} state={{ ...state }} onChange={update} />
 
         {USE_NEW_GALLERY && visible.length > 0 && (
           <button
