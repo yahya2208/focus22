@@ -251,6 +251,18 @@ export function InitialRoute() {
         .then((entry) => {
           if (entry) {
             recordScan(shortCode);
+
+            // Challenge-linked campaign: route deterministically to challenge-page
+            // using the explicit challenge_id from the campaign row.
+            // No RPC dependency — the link is explicit in the database.
+            if (entry.challengeId) {
+              setActiveChallengeId(entry.challengeId);
+              detectedChallengeIdRef.current = entry.challengeId;
+              setChallengeAuthPending(true);
+              return;
+            }
+
+            // Regular campaign (no linked challenge): normal game flow
             dispatch({ type: 'REPLACE', screen: 'game-intro' });
           }
         })

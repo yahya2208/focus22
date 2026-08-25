@@ -2,19 +2,25 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Suspense } from 'react';
 import App from '../../App';
+import type { CampaignEntry } from '../../services/campaign-lookup';
+
+const mocks = vi.hoisted(() => ({
+  lookupCampaign: vi.fn(async (code: string): Promise<CampaignEntry | null> => {
+    if (code === 'ZZZZZZ') return null;
+    return {
+      id: '00000000-0000-4000-8000-000000000000',
+      shortCode: code,
+      name: 'Test Campaign',
+      challengeId: null,
+    };
+  }),
+}));
 
 vi.mock('../../services/campaign-lookup', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../services/campaign-lookup')>();
   return {
     ...actual,
-    lookupCampaign: vi.fn(async (code: string) => {
-      if (code === 'ZZZZZZ') return null;
-      return {
-        id: '00000000-0000-4000-8000-000000000000',
-        shortCode: code,
-        name: 'Test Campaign',
-      };
-    }),
+    lookupCampaign: mocks.lookupCampaign,
   };
 });
 
@@ -108,5 +114,31 @@ describe('QR entry routing (Phase B)', () => {
     await screen.findByRole('main', { name: 'Main navigation' });
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(screen.queryByRole('navigation', { name: 'Game intro' })).toBeNull();
+  });
+
+  it('challenge-linked campaign QR does NOT route to game-intro', async () => {
+    mocks.lookupCampaign.mockResolvedValueOnce({
+      id: '00000000-0000-4000-8000-000000000000',
+      shortCode: 'ABC123',
+      name: 'Test Campaign',
+      challengeId: 'uuid-ch-01',
+    });
+    window.history.pushState({}, '', '/c/ABC123');
+    renderApp();
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    expect(screen.queryByRole('navigation', { name: 'Game intro' })).toBeNull();
+    expect(qrMeasurementMock.recordScan).toHaveBeenCalledWith('ABC123');
+  });
+
+  it('regular campaign QR (no challengeId) still routes to game-intro', async () => {
+    mocks.lookupCampaign.mockResolvedValueOnce({
+      id: '00000000-0000-4000-8000-000000000000',
+      shortCode: 'ABC123',
+      name: 'Test Campaign',
+      challengeId: null,
+    });
+    window.history.pushState({}, '', '/c/ABC123');
+    renderApp();
+    expect(await screen.findByRole('navigation', { name: 'Game intro' }, { timeout: 5000 })).toBeTruthy();
   });
 });

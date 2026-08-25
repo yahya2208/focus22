@@ -127,12 +127,12 @@ describe('Migration numbering', () => {
     expect(legacy).toEqual(['003_add_session_lifecycle.sql', '004_add_analytics_events_indexes.sql']);
   });
 
-  it('00034 is the highest migration number; 00020..00034 all exist', () => {
+  it('00041 is the highest migration number; 00020..00041 all exist', () => {
     const nums = Object.keys(MIGRATIONS)
       .map(basename)
       .map(numericPrefix)
       .filter((n): n is number => n !== null);
-    expect(Math.max(...nums)).toBe(34);
+    expect(Math.max(...nums)).toBe(42);
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00020_ads_multi_image.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00021_ad_images_device_id.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00022_generic_ads_destinations.sql');
@@ -146,6 +146,21 @@ describe('Migration numbering', () => {
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00030_phone_search_events.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00031_phone_intelligence_rpc.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00034_recover_my_challenge_state.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00035_listing_category_core.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00036_car_property_details.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00037_v_public_listings.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00038_listing_rpcs.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00039_listing_admin_surface.sql');
+    // P8.6/D3: shipped as FILE ONLY — never applied by the developer; Yahya
+    // applies 00035..00040 later in the Supabase SQL Editor.
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00040_v_public_inventory_phone_only.sql');
+    // SESSION SCIENCE PERSISTENCE (Option C, owner-authorized 2026-08-25):
+    // shipped as FILE ONLY — never applied by the developer; the owner applies
+    // 00041 later in the Supabase SQL Editor.
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00041_record_scientific_session.sql');
+    // CHALLENGE-LINKED CAMPAIGN QR (P0 QR Safety, owner-authorized):
+    // shipped as FILE ONLY — owner applies 00042 in the Supabase SQL Editor.
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00042_link_campaign_to_challenge.sql');
   });
 
   it('00019 body (after header comments) matches 01-inventory-apply.sql body', () => {

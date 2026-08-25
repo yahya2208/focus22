@@ -116,9 +116,9 @@ describe('extractCampaignShortCodeFromQuery / FromLocation — GitHub Pages enco
 
 describe('lookupCampaign — RPC contract', () => {
   it('8: valid active campaign returns entry', async () => {
-    stubRpc({ id: 'c1', short_code: 'ABC123', name: 'Test Campaign', is_active: true }, null);
+    stubRpc({ id: 'c1', short_code: 'ABC123', name: 'Test Campaign', is_active: true, challenge_id: null }, null);
     const result = await lookupCampaign('ABC123');
-    expect(result).toEqual({ id: 'c1', shortCode: 'ABC123', name: 'Test Campaign' });
+    expect(result).toEqual({ id: 'c1', shortCode: 'ABC123', name: 'Test Campaign', challengeId: null });
     expect(rpcMock.rpc).toHaveBeenCalledWith('lookup_campaign_by_short_code', { p_code: 'ABC123' });
   });
 
@@ -150,6 +150,18 @@ describe('lookupCampaign — RPC contract', () => {
       },
     });
     expect(await lookupCampaign('ABC123')).toBeNull();
+  });
+
+  it('campaign with linked challenge returns challengeId', async () => {
+    stubRpc({ id: 'c2', short_code: 'DEF456', name: 'Challenge Campaign', is_active: true, challenge_id: 'uuid-ch-01' }, null);
+    const result = await lookupCampaign('DEF456');
+    expect(result).toEqual({ id: 'c2', shortCode: 'DEF456', name: 'Challenge Campaign', challengeId: 'uuid-ch-01' });
+  });
+
+  it('campaign without linked challenge returns null challengeId', async () => {
+    stubRpc({ id: 'c3', short_code: 'GHI789', name: 'Regular Campaign', is_active: true, challenge_id: null }, null);
+    const result = await lookupCampaign('GHI789');
+    expect(result).toEqual({ id: 'c3', shortCode: 'GHI789', name: 'Regular Campaign', challengeId: null });
   });
 });
 

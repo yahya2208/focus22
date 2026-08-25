@@ -4,6 +4,7 @@ export interface CampaignEntry {
   readonly id: string;
   readonly shortCode: string;
   readonly name: string;
+  readonly challengeId: string | null;
 }
 
 const SHORT_CODE_PATTERN = /\/c\/([a-zA-Z0-9]{6})(?:\/)?$/;
@@ -32,9 +33,9 @@ export async function lookupCampaign(shortCode: string): Promise<CampaignEntry |
       .maybeSingle();
     if (error) return null;
     if (!data) return null;
-    const row = data as { id: string; short_code: string; name: string; is_active: boolean };
+    const row = data as { id: string; short_code: string; name: string; is_active: boolean; challenge_id: string | null };
     if (row.is_active !== true) return null;
-    return { id: row.id, shortCode: row.short_code, name: row.name };
+    return { id: row.id, shortCode: row.short_code, name: row.name, challengeId: row.challenge_id ?? null };
   } catch {
     return null;
   }
