@@ -105,21 +105,6 @@ export async function submitChallengeScore(
   const nonce = generateNonce();
   const roundedRts = payload.rawRts.map((rt) => Math.round(rt));
 
-  const invalidRts = roundedRts
-    .map((rt, i) => ({ round: i + 1, raw: payload.rawRts[i], rounded: rt, invalid: rt < REACTION.MIN_RT_MS || rt > REACTION.MAX_RT_MS }))
-    .filter((r) => r.invalid);
-
-  console.error('[CHALLENGE RT DEBUG]', {
-    rawRts: payload.rawRts,
-    roundedRts,
-    min: REACTION.MIN_RT_MS,
-    max: REACTION.MAX_RT_MS,
-    invalid: invalidRts,
-    displayLagMs: payload.displayLagMs,
-    inputLagMs: payload.inputLagMs,
-    platform: payload.platform,
-  });
-
   for (const rt of roundedRts) {
     if (rt < REACTION.MIN_RT_MS || rt > REACTION.MAX_RT_MS) {
       throw { code: 'INVALID_RT_RANGE', message: 'Reaction time out of valid range' } as ChallengeError;

@@ -241,11 +241,6 @@ export const GameScreen = memo(function GameScreen() {
         if (roundResolvedRef.current) return;
         roundResolvedRef.current = true;
         rawRtsRef.current.push(REACTION.MAX_RT_MS);
-        console.error('[CHALLENGE RT DEBUG] round_timeout', {
-          round: roundRef.current + 1,
-          timeoutMs: REACTION.MAX_RT_MS,
-          totalRounds: rawRtsRef.current.length,
-        });
         setRound((r) => r + 1);
       }, REACTION.MAX_RT_MS);
     }, delay);
@@ -268,13 +263,6 @@ export const GameScreen = memo(function GameScreen() {
         sessionStart: sessionStartRef.current,
         sessionEnd: Date.now(),
       };
-
-      console.error('[CHALLENGE RT DEBUG] game_complete', {
-        rawRts: rts,
-        correctedRts,
-        rounds: TOTAL_ROUNDS,
-        timeouts: rts.filter((rt) => rt >= REACTION.MAX_RT_MS).length,
-      });
 
       const sessionId = sessionIdRef.current;
       if (sessionId) {
@@ -303,10 +291,6 @@ export const GameScreen = memo(function GameScreen() {
       return;
     }
     if (roundResolvedRef.current) {
-      console.error('[CHALLENGE RT DEBUG] late_tap_blocked', {
-        round: roundRef.current + 1,
-        lateRtMs: Math.round(performance.now() - stimulusTimeRef.current),
-      });
       return;
     }
     roundResolvedRef.current = true;
@@ -318,13 +302,6 @@ export const GameScreen = memo(function GameScreen() {
     if (bestTimeRef.current === null || rt < bestTimeRef.current) {
       bestTimeRef.current = rt;
     }
-    console.error('[CHALLENGE RT DEBUG] round_tap', {
-      round: roundRef.current + 1,
-      rawRt: Math.round(rt * 100) / 100,
-      stimulusTime: Math.round(stimulusTimeRef.current),
-      now: Math.round(performance.now()),
-      totalRounds: rawRtsRef.current.length,
-    });
     emitDiagnosticLog({ service: 'game', action: 'round_completed', caller: 'game-screen', trigger: 'lamp_tap', sessionId: sessionIdRef.current ?? undefined, detail: `round=${roundRef.current + 1} rt=${Math.round(rt)}ms` });
 
     setPhase('hit');

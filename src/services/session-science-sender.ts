@@ -61,20 +61,11 @@ interface ScientificSessionArgs {
 }
 
 async function submitScientificSession(args: ScientificSessionArgs): Promise<void> {
-  console.log('[SESSION-SCIENCE] RPC submit start', args.p_session_id);
-
   const { error } =
     await getSupabaseClient().rpc('record_scientific_session', args);
 
   if (error) {
-    console.error(
-      '[SESSION-SCIENCE] RPC failed:',
-      error.code,
-      error.message,
-      error.details,
-    );
-  } else {
-    console.log('[SESSION-SCIENCE] RPC success:', args.p_session_id);
+    console.error('[session-science] RPC failed:', error.code, error.message, error.details);
   }
 }
 
