@@ -127,12 +127,12 @@ describe('Migration numbering', () => {
     expect(legacy).toEqual(['003_add_session_lifecycle.sql', '004_add_analytics_events_indexes.sql']);
   });
 
-  it('00042 is the highest migration number; 00020..00034 + 00042 all exist', () => {
+  it('00043 is the highest migration number; 00020..00034 + 00042..00043 all exist', () => {
     const nums = Object.keys(MIGRATIONS)
       .map(basename)
       .map(numericPrefix)
       .filter((n): n is number => n !== null);
-    expect(Math.max(...nums)).toBe(42);
+    expect(Math.max(...nums)).toBe(43);
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00020_ads_multi_image.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00021_ad_images_device_id.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00022_generic_ads_destinations.sql');
@@ -149,6 +149,7 @@ describe('Migration numbering', () => {
     // CHALLENGE-LINKED CAMPAIGN QR (P0 QR Safety, owner-authorized):
     // shipped as FILE ONLY — owner applies 00042 in the Supabase SQL Editor.
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00042_link_campaign_to_challenge.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00043_admin_challenge_guest_claim_counts.sql');
   });
 
   it('00019 body (after header comments) matches 01-inventory-apply.sql body', () => {

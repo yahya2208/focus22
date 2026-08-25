@@ -196,6 +196,7 @@ export interface AdminChallengeRow {
   readonly participantCount: number;
   readonly qualifiedCount: number;
   readonly claimCount: number;
+  readonly guestClaimCount: number;
   readonly createdAt: string;
 }
 
@@ -219,6 +220,9 @@ export interface AdminChallengeDetail {
   readonly claimCount: number;
   readonly pendingClaims: number;
   readonly redeemedClaims: number;
+  readonly guestClaimCount: number;
+  readonly guestPendingClaims: number;
+  readonly guestRedeemedClaims: number;
   readonly winnerSubmissionId: string | null;
   readonly winnerName: string | null;
   readonly winnerScore: number | null;

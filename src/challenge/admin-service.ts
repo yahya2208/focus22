@@ -63,6 +63,7 @@ export async function adminListChallenges(
     participant_count: number;
     qualified_count: number;
     claim_count: number;
+    guest_claim_count: number;
     created_at: string;
   }>).map((row) => ({
     id: row.id,
@@ -75,6 +76,7 @@ export async function adminListChallenges(
     participantCount: row.participant_count,
     qualifiedCount: row.qualified_count,
     claimCount: row.claim_count,
+    guestClaimCount: row.guest_claim_count,
     createdAt: row.created_at,
   }));
 }
@@ -104,6 +106,9 @@ export async function adminGetChallengeDetails(
     claim_count: number;
     pending_claims: number;
     redeemed_claims: number;
+    guest_claim_count: number;
+    guest_pending_claims: number;
+    guest_redeemed_claims: number;
     winner_submission_id: string | null;
     winner_name: string | null;
     winner_score: number | null;
@@ -120,6 +125,9 @@ export async function adminGetChallengeDetails(
     claimCount: row.claim_count,
     pendingClaims: row.pending_claims,
     redeemedClaims: row.redeemed_claims,
+    guestClaimCount: row.guest_claim_count,
+    guestPendingClaims: row.guest_pending_claims,
+    guestRedeemedClaims: row.guest_redeemed_claims,
     winnerSubmissionId: row.winner_submission_id,
     winnerName: row.winner_name,
     winnerScore: row.winner_score,

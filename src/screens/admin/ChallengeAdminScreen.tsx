@@ -90,6 +90,7 @@ function ChallengeCard({
         <span>{challenge.participantCount} plays</span>
         <span>{challenge.qualifiedCount} qualified</span>
         <span>{challenge.claimCount} claims</span>
+        <span>{challenge.guestClaimCount} guest</span>
       </div>
 
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
@@ -194,6 +195,9 @@ function DetailPanel({
           { label: 'Claims', value: detail.claimCount },
           { label: 'Pending Claims', value: detail.pendingClaims },
           { label: 'Redeemed', value: detail.redeemedClaims },
+          { label: 'Guest Claims', value: detail.guestClaimCount },
+          { label: 'Guest Pending', value: detail.guestPendingClaims },
+          { label: 'Guest Redeemed', value: detail.guestRedeemedClaims },
           { label: 'Status', value: ch.status },
         ].map((item) => (
           <div key={item.label}>
