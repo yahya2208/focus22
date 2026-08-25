@@ -9,6 +9,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { getGlobalSessionService } from '../../core/session/service';
 import { emitDiagnosticLog } from '../../core/supabase/live-diagnostics';
 import { recordFunnel, getActiveCampaignId } from '../../services/qr-measurement';
+import { sendScientificSession } from '../../services/session-science-sender';
 
 type Phase = 'waiting' | 'visible' | 'hit' | 'miss';
 
@@ -160,6 +161,7 @@ export const GameScreen = memo(function GameScreen() {
   const stimulusTimeRef = useRef(0);
   const sessionStartRef = useRef(Date.now());
   const sessionIdRef = useRef<string | null>(null);
+  const gameModeRef = useRef<string | null>(null);
   const completedRef = useRef(false);
   const stoppedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -200,6 +202,7 @@ export const GameScreen = memo(function GameScreen() {
     const sessionService = getGlobalSessionService();
     const sessionId = sessionService.startSession({ gameMode });
     sessionIdRef.current = sessionId;
+    gameModeRef.current = gameMode;
     dispatch({ type: 'START_SESSION', sessionId, gameMode });
     recordFunnel(getActiveCampaignId() ?? '', 'game_start');
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -279,6 +282,7 @@ export const GameScreen = memo(function GameScreen() {
         emitDiagnosticLog({ service: 'game', action: 'game_completed', caller: 'game-screen', trigger: 'round7_reached', sessionId, detail: `rounds=${TOTAL_ROUNDS} valid=${validRounds}` });
         getGlobalSessionService().completeSession(sessionId, results);
         recordFunnel(getActiveCampaignId() ?? '', 'game_complete');
+        sendScientificSession({ sessionId, gameMode: gameModeRef.current ?? 'reaction-light', results });
       }
 
       dispatch({ type: 'SET_RESULTS', results });
