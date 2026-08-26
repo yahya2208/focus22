@@ -1,11 +1,14 @@
 /**
- * Browser device fingerprint — generates a stable, anonymous identifier from
- * non-PII browser characteristics. Used to populate sessions.device_id so
- * per-device analytics are possible without any identity tracking.
+ * Browser device fingerprint — generates a stable, anonymous UUID from
+ * non-PII browser characteristics. Used to populate sessions.device_id
+ * (UUID column) so per-device analytics are possible without any identity
+ * tracking.
  *
  * Properties: userAgent + screen dimensions + language + hardwareConcurrency.
- * Output: 12-hex-char hash (not a UUID — length is intentional to signal
- * "browser fingerprint, not an identity key").
+ * Output: deterministic UUID v4-formatted string derived from the 8-char
+ * FNV-1a hash: "{hash}-0000-4000-8000-000000000000". Same browser always
+ * produces the same UUID. The fixed suffix signals "browser fingerprint,
+ * not an identity key".
  *
  * No localStorage, no cookies, no external calls. Purely deterministic from
  * the current browser state.
@@ -30,5 +33,6 @@ export function getDeviceFingerprint(): string {
       : '',
   ];
   const raw = parts.join('|');
-  return fnv1a(raw);
+  const hash = fnv1a(raw);
+  return `${hash}-0000-4000-8000-000000000000`;
 }

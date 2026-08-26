@@ -12,7 +12,7 @@ import { getSupabaseClient } from '../core/supabase/client';
  * It calls exactly ONE approved SECURITY DEFINER RPC:
  *   record_scientific_session(p_session_id, p_plugin_id, p_created_at,
  *                             p_finished_at, p_measurements, p_scientific_results,
- *                             p_device_id)
+ *                             p_device_id::uuid)
  *
  * Hard contract:
  *   - Completion-only. No create / heartbeat / abandon persistence.
