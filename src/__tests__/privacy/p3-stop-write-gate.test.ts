@@ -77,6 +77,7 @@ const RUNTIME_PATH: string[] = [
   'services/whatsapp-service.ts',
   'services/whatsapp-message.ts',
   'services/qr-measurement.ts',
+  'services/session-science-sender.ts',
   'screens/game/GameScreen.tsx',
   'screens/countdown/CountdownScreen.tsx',
   'screens/game-intro/GameIntroScreen.tsx',
@@ -167,8 +168,22 @@ const AUTHORIZED_CHANGES = [
  * fire-and-forget, P7-clean sender `services/qr-measurement.ts`. No other
  * runtime file may gain arbitrary .rpc() access. Direct table writes remain
  * forbidden in EVERY runtime file, including the carve-out.
+ *
+ * SESSION SCIENCE RPC CARVE-OUT — owner-approved execution 2026-08-25
+ * ("AUTHORIZED TO IMPLEMENT — SESSION SCIENCE PERSISTENCE", Option C).
+ * Exactly ONE additional runtime file may call the single sanctioned science
+ * RPC record_scientific_session() via .rpc(): the isolated, fire-and-forget,
+ * completion-only sender `services/session-science-sender.ts`. user_id is
+ * derived server-side from auth.uid() and is never client-supplied. The
+ * migration 00041_record_scientific_session.sql ships as FILE ONLY (the owner
+ * executes it). This entry documents the carve-out; it does NOT weaken any
+ * assertion above: direct table writes stay forbidden everywhere and both
+ * senders remain under active RUNTIME_PATH surveillance.
  */
-const RPC_ALLOWLIST: string[] = ['services/qr-measurement.ts'];
+const RPC_ALLOWLIST: string[] = [
+  'services/qr-measurement.ts',
+  'services/session-science-sender.ts',
+];
 
 function findProtectedViolations(changed: string[], prefixes: string[], authorized: string[]): string[] {
   return changed.filter((f) => prefixes.some((p) => f.startsWith(p)) && !authorized.includes(f));
@@ -272,13 +287,18 @@ describe('PG-27: لا كاتب مخفي على مسار التشغيل (componen
     expect(offenders).toEqual([]);
   });
 
-  it('regression: القائمة البيضاء تحتوي الملف المعزول الوحيد فقط', () => {
-    expect(RPC_ALLOWLIST).toEqual(['services/qr-measurement.ts']);
+  it('regression: القائمة البيضاء تحتوي المرسلين المخوّلين فقط (قياس + علم الجلسات)', () => {
+    expect(RPC_ALLOWLIST).toEqual([
+      'services/qr-measurement.ts',
+      'services/session-science-sender.ts',
+    ]);
   });
 
-  it('regression: خدمة القياس تبقى داخل مسار التشغيل (لا يمكن إخفاؤها خارج الفحص)', () => {
+  it('regression: خدمات القياس والعلم تبقى داخل مسار التشغيل (لا يمكن إخفاؤها خارج الفحص)', () => {
     expect(RUNTIME_PATH).toContain('services/qr-measurement.ts');
+    expect(RUNTIME_PATH).toContain('services/session-science-sender.ts');
     expect(fs.existsSync(path.join(SRC, 'services/qr-measurement.ts'))).toBe(true);
+    expect(fs.existsSync(path.join(SRC, 'services/session-science-sender.ts'))).toBe(true);
   });
 
   it('غلاف الحماية متكامل: telemetry معطّل + لا PersistenceProvider + لا ضيف تلقائي + لا QR', () => {

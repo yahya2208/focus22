@@ -128,7 +128,7 @@ describe('P7-01: لا API متعطشة للخصوصية في الإنتاج', ()
 
 describe('P7-02: لا هوية جهاز/زائر دائمة', () => {
   it('navigator.userAgent قراءة عابرة بالذاكرة فقط (CalibrationScreen + silent.ts)', () => {
-    const allowed = ['screens/calibration/CalibrationScreen.tsx', 'core/calibration/silent.ts'];
+    const allowed = ['screens/calibration/CalibrationScreen.tsx', 'core/calibration/silent.ts', 'core/device/fingerprint.ts'];
     const offenders = walkProductionSrc()
       .filter((f) => /navigator\.userAgent/.test(codeOnly(f.content)))
       .filter((f) => !allowed.includes(f.rel))

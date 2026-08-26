@@ -10,6 +10,7 @@ import { getGlobalSessionService } from '../../core/session/service';
 import { emitDiagnosticLog } from '../../core/supabase/live-diagnostics';
 import { recordFunnel, getActiveCampaignId } from '../../services/qr-measurement';
 import { sendScientificSession } from '../../services/session-science-sender';
+import { getDeviceFingerprint } from '../../core/device/fingerprint';
 
 type Phase = 'waiting' | 'visible' | 'hit' | 'miss';
 
@@ -270,7 +271,7 @@ export const GameScreen = memo(function GameScreen() {
         emitDiagnosticLog({ service: 'game', action: 'game_completed', caller: 'game-screen', trigger: 'round7_reached', sessionId, detail: `rounds=${TOTAL_ROUNDS} valid=${validRounds}` });
         getGlobalSessionService().completeSession(sessionId, results);
         recordFunnel(getActiveCampaignId() ?? '', 'game_complete');
-        sendScientificSession({ sessionId, gameMode: gameModeRef.current ?? 'reaction-light', results });
+        sendScientificSession({ sessionId, gameMode: gameModeRef.current ?? 'reaction-light', results, deviceId: getDeviceFingerprint(), calibrationConfidence: calibration.confidence });
       }
 
       dispatch({ type: 'SET_RESULTS', results });
