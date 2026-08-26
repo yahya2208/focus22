@@ -271,7 +271,7 @@ export const GameScreen = memo(function GameScreen() {
         emitDiagnosticLog({ service: 'game', action: 'game_completed', caller: 'game-screen', trigger: 'round7_reached', sessionId, detail: `rounds=${TOTAL_ROUNDS} valid=${validRounds}` });
         getGlobalSessionService().completeSession(sessionId, results);
         recordFunnel(getActiveCampaignId() ?? '', 'game_complete');
-        sendScientificSession({ sessionId, gameMode: gameModeRef.current ?? 'reaction-light', results, deviceId: getDeviceFingerprint(), calibrationConfidence: calibration.confidence });
+        sendScientificSession({ sessionId, gameMode: gameModeRef.current ?? 'reaction-light', results, deviceFingerprint: getDeviceFingerprint(), calibrationConfidence: calibration.confidence });
       }
 
       dispatch({ type: 'SET_RESULTS', results });

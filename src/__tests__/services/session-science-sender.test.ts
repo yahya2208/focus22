@@ -55,7 +55,7 @@ describe('session-science-sender — العقد المعتمد', () => {
     expect(fnName).toBe('record_scientific_session');
   });
 
-  it('يطبّق مفاتيح JSONB الحية حرفياً (5 قياسات + 8 علمية) مع p_device_id اختياري', () => {
+  it('يطبّق مفاتيح JSONB الحية حرفياً (5 قياسات + 8 علمية) مع device_fingerprint اختياري', () => {
     sendScientificSession(payload());
     const { args } = firstCall();
 
@@ -115,10 +115,11 @@ describe('session-science-sender — العقد المعتمد', () => {
     }
   });
 
-  it('يرسل p_device_id عند وجود deviceId في الحمولة', () => {
-    sendScientificSession({ ...payload(), deviceId: 'abc123' });
+  it('يرسل device_fingerprint داخل scientific_results عند وجود deviceFingerprint في الحمولة', () => {
+    sendScientificSession({ ...payload(), deviceFingerprint: 'abc123def4' });
     const { args } = firstCall();
-    expect(args.p_device_id).toBe('abc123');
+    expect(args.p_scientific_results.device_fingerprint).toBe('abc123def4');
+    expect(args.p_device_id).toBeUndefined();
   });
 
   it('يرسل calibration_confidence داخل scientific_results عند توفره', () => {
@@ -127,10 +128,11 @@ describe('session-science-sender — العقد المعتمد', () => {
     expect(args.p_scientific_results.calibration_confidence).toBe(0.85);
   });
 
-  it('لا يرفق p_device_id أو calibration_confidence عند غيابهما', () => {
+  it('لا يرفق device_fingerprint أو calibration_confidence عند غيابهما', () => {
     sendScientificSession(payload());
     const { args } = firstCall();
     expect(args.p_device_id).toBeUndefined();
+    expect(args.p_scientific_results.device_fingerprint).toBeUndefined();
     expect(args.p_scientific_results.calibration_confidence).toBeUndefined();
   });
 

@@ -5,21 +5,21 @@ import { getSupabaseClient } from '../core/supabase/client';
 
 /**
  * SESSION SCIENCE PERSISTENCE CARVE-OUT — owner-authorized 2026-08-25.
- * Extended 2026-08-26: added p_device_id (anonymous browser fingerprint) and
- * calibration_confidence inside scientific_results JSONB (O4+O5).
+ * Extended 2026-08-26: added calibration_confidence and device_fingerprint
+ * inside scientific_results JSONB (O4+O5). device_fingerprint is stored
+ * inside the JSONB (no FK violation on sessions.device_id).
  *
  * This file is the ONLY sanctioned runtime writer besides services/qr-measurement.ts.
  * It calls exactly ONE approved SECURITY DEFINER RPC:
  *   record_scientific_session(p_session_id, p_plugin_id, p_created_at,
- *                             p_finished_at, p_measurements, p_scientific_results,
- *                             p_device_id::uuid)
+ *                             p_finished_at, p_measurements, p_scientific_results)
  *
  * Hard contract:
  *   - Completion-only. No create / heartbeat / abandon persistence.
  *   - Fire-and-forget: never throws, never awaited, never blocks the UI.
  *   - user_id is derived SERVER-SIDE from auth.uid(); this client NEVER sends
  *     any identity field (no user_id, email, token) and no tracking payload.
- *     device_id is an anonymous browser fingerprint hash (no PII).
+ *     device_fingerprint is an anonymous browser hash (no PII), stored in JSONB.
  *   - No enable/disable runtime seams by owner decision; tests isolate via
  *     mocking core/supabase/client only.
  */
@@ -37,7 +37,7 @@ export interface ScientificSessionPayload {
   readonly sessionId: string;
   readonly gameMode: string;
   readonly results: ScientificSessionResultsInput;
-  readonly deviceId?: string;
+  readonly deviceFingerprint?: string;
   readonly calibrationConfidence?: number;
 }
 
@@ -63,8 +63,8 @@ interface ScientificSessionArgs {
     focus_score: number;
     grade: string;
     calibration_confidence?: number;
+    device_fingerprint?: string;
   };
-  p_device_id?: string;
 }
 
 async function submitScientificSession(args: ScientificSessionArgs): Promise<void> {
@@ -78,7 +78,7 @@ async function submitScientificSession(args: ScientificSessionArgs): Promise<voi
 
 export function sendScientificSession(payload: ScientificSessionPayload): void {
   try {
-    const { sessionId, gameMode, results, deviceId, calibrationConfidence } = payload;
+    const { sessionId, gameMode, results, deviceFingerprint, calibrationConfidence } = payload;
     if (!sessionId || !gameMode || !results) return;
 
     const corrected = results.correctedRts;
@@ -122,8 +122,8 @@ export function sendScientificSession(payload: ScientificSessionPayload): void {
         focus_score: scoring.focusScore,
         grade: scoring.grade,
         ...(typeof calibrationConfidence === 'number' ? { calibration_confidence: calibrationConfidence } : {}),
+        ...(deviceFingerprint ? { device_fingerprint: deviceFingerprint } : {}),
       },
-      ...(deviceId ? { p_device_id: deviceId } : {}),
     }).catch(() => {});
   } catch {
     // fire-and-forget: never throws
