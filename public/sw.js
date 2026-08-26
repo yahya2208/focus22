@@ -3,8 +3,8 @@
  * Strategy: precache app shell + icons; cache-first for hashed assets;
  * network-first + offline shell fallback for navigations.
  */
-const CACHE_NAME = 'focus-pwa-v2';
-const RUNTIME_CACHE = 'focus-pwa-runtime-v2';
+const CACHE_NAME = 'focus-pwa-v3';
+const RUNTIME_CACHE = 'focus-pwa-runtime-v3';
 
 const APP_SHELL = [
   './',
