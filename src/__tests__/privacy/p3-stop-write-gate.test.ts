@@ -78,6 +78,15 @@ const RUNTIME_PATH: string[] = [
   'services/whatsapp-message.ts',
   'services/qr-measurement.ts',
   'services/session-science-sender.ts',
+  'services/tic-tac-toe-sender.ts',
+  'core/tic-tac-toe/types.ts',
+  'core/tic-tac-toe/board.ts',
+  'core/tic-tac-toe/ai.ts',
+  'hooks/use-tic-tac-toe.ts',
+  'screens/tic-tac-toe/TicTacToeContext.tsx',
+  'screens/tic-tac-toe/TicTacToeIntroScreen.tsx',
+  'screens/tic-tac-toe/TicTacToeScreen.tsx',
+  'screens/tic-tac-toe/TicTacToeResultsScreen.tsx',
   'screens/game/GameScreen.tsx',
   'screens/countdown/CountdownScreen.tsx',
   'screens/game-intro/GameIntroScreen.tsx',
@@ -179,10 +188,18 @@ const AUTHORIZED_CHANGES = [
  * executes it). This entry documents the carve-out; it does NOT weaken any
  * assertion above: direct table writes stay forbidden everywhere and both
  * senders remain under active RUNTIME_PATH surveillance.
+ *
+ * TIC TAC TOE TELEMETRY RPC CARVE-OUT — Gate 5, 2026-08-27.
+ * Exactly ONE additional runtime file may call the single sanctioned TTT RPC
+ * record_tic_tac_toe_session() via .rpc(): the isolated, fire-and-forget,
+ * completion-only sender `services/tic-tac-toe-sender.ts`. user_id is
+ * derived server-side from auth.uid() and is never client-supplied. The
+ * migration 00047_record_tic_tac_toe_session.sql ships as FILE ONLY.
  */
 const RPC_ALLOWLIST: string[] = [
   'services/qr-measurement.ts',
   'services/session-science-sender.ts',
+  'services/tic-tac-toe-sender.ts',
 ];
 
 function findProtectedViolations(changed: string[], prefixes: string[], authorized: string[]): string[] {
@@ -287,18 +304,29 @@ describe('PG-27: لا كاتب مخفي على مسار التشغيل (componen
     expect(offenders).toEqual([]);
   });
 
-  it('regression: القائمة البيضاء تحتوي المرسلين المخوّلين فقط (قياس + علم الجلسات)', () => {
+  it('regression: القائمة البيضاء تحتوي المرسلين المخوّلين فقط (قياس + علم الجلسات + تك تاك تو)', () => {
     expect(RPC_ALLOWLIST).toEqual([
       'services/qr-measurement.ts',
       'services/session-science-sender.ts',
+      'services/tic-tac-toe-sender.ts',
     ]);
   });
 
-  it('regression: خدمات القياس والعلم تبقى داخل مسار التشغيل (لا يمكن إخفاؤها خارج الفحص)', () => {
+  it('regression: خدمات القياس والعلم والتك تاك تو تبقى داخل مسار التشغيل (لا يمكن إخفاؤها خارج الفحص)', () => {
     expect(RUNTIME_PATH).toContain('services/qr-measurement.ts');
     expect(RUNTIME_PATH).toContain('services/session-science-sender.ts');
+    expect(RUNTIME_PATH).toContain('services/tic-tac-toe-sender.ts');
     expect(fs.existsSync(path.join(SRC, 'services/qr-measurement.ts'))).toBe(true);
     expect(fs.existsSync(path.join(SRC, 'services/session-science-sender.ts'))).toBe(true);
+    expect(fs.existsSync(path.join(SRC, 'services/tic-tac-toe-sender.ts'))).toBe(true);
+    expect(RUNTIME_PATH).toContain('core/tic-tac-toe/types.ts');
+    expect(RUNTIME_PATH).toContain('core/tic-tac-toe/board.ts');
+    expect(RUNTIME_PATH).toContain('core/tic-tac-toe/ai.ts');
+    expect(RUNTIME_PATH).toContain('hooks/use-tic-tac-toe.ts');
+    expect(RUNTIME_PATH).toContain('screens/tic-tac-toe/TicTacToeContext.tsx');
+    expect(RUNTIME_PATH).toContain('screens/tic-tac-toe/TicTacToeIntroScreen.tsx');
+    expect(RUNTIME_PATH).toContain('screens/tic-tac-toe/TicTacToeScreen.tsx');
+    expect(RUNTIME_PATH).toContain('screens/tic-tac-toe/TicTacToeResultsScreen.tsx');
   });
 
   it('غلاف الحماية متكامل: telemetry معطّل + لا PersistenceProvider + لا ضيف تلقائي + لا QR', () => {
