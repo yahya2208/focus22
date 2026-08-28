@@ -1145,6 +1145,7 @@ const ar: Record<TranslationKey, string> = {
 
   // Common
   'common.cancel': 'إلغاء',
+  'common.swapCallout': 'بدّل هاتفك بكل أنواع الهواتف — لا تفوّت الفرصة!',
 
   // Scientific Chart Labels
   'scientific.chart.p50': 'P50',

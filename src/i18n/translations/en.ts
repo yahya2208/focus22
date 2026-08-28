@@ -1165,6 +1165,7 @@ const en = {
 
   // Common
   'common.cancel': 'Cancel',
+  'common.swapCallout': "Swap your phone for any kind of phone — don't miss the chance!",
 
   // Scientific Chart Labels (standard statistical abbreviations)
   'scientific.chart.p50': 'P50',

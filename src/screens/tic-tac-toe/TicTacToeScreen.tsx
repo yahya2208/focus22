@@ -1,4 +1,4 @@
-import { memo, useEffect, useCallback, useRef, useState } from 'react';
+import { memo, useEffect, useCallback, useRef, useState, useLayoutEffect } from 'react';
 import { useNavigate, useAppDispatch } from '../../store/navigation';
 import { useTicTacToeState } from './TicTacToeContext';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -12,9 +12,33 @@ import type { MovePosition } from '../../core/tic-tac-toe/types';
 import { BOARD_SIZE, indexToRowCol } from '../../core/tic-tac-toe/types';
 import type { CalibrationProfile } from '../../core/calibration';
 
-const CELL_SIZE = 54;
+const TTT_CELL_MAX = 54;
+const TTT_CELL_MIN = 20;
 const BOARD_GAP = 3;
 const BOARD_PADDING = 10;
+const ROOT_PADDING = 20;
+const RESERVED_VERTICAL = 196;
+const SAFETY = 8;
+
+/**
+ * Responsive cell sizing for the 9x9 board. Returns a square cell size
+ * (px) derived from the smallest available viewport dimension so the whole
+ * 9x9 grid fits without internal scrolling. Clamped to a tappable floor and
+ * the original design maximum.
+ */
+export function computeTttCellSize(viewportWidth: number, viewportHeight: number): number {
+  const availWidth = viewportWidth - 2 * ROOT_PADDING - 2 * BOARD_PADDING - SAFETY;
+  const availHeight = viewportHeight - RESERVED_VERTICAL - 2 * BOARD_PADDING - SAFETY;
+  const side = Math.min(availWidth, availHeight);
+  const usable = side - (BOARD_SIZE - 1) * BOARD_GAP - 2 * BOARD_PADDING;
+  const raw = Math.floor(usable / BOARD_SIZE);
+  return Math.min(Math.max(raw, TTT_CELL_MIN), TTT_CELL_MAX);
+}
+
+/** Total outer side (px) of the board container for a given square cell size. */
+export function computeTttBoardSide(cellSize: number): number {
+  return BOARD_SIZE * cellSize + (BOARD_SIZE - 1) * BOARD_GAP + 2 * BOARD_PADDING;
+}
 
 let audioCtx: AudioContext | null = null;
 
@@ -74,6 +98,7 @@ function Cell({
   disabled,
   colors,
   cellRef,
+  cellSize,
 }: {
   index: number;
   value: 'X' | 'O' | null;
@@ -83,6 +108,7 @@ function Cell({
   disabled: boolean;
   colors: ReturnType<typeof useThemeColors>;
   cellRef: (el: HTMLButtonElement | null) => void;
+  cellSize: number;
 }) {
   const [row, col] = indexToRowCol(index);
   return (
@@ -93,8 +119,8 @@ function Cell({
       onClick={onClick}
       disabled={disabled || value !== null}
       style={{
-        width: CELL_SIZE,
-        height: CELL_SIZE,
+        width: cellSize,
+        height: cellSize,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -138,6 +164,9 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
   } = useTicTacToeState();
 
   const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
+  const [cellSize, setCellSize] = useState(() =>
+    computeTttCellSize(typeof window === 'undefined' ? 1000 : window.innerWidth, typeof window === 'undefined' ? 800 : window.innerHeight),
+  );
   const sessionIdRef = useRef<string | null>(null);
   const completedRef = useRef(false);
   const matchStartTimeRef = useRef<string>(new Date().toISOString());
@@ -154,6 +183,21 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
     }
     return () => {
       document.getElementById(styleId)?.remove();
+    };
+  }, []);
+
+  // Size the 9x9 board to the available viewport so all 81 cells fit
+  // without internal scrolling; recompute on resize / orientation change.
+  useLayoutEffect(() => {
+    const update = () => {
+      setCellSize(computeTttCellSize(window.innerWidth, window.innerHeight));
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
     };
   }, []);
 
@@ -191,17 +235,9 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
     };
   }, []);
 
-  const followCell = useCallback((pos: MovePosition) => {
-    const cell = cellRefs.current[pos];
-    const board = boardRef.current;
-    if (!cell || !board) return;
-    const boardRect = board.getBoundingClientRect();
-    const cellRect = cell.getBoundingClientRect();
-    board.scrollTo({
-      top: board.scrollTop + (cellRect.top - boardRect.top) - (board.clientHeight - cell.clientHeight) / 2,
-      left: board.scrollLeft + (cellRect.left - boardRect.left) - (board.clientWidth - cell.clientWidth) / 2,
-      behavior: 'auto',
-    });
+  const followCell = useCallback((_pos: MovePosition) => {
+    // Intentionally a no-op: the 9x9 board is sized to fit the viewport, so
+    // there is no internal overflow to scroll into view.
   }, []);
 
   // follow the AI's just-placed cell so the action area stays in view
@@ -285,6 +321,7 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
       onClick={() => handleCellClick(i as MovePosition)}
       disabled={phase !== 'active'}
       colors={colors}
+      cellSize={cellSize}
       cellRef={(el) => { cellRefs.current[i] = el; }}
     />
   ));
@@ -330,27 +367,28 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
         {moveCount} · {t('ticTacToe.stats.moves')}
       </div>
 
-      {/* pannable 9x9 board */}
+      {/* fully visible, responsive 9x9 board */}
       <div
         ref={boardRef}
         style={{
-          position: 'relative',
-          overflow: 'auto',
-          maxHeight: 'min(66vh, 500px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          margin: '0 auto',
           width: '100%',
-          padding: BOARD_PADDING,
+          maxWidth: computeTttBoardSide(cellSize),
           background: colors.bgCard,
           borderRadius: 16,
           border: `1px solid ${colors.border}`,
-          msOverflowStyle: 'none',
-          scrollbarWidth: 'thin',
+          boxSizing: 'border-box',
         }}
       >
         <div style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${BOARD_SIZE}, ${CELL_SIZE}px)`,
+          gridTemplateColumns: `repeat(${BOARD_SIZE}, ${cellSize}px)`,
+          gridTemplateRows: `repeat(${BOARD_SIZE}, ${cellSize}px)`,
           gap: BOARD_GAP,
-          width: BOARD_SIZE * CELL_SIZE + (BOARD_SIZE - 1) * BOARD_GAP,
+          padding: BOARD_PADDING,
         }}>
           {boardCells}
         </div>

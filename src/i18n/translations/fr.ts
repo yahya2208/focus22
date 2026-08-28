@@ -360,6 +360,7 @@ const fr: Record<string, string> = {
   'sidebar.filters': 'Filtres',
   'sidebar.reset': 'Réinitialiser',
   'common.cancel': 'Annuler',
+  'common.swapCallout': 'Échangez votre téléphone contre toutes sortes de téléphones — ne manquez pas l’occasion !',
   'overview.title': 'Aperçu Exécutif',
   'overview.subtitle': 'État du système en un coup d\'œil',
   'overview.totalSessions': 'Sessions Totales',

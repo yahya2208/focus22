@@ -1145,6 +1145,7 @@ const tr: Record<TranslationKey, string> = {
 
   // Common
   'common.cancel': 'İptal',
+  'common.swapCallout': 'Telefonunu her tür telefonla değiştir — bu fırsatı kaçırma!',
 
   // Scientific Chart Labels
   'scientific.chart.p50': 'P50',

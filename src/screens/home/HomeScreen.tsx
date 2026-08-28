@@ -320,6 +320,44 @@ export const HomeScreen = memo(function HomeScreen() {
           </button>
         </Card>
 
+        {/* Showroom — prominent primary product CTA */}
+        <Card
+          variant="interactive"
+          padding="lg"
+          onClick={() => dispatch({ type: 'NAVIGATE', screen: 'showroom' })}
+          style={{
+            overflow: 'hidden',
+            border: `1px solid ${colors.accent}`,
+            background: `linear-gradient(135deg, ${colors.accent}1a 0%, ${colors.accentLight}26 100%)`,
+          }}
+        >
+          <Flex justify="space-between" align="center" gap="md">
+            <Flex align="center" gap="md">
+              <span style={{ fontSize: '2rem', lineHeight: 1 }} aria-hidden="true">🏬</span>
+              <div>
+                <p style={{ margin: 0, color: colors.text, fontSize: '1rem', fontWeight: 800 }}>
+                  {t('home.showroom')}
+                </p>
+                <p style={{ margin: '0.25rem 0 0', color: colors.textSecondary, fontSize: '0.78rem' }}>
+                  {t('showroom.subtitle')}
+                </p>
+              </div>
+            </Flex>
+            <span
+              aria-hidden="true"
+              style={{
+                flexShrink: 0,
+                width: '38px', height: '38px', borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: colors.accent, color: '#0a0a12',
+                fontWeight: 800, fontSize: '1.1rem',
+              }}
+            >
+              →
+            </span>
+          </Flex>
+        </Card>
+
         {/* Phone services — flex-wrap strip, no empty cells at any width */}
         <div>
           <p style={{ ...sectionLabel, marginBottom: '0.75rem' }}>
@@ -353,6 +391,17 @@ export const HomeScreen = memo(function HomeScreen() {
                 </span>
               </Card>
             )}
+            <Card
+              variant="interactive"
+              padding="lg"
+              onClick={() => dispatch({ type: 'NAVIGATE', screen: 'tic-tac-toe-intro' })}
+              style={{ flex: '1 1 132px', minWidth: '112px', textAlign: 'center' }}
+            >
+              <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '0.35rem' }}>⭕</span>
+              <span style={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
+                {t('ticTacToe.title')}
+              </span>
+            </Card>
           </div>
         </div>
 
