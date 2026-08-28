@@ -70,6 +70,8 @@ const ChallengeWinnerScreen = lazy(() => import('./screens/challenge/ChallengeWi
 const TicTacToeIntroScreen = lazy(() => import('./screens/tic-tac-toe/TicTacToeIntroScreen').then(m => ({ default: m.TicTacToeIntroScreen })));
 const TicTacToeScreen = lazy(() => import('./screens/tic-tac-toe/TicTacToeScreen').then(m => ({ default: m.TicTacToeScreen })));
 const TicTacToeResultsScreen = lazy(() => import('./screens/tic-tac-toe/TicTacToeResultsScreen').then(m => ({ default: m.TicTacToeResultsScreen })));
+const TttInviteLandingScreen = lazy(() => import('./screens/tic-tac-toe/TttInviteLandingScreen').then(m => ({ default: m.TttInviteLandingScreen })));
+const TttMultiplayerScreen = lazy(() => import('./screens/tic-tac-toe/TttMultiplayerScreen').then(m => ({ default: m.TttMultiplayerScreen })));
 
 const screens: Record<ScreenName, React.ComponentType> = {
   home: HomeScreen,
@@ -118,6 +120,8 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'tic-tac-toe-intro': TicTacToeIntroScreen,
   'tic-tac-toe': TicTacToeScreen,
   'tic-tac-toe-results': TicTacToeResultsScreen,
+  'ttt-invite-landing': TttInviteLandingScreen,
+  'ttt-multiplayer': TttMultiplayerScreen,
 };
 
 function HtmlSync() {

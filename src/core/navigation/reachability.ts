@@ -71,6 +71,8 @@ export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
   'tic-tac-toe-intro': ['home'],
   'tic-tac-toe': ['tic-tac-toe-intro'],
   'tic-tac-toe-results': ['tic-tac-toe-intro'],
+  'ttt-invite-landing': ['deep-link', 'home'],
+  'ttt-multiplayer': ['tic-tac-toe-intro', 'ttt-invite-landing'],
 };
 
 export function assertNoOrphans(edges: Record<ScreenName, readonly EdgeSource[]> = EDGES): ScreenName[] {

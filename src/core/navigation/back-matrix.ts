@@ -69,6 +69,8 @@ export const BACK_MATRIX: Record<ScreenName, BackMatrixRow> = {
   'tic-tac-toe-intro': { screen: 'tic-tac-toe-intro', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'fullscreen intro; back to home' },
   'tic-tac-toe': { screen: 'tic-tac-toe', backTarget: 'tic-tac-toe-intro', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'fullscreen game; back to intro (quit dialog via useBackGuard)' },
   'tic-tac-toe-results': { screen: 'tic-tac-toe-results', backTarget: 'tic-tac-toe-intro', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'fullscreen results; back to intro' },
+  'ttt-invite-landing': { screen: 'ttt-invite-landing', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'invite link landing; deep-linkable, back to home' },
+  'ttt-multiplayer': { screen: 'ttt-multiplayer', backTarget: 'tic-tac-toe-intro', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'friend play board; back to intro (quit dialog via useBackGuard)' },
 };
 
 export function getBackMatrixRow(screen: ScreenName): BackMatrixRow | undefined {

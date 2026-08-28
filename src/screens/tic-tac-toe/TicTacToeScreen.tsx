@@ -11,6 +11,8 @@ import type { TicTacToeMatchData } from '../../services/tic-tac-toe-sender';
 import type { MovePosition } from '../../core/tic-tac-toe/types';
 import { BOARD_SIZE, indexToRowCol } from '../../core/tic-tac-toe/types';
 import type { CalibrationProfile } from '../../core/calibration';
+import { buildAppUrl } from '../../core/base-path';
+import { copyText } from '../../core/ttt-multiplayer/invite';
 
 const TTT_CELL_MAX = 54;
 const TTT_CELL_MIN = 20;
@@ -172,6 +174,7 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
   const matchStartTimeRef = useRef<string>(new Date().toISOString());
   const boardRef = useRef<HTMLDivElement | null>(null);
   const cellRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [shareCopied, setShareCopied] = useState(false);
 
   useEffect(() => {
     const styleId = 'ttt-polish-styles';
@@ -308,6 +311,19 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
     navigate.replace('home');
   }, [navigate, reset, setStopConfirmOpen]);
 
+  const handleShareResult = useCallback(async () => {
+    const shareUrl = buildAppUrl('');
+    const shareText = `${t('ticTacToe.shareText')} ${shareUrl}`;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: t('ticTacToe.title'), text: shareText, url: shareUrl });
+        return;
+      }
+    } catch { /* user cancelled or unsupported — fall through to copy */ }
+    const ok = await copyText(shareText);
+    setShareCopied(ok);
+  }, [t]);
+
   const lastMovePos = matchMoves.length > 0 ? matchMoves[matchMoves.length - 1]!.position : null;
   const winningSet = new Set<number>(winningLine ?? []);
 
@@ -405,7 +421,50 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
       >
         {phase === 'active' && t('ticTacToe.yourTurn')}
         {phase === 'ai-thinking' && t('ticTacToe.thinking')}
+        {phase === 'session-complete' && matchResult !== 'pending' && (
+          <span style={{ color: matchResult === 'win' ? colors.success : matchResult === 'loss' ? colors.danger : colors.textSecondary, fontWeight: 800 }}>
+            {matchResult === 'win'
+              ? t('ticTacToe.resultWin')
+              : matchResult === 'loss'
+                ? t('ticTacToe.resultLoss')
+                : t('ticTacToe.resultDraw')}
+          </span>
+        )}
       </div>
+
+      {phase === 'session-complete' && (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 14,
+        }}>
+          <button
+            type="button"
+            onClick={() => { reset(); navigate.replace('tic-tac-toe', { difficulty }); }}
+            style={{
+              padding: '12px 34px', borderRadius: 10, border: 'none',
+              background: colors.accent, color: '#0a0a12',
+              fontWeight: 800, fontSize: '1rem', fontFamily: 'inherit', cursor: 'pointer',
+            }}
+          >
+            {t('ticTacToe.playAgain')}
+          </button>
+          <button
+            type="button"
+            onClick={handleShareResult}
+            style={{
+              padding: '12px 34px', borderRadius: 10, border: `1px solid ${colors.accent}`,
+              background: 'transparent', color: colors.accent,
+              fontWeight: 700, fontSize: '1rem', fontFamily: 'inherit', cursor: 'pointer',
+            }}
+          >
+            {t('ticTacToe.shareMatch')}
+          </button>
+          {shareCopied && (
+            <p style={{ margin: 0, fontSize: '0.8rem', color: colors.success }}>
+              {t('ticTacToe.inviteCopied')}
+            </p>
+          )}
+        </div>
+      )}
 
       {stopConfirmOpen && (
         <div

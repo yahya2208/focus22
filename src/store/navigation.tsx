@@ -49,7 +49,9 @@ export type ScreenName =
   | 'claim-verify'
   | 'tic-tac-toe-intro'
   | 'tic-tac-toe'
-  | 'tic-tac-toe-results';
+  | 'tic-tac-toe-results'
+  | 'ttt-invite-landing'
+  | 'ttt-multiplayer';
 
 export interface SessionRecord {
   readonly id: string;
@@ -162,6 +164,8 @@ export const ALL_SCREEN_NAMES: readonly ScreenName[] = [
   'tic-tac-toe-intro',
   'tic-tac-toe',
   'tic-tac-toe-results',
+  'ttt-invite-landing',
+  'ttt-multiplayer',
 ];
 
 const SCREEN_NAMES: ReadonlySet<string> = new Set<ScreenName>(ALL_SCREEN_NAMES);

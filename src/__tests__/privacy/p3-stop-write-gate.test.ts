@@ -87,6 +87,14 @@ const RUNTIME_PATH: string[] = [
   'screens/tic-tac-toe/TicTacToeIntroScreen.tsx',
   'screens/tic-tac-toe/TicTacToeScreen.tsx',
   'screens/tic-tac-toe/TicTacToeResultsScreen.tsx',
+  // TIC TAC TOE FRIEND PLAY (owner-authorized manual guest path, 00049):
+  'core/ttt-multiplayer/types.ts',
+  'core/ttt-multiplayer/board.ts',
+  'core/ttt-multiplayer/invite.ts',
+  'services/ttt-multiplayer-sender.ts',
+  'hooks/use-ttt-multiplayer.ts',
+  'screens/tic-tac-toe/TttInviteLandingScreen.tsx',
+  'screens/tic-tac-toe/TttMultiplayerScreen.tsx',
   'screens/game/GameScreen.tsx',
   'screens/countdown/CountdownScreen.tsx',
   'screens/game-intro/GameIntroScreen.tsx',
@@ -200,6 +208,8 @@ const RPC_ALLOWLIST: string[] = [
   'services/qr-measurement.ts',
   'services/session-science-sender.ts',
   'services/tic-tac-toe-sender.ts',
+  // TIC TAC TOE FRIEND PLAY RPC layer (00049) — RPC-only, no direct table writes.
+  'services/ttt-multiplayer-sender.ts',
 ];
 
 function findProtectedViolations(changed: string[], prefixes: string[], authorized: string[]): string[] {
@@ -212,11 +222,20 @@ describe('PG-01: لا signInAsGuest() تلقائياً لمجرد فتح الت�
     expect(auth).not.toMatch(/signInAsGuest\s*\(/);
   });
 
-  it('المسار اليدوي الوحيد المتبقي للدخول كضيف هو LoginScreen + Challenge entry gate في App.tsx (E-8 محفوظ)', () => {
+  it('المسار اليدوي الوحيد المتبقي للدخول كضيف هو LoginScreen + Challenge entry gate في App.tsx + TTT Friend Play (E-8 محفوظ)', () => {
     const callers = walkSrc()
       .filter((f) => f.content.includes('.signInAsGuest('))
-      .map((f) => f.rel);
-    expect(callers).toEqual(['App.tsx', 'screens/auth/LoginScreen.tsx']);
+      .map((f) => f.rel)
+      .sort();
+    expect(callers).toEqual(
+      [
+        'App.tsx',
+        'screens/auth/LoginScreen.tsx',
+        // TTT Friend Play: an explicit "Play with a Friend" / "Join Game" tap
+        // auto-signs-in a guest (owner-authorized, NOT auto-on-app-open).
+        'hooks/use-ttt-multiplayer.ts',
+      ].sort(),
+    );
   });
 });
 
@@ -309,6 +328,7 @@ describe('PG-27: لا كاتب مخفي على مسار التشغيل (componen
       'services/qr-measurement.ts',
       'services/session-science-sender.ts',
       'services/tic-tac-toe-sender.ts',
+      'services/ttt-multiplayer-sender.ts',
     ]);
   });
 
