@@ -1189,6 +1189,32 @@ const ar: Record<TranslationKey, string> = {
   'back.countdownCancelBody': 'العودة إلى الشاشة السابقة؟',
   'back.cancel': 'إلغاء',
   'back.confirm': 'نعم',
+
+  // Tic Tac Toe
+  'ticTacToe.title': 'اكس او',
+  'ticTacToe.you': 'أنت',
+  'ticTacToe.ai': 'الذكاء الاصطناعي',
+  'ticTacToe.match': 'مباراة',
+  'ticTacToe.yourTurn': 'دورك — اضغط على خلية',
+  'ticTacToe.thinking': 'الذكاء الاصطناعي يفكر...',
+  'ticTacToe.resultWin': 'فزت بهذه المباراة!',
+  'ticTacToe.resultLoss': 'الذكاء الاصطناعي فاز بهذه المباراة.',
+  'ticTacToe.resultDraw': 'تعادل!',
+  'ticTacToe.nextMatch': 'المباراة التالية',
+  'ticTacToe.sessionWin': 'اكتملت الجلسة — أنت الفائز!',
+  'ticTacToe.sessionLose': 'اكتملت الجلسة — الذكاء الاصطناعي يفوز',
+  'ticTacToe.sessionDraw': 'اكتملت الجلسة — تعادل',
+  'ticTacToe.difficulty.easy': 'سهل',
+  'ticTacToe.difficulty.medium': 'متوسط',
+  'ticTacToe.difficulty.hard': 'صعب',
+  'ticTacToe.playAgain': 'العب مرة أخرى',
+  'ticTacToe.stopConfirmTitle': 'توقف وخروج؟',
+  'ticTacToe.stopConfirmBody': 'ستفقد تقدمك في هذه الجلسة.',
+  'ticTacToe.stopConfirmAction': 'خروج',
+  'ticTacToe.exit': 'خروج',
+  'ticTacToe.winCondition': 'أول من يحقق أربعة متتالية يفوز',
+  'ticTacToe.stats.moves': 'النقلات',
+  'ticTacToe.stats.difficulty': 'الصعوبة',
 };
 
 export default ar;

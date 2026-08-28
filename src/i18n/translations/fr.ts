@@ -500,6 +500,32 @@ const fr: Record<string, string> = {
   'back.countdownCancelBody': 'Revenir à l\'écran précédent ?',
   'back.cancel': 'Annuler',
   'back.confirm': 'Oui',
+
+  // Tic Tac Toe
+  'ticTacToe.title': 'Morpion',
+  'ticTacToe.you': 'Vous',
+  'ticTacToe.ai': 'IA',
+  'ticTacToe.match': 'Match',
+  'ticTacToe.yourTurn': 'Votre tour — touchez une case',
+  'ticTacToe.thinking': 'L\'IA réfléchit...',
+  'ticTacToe.resultWin': 'Vous avez gagné ce match !',
+  'ticTacToe.resultLoss': 'L\'IA a gagné ce match.',
+  'ticTacToe.resultDraw': 'Match nul !',
+  'ticTacToe.nextMatch': 'Match suivant',
+  'ticTacToe.sessionWin': 'Session terminée — Vous gagnez !',
+  'ticTacToe.sessionLose': 'Session terminée — L\'IA gagne',
+  'ticTacToe.sessionDraw': 'Session terminée — Match nul',
+  'ticTacToe.difficulty.easy': 'Facile',
+  'ticTacToe.difficulty.medium': 'Moyen',
+  'ticTacToe.difficulty.hard': 'Difficile',
+  'ticTacToe.playAgain': 'Rejouer',
+  'ticTacToe.stopConfirmTitle': 'Arrêter et quitter ?',
+  'ticTacToe.stopConfirmBody': 'Votre progression dans cette session sera perdue.',
+  'ticTacToe.stopConfirmAction': 'Quitter',
+  'ticTacToe.exit': 'Quitter',
+  'ticTacToe.winCondition': 'Le premier à en aligner quatre gagne',
+  'ticTacToe.stats.moves': 'Coups',
+  'ticTacToe.stats.difficulty': 'Difficulté',
 };
 
 export default fr;

@@ -1209,6 +1209,32 @@ const en = {
   'back.countdownCancelBody': 'Return to the previous screen?',
   'back.cancel': 'Cancel',
   'back.confirm': 'Yes',
+
+  // Tic Tac Toe
+  'ticTacToe.title': 'Tic Tac Toe',
+  'ticTacToe.you': 'You',
+  'ticTacToe.ai': 'AI',
+  'ticTacToe.match': 'Match',
+  'ticTacToe.yourTurn': 'Your turn — tap a cell',
+  'ticTacToe.thinking': 'AI is thinking...',
+  'ticTacToe.resultWin': 'You won this match!',
+  'ticTacToe.resultLoss': 'AI won this match.',
+  'ticTacToe.resultDraw': 'Draw!',
+  'ticTacToe.nextMatch': 'Next Match',
+  'ticTacToe.sessionWin': 'Session Complete — You Win!',
+  'ticTacToe.sessionLose': 'Session Complete — AI Wins',
+  'ticTacToe.sessionDraw': 'Session Complete — Draw',
+  'ticTacToe.difficulty.easy': 'Easy',
+  'ticTacToe.difficulty.medium': 'Medium',
+  'ticTacToe.difficulty.hard': 'Hard',
+  'ticTacToe.playAgain': 'Play Again',
+  'ticTacToe.stopConfirmTitle': 'Stop & Quit?',
+  'ticTacToe.stopConfirmBody': 'Your progress in this session will be lost.',
+  'ticTacToe.stopConfirmAction': 'Quit',
+  'ticTacToe.exit': 'Exit',
+  'ticTacToe.winCondition': 'First to get four in a row wins',
+  'ticTacToe.stats.moves': 'Moves',
+  'ticTacToe.stats.difficulty': 'Difficulty',
 } as const;
 
 export default en;

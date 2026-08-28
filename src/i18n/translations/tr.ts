@@ -1189,6 +1189,32 @@ const tr: Record<TranslationKey, string> = {
   'back.countdownCancelBody': 'Önceki ekrana dönülsün mü?',
   'back.cancel': 'Vazgeç',
   'back.confirm': 'Evet',
+
+  // Tic Tac Toe
+  'ticTacToe.title': 'X ve O',
+  'ticTacToe.you': 'Sen',
+  'ticTacToe.ai': 'Yapay Zeka',
+  'ticTacToe.match': 'Maç',
+  'ticTacToe.yourTurn': 'Sıra sende — bir kareye dokun',
+  'ticTacToe.thinking': 'Yapay zeka düşünüyor...',
+  'ticTacToe.resultWin': 'Bu maçı kazandın!',
+  'ticTacToe.resultLoss': 'Yapay zeka bu maçı kazandı.',
+  'ticTacToe.resultDraw': 'Berabere!',
+  'ticTacToe.nextMatch': 'Sonraki Maç',
+  'ticTacToe.sessionWin': 'Oturum Bitti — Sen Kazandın!',
+  'ticTacToe.sessionLose': 'Oturum Bitti — Yapay Zeka Kazandı',
+  'ticTacToe.sessionDraw': 'Oturum Bitti — Berabere',
+  'ticTacToe.difficulty.easy': 'Kolay',
+  'ticTacToe.difficulty.medium': 'Orta',
+  'ticTacToe.difficulty.hard': 'Zor',
+  'ticTacToe.playAgain': 'Tekrar Oyna',
+  'ticTacToe.stopConfirmTitle': 'Durdur ve Çık?',
+  'ticTacToe.stopConfirmBody': 'Bu oturumdaki ilerlemeniz kaybolacak.',
+  'ticTacToe.stopConfirmAction': 'Çık',
+  'ticTacToe.exit': 'Çık',
+  'ticTacToe.winCondition': 'Arka arkaya dört tane yapan kazanır',
+  'ticTacToe.stats.moves': 'Hamleler',
+  'ticTacToe.stats.difficulty': 'Zorluk',
 };
 
 export default tr;
