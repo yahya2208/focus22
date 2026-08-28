@@ -24,7 +24,7 @@ export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
     'business-intelligence', 'repair-home', 'repair-request', 'repair-tracking',
     'repair-admin', 'repair-courier', 'repair-customer-history',
     'repair-diagnostics', 'repair-personnel', 'game-intro',
-    'design-system-playground',
+    'design-system-playground', 'tic-tac-toe-intro',
   ],
   library: ['intro'],
   intro: ['library'],
@@ -68,6 +68,9 @@ export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
   'challenge-page': ['deep-link'],
   'challenge-winner': ['results'],
   'claim-verify': ['deep-link', 'home'],
+  'tic-tac-toe-intro': ['home'],
+  'tic-tac-toe': ['tic-tac-toe-intro'],
+  'tic-tac-toe-results': ['tic-tac-toe-intro'],
 };
 
 export function assertNoOrphans(edges: Record<ScreenName, readonly EdgeSource[]> = EDGES): ScreenName[] {

@@ -46,7 +46,10 @@ export type ScreenName =
   | 'challenge-admin'
   | 'challenge-page'
   | 'challenge-winner'
-  | 'claim-verify';
+  | 'claim-verify'
+  | 'tic-tac-toe-intro'
+  | 'tic-tac-toe'
+  | 'tic-tac-toe-results';
 
 export interface SessionRecord {
   readonly id: string;
@@ -156,6 +159,9 @@ export const ALL_SCREEN_NAMES: readonly ScreenName[] = [
   'challenge-page',
   'challenge-winner',
   'claim-verify',
+  'tic-tac-toe-intro',
+  'tic-tac-toe',
+  'tic-tac-toe-results',
 ];
 
 const SCREEN_NAMES: ReadonlySet<string> = new Set<ScreenName>(ALL_SCREEN_NAMES);

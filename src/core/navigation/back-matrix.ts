@@ -66,6 +66,9 @@ export const BACK_MATRIX: Record<ScreenName, BackMatrixRow> = {
   'challenge-page': { screen: 'challenge-page', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'public challenge page; deep-linkable' },
   'challenge-winner': { screen: 'challenge-winner', backTarget: 'previous', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'final winner display; back = previous (results or challenge-page)' },
   'claim-verify': { screen: 'claim-verify', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'shop staff claim verification; deep-linkable' },
+  'tic-tac-toe-intro': { screen: 'tic-tac-toe-intro', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'fullscreen intro; back to home' },
+  'tic-tac-toe': { screen: 'tic-tac-toe', backTarget: 'tic-tac-toe-intro', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'fullscreen game; back to intro (quit dialog via useBackGuard)' },
+  'tic-tac-toe-results': { screen: 'tic-tac-toe-results', backTarget: 'tic-tac-toe-intro', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'fullscreen results; back to intro' },
 };
 
 export function getBackMatrixRow(screen: ScreenName): BackMatrixRow | undefined {
