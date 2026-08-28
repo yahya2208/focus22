@@ -18,6 +18,7 @@ import { extractCampaignShortCodeFromLocation, lookupCampaign } from './services
 import { recordScan } from './services/qr-measurement';
 import { setActiveChallengeId } from './challenge/challenge-context';
 import { resolveDefaultGameEntry } from './challenge/active-challenge-resolver';
+import { TicTacToeProvider } from './screens/tic-tac-toe/TicTacToeContext';
 import focusIcon from './assets/brand/focus-icon.svg';
 
 // Small/critical screens — lazy loaded to reduce initial bundle size
@@ -66,6 +67,9 @@ const ChallengeAdminScreen = lazy(() => import('./screens/admin/ChallengeAdminSc
 const ClaimVerifyScreen = lazy(() => import('./screens/challenge/ClaimVerifyScreen').then(m => ({ default: m.ClaimVerifyScreen })));
 const ChallengePageScreen = lazy(() => import('./screens/challenge/ChallengePageScreen').then(m => ({ default: m.ChallengePageScreen })));
 const ChallengeWinnerScreen = lazy(() => import('./screens/challenge/ChallengeWinnerScreen').then(m => ({ default: m.ChallengeWinnerScreen })));
+const TicTacToeIntroScreen = lazy(() => import('./screens/tic-tac-toe/TicTacToeIntroScreen').then(m => ({ default: m.TicTacToeIntroScreen })));
+const TicTacToeScreen = lazy(() => import('./screens/tic-tac-toe/TicTacToeScreen').then(m => ({ default: m.TicTacToeScreen })));
+const TicTacToeResultsScreen = lazy(() => import('./screens/tic-tac-toe/TicTacToeResultsScreen').then(m => ({ default: m.TicTacToeResultsScreen })));
 
 const screens: Record<ScreenName, React.ComponentType> = {
   home: HomeScreen,
@@ -111,6 +115,9 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'challenge-page': ChallengePageScreen,
   'challenge-winner': ChallengeWinnerScreen,
   'claim-verify': ClaimVerifyScreen,
+  'tic-tac-toe-intro': TicTacToeIntroScreen,
+  'tic-tac-toe': TicTacToeScreen,
+  'tic-tac-toe-results': TicTacToeResultsScreen,
 };
 
 function HtmlSync() {
@@ -477,6 +484,9 @@ function ScreenRouter() {
         <RepairDiagnosticsScreen />
       </ProtectedRoute>
     );
+  } else if (currentScreen === 'tic-tac-toe-intro' || currentScreen === 'tic-tac-toe' || currentScreen === 'tic-tac-toe-results') {
+    const Screen = screens[currentScreen];
+    content = <TicTacToeProvider><Screen /></TicTacToeProvider>;
   } else {
     const Screen = screens[currentScreen];
     content = <Screen />;
