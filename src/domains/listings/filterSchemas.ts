@@ -150,6 +150,39 @@ const PROPERTY_FILTER_SCHEMA: ListingFilterSchema = {
   ],
 };
 
+// ── Produce schema (Generic Catalog) ────────────────────────────────────────
+// Simple unit-based goods — filters mirror the SQL whitelist in listing_search.
+
+const PRODUCE_FILTER_SCHEMA: ListingFilterSchema = {
+  category: 'produce',
+  fields: [
+    {
+      key: 'unit',
+      kind: 'select',
+      labelKey: 'listings.filters.unit',
+      options: [
+        { value: 'piece', labelKey: 'listings.filters.unit.piece' },
+        { value: 'kg', labelKey: 'listings.filters.unit.kg' },
+        { value: 'g', labelKey: 'listings.filters.unit.g' },
+        { value: 'liter', labelKey: 'listings.filters.unit.liter' },
+        { value: 'dozen', labelKey: 'listings.filters.unit.dozen' },
+        { value: 'bag', labelKey: 'listings.filters.unit.bag' },
+      ],
+    },
+    {
+      key: 'grade',
+      kind: 'select',
+      labelKey: 'listings.filters.grade',
+      options: [
+        { value: 'A', labelKey: 'listings.filters.grade.A' },
+        { value: 'B', labelKey: 'listings.filters.grade.B' },
+        { value: 'C', labelKey: 'listings.filters.grade.C' },
+        { value: 'organic', labelKey: 'listings.filters.grade.organic' },
+      ],
+    },
+  ],
+};
+
 // ── Registry map ────────────────────────────────────────────────────────────
 
 export const LISTING_FILTER_SCHEMAS: Readonly<
@@ -158,4 +191,5 @@ export const LISTING_FILTER_SCHEMAS: Readonly<
   phone: { category: 'phone', fields: [] },
   car: CAR_FILTER_SCHEMA,
   property: PROPERTY_FILTER_SCHEMA,
+  produce: PRODUCE_FILTER_SCHEMA,
 };

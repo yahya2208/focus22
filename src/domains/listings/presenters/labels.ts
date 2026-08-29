@@ -43,6 +43,23 @@ const AR: Record<string, string> = {
   'listings.phone.color': 'اللون',
   'listings.phone.warranty': 'الضمان',
   'listings.phone.condition': 'الحالة',
+
+  // Generic Catalog — produce domain labels
+  'listings.produce.unit': 'الوحدة',
+  'listings.produce.origin': 'المنشأ',
+  'listings.produce.grade': 'الجودة',
+  'listings.filters.unit': 'الوحدة',
+  'listings.filters.unit.piece': 'قطعة',
+  'listings.filters.unit.kg': 'كغ',
+  'listings.filters.unit.g': 'غرام',
+  'listings.filters.unit.liter': 'لتر',
+  'listings.filters.unit.dozen': 'دزينة',
+  'listings.filters.unit.bag': 'كيس',
+  'listings.filters.grade': 'الجودة',
+  'listings.filters.grade.A': 'A',
+  'listings.filters.grade.B': 'B',
+  'listings.filters.grade.C': 'C',
+  'listings.filters.grade.organic': 'عضويات',
 };
 
 export function listingLabel(labelKey: string): string {

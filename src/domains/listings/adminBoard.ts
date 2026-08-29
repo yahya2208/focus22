@@ -20,25 +20,32 @@ export interface AdminListingsBoard {
   phones: ListingRecord[];
   cars: ListingRecord[];
   properties: ListingRecord[];
+  produce: ListingRecord[];
 }
 
 /** Runtime guard mirroring rule 26 — unknown categories are rejected loudly. */
 export function assertKnownListingCategory(category: string): asserts category is ListingCategory {
-  if (category !== 'phone' && category !== 'car' && category !== 'property') {
+  if (
+    category !== 'phone' &&
+    category !== 'car' &&
+    category !== 'property' &&
+    category !== 'produce'
+  ) {
     throw new Error(`unknown listing category "${category}"`);
   }
 }
 
 export async function loadAdminListingsBoard(): Promise<AdminListingsBoard> {
-  const [cars, properties] = await Promise.all([
+  const [cars, properties, produce] = await Promise.all([
     fetchMyListings('car'),
     fetchMyListings('property'),
+    fetchMyListings('produce'),
   ]);
   const phones = InventoryService.getAll().map(listingFromInventoryRecord);
-  for (const rec of [...cars, ...properties]) {
+  for (const rec of [...cars, ...properties, ...produce]) {
     assertKnownListingCategory(rec.category);
   }
-  return { phones, cars, properties };
+  return { phones, cars, properties, produce };
 }
 
 /**

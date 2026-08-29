@@ -15,7 +15,7 @@
 
 // ── Category ────────────────────────────────────────────────────────────────
 
-export type ListingCategory = 'phone' | 'car' | 'property';
+export type ListingCategory = 'phone' | 'car' | 'property' | 'produce';
 
 // ── Price (neutral abstraction) ─────────────────────────────────────────────
 
@@ -144,6 +144,41 @@ export interface PropertyDetails {
   conditionState: PropertyConditionState;
 }
 
+// ── Produce details (Generic Catalog — unit-based goods) ────────────────────
+//
+// The `produce` domain covers unit-priced, high-stock, fungible goods
+// (vegetables, fruits, herbs, …). It is deliberately named after the DOMAIN
+// (produce), not a specific product — never `tomato`. New unit-based domains
+// (grocery, …) can share this same neutral shape or define their own after the
+// car/property precedent.
+
+/**
+ * Sales/pricing unit for produce. Backed by the SQL CHECK on
+ * `inventory_items.unit` (00053). Custom SKUs / domains add values here AND
+ * in the migration CHECK (single-source contract enforced by tests).
+ * Unit is carried on the CORE listing (so the public view and the
+ * server-authoritative order RPC can read it without a child join).
+ */
+export const PRODUCE_UNIT_VALUES = [
+  'piece',
+  'kg',
+  'g',
+  'liter',
+  'dozen',
+  'bag',
+] as const satisfies readonly ProduceUnit[];
+
+export type ProduceUnit = 'piece' | 'kg' | 'g' | 'liter' | 'dozen' | 'bag';
+
+/**
+ * Produce-specific free-text attributes (the only produce_details columns
+ * beyond the shared core). Unit itself lives on the core `unit` field.
+ */
+export interface ProduceDetails {
+  origin: string;
+  grade: string;
+}
+
 // ── Phone details (P8.7/D1 — legacy inventory passthrough) ─────────────────
 
 /**
@@ -193,10 +228,14 @@ export interface ListingRecord {
   price: ListingPrice;
   conditionGroup: ListingConditionGroup | null;
 
-  /** Stock semantics apply to phones; cars/property pin this to 1. */
+  /** Stock semantics: phones real fungible count; cars/property pinned to 1;
+   *  produce = whole units in stock (e.g. 100 kg). */
   quantity: number;
   status: ListingStatus;
   isPublished: boolean;
+
+  /** Sales/pricing unit. Absent/null for phone/car/property; set for produce. */
+  unit?: ProduceUnit | null;
 
   /** Presentational image URLs/data-URLs, ordered; first = cover. */
   images: string[];
@@ -210,6 +249,8 @@ export interface ListingRecord {
   propertyDetails?: PropertyDetails;
   /** Present iff category === 'phone' (legacy inventory passthrough, P8.7/D1). */
   phone?: PhoneDetails;
+  /** Present iff category === 'produce' (from produce_details). */
+  produce?: ProduceDetails;
 }
 
 // ── Type guards ─────────────────────────────────────────────────────────────
@@ -226,4 +267,8 @@ export function isCarListing(listing: ListingRecord): boolean {
 
 export function isPropertyListing(listing: ListingRecord): boolean {
   return listing.category === 'property' && !!listing.propertyDetails;
+}
+
+export function isProduceListing(listing: ListingRecord): boolean {
+  return listing.category === 'produce' && !!listing.produce;
 }

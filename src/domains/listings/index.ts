@@ -9,5 +9,11 @@ export * from './presenters/registry';
 export { ensureAdminListingPresenters } from './presenters/adminRegister';
 export { listingLabel } from './presenters/labels';
 export { PROPERTY_TYPE_AR, PROPERTY_TRANSACTION_AR } from './presenters/property';
+export {
+  UNIT_AR,
+  produceUnitLabel,
+  formatProduceAmount,
+  formatProduceUnitSuffix,
+} from './presenters/produce';
 export { toPublicCardModel, listingDeepLink, LISTING_DETAILS_DEEP_LINK_PREFIX } from './publicCard';
 export type { PublicListingCardModel } from './publicCard';

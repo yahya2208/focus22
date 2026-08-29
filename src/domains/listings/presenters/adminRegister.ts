@@ -13,6 +13,7 @@ import { hasListingPresenter, registerListingPresenter } from './registry';
 import { carListingPresenter } from './car';
 import { propertyListingPresenter } from './property';
 import { phoneListingPresenter } from './phone';
+import { produceListingPresenter } from './produce';
 
 let registered = false;
 
@@ -27,12 +28,14 @@ export function ensureAdminListingPresenters(): void {
     registered &&
     hasListingPresenter('phone') &&
     hasListingPresenter('car') &&
-    hasListingPresenter('property')
+    hasListingPresenter('property') &&
+    hasListingPresenter('produce')
   ) {
     return;
   }
   if (!hasListingPresenter('phone')) registerListingPresenter(phoneListingPresenter);
   if (!hasListingPresenter('car')) registerListingPresenter(carListingPresenter);
   if (!hasListingPresenter('property')) registerListingPresenter(propertyListingPresenter);
+  if (!hasListingPresenter('produce')) registerListingPresenter(produceListingPresenter);
   registered = true;
 }

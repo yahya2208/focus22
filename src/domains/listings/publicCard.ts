@@ -10,7 +10,7 @@
  * period is a data-contract violation and is thrown loudly, never rendered.
  */
 
-import type { ListingCategory, ListingPricePeriod, ListingRecord } from './types';
+import type { ListingCategory, ListingPricePeriod, ListingRecord, ProduceUnit } from './types';
 import { getRequiredListingPresenter } from './presenters/registry';
 import type { ListingChip } from './presenters/registry';
 
@@ -29,6 +29,8 @@ export interface PublicListingCardModel {
   readonly priceLabelKey: 'listings.price.sale' | 'listings.price.monthly';
   readonly price: number | null;
   readonly pricePeriod: ListingPricePeriod;
+  /** Pricing unit for unit-priced domains (produce): e.g. 'kg' → "د.ج/كغ". Absent for car/property. */
+  readonly unit: ProduceUnit | null;
   readonly image: string;
   readonly category: ListingCategory;
   readonly deepLink: string;
@@ -49,6 +51,7 @@ export function toPublicCardModel(listing: ListingRecord): PublicListingCardMode
     priceLabelKey: base.priceLabelKey,
     price: listing.price.amount,
     pricePeriod: listing.price.period,
+    unit: listing.unit ?? null,
     image: listing.images.length > 0 ? listing.images[0]! : '',
     category: listing.category,
     deepLink: listingDeepLink(listing.id),
