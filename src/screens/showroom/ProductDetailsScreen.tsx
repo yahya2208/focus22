@@ -4,11 +4,13 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Screen, Stack, Divider } from '../../design-system/layout';
 import { Card } from '../../design-system/components/Card';
+import { Button } from '../../design-system/components/Button';
 import { Toast } from '../../design-system/components/Toast';
 import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 import { ProductImageGallery } from '../../components/showroom/ProductImageGallery';
 import { PhoneGallery, USE_NEW_GALLERY } from '../../components/showroom/phone-gallery';
 import { ContactOwnerAction } from '../../components/showroom/ContactOwnerAction';
+import { OrderForm, toOrderable, type DeliveryCustomerDraft } from '../../components/delivery/OrderForm';
 import { ProductNotFound } from '../../components/showroom/ProductNotFound';
 import { SimilarPhones } from '../../components/showroom/SimilarPhones';
 import { useProductDetails } from '../../hooks/useProductDetails';
@@ -18,6 +20,7 @@ import { usePhoneViewCounts } from '../../hooks/usePhoneViewCounts';
 import { useInventoryImages } from '../../hooks/useInventoryImages';
 import { useWhatsApp } from '../../providers/WhatsAppProvider';
 import { useFavorites } from '../../hooks/useFavorites';
+import { useCart } from '../../core/cart/CartContext';
 import { sendContactOwnerWhatsApp } from '../../services/whatsapp-service';
 import { recordIntent } from '../../services/intent-tracking';
 import { buildAppUrl } from '../../core/base-path';
@@ -88,8 +91,15 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
   const whatsapp = useWhatsApp();
   const favorites = useFavorites();
   const images = useInventoryImages(device?.id, device?.images ?? []);
+  const cart = useCart();
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
+  // Delivery order (00050). Opening the form never creates an account (P3);
+  // the draft is preserved so returning from sign-in keeps the entered data.
+  const [orderOpen, setOrderOpen] = useState(false);
+  const [orderQty, setOrderQty] = useState(1);
+  const [orderDraft, setOrderDraft] = useState<DeliveryCustomerDraft | null>(null);
 
   const handleBack = useCallback(() => {
     dispatch({ type: 'BACK' });
@@ -133,6 +143,46 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
     },
     [dispatch],
   );
+
+  const handleOpenOrder = useCallback(() => {
+    if (!device || device.quantity <= 0) return;
+    setOrderDraft(null);
+    setOrderQty(1);
+    setOrderOpen(true);
+  }, [device]);
+
+  const handleAddToCart = useCallback(() => {
+    if (!device || device.quantity <= 0) return;
+    const orderable = toOrderable(device);
+    cart.addLine({
+      catalogRef: orderable.id,
+      domain: 'phone',
+      category: 'phone',
+      brand: orderable.brand,
+      model: orderable.model,
+      displayUnitPrice: orderable.unitPrice,
+      stock: orderable.stock,
+      image: images[0],
+      pricePeriod: 'sale',
+      quantity: orderQty,
+    });
+    dispatch({ type: 'NAVIGATE', screen: 'cart' });
+  }, [device, cart, images, orderQty, dispatch]);
+
+  // Go to the existing sign-in flow. The order draft has already been lifted
+  // into state, so re-opening the form restores the entered data.
+  const handleRequestSignIn = useCallback(() => {
+    setOrderOpen(false);
+    dispatch({ type: 'NAVIGATE', screen: 'login' });
+  }, [dispatch]);
+
+  const handleOrderDraftChange = useCallback((next: DeliveryCustomerDraft) => {
+    setOrderDraft(next);
+  }, []);
+
+  const handleOrderClose = useCallback(() => {
+    setOrderOpen(false);
+  }, []);
 
   if (notFound) {
     return (
@@ -189,6 +239,24 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
             </button>
             <button type="button" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })} style={headerBtn}>
               🏠 الرئيسية
+            </button>
+            <button
+              type="button"
+              onClick={() => dispatch({ type: 'NAVIGATE', screen: 'cart' })}
+              style={{ ...headerBtn, position: 'relative' }}
+              aria-label={t('cart.title')}
+            >
+              🛒
+              {cart.itemCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: '-4px', insetInlineEnd: '-4px',
+                  background: colors.accent, color: colors.bgCard, borderRadius: '999px',
+                  minWidth: '16px', height: '16px', fontSize: '0.6rem', fontWeight: 800,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
+                }}>
+                  {cart.itemCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -253,6 +321,56 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
             <Divider />
 
             <ContactOwnerAction device={device} onContact={handleContact} />
+
+            {device.quantity > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem',
+                background: colors.glass, border: `1px solid ${colors.glassBorder}`, borderRadius: '14px',
+                padding: '0.65rem 0.8rem', marginTop: '0.4rem',
+              }}>
+                <div style={{ fontSize: '0.78rem', color: colors.textSecondary, fontWeight: 700 }}>
+                  {t('delivery.quantity')}
+                  <span style={{ display: 'block', color: colors.textMuted, fontWeight: 600, fontSize: '0.68rem', marginTop: '0.1rem' }}>
+                    {t('delivery.subtotal')}: {(device.sellPrice ?? 0) * orderQty} د.ج
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    aria-label="decrease"
+                    disabled={orderQty <= 1}
+                    onClick={() => setOrderQty((q) => Math.max(1, q - 1))}
+                    style={{ ...headerBtn, padding: '0.4rem 0.7rem' }}
+                  >
+                    −
+                  </button>
+                  <span style={{ minWidth: '1.6rem', textAlign: 'center', fontWeight: 800, color: colors.text, fontVariantNumeric: 'tabular-nums' }}>
+                    {orderQty}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="increase"
+                    disabled={orderQty >= device.quantity}
+                    onClick={() => setOrderQty((q) => Math.min(device.quantity, q + 1))}
+                    style={{ ...headerBtn, padding: '0.4rem 0.7rem' }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {device.quantity > 0 && (
+              <Button variant="primary" size="lg" fullWidth onClick={handleAddToCart} style={{ marginTop: '0.5rem' }}>
+                🛒 {t('cart.addToCart')}
+              </Button>
+            )}
+
+            {device.quantity > 0 && (
+              <Button variant="success" size="lg" fullWidth onClick={handleOpenOrder} style={{ marginTop: '0.5rem' }}>
+                🛵 {t('delivery.orderButton')} — {t('cart.buyNow')}
+              </Button>
+            )}
           </Stack>
         </Card>
 
@@ -289,6 +407,18 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
           {dir === 'rtl' ? '→' : '←'} {t('phoneDetails.title')}
         </button>
       </Stack>
+
+      {orderOpen && (
+        <OrderForm
+          open={orderOpen}
+          item={toOrderable(device)}
+          initialQuantity={orderQty}
+          draft={orderDraft ?? undefined}
+          onClose={handleOrderClose}
+          onDraftChange={handleOrderDraftChange}
+          onRequestSignIn={handleRequestSignIn}
+        />
+      )}
 
       {favorites.showToast && (
         <div style={{ position: 'fixed', insetInline: '1rem', bottom: '1.25rem', zIndex: 999 }}>

@@ -19,6 +19,7 @@ import { recordScan } from './services/qr-measurement';
 import { setActiveChallengeId } from './challenge/challenge-context';
 import { resolveDefaultGameEntry } from './challenge/active-challenge-resolver';
 import { TicTacToeProvider } from './screens/tic-tac-toe/TicTacToeContext';
+import { CartProvider } from './core/cart/CartContext';
 import focusIcon from './assets/brand/focus-icon.svg';
 
 // Small/critical screens — lazy loaded to reduce initial bundle size
@@ -61,6 +62,7 @@ const RepairCustomerHistory = lazy(() => import('./screens/repair/RepairCustomer
 const StickerAnalyticsScreen = lazy(() => import('./screens/stickers/StickerAnalyticsScreen').then(m => ({ default: m.StickerAnalyticsScreen })));
 const ShowroomScreen = lazy(() => import('./screens/showroom/ShowroomScreen').then(m => ({ default: m.ShowroomScreen })));
 const ProductDetailsScreen = lazy(() => import('./screens/showroom/ProductDetailsScreen').then(m => ({ default: m.ProductDetailsScreen })));
+const ListingDetailsScreen = lazy(() => import('./screens/showroom/ListingDetailsScreen').then(m => ({ default: m.ListingDetailsScreen })));
 const BusinessIntelligenceCenter = lazy(() => import('./business-intelligence/BusinessIntelligenceCenter').then(m => ({ default: m.BusinessIntelligenceCenter })));
 const CatalogApprovalScreen = lazy(() => import('./screens/admin/CatalogApprovalScreen').then(m => ({ default: m.CatalogApprovalScreen })));
 const ChallengeAdminScreen = lazy(() => import('./screens/admin/ChallengeAdminScreen').then(m => ({ default: m.ChallengeAdminScreen })));
@@ -74,6 +76,9 @@ const TttInviteLandingScreen = lazy(() => import('./screens/tic-tac-toe/TttInvit
 const TttMultiplayerScreen = lazy(() => import('./screens/tic-tac-toe/TttMultiplayerScreen').then(m => ({ default: m.TttMultiplayerScreen })));
 const CategoryScreen = lazy(() => import('./screens/categories/CategoryScreen').then(m => ({ default: m.CategoryScreen })));
 const AdminCategoriesScreen = lazy(() => import('./screens/admin/CategoriesAdminScreen').then(m => ({ default: m.CategoriesAdminScreen })));
+const CartScreen = lazy(() => import('./screens/cart/CartScreen').then(m => ({ default: m.CartScreen })));
+const CheckoutScreen = lazy(() => import('./screens/checkout/CheckoutScreen').then(m => ({ default: m.CheckoutScreen })));
+const OrderConfirmationScreen = lazy(() => import('./screens/checkout/OrderConfirmationScreen').then(m => ({ default: m.OrderConfirmationScreen })));
 
 const screens: Record<ScreenName, React.ComponentType> = {
   home: HomeScreen,
@@ -113,6 +118,7 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'sticker-scan': StickerScanHandler,
   'showroom': ShowroomScreen,
   'phone-details': ProductDetailsScreen,
+  'listing-details': ListingDetailsScreen,
   'design-system-playground': DesignSystemPlayground,
   'catalog-approval': CatalogApprovalScreen,
   'challenge-admin': ChallengeAdminScreen,
@@ -126,6 +132,9 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'ttt-multiplayer': TttMultiplayerScreen,
   'category': CategoryScreen,
   'admin-categories': AdminCategoriesScreen,
+  'cart': CartScreen,
+  'checkout': CheckoutScreen,
+  'order-confirmation': OrderConfirmationScreen,
 };
 
 function HtmlSync() {
@@ -536,13 +545,15 @@ export default function App() {
           <TranslationProvider>
             <AuthProvider>
               <AppProvider>
-                <HtmlSync />
-                <InitialRoute />
-                <BackProvider>
-                  <WhatsAppProvider>
-                    <AppShell><ScreenRouter /></AppShell>
-                  </WhatsAppProvider>
-                </BackProvider>
+                <CartProvider>
+                  <HtmlSync />
+                  <InitialRoute />
+                  <BackProvider>
+                    <WhatsAppProvider>
+                      <AppShell><ScreenRouter /></AppShell>
+                    </WhatsAppProvider>
+                  </BackProvider>
+                </CartProvider>
               </AppProvider>
             </AuthProvider>
           </TranslationProvider>

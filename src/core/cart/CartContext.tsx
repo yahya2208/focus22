@@ -1,0 +1,141 @@
+/**
+ * Marketplace cart (additive — the existing single-item OrderForm quick-buy is
+ * preserved). READ FIRST: the client is NEVER authoritative for price or
+ * identity. Every line keeps the `catalogRef` = inventory_items.id so the
+ * server (`delivery_create_order` + 00052) resolves the authoritative
+ * price/name/quantity. `displayUnitPrice` is UX-only.
+ *
+ * Property MONTHLY rentals never enter the cart (they are lead/contact-only);
+ * only `sale` listings are orderable here.
+ */
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+
+export type CartDomain = 'phone' | 'car' | 'property';
+export type CartPricePeriod = 'sale' | 'monthly';
+
+export interface CartLine {
+  /** Stable unique line key = catalogRef (one line per inventory item). */
+  readonly key: string;
+  /** inventory_items.id — the authoritative product identity. */
+  readonly catalogRef: string;
+  readonly categoryId?: string;
+  readonly domain: CartDomain;
+  readonly category: 'phone' | 'car' | 'property';
+  readonly brand: string;
+  readonly model: string;
+  /** DISPLAY ONLY — never used to compute order totals. */
+  readonly displayUnitPrice: number | null;
+  readonly quantity: number;
+  /** Phones: real stock; cars pinned to 1. */
+  readonly stock: number;
+  readonly image?: string;
+  readonly pricePeriod: CartPricePeriod;
+}
+
+export interface CartLineInput {
+  catalogRef: string;
+  categoryId?: string;
+  domain: CartDomain;
+  category: 'phone' | 'car' | 'property';
+  brand: string;
+  model: string;
+  displayUnitPrice: number | null;
+  stock?: number;
+  image?: string;
+  pricePeriod?: CartPricePeriod;
+  quantity?: number;
+}
+
+interface CartContextValue {
+  lines: readonly CartLine[];
+  itemCount: number;
+  subtotal: number;
+  isEmpty: boolean;
+  getLine: (catalogRef: string) => CartLine | undefined;
+  addLine: (input: CartLineInput) => void;
+  setQuantity: (catalogRef: string, quantity: number) => void;
+  removeLine: (catalogRef: string) => void;
+  clear: () => void;
+}
+
+const CartContext = createContext<CartContextValue | null>(null);
+
+const clampQty = (q: number, stock: number): number =>
+  Math.max(1, Math.min(Math.floor(q), Math.max(1, stock)));
+
+export function CartProvider({ children }: { children: ReactNode }) {
+  const [lines, setLines] = useState<readonly CartLine[]>([]);
+
+  const addLine = useCallback((input: CartLineInput) => {
+    const stock = Math.max(1, input.stock ?? 1);
+    const quantity = clampQty(input.quantity ?? 1, stock);
+    const line: CartLine = {
+      key: input.catalogRef,
+      catalogRef: input.catalogRef,
+      categoryId: input.categoryId,
+      domain: input.domain,
+      category: input.category,
+      brand: input.brand,
+      model: input.model,
+      displayUnitPrice: input.displayUnitPrice,
+      quantity,
+      stock,
+      image: input.image,
+      pricePeriod: input.pricePeriod ?? 'sale',
+    };
+    setLines((prev) => {
+      const existing = prev.find((l) => l.key === line.key);
+      if (existing) {
+        return prev.map((l) =>
+          l.key === line.key
+            ? { ...l, quantity: clampQty(l.quantity + 1, stock), stock }
+            : l,
+        );
+      }
+      return [...prev, line];
+    });
+  }, []);
+
+  const setQuantity = useCallback((catalogRef: string, quantity: number) => {
+    setLines((prev) =>
+      prev.map((l) =>
+        l.catalogRef === catalogRef ? { ...l, quantity: clampQty(quantity, l.stock) } : l,
+      ),
+    );
+  }, []);
+
+  const removeLine = useCallback((catalogRef: string) => {
+    setLines((prev) => prev.filter((l) => l.catalogRef !== catalogRef));
+  }, []);
+
+  const clear = useCallback(() => setLines([]), []);
+
+  const value = useMemo<CartContextValue>(() => {
+    const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
+    const subtotal = lines.reduce(
+      (sum, l) => sum + (l.displayUnitPrice ?? 0) * l.quantity,
+      0,
+    );
+    return {
+      lines,
+      itemCount,
+      subtotal,
+      isEmpty: lines.length === 0,
+      getLine: (catalogRef) => lines.find((l) => l.catalogRef === catalogRef),
+      addLine,
+      setQuantity,
+      removeLine,
+      clear,
+    };
+  }, [lines, addLine, setQuantity, removeLine, clear]);
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+}
+
+export function useCart(): CartContextValue {
+  const ctx = useContext(CartContext);
+  if (!ctx) throw new Error('useCart must be used within CartProvider');
+  return ctx;
+}
+
+export default CartProvider;

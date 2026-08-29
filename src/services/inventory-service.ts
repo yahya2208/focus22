@@ -75,6 +75,13 @@ export interface InventoryRecord {
    * Admin-only: NEVER exposed via v_public_inventory (customer-facing view).
    */
   sourceLabel?: string;
+  /**
+   * Listing category discriminator (P8.3). Absent ⇒ legacy phone row and the
+   * record behaves unchanged as a phone. Admin caches scope to category==='phone'
+   * so car/property rows never surface through the phone-shaped inventory
+   * grid / InventoryService adapter.
+   */
+  category?: 'phone' | 'car' | 'property';
 }
 
 export type TimelineEventType =

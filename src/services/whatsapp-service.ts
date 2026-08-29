@@ -1,5 +1,6 @@
 import { buildAppUrl } from '../core/base-path';
 import type { InventoryRecord } from './inventory-service';
+import type { ListingContactInfo } from '../domains/listings';
 
 export const WHATSAPP_PHONE = '+213556254007';
 
@@ -297,4 +298,47 @@ export function openPhoneAdWhatsApp(
   device: Pick<InventoryRecord, 'id' | 'brand' | 'model' | 'variant' | 'sellPrice' | 'city' | 'code'>,
 ): void {
   openWhatsApp(WHATSAPP_PHONE, buildAdClickMessage(device));
+}
+
+/**
+ * ── B1 — Listing contact WhatsApp template (Marketplace Mediator) ────────────
+ * Reuses the SAME mediator model as phones (FOCUS relays to the single business
+ * number; no per-listing owner phone). Consumes the neutral payload every
+ * listing presenter already exposes via `contact(listing, deepLink)` →
+ * ListingContactInfo (name / code / priceText / city / deepLink) — the P8.9
+ * template factory the presenter contract reserved for. The message is built
+ * ONLY from presenter-verified facts; nothing is invented. Same hardcoded-Arabic
+ * convention as every listing surface (P6 i18n cleanup is future scope).
+ */
+export function buildListingContactMessage(info: ListingContactInfo): string {
+  const lines = [
+    'السلام عليكم،',
+    'مرحبًا، أرغب في التواصل بخصوص الإعلان المعروض في FOCUS.',
+    `اسم الإعلان: ${info.name}`,
+    `الكود: ${info.code}`,
+  ];
+  if (info.priceText && info.priceText.trim()) lines.push(`السعر: ${info.priceText.trim()}`);
+  if (info.city && info.city.trim()) lines.push(`المدينة: ${info.city.trim()}`);
+  lines.push(`رابط الإعلان: ${info.deepLink}`);
+  lines.push('شكراً.');
+  return lines.join('\n');
+}
+
+/** Sends a listing contact inquiry through the shared smart-WhatsApp pipeline. */
+export function listingContactMessage(record: {
+  id: string;
+  brand: string;
+  model: string;
+  price: number | null;
+  city: string;
+  code: string | null;
+  deepLink: string;
+}): string {
+  return buildListingContactMessage({
+    name: [record.brand, record.model].filter(Boolean).join(' '),
+    code: (record.code && record.code.trim()) || record.id.slice(0, 8),
+    priceText: record.price != null ? `${record.price.toLocaleString('en-US')} د.ج` : '',
+    city: record.city,
+    deepLink: record.deepLink,
+  });
 }

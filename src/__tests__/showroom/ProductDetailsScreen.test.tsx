@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { AppProvider, useAppDispatch, useAppState } from '../../store/navigation';
 import { ThemeProvider } from '../../design-system/use-theme';
 import { TranslationProvider } from '../../hooks/useTranslation';
+import { CartProvider } from '../../core/cart/CartContext';
 import { ProductDetailsScreen } from '../../screens/showroom/ProductDetailsScreen';
 import { InventoryService } from '../../services/inventory-service';
 import { bootstrapCentralInventory, resetCentralInventoryState } from '../../services/inventory-central-service';
@@ -51,9 +52,11 @@ function renderScreen(id: string) {
     <AppProvider>
       <ThemeProvider>
         <TranslationProvider>
-          <GoTo id={id} />
-          <ProductDetailsScreen />
-          <ParamProbe />
+          <CartProvider>
+            <GoTo id={id} />
+            <ProductDetailsScreen />
+            <ParamProbe />
+          </CartProvider>
         </TranslationProvider>
       </ThemeProvider>
     </AppProvider>,
@@ -85,9 +88,11 @@ describe('Phase 3B §3.2/§3.3 — ProductDetailsScreen', () => {
     expect(screen.getByText(`${target.sellPrice!.toLocaleString()} د.ج`)).toBeTruthy();
     expect(screen.getByText(/Specifications/i)).toBeTruthy();
     expect(screen.getByText(/Similar Phones/i)).toBeTruthy();
-    // BATCH 3 — exactly ONE contact CTA; no buy/exchange/installment/inquiry/sell buttons.
+    // BATCH 3 — contact CTA + marketplace add-to-cart + buy-now CTAs present;
+    // no exchange/installment/inquiry/sell buttons.
     expect(screen.getByRole('button', { name: /Contact the ad owner/i })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Buy/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /Add to cart/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Buy now/i })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Exchange/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /Installment/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /Inquiry/i })).toBeNull();
@@ -108,7 +113,9 @@ describe('Phase 3B §3.2/§3.3 — ProductDetailsScreen', () => {
       <AppProvider>
         <ThemeProvider>
           <TranslationProvider>
-            <ProductDetailsScreen />
+            <CartProvider>
+              <ProductDetailsScreen />
+            </CartProvider>
           </TranslationProvider>
         </ThemeProvider>
       </AppProvider>,

@@ -8,12 +8,22 @@ import { PhoneShowroom } from '../../components/showroom/PhoneShowroom';
 import { ReelsFeed, USE_NEW_GALLERY } from '../../components/showroom/phone-gallery';
 import { ShowroomControls } from '../../components/showroom/ShowroomControls';
 import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
+import { ListingCategoryTabs } from '../../components/showroom/listings/ListingCategoryTabs';
+import { PublicListingCard } from '../../components/showroom/listings/PublicListingCard';
 import { InventoryService } from '../../services/inventory-service';
 import type { InventoryRecord } from '../../services/inventory-service';
 import { getInventoryReady, subscribeCentralInventory } from '../../services/inventory-central-service';
+import { searchListings } from '../../services/listing-service';
+import type { ListingRecord } from '../../domains/listings';
+import { toPublicCardModel } from '../../domains/listings';
+import { ensureAdminListingPresenters } from '../../domains/listings';
+import type { ShowroomCategory } from '../../hooks/useShowroomState';
 import { useShowroomState, filterAndSortDevices } from '../../hooks/useShowroomState';
 import { useScrollPreservation } from '../../hooks/useScrollPreservation';
 import { useSearchAnalytics } from '../../hooks/useSearchAnalytics';
+
+/** P8.5 MVP pagination — fixed first page, no pager UI (approved scope). */
+const PUBLIC_LISTINGS_PAGE_LIMIT = 48;
 
 /** F-102 — the Showroom listing surface has its own unique ad placement key. */
 export const SHOWROOM_AD_PLACEMENT = 'showroom' as const;
@@ -42,6 +52,9 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
   const [ready, setReady] = useState<boolean>(() => getInventoryReady());
   const [feedOpen, setFeedOpen] = useState(false);
   const [feedDeviceId, setFeedDeviceId] = useState<string | undefined>(undefined);
+  // ── P8.5 public listings (car/property) state ────────────────────────────
+  const [publicListings, setPublicListings] = useState<ListingRecord[] | null>(null);
+  const [publicError, setPublicError] = useState('');
   const { state, update } = useShowroomState();
   useScrollPreservation(devices.length > 0 && !feedOpen);
 
@@ -56,6 +69,46 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
     if (ready) setDevices(InventoryService.getExchangeableDevices());
   }, [ready]);
 
+  const category: ShowroomCategory = state.category ?? 'phone';
+
+  // ── P8.5 car/property fetch: debounced server-side search (search + sort
+  // only; advanced filters are P8.8). Errors surface visibly — never hidden.
+  useEffect(() => {
+    if (category === 'phone') return;
+    ensureAdminListingPresenters();
+    let alive = true;
+    setPublicListings(null);
+    setPublicError('');
+    const timer = setTimeout(() => {
+      searchListings({
+        category,
+        query: state.query,
+        sort: state.sort,
+        limit: PUBLIC_LISTINGS_PAGE_LIMIT,
+        offset: 0,
+      })
+        .then((page) => {
+          if (alive) setPublicListings(page.items);
+        })
+        .catch((e: unknown) => {
+          if (!alive) return;
+          setPublicError(e instanceof Error ? e.message : String(e));
+          setPublicListings([]);
+        });
+    }, 250);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [category, state.query, state.sort, state]);
+
+  const handleCategoryChange = useCallback(
+    (next: ShowroomCategory) => {
+      update({ category: next });
+    },
+    [update],
+  );
+
   // Auto-open feed if navigated with ?feed=true&device=X
   useEffect(() => {
     if (routeParams.feed === 'true') {
@@ -68,15 +121,25 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
 
   // Debounced search recording: record a meaningful search after 400ms of inactivity.
   // Avoids recording every keystroke; deduplicates identical queries server-side.
+  // P8.5: analytics stay a PHONE-surface concern — neutral tabs never record.
   useEffect(() => {
+    if (category !== 'phone') return;
     recordSearch(state.query, visible.length);
-  }, [state.query, visible.length, recordSearch]);
+  }, [category, state.query, visible.length, recordSearch]);
 
   const handleSelect = useCallback((device: InventoryRecord) => {
     // Link selection to originating search event if available
     linkSelection(device.id);
     dispatch({ type: 'NAVIGATE', screen: 'phone-details', params: { device: device.id } });
   }, [dispatch, linkSelection]);
+
+  const handleListingSelect = useCallback(
+    (deepLink: string) => {
+      const id = deepLink.replace('#/listing-details?id=', '');
+      if (id) dispatch({ type: 'NAVIGATE', screen: 'listing-details', params: { id } });
+    },
+    [dispatch],
+  );
 
   const handleFeedSelect = useCallback((deviceId: string) => {
     // The feed renders the filtered (search-result) set, so a feed pick is a
@@ -117,33 +180,76 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
 
         <AdContactBanner placement={SHOWROOM_AD_PLACEMENT} />
 
+        {/* P8.5 — category awareness; 'phone' stays the default surface. */}
+        <ListingCategoryTabs value={category} onChange={handleCategoryChange} />
+
         {/* state is a module-level singleton mutated in place; memo(ShowroomControls)
             needs a fresh identity to re-render when its content changes. */}
-        <ShowroomControls devices={devices} state={{ ...state }} onChange={update} />
+        <ShowroomControls
+          devices={devices}
+          state={{ ...state }}
+          onChange={update}
+          variant={category === 'phone' ? 'phones' : 'neutral'}
+        />
 
-        {USE_NEW_GALLERY && visible.length > 0 && (
-          <button
-            type="button"
-            onClick={() => { setFeedDeviceId(undefined); setFeedOpen(true); }}
+        {category === 'phone' ? (
+          <>
+            {USE_NEW_GALLERY && visible.length > 0 && (
+              <button
+                type="button"
+                onClick={() => { setFeedDeviceId(undefined); setFeedOpen(true); }}
+                style={{
+                  width: '100%', padding: '0.75rem', borderRadius: '14px',
+                  border: 'none', background: colors.accent, color: '#000',
+                  fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer',
+                  fontFamily: 'inherit', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', gap: '0.5rem',
+                }}
+              >
+                ▶ Browse all phones
+              </button>
+            )}
+
+            <Grid columns={1} gap="md">
+              <PhoneShowroom
+                devices={visible}
+                emptyText={!ready ? 'جارٍ تحميل الهواتف…' : t('showroom.empty')}
+                onSelect={handleSelect}
+              />
+            </Grid>
+          </>
+        ) : publicError !== '' ? (
+          <div
+            role="alert"
             style={{
-              width: '100%', padding: '0.75rem', borderRadius: '14px',
-              border: 'none', background: colors.accent, color: '#000',
-              fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer',
-              fontFamily: 'inherit', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', gap: '0.5rem',
+              padding: '1rem',
+              borderRadius: '12px',
+              background: colors.bgCard,
+              border: `1px solid ${colors.border}`,
+              color: colors.text,
+              fontSize: '0.82rem',
             }}
           >
-            ▶ Browse all phones
-          </button>
+            ⚠ تعذر تحميل الإعلانات: {publicError}
+          </div>
+        ) : publicListings === null ? (
+          <div role="status" style={{ textAlign: 'center', color: colors.textSecondary, fontSize: '0.85rem', padding: '2rem 0' }}>
+            جارٍ التحميل…
+          </div>
+        ) : publicListings.length === 0 ? (
+          <div role="status" style={{ textAlign: 'center', color: colors.textSecondary, fontSize: '0.85rem', padding: '2rem 0' }}>
+            {t('showroom.empty')}
+          </div>
+        ) : (
+          <Grid columns={1} gap="md">
+            {publicListings.map((listing) => {
+              const model = toPublicCardModel(listing);
+              return (
+                <PublicListingCard key={listing.id} model={model} onSelect={handleListingSelect} />
+              );
+            })}
+          </Grid>
         )}
-
-        <Grid columns={1} gap="md">
-          <PhoneShowroom
-            devices={visible}
-            emptyText={!ready ? 'جارٍ تحميل الهواتف…' : t('showroom.empty')}
-            onSelect={handleSelect}
-          />
-        </Grid>
 
         <button type="button" onClick={() => dispatch({ type: 'BACK' })} style={{ ...navBtn, borderColor: colors.border, color: colors.textSecondary, width: '100%', justifyContent: 'center' }}>
           {backArrow} {t('showroom.back')}

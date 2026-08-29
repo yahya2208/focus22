@@ -32,6 +32,7 @@ import {
   type CategoryTheme,
 } from '../../core/categories/types';
 import { getCategoryThemePreset } from '../../core/categories/themes';
+import { CategoryProductsPanel } from './CategoryProductsPanel';
 
 const EMPTY_FORM: Omit<CategoryAdminInput, 'parentId' | 'sortOrder'> & {
   parentId: string;
@@ -58,6 +59,7 @@ function CategoryRowCard({
   onToggle,
   onDelete,
   onMove,
+  onProducts,
   acting,
 }: {
   category: Category;
@@ -65,6 +67,7 @@ function CategoryRowCard({
   onToggle: (c: Category) => void;
   onDelete: (c: Category) => void;
   onMove: (c: Category, dir: -1 | 1) => void;
+  onProducts: (c: Category) => void;
   acting: string | null;
 }) {
   const colors = useThemeColors();
@@ -119,6 +122,9 @@ function CategoryRowCard({
           </Button>
           <Button variant="secondary" size="sm" onClick={() => onEdit(category)} disabled={busy}>
             {t('adminCategories.edit')}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => onProducts(category)} disabled={busy}>
+            {t('category.products')}
           </Button>
           <Button variant="danger" size="sm" onClick={() => onDelete(category)} disabled={busy}>
             {t('adminCategories.delete')}
@@ -338,6 +344,7 @@ export const CategoriesAdminScreen = memo(function CategoriesAdminScreen() {
   const [showInactive, setShowInactive] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [productsCategory, setProductsCategory] = useState<Category | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Category | null>(null);
   const [acting, setActing] = useState<string | null>(null);
 
@@ -464,6 +471,7 @@ export const CategoriesAdminScreen = memo(function CategoriesAdminScreen() {
                 onToggle={handleToggle}
                 onDelete={(cat) => setPendingDelete(cat)}
                 onMove={handleMove}
+                onProducts={(cat) => setProductsCategory(cat)}
                 acting={acting}
               />
             ))}
@@ -495,6 +503,13 @@ export const CategoriesAdminScreen = memo(function CategoriesAdminScreen() {
             </Flex>
           </Stack>
         </Modal>
+      )}
+
+      {productsCategory && (
+        <CategoryProductsPanel
+          category={productsCategory}
+          onClose={() => setProductsCategory(null)}
+        />
       )}
     </Screen>
   );

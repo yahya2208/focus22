@@ -62,6 +62,7 @@ export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
   'sticker-scan': ['deep-link'],
   showroom: ['home', 'results'],
   'phone-details': ['showroom', 'deep-link'],
+  'listing-details': ['showroom', 'deep-link'],
   'design-system-playground': ['settings'],
   'catalog-approval': ['settings', 'home'],
   'challenge-admin': ['settings'],
@@ -75,6 +76,9 @@ export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
   'ttt-multiplayer': ['tic-tac-toe-intro', 'ttt-invite-landing'],
   category: ['home', 'deep-link', 'category'],
   'admin-categories': ['settings', 'home'],
+  cart: ['phone-details', 'listing-details', 'showroom', 'category', 'home'],
+  checkout: ['cart'],
+  'order-confirmation': ['checkout'],
 };
 
 export function assertNoOrphans(edges: Record<ScreenName, readonly EdgeSource[]> = EDGES): ScreenName[] {

@@ -8,6 +8,8 @@ import type { InventoryRecord } from '../services/inventory-service';
  */
 export type ShowroomConditionFilter = 'all' | 'new' | 'used';
 export type ShowroomSort = 'latest' | 'cheapest' | 'expensive';
+/** P8.5 — public showroom category. 'phone' is the untouched default. */
+export type ShowroomCategory = 'phone' | 'car' | 'property';
 
 export interface ShowroomUiState {
   scrollY: number;
@@ -15,6 +17,7 @@ export interface ShowroomUiState {
   condition: ShowroomConditionFilter;
   city: string;
   sort: ShowroomSort;
+  category: ShowroomCategory;
 }
 
 export const showroomUiState: ShowroomUiState = {
@@ -23,6 +26,7 @@ export const showroomUiState: ShowroomUiState = {
   condition: 'all',
   city: '',
   sort: 'latest',
+  category: 'phone',
 };
 
 export function resetShowroomUiState(): void {
@@ -31,6 +35,7 @@ export function resetShowroomUiState(): void {
   showroomUiState.condition = 'all';
   showroomUiState.city = '';
   showroomUiState.sort = 'latest';
+  showroomUiState.category = 'phone';
 }
 
 export function useShowroomState() {

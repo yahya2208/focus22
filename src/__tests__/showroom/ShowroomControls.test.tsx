@@ -32,7 +32,7 @@ const devices: InventoryRecord[] = [
   makeDevice({ id: 'b', brand: 'Samsung', model: 'A52', condition: 'Used', city: 'وهران' }),
 ];
 
-const initial: ShowroomUiState = { scrollY: 0, query: '', condition: 'all', city: '', sort: 'latest' };
+const initial: ShowroomUiState = { scrollY: 0, query: '', condition: 'all', city: '', sort: 'latest', category: 'phone' };
 
 function renderControls(onChange: (patch: Partial<ShowroomUiState>) => void) {
   return render(

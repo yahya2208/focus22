@@ -27,6 +27,19 @@ import type { Category } from '../../core/categories/types';
 import { InventoryService, type InventoryRecord } from '../../services/inventory-service';
 import { useInventoryImages } from '../../hooks/useInventoryImages';
 import { resolveDefaultGameEntry } from '../../challenge/active-challenge-resolver';
+import {
+  getCategoryMembers,
+  startCategoryProductsRealtime,
+  subscribeCategoryProducts,
+  getCategoryProductsInvalidation,
+} from '../../services/category-products-service';
+import { getPublicListing } from '../../services/listing-service';
+import {
+  listingDeepLink,
+  toPublicCardModel,
+  type PublicListingCardModel,
+} from '../../domains/listings/publicCard';
+import { PublicListingCard } from '../../components/showroom/listings/PublicListingCard';
 
 function CategoryProductCard({ device, accent, onOpen }: {
   device: InventoryRecord;
@@ -140,17 +153,69 @@ export const CategoryScreen = memo(function CategoryScreen() {
   const [category, setCategory] = useState<Category | undefined>(() =>
     slug ? getCategoryBySlug(slug) : undefined,
   );
-  const [devices, setDevices] = useState<InventoryRecord[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [phoneDevices, setPhoneDevices] = useState<InventoryRecord[]>([]);
+  const [listingCards, setListingCards] = useState<PublicListingCardModel[]>([]);
+  const [membersRev, setMembersRev] = useState(() => getCategoryProductsInvalidation());
 
   useEffect(() => {
     ensureCategoriesLoaded().catch(() => {});
     ensureDeliveryLoaded().catch(() => {});
+    startCategoryProductsRealtime();
     return subscribeCategories(() => setCategory(slug ? getCategoryBySlug(slug) : undefined));
   }, [slug]);
 
+  // Live-refresh members when admin changes category_products membership.
   useEffect(() => {
-    setDevices(InventoryService.getExchangeableDevices());
+    return subscribeCategoryProducts(() => setMembersRev(getCategoryProductsInvalidation()));
   }, []);
+
+  // Resolve the category's ASSIGNED products into renderable members.
+  useEffect(() => {
+    if (!category) {
+      setPhoneDevices([]);
+      setListingCards([]);
+      return;
+    }
+    let cancelled = false;
+    setMembersLoading(true);
+    getCategoryMembers(category.id)
+      .then(async (rows) => {
+        if (cancelled) return;
+
+        const stock = InventoryService.getExchangeableDevices();
+        setPhoneDevices(
+          rows
+            .filter((m) => m.domain === 'phone')
+            .map((m) => stock.find((d) => d.id === m.productId))
+            .filter((d): d is InventoryRecord => !!d),
+        );
+
+        const listingMembers = rows.filter((m) => m.domain === 'car' || m.domain === 'property');
+        const cards: PublicListingCardModel[] = [];
+        for (const m of listingMembers) {
+          try {
+            const record = await getPublicListing(m.productId);
+            if (record) cards.push(toPublicCardModel(record));
+          } catch {
+            /* skip a member whose detail fails to load */
+          }
+        }
+        if (!cancelled) setListingCards(cards);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPhoneDevices([]);
+          setListingCards([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setMembersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [category?.id, membersRev]);
 
   useEffect(() => {
     setCategory(slug ? getCategoryBySlug(slug) : undefined);
@@ -198,6 +263,11 @@ export const CategoryScreen = memo(function CategoryScreen() {
 
   const openPhone = (device: InventoryRecord) => {
     dispatch({ type: 'NAVIGATE', screen: 'phone-details', params: { device: device.id } });
+  };
+
+  const openListing = (deepLink: string) => {
+    const id = deepLink.replace(listingDeepLink(''), '');
+    if (id) dispatch({ type: 'NAVIGATE', screen: 'listing-details', params: { id } });
   };
 
   const openGame = () => {
@@ -298,32 +368,58 @@ export const CategoryScreen = memo(function CategoryScreen() {
         )}
 
         {/* Display mode content */}
-        {category.displayMode === 'phones' && (
+        {(category.displayMode === 'phones' || category.displayMode === 'storefront') && (
           <div>
             <Flex justify="space-between" align="center" style={{ marginBottom: '0.75rem' }}>
               <p style={{ color: colors.textMuted, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, margin: 0 }}>
-                {category.slug === 'phones' ? t('category.products') : t('category.products')}
+                {t('category.products')}
               </p>
-              <Button variant="ghost" size="sm" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'showroom' })}>
-                {t('category.browseAll')} →
-              </Button>
+              {category.displayMode === 'phones' && (
+                <Button variant="ghost" size="sm" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'showroom' })}>
+                  {t('category.browseAll')} →
+                </Button>
+              )}
             </Flex>
-            {devices.length > 0 ? (
-              <Grid minColumnWidth="150px" gap="md">
-                {devices.map((device) => (
-                  <CategoryProductCard
-                    key={`${device.id}-${device.variant}-${device.condition}`}
-                    device={device}
-                    accent={accent}
-                    onOpen={() => openPhone(device)}
-                  />
-                ))}
-              </Grid>
-            ) : (
+            {membersLoading ? (
               <Card variant="outlined" padding="lg">
                 <p style={{ color: colors.textMuted, fontSize: '0.8rem', margin: 0, textAlign: 'center' }}>
                   {t('category.empty')}
                 </p>
+              </Card>
+            ) : phoneDevices.length > 0 || listingCards.length > 0 ? (
+              <Stack gap="lg">
+                {phoneDevices.length > 0 && (
+                  <Grid minColumnWidth="150px" gap="md">
+                    {phoneDevices.map((device) => (
+                      <CategoryProductCard
+                        key={device.id}
+                        device={device}
+                        accent={accent}
+                        onOpen={() => openPhone(device)}
+                      />
+                    ))}
+                  </Grid>
+                )}
+                {listingCards.length > 0 && (
+                  <Grid minColumnWidth="170px" gap="md">
+                    {listingCards.map((model) => (
+                      <PublicListingCard key={model.deepLink} model={model} onSelect={openListing} />
+                    ))}
+                  </Grid>
+                )}
+              </Stack>
+            ) : (
+              <Card variant="outlined" padding="lg">
+                <div style={{ textAlign: 'center' }}>
+                  <span role="img" aria-hidden="true" style={{ fontSize: '2rem', display: 'block', marginBottom: '0.4rem' }}>
+                    {category.displayMode === 'storefront' ? '🛍' : '📦'}
+                  </span>
+                  <p style={{ color: colors.textMuted, fontSize: '0.8rem', margin: 0 }}>
+                    {category.displayMode === 'storefront'
+                      ? t('category.storefrontComingSoon')
+                      : t('category.empty')}
+                  </p>
+                </div>
               </Card>
             )}
           </div>
@@ -369,17 +465,6 @@ export const CategoryScreen = memo(function CategoryScreen() {
               </Card>
             </Grid>
           </div>
-        )}
-
-        {category.displayMode === 'storefront' && (
-          <Card variant="outlined" padding="lg">
-            <div style={{ textAlign: 'center' }}>
-              <span role="img" aria-hidden="true" style={{ fontSize: '2rem', display: 'block', marginBottom: '0.4rem' }}>🛍</span>
-              <p style={{ color: colors.textMuted, fontSize: '0.8rem', margin: 0 }}>
-                {t('category.storefrontComingSoon')}
-              </p>
-            </div>
-          </Card>
         )}
       </Stack>
     </Screen>

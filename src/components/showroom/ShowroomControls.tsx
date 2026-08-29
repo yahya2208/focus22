@@ -15,6 +15,13 @@ interface ShowroomControlsProps {
   devices: readonly InventoryRecord[];
   state: ShowroomUiState;
   onChange: (patch: Partial<ShowroomUiState>) => void;
+  /**
+   * P8.5 — 'phones' (default) keeps the exact legacy controls: condition +
+   * city chips. 'neutral' (car/property tabs) renders search + sort ONLY —
+   * those chips are phone-derived controls, and listing_search rejects a
+   * city filter key by contract.
+   */
+  variant?: 'phones' | 'neutral';
 }
 
 const CONDITION_OPTIONS: readonly { value: ShowroomConditionFilter; labelKey: string }[] = [
@@ -33,6 +40,7 @@ export const ShowroomControls = memo(function ShowroomControls({
   devices,
   state,
   onChange,
+  variant = 'phones',
 }: ShowroomControlsProps) {
   const { t } = useTranslation();
   const colors = useThemeColors();
@@ -77,29 +85,31 @@ export const ShowroomControls = memo(function ShowroomControls({
         style={{ width: '100%' }}
       />
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.45rem' }}>
-        {CONDITION_OPTIONS.map((option) => (
-          <Chip
-            key={option.value}
-            variant="selectable"
-            selected={state.condition === option.value}
-            onSelect={() => handleCondition(option.value)}
-          >
-            {t(option.labelKey as never)}
-          </Chip>
-        ))}
-        {cities.map((city) => (
-          <Chip
-            key={city}
-            variant="selectable"
-            selected={state.city === city}
-            onSelect={() => handleCity(city)}
-            icon={<span>📍</span>}
-          >
-            {city}
-          </Chip>
-        ))}
-      </div>
+      {variant === 'phones' && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.45rem' }}>
+          {CONDITION_OPTIONS.map((option) => (
+            <Chip
+              key={option.value}
+              variant="selectable"
+              selected={state.condition === option.value}
+              onSelect={() => handleCondition(option.value)}
+            >
+              {t(option.labelKey as never)}
+            </Chip>
+          ))}
+          {cities.map((city) => (
+            <Chip
+              key={city}
+              variant="selectable"
+              selected={state.city === city}
+              onSelect={() => handleCity(city)}
+              icon={<span>📍</span>}
+            >
+              {city}
+            </Chip>
+          ))}
+        </div>
+      )}
 
       <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <span style={{ color: colors.textMuted, fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>

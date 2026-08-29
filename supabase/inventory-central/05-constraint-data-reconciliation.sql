@@ -155,12 +155,33 @@ UNION ALL SELECT 'pk_movements', '1',
              WHERE conrelid = 'public.inventory_movements'::regclass AND contype = 'p') = 1 THEN 'PASS' ELSE 'FAIL' END,
   'PK on inventory_movements.id'
 
-UNION ALL SELECT 'uq_sku', '1',
-  (SELECT count(*)::text FROM pg_constraint
-   WHERE conrelid = 'public.inventory_items'::regclass AND contype = 'u' AND conname = 'inventory_items_unique_sku'),
-  CASE WHEN (SELECT count(*) FROM pg_constraint
-             WHERE conrelid = 'public.inventory_items'::regclass AND contype = 'u' AND conname = 'inventory_items_unique_sku') = 1 THEN 'PASS' ELSE 'FAIL' END,
-  'UNIQUE(model_id, variant, condition, color)'
+UNION ALL SELECT 'uq_sku_phone_scoped', 'PASS',
+  (SELECT COALESCE(MAX(
+     i.indisunique::text
+     || '|partial=' || (i.indpred IS NOT NULL)::text
+     || '|pred=' || lower(btrim(replace(pg_get_expr(i.indexpred, i.indrelid), '::text', '')))
+     || '|cols=' || COALESCE(
+       (SELECT string_agg(a.attname, ',' ORDER BY k.ord)
+          FROM unnest(i.indkey::int2[]) WITH ORDINALITY AS k(attnum, ord)
+          JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = k.attnum), ''))
+   ), 'MISSING')
+   FROM pg_index i
+   JOIN pg_class c ON c.oid = i.indexrelid
+  WHERE c.relname = 'uq_inventory_items_sku_phone'
+    AND c.relnamespace = 'public'::regnamespace),
+  CASE WHEN EXISTS (
+    SELECT 1 FROM pg_index i
+     JOIN pg_class c ON c.oid = i.indexrelid
+    WHERE c.relname = 'uq_inventory_items_sku_phone'
+      AND c.relnamespace = 'public'::regnamespace
+      AND i.indisunique
+      AND i.indpred IS NOT NULL
+      AND lower(btrim(replace(pg_get_expr(i.indexpred, i.indrelid), '::text', ''))) = '(category = ''phone'')'
+      AND (SELECT string_agg(a.attname, ',' ORDER BY k.ord)
+             FROM unnest(i.indkey::int2[]) WITH ORDINALITY AS k(attnum, ord)
+             JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = k.attnum) = 'model_id,variant,condition,color'
+  ) THEN 'PASS' ELSE 'FAIL' END,
+  'phone-only SKU uniqueness after 00035: partial UNIQUE(model_id, variant, condition, color) WHERE category = phone'
 
 UNION ALL SELECT 'uq_images_path', '1',
   (SELECT count(*)::text FROM pg_constraint

@@ -65,7 +65,7 @@ describe('Phase 3B §6/§8.1 — showroom UI-state registry (session-only)', () 
     showroomUiState.city = 'وهران';
     showroomUiState.sort = 'cheapest';
     resetShowroomUiState();
-    expect(showroomUiState).toEqual({ scrollY: 0, query: '', condition: 'all', city: '', sort: 'latest' });
+    expect(showroomUiState).toEqual({ scrollY: 0, query: '', condition: 'all', city: '', sort: 'latest', category: 'phone' });
   });
 });
 

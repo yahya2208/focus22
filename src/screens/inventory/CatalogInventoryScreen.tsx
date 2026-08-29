@@ -3,6 +3,9 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { InventoryService, type InventoryRecord } from '../../services/inventory-service';
 import { getInventoryReady, subscribeCentralInventory } from '../../services/inventory-central-service';
+import { deleteListing, setListingPublished } from '../../services/listing-service';
+import { filterAdminListing, loadAdminListingsBoard, type AdminListingsBoard } from '../../domains/listings/adminBoard';
+import type { ListingRecord } from '../../domains/listings';
 import { InventorySummaryCards } from '../../components/inventory/InventorySummaryCards';
 import { InventorySearchBar } from '../../components/inventory/InventorySearchBar';
 import { InventoryViewToggle, type View } from '../../components/inventory/InventoryViewToggle';
@@ -10,6 +13,13 @@ import { InventoryTable } from '../../components/inventory/InventoryTable';
 import { AddInventoryModal } from '../../components/inventory/AddInventoryModal';
 import { EditInventoryModal } from '../../components/inventory/EditInventoryModal';
 import { InventoryTransactionRow } from '../../components/inventory/InventoryTransactionRow';
+import { ListingCategoryFilter, type CategoryFilter } from '../../components/inventory/listings/ListingCategoryFilter';
+import { ListingRow } from '../../components/inventory/listings/ListingRow';
+import { CarListingForm } from '../../components/inventory/listings/CarListingForm';
+import { PropertyListingForm } from '../../components/inventory/listings/PropertyListingForm';
+import { EditListingModal } from '../../components/inventory/listings/EditListingModal';
+
+const EMPTY_BOARD: AdminListingsBoard = { phones: [], cars: [], properties: [] };
 
 export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
   const colors = useThemeColors();
@@ -21,6 +31,27 @@ export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
   const [ready, setReady] = useState(() => getInventoryReady());
   const [pending, setPending] = useState(false);
 
+  // ── Category-aware listings board (P8.4) ──────────────────────────────────
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [board, setBoard] = useState<AdminListingsBoard>(EMPTY_BOARD);
+  const [boardLoading, setBoardLoading] = useState(false);
+  const [boardError, setBoardError] = useState('');
+  const [editingListing, setEditingListing] = useState<ListingRecord | null>(null);
+
+  const refreshBoard = useCallback(async () => {
+    setBoardLoading(true);
+    try {
+      const next = await loadAdminListingsBoard();
+      setBoard({ cars: next.cars, properties: next.properties, phones: next.phones });
+      setBoardError('');
+    } catch (e) {
+      // Surfaced in the UI — data errors are never swallowed.
+      setBoardError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBoardLoading(false);
+    }
+  }, []);
+
   const refresh = useCallback(() => setRecords(InventoryService.getAll()), []);
 
   useEffect(() => {
@@ -28,13 +59,56 @@ export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
   }, []);
 
   useEffect(() => {
-    if (ready) refresh();
-  }, [ready, refresh]);
+    if (ready) {
+      refresh();
+      void refreshBoard();
+    }
+  }, [ready, refresh, refreshBoard]);
 
-  const filtered = search ? InventoryService.search(search) : records;
-  const totalItems = records.reduce((s, r) => s + r.quantity, 0);
-  const lowStock = records.filter(r => r.quantity > 0 && r.quantity <= 3).length;
-  const outOfStock = records.filter(r => r.quantity <= 0).length;
+  // Defensive phone-scope on the admin phone grid. Correctness lives at the
+  // service boundary (category==='phone' cache filter); this UI filter is a
+  // defensive layer only — it guards against a future cache regression ever
+  // surfacing a car/property row as a malformed phone card.
+  const phoneRows = records.filter((r) => r.category === undefined || r.category === 'phone');
+  const filtered = search ? InventoryService.search(search).filter((r) => r.category === undefined || r.category === 'phone') : phoneRows;
+  const totalItems = phoneRows.reduce((s, r) => s + r.quantity, 0);
+  const lowStock = phoneRows.filter(r => r.quantity > 0 && r.quantity <= 3).length;
+  const outOfStock = phoneRows.filter(r => r.quantity <= 0).length;
+
+  // Client-side substring filtering mirrors the phone search contract.
+  const visibleCars = search ? board.cars.filter((r) => filterAdminListing(r, search)) : board.cars;
+  const visibleProperties = search ? board.properties.filter((r) => filterAdminListing(r, search)) : board.properties;
+
+  const counts = {
+    all: phoneRows.length + board.cars.length + board.properties.length,
+    phone: phoneRows.length,
+    car: board.cars.length,
+    property: board.properties.length,
+  };
+
+  const handleListingTogglePublish = async (listing: ListingRecord) => {
+    setPending(true);
+    try {
+      await setListingPublished(listing.id, !listing.isPublished);
+      await refreshBoard();
+    } catch (e) {
+      setBoardError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const handleListingDelete = async (id: string) => {
+    setPending(true);
+    try {
+      await deleteListing(id); // SOFT delete (00039)
+      await refreshBoard();
+    } catch (e) {
+      setBoardError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPending(false);
+    }
+  };
 
   const handleEditSave = async (record: InventoryRecord, newQty: number) => {
     const diff = newQty - record.quantity;
@@ -97,24 +171,101 @@ export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
 
       {view === 'dashboard' && (
         <>
-          <InventorySummaryCards colors={colors} totalItems={totalItems} recordsCount={records.length} lowStock={lowStock} outOfStock={outOfStock} />
+          {(categoryFilter === 'all' || categoryFilter === 'phone') && (
+            <InventorySummaryCards colors={colors} totalItems={totalItems} recordsCount={records.length} lowStock={lowStock} outOfStock={outOfStock} />
+          )}
           <InventorySearchBar value={search} onChange={setSearch} colors={colors} />
-          <InventoryTable
-            filtered={filtered}
-            search={search}
-            colors={colors}
-            busy={pending}
-            publishedIds={new Set(records.map(r => r.id).filter(id => InventoryService.isRecordPublished(id)))}
-            onEdit={setEditingRecord}
-            onDelete={handleDelete}
-            onToggleVisibility={handleToggleVisibility}
-            onTogglePublish={handleTogglePublish}
-          />
+          <ListingCategoryFilter value={categoryFilter} onChange={setCategoryFilter} colors={colors} counts={counts} />
+
+          {boardError !== '' && (
+            <div style={{ color: colors.danger, fontSize: '0.78rem', padding: '8px', border: `1px solid ${colors.danger}30`, borderRadius: '8px' }}>
+              ⚠ تعذر تحميل السيارات/العقارات: {boardError}
+            </div>
+          )}
+
+          {categoryFilter === 'all' && (
+            <div style={{ color: colors.textMuted, fontSize: '0.75rem' }}>الهواتف ({filtered.length})</div>
+          )}
+          {(categoryFilter === 'all' || categoryFilter === 'phone') && (
+            <InventoryTable
+              filtered={filtered}
+              search={search}
+              colors={colors}
+              busy={pending}
+              publishedIds={new Set(records.map(r => r.id).filter(id => InventoryService.isRecordPublished(id)))}
+              onEdit={setEditingRecord}
+              onDelete={handleDelete}
+              onToggleVisibility={handleToggleVisibility}
+              onTogglePublish={handleTogglePublish}
+            />
+          )}
+
+          {categoryFilter === 'all' && (
+            <div style={{ color: colors.textMuted, fontSize: '0.75rem', marginTop: '4px' }}>السيارات ({visibleCars.length})</div>
+          )}
+          {(categoryFilter === 'all' || categoryFilter === 'car') && (
+            boardLoading ? (
+              <div style={{ ...styles.textMuted, textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem' }}>جارٍ تحميل السيارات…</div>
+            ) : visibleCars.length === 0 ? (
+              categoryFilter === 'car' && (
+                <div style={{ ...styles.textMuted, textAlign: 'center', padding: '2rem' }}>لا توجد سيارات بعد.</div>
+              )
+            ) : (
+              <div style={{ ...styles.flexCol, gap: 6 }}>
+                {visibleCars.map((listing) => (
+                  <ListingRow
+                    key={listing.id}
+                    record={listing}
+                    colors={colors}
+                    busy={pending}
+                    onEdit={() => setEditingListing(listing)}
+                    onDelete={() => void handleListingDelete(listing.id)}
+                    onTogglePublish={() => void handleListingTogglePublish(listing)}
+                  />
+                ))}
+              </div>
+            )
+          )}
+
+          {categoryFilter === 'all' && (
+            <div style={{ color: colors.textMuted, fontSize: '0.75rem', marginTop: '4px' }}>العقارات ({visibleProperties.length})</div>
+          )}
+          {(categoryFilter === 'all' || categoryFilter === 'property') && (
+            boardLoading ? (
+              <div style={{ ...styles.textMuted, textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem' }}>جارٍ تحميل العقارات…</div>
+            ) : visibleProperties.length === 0 ? (
+              categoryFilter === 'property' && (
+                <div style={{ ...styles.textMuted, textAlign: 'center', padding: '2rem' }}>لا توجد عقارات بعد.</div>
+              )
+            ) : (
+              <div style={{ ...styles.flexCol, gap: 6 }}>
+                {visibleProperties.map((listing) => (
+                  <ListingRow
+                    key={listing.id}
+                    record={listing}
+                    colors={colors}
+                    busy={pending}
+                    onEdit={() => setEditingListing(listing)}
+                    onDelete={() => void handleListingDelete(listing.id)}
+                    onTogglePublish={() => void handleListingTogglePublish(listing)}
+                  />
+                ))}
+              </div>
+            )
+          )}
         </>
       )}
 
       {view === 'add' && (
         <AddInventoryModal colors={colors} onDone={() => { refresh(); setView('dashboard'); }} />
+      )}
+
+      {view === 'add-car' && (
+        <CarListingForm colors={colors} onDone={() => { void refreshBoard(); setView('dashboard'); }} />
+      )}
+
+      {view === 'add-property' && (
+        <PropertyListingForm colors={colors} onDone={() => { void refreshBoard(); setView('dashboard'); }} />
       )}
 
       {view === 'transactions' && (
@@ -133,6 +284,16 @@ export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
 
       {editingRecord && (
         <EditInventoryModal record={editingRecord} colors={colors} busy={pending} onSave={handleEditSave} onClose={() => setEditingRecord(null)} />
+      )}
+
+      {editingListing && (
+        <EditListingModal
+          record={editingListing}
+          colors={colors}
+          busy={pending}
+          onSaved={() => { setEditingListing(null); void refreshBoard(); }}
+          onClose={() => setEditingListing(null)}
+        />
       )}
     </div>
   );

@@ -53,6 +53,8 @@ interface PublicRow {
   city: string | null;
   description: string | null;
   updated_at: string;
+  /** Listing category (P8.3). Absent ⇒ phone row. */
+  category?: string;
 }
 
 /** Raw row of `inventory_management_list()` RPC (admin full read). */
@@ -81,6 +83,8 @@ interface FullRow {
   description: string | null;
   is_published: boolean;
   source_label: string | null;
+  /** Listing category (P8.3). Absent ⇒ phone row. */
+  category?: string;
 }
 
 /** Raw row of `inventory_movements`. */
@@ -139,6 +143,7 @@ function mapPublic(row: PublicRow): InventoryRecord {
     updatedAt: row.updated_at,
     totalPurchased: 0,
     totalSold: 0,
+    category: (row.category ?? 'phone') as 'phone' | 'car' | 'property',
   };
 }
 
@@ -167,6 +172,7 @@ function mapFull(row: FullRow): InventoryRecord {
     description: row.description ?? undefined,
     code: row.code ?? undefined,
     sourceLabel: row.source_label ?? undefined,
+    category: (row.category ?? 'phone') as 'phone' | 'car' | 'property',
   };
 }
 
@@ -232,6 +238,10 @@ async function fetchPublic(): Promise<boolean> {
       return false;
     }
     publicCache = data.map(mapPublic);
+    // Phone-only scope (mirrors migration 00040 in TS): car/property rows live
+    // in the same table but must never surface through the phone-shaped read
+    // model / v_public_inventory-fuelled grids.
+    publicCache = publicCache.filter((r) => r.category === 'phone');
     return true;
   } catch {
     publicCache = [];
@@ -249,6 +259,11 @@ async function fetchAdmin(): Promise<void> {
     publishedIds.clear();
     adminCache = data
       .filter((r: FullRow) => r.status !== 'deleted')
+      // Phone-only admin grid (P8.6): car/property admins go exclusively
+      // through loadAdminListingsBoard / listing_my_listings (00039). This
+      // prevents car/property rows leaking into the phone-shaped admin grid
+      // as malformed phone cards. Absent category = legacy phone row.
+      .filter((r: FullRow) => (r.category ?? 'phone') === 'phone')
       .map((r: FullRow) => {
         if (r.is_published) publishedIds.add(r.id);
         return mapFull(r);

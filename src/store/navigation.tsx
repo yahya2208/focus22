@@ -41,6 +41,7 @@ export type ScreenName =
   | 'sticker-scan'
   | 'showroom'
   | 'phone-details'
+  | 'listing-details'
   | 'design-system-playground'
   | 'catalog-approval'
   | 'challenge-admin'
@@ -53,7 +54,10 @@ export type ScreenName =
   | 'ttt-invite-landing'
   | 'ttt-multiplayer'
   | 'category'
-  | 'admin-categories';
+  | 'admin-categories'
+  | 'cart'
+  | 'checkout'
+  | 'order-confirmation';
 
 export interface SessionRecord {
   readonly id: string;
@@ -157,6 +161,7 @@ export const ALL_SCREEN_NAMES: readonly ScreenName[] = [
   'sticker-scan',
   'showroom',
   'phone-details',
+  'listing-details',
   'design-system-playground',
   'catalog-approval',
   'challenge-admin',
@@ -170,6 +175,9 @@ export const ALL_SCREEN_NAMES: readonly ScreenName[] = [
   'ttt-multiplayer',
   'category',
   'admin-categories',
+  'cart',
+  'checkout',
+  'order-confirmation',
 ];
 
 const SCREEN_NAMES: ReadonlySet<string> = new Set<ScreenName>(ALL_SCREEN_NAMES);
