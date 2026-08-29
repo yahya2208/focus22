@@ -17,9 +17,10 @@ import { ListingCategoryFilter, type CategoryFilter } from '../../components/inv
 import { ListingRow } from '../../components/inventory/listings/ListingRow';
 import { CarListingForm } from '../../components/inventory/listings/CarListingForm';
 import { PropertyListingForm } from '../../components/inventory/listings/PropertyListingForm';
+import { ProduceListingForm } from '../../components/inventory/listings/ProduceListingForm';
 import { EditListingModal } from '../../components/inventory/listings/EditListingModal';
 
-const EMPTY_BOARD: AdminListingsBoard = { phones: [], cars: [], properties: [] };
+const EMPTY_BOARD: AdminListingsBoard = { phones: [], cars: [], properties: [], produce: [] };
 
 export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
   const colors = useThemeColors();
@@ -42,7 +43,7 @@ export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
     setBoardLoading(true);
     try {
       const next = await loadAdminListingsBoard();
-      setBoard({ cars: next.cars, properties: next.properties, phones: next.phones });
+      setBoard({ cars: next.cars, properties: next.properties, phones: next.phones, produce: next.produce });
       setBoardError('');
     } catch (e) {
       // Surfaced in the UI — data errors are never swallowed.
@@ -78,12 +79,14 @@ export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
   // Client-side substring filtering mirrors the phone search contract.
   const visibleCars = search ? board.cars.filter((r) => filterAdminListing(r, search)) : board.cars;
   const visibleProperties = search ? board.properties.filter((r) => filterAdminListing(r, search)) : board.properties;
+  const visibleProduce = search ? board.produce.filter((r) => filterAdminListing(r, search)) : board.produce;
 
   const counts = {
-    all: phoneRows.length + board.cars.length + board.properties.length,
+    all: phoneRows.length + board.cars.length + board.properties.length + board.produce.length,
     phone: phoneRows.length,
     car: board.cars.length,
     property: board.properties.length,
+    produce: board.produce.length,
   };
 
   const handleListingTogglePublish = async (listing: ListingRecord) => {
@@ -253,6 +256,33 @@ export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
               </div>
             )
           )}
+
+          {categoryFilter === 'all' && (
+            <div style={{ color: colors.textMuted, fontSize: '0.75rem', marginTop: '4px' }}>المنتجات ({visibleProduce.length})</div>
+          )}
+          {(categoryFilter === 'all' || categoryFilter === 'produce') && (
+            boardLoading ? (
+              <div style={{ ...styles.textMuted, textAlign: 'center', padding: '0.75rem', fontSize: '0.85rem' }}>جارٍ تحميل المنتجات…</div>
+            ) : visibleProduce.length === 0 ? (
+              categoryFilter === 'produce' && (
+                <div style={{ ...styles.textMuted, textAlign: 'center', padding: '2rem' }}>لا توجد منتجات بعد.</div>
+              )
+            ) : (
+              <div style={{ ...styles.flexCol, gap: 6 }}>
+                {visibleProduce.map((listing) => (
+                  <ListingRow
+                    key={listing.id}
+                    record={listing}
+                    colors={colors}
+                    busy={pending}
+                    onEdit={() => setEditingListing(listing)}
+                    onDelete={() => void handleListingDelete(listing.id)}
+                    onTogglePublish={() => void handleListingTogglePublish(listing)}
+                  />
+                ))}
+              </div>
+            )
+          )}
         </>
       )}
 
@@ -266,6 +296,10 @@ export const CatalogInventoryScreen = memo(function CatalogInventoryScreen() {
 
       {view === 'add-property' && (
         <PropertyListingForm colors={colors} onDone={() => { void refreshBoard(); setView('dashboard'); }} />
+      )}
+
+      {view === 'add-produce' && (
+        <ProduceListingForm colors={colors} onDone={() => { void refreshBoard(); setView('dashboard'); }} />
       )}
 
       {view === 'transactions' && (

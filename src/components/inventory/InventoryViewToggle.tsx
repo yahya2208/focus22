@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import type { ThemeColors } from '../../hooks/useThemeColors';
 
-export type View = 'dashboard' | 'add' | 'add-car' | 'add-property' | 'transactions';
+export type View = 'dashboard' | 'add' | 'add-car' | 'add-property' | 'add-produce' | 'transactions';
 
 interface InventoryViewToggleProps {
   view: View;
@@ -14,6 +14,7 @@ const LABELS: Record<View, string> = {
   add: 'إضافة',
   'add-car': '+ سيارة',
   'add-property': '+ عقار',
+  'add-produce': '+ منتج',
   transactions: 'الحركات',
 };
 

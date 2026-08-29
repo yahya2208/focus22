@@ -18,6 +18,7 @@ import {
   getRequiredListingPresenter,
   listingLabel,
   listingDeepLink,
+  produceUnitLabel,
 } from '../../domains/listings';
 
 const navBtn: React.CSSProperties = {
@@ -96,7 +97,9 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
       ? 'showroom.catCars'
       : record?.category === 'property'
         ? 'showroom.catProperties'
-        : null;
+        : record?.category === 'produce'
+          ? 'showroom.catProduce'
+          : null;
 
   // P8.6/D1: a deep link may point at ANY inventory id. Phones have no
   // presenter yet (P8.7) and must never crash this screen — they degrade to
@@ -105,9 +108,10 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
 
   const presenter = viewRecord ? getRequiredListingPresenter(viewRecord.category) : null;
 
-  // B1 — cars are physically orderable (single-unit sale, server-authoritative
-  // price/stock via 00052); properties are contact/lead ONLY.
-  const orderable = !!viewRecord && viewRecord.category === 'car' && presenter !== null;
+  // B1 — cars and produce are physically orderable (single-unit sale for cars,
+  // whole-unit stock for produce; server-authoritative price/stock via 00052);
+  // properties are contact/lead ONLY.
+  const orderable = !!viewRecord && (viewRecord.category === 'car' || viewRecord.category === 'produce') && presenter !== null;
 
   const handleContact = useCallback(() => {
     if (!viewRecord || !presenter) return;
@@ -129,25 +133,44 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
     setOrderDraft(next);
   }, []);
 
-  // Add-to-cart for cars ONLY (single-unit, sale). Property monthly rentals
-  // never enter the cart — they stay contact/lead-only.
+  // Add-to-cart for orderable domains. Cars: single-unit sale. Produce:
+  // whole-unit sale with real stock, so multiple units are allowed and the
+  // unit travels on the line. Property monthly rentals never enter the cart —
+  // they stay contact/lead-only.
   const handleAddToCart = useCallback(() => {
-    if (!viewRecord || !presenter || viewRecord.category !== 'car') return;
+    if (!viewRecord || !presenter) return;
+    if (viewRecord.category !== 'car' && viewRecord.category !== 'produce') return;
     if (viewRecord.price.period === 'monthly') return;
     const card = presenter.card(viewRecord);
     const firstImage = viewRecord.images[0];
-    cart.addLine({
-      catalogRef: viewRecord.id,
-      domain: 'car',
-      category: 'car',
-      brand: card.title,
-      model: card.subtitle,
-      displayUnitPrice: viewRecord.price.amount,
-      stock: 1,
-      image: firstImage ? listingImageUrl(firstImage) : undefined,
-      pricePeriod: 'sale',
-      quantity: 1,
-    });
+    if (viewRecord.category === 'produce') {
+      cart.addLine({
+        catalogRef: viewRecord.id,
+        domain: 'produce',
+        category: 'produce',
+        brand: card.title,
+        model: card.subtitle,
+        displayUnitPrice: viewRecord.price.amount,
+        stock: viewRecord.quantity,
+        unit: viewRecord.unit ?? undefined,
+        image: firstImage ? listingImageUrl(firstImage) : undefined,
+        pricePeriod: 'sale',
+        quantity: 1,
+      });
+    } else {
+      cart.addLine({
+        catalogRef: viewRecord.id,
+        domain: 'car',
+        category: 'car',
+        brand: card.title,
+        model: card.subtitle,
+        displayUnitPrice: viewRecord.price.amount,
+        stock: 1,
+        image: firstImage ? listingImageUrl(firstImage) : undefined,
+        pricePeriod: 'sale',
+        quantity: 1,
+      });
+    }
     dispatch({ type: 'NAVIGATE', screen: 'cart' });
   }, [viewRecord, presenter, cart, dispatch]);
 
@@ -226,7 +249,11 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
                 {viewRecord.price.amount != null && (
                   <div style={{ color: colors.accent, fontWeight: 800, fontSize: '1.2rem' }}>
                     {viewRecord.price.amount.toLocaleString('en-US')} د.ج
-                    {viewRecord.price.period === 'monthly' ? ' / شهر' : ''}
+                    {viewRecord.unit != null
+                      ? ` / ${produceUnitLabel(viewRecord.unit)}`
+                      : viewRecord.price.period === 'monthly'
+                        ? ' / شهر'
+                        : ''}
                   </div>
                 )}
                 {viewRecord.price.amount == null && (

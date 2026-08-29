@@ -10,9 +10,12 @@ import {
   PROPERTY_TRANSACTION_TYPES,
   PROPERTY_TYPE_AR,
   PROPERTY_TYPE_VALUES,
+  PRODUCE_UNIT_VALUES,
+  UNIT_AR,
   isCarListing,
+  isProduceListing,
 } from '../../../domains/listings';
-import type { ListingRecord } from '../../../domains/listings';
+import type { ListingRecord, ProduceDetails, ProduceUnit } from '../../../domains/listings';
 import { updateListingCore, updateListingDetails } from '../../../services/listing-service';
 
 const CAR_FUEL_AR: Record<string, string> = {
@@ -35,8 +38,10 @@ interface EditListingModalProps {
 
 export const EditListingModal = memo(function EditListingModal({ record, colors, busy = false, onSaved, onClose }: EditListingModalProps) {
   const isCar = isCarListing(record);
+  const isProduce = isProduceListing(record);
   const pd = record.propertyDetails;
   const car = record.car;
+  const produce = record.produce;
 
   const [brand, setBrand] = useState(record.brand);
   const [model, setModel] = useState(record.model);
@@ -44,6 +49,11 @@ export const EditListingModal = memo(function EditListingModal({ record, colors,
   const [pricePeriod, setPricePeriod] = useState(record.price.period);
   const [city, setCity] = useState(record.city);
   const [description, setDescription] = useState(record.description);
+
+  // Produce patches (merge contract: empty stays unchanged).
+  const [unit, setUnit] = useState('');
+  const [origin, setOrigin] = useState('');
+  const [grade, setGrade] = useState('');
 
   // Details patches start EMPTY — omitted keys keep stored values (merge contract).
   const [trim, setTrim] = useState('');
@@ -140,6 +150,18 @@ export const EditListingModal = memo(function EditListingModal({ record, colors,
         if (furnished === 'yes' || furnished === 'no') details.furnished = furnished === 'yes';
         if (propCondition !== '') details.conditionState = propCondition;
         if (Object.keys(details).length > 0) await updateListingDetails(record.id, details);
+      } else if (isProduce) {
+        const details: Record<string, unknown> = {};
+        if (unit !== '') details.unit = unit as ProduceUnit;
+        if (origin.trim() !== '') details.origin = origin.trim();
+        if (grade !== '') details.grade = grade;
+        if (typeof details.unit === 'string') {
+          await updateListingCore(record.id, { unit: details.unit as ProduceUnit });
+        }
+        const producePatch: Partial<ProduceDetails> = {};
+        if (typeof details.origin === 'string') producePatch.origin = details.origin;
+        if (typeof details.grade === 'string') producePatch.grade = details.grade;
+        if (Object.keys(producePatch).length > 0) await updateListingDetails(record.id, producePatch);
       }
       onSaved();
     } catch (e) {
@@ -160,14 +182,14 @@ export const EditListingModal = memo(function EditListingModal({ record, colors,
         borderRadius: '12px', padding: '20px', width: '360px', maxHeight: '90vh', overflowY: 'auto',
       }} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ color: colors.text, fontSize: '0.9rem', margin: '0 0 4px' }}>
-          تعديل {isCar ? 'السيارة' : 'العقار'} — {record.model}
+          تعديل {isCar ? 'السيارة' : isProduce ? 'المنتج' : 'العقار'} — {record.model}
         </h3>
         <div style={{ color: colors.textMuted, fontSize: '0.7rem', marginBottom: '12px' }}>
           الحقول المعبأة فقط تُحدَّث؛ الفراغات تبقى كما هي.
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          {field(isCar ? 'الماركة' : 'المطوّر', <input value={brand} onChange={(e) => setBrand(e.target.value)} style={inputStyle()} />)}
-          {field(isCar ? 'الموديل' : 'العنوان', <input value={model} onChange={(e) => setModel(e.target.value)} style={inputStyle()} />)}
+          {field(isCar ? 'الماركة' : isProduce ? 'المنشأ' : 'المطوّر', <input value={brand} onChange={(e) => setBrand(e.target.value)} style={inputStyle()} />)}
+          {field(isCar ? 'الموديل' : isProduce ? 'اسم المنتج' : 'العنوان', <input value={model} onChange={(e) => setModel(e.target.value)} style={inputStyle()} />)}
           {field('السعر (د.ج)', <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} style={inputStyle()} />)}
           {field(
             'فترة السعر',
@@ -212,6 +234,17 @@ export const EditListingModal = memo(function EditListingModal({ record, colors,
                   {CAR_CONDITION_STATES.map((v) => <option key={v} value={v}>{CAR_COND_AR[v]}</option>)}
                 </select>
               ))}
+            </>
+          ) : isProduce ? (
+            <>
+              {field('الوحدة', (
+                <select value={unit} onChange={(e) => setUnit(e.target.value)} style={inputStyle()}>
+                  <option value="">(إبقاء)</option>
+                  {PRODUCE_UNIT_VALUES.map((v) => <option key={v} value={v}>{UNIT_AR[v]}</option>)}
+                </select>
+              ))}
+              {field('المنشأ الجديد', <input value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder={produce?.origin || ''} style={inputStyle()} />)}
+              {field('الجودة الجديدة', <input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder={produce?.grade || ''} style={inputStyle()} />)}
             </>
           ) : (
             <>

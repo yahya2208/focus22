@@ -7,6 +7,7 @@ import { Card } from '../../design-system/components/Card';
 import { Button } from '../../design-system/components/Button';
 import { Flex } from '../../design-system/components/Flex';
 import { useCart } from '../../core/cart/CartContext';
+import { produceUnitLabel } from '../../domains/listings';
 
 /** Marketplace cart — multi-item. Display values are UX-only; the server is authoritative. */
 export const CartScreen = memo(function CartScreen() {
@@ -24,6 +25,7 @@ export const CartScreen = memo(function CartScreen() {
     const fn = (d: string) => {
       if (d === 'property') return t('categoryProducts.domain.property');
       if (d === 'car') return t('categoryProducts.domain.car');
+      if (d === 'produce') return t('categoryProducts.domain.produce');
       return t('categoryProducts.domain.phone');
     };
     return fn;
@@ -93,7 +95,7 @@ export const CartScreen = memo(function CartScreen() {
                   />
                 ) : (
                   <span style={{ fontSize: '1.6rem', width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {line.category === 'car' ? '🚗' : line.category === 'property' ? '🏠' : '📱'}
+                    {line.category === 'car' ? '🚗' : line.category === 'property' ? '🏠' : line.category === 'produce' ? '🥦' : '📱'}
                   </span>
                 )}
                 <div style={{ minWidth: 0, flex: 1 }} dir={dirStyle.direction}>
@@ -102,7 +104,11 @@ export const CartScreen = memo(function CartScreen() {
                   {line.displayUnitPrice != null && (
                     <div style={{ color: colors.accent, fontWeight: 700, fontSize: '0.82rem', marginTop: '0.2rem', fontVariantNumeric: 'tabular-nums' }}>
                       {line.displayUnitPrice.toLocaleString(locale === 'ar' ? 'ar-DZ' : 'en-US')} د.ج
-                      {line.pricePeriod === 'monthly' ? ' / شهر' : ''}
+                      {line.unit != null
+                        ? ` / ${produceUnitLabel(line.unit)}`
+                        : line.pricePeriod === 'monthly'
+                          ? ' / شهر'
+                          : ''}
                     </div>
                   )}
                 </div>

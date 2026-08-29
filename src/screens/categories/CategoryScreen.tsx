@@ -191,7 +191,7 @@ export const CategoryScreen = memo(function CategoryScreen() {
             .filter((d): d is InventoryRecord => !!d),
         );
 
-        const listingMembers = rows.filter((m) => m.domain === 'car' || m.domain === 'property');
+        const listingMembers = rows.filter((m) => m.domain === 'car' || m.domain === 'property' || m.domain === 'produce');
         const cards: PublicListingCardModel[] = [];
         for (const m of listingMembers) {
           try {

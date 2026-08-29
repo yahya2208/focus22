@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import type { ThemeColors } from '../../../hooks/useThemeColors';
 
-export type CategoryFilter = 'all' | 'phone' | 'car' | 'property';
+export type CategoryFilter = 'all' | 'phone' | 'car' | 'property' | 'produce';
 
 interface ListingCategoryFilterProps {
   value: CategoryFilter;
@@ -15,6 +15,7 @@ const OPTIONS: { key: CategoryFilter; label: string }[] = [
   { key: 'phone', label: 'الهواتف' },
   { key: 'car', label: 'السيارات' },
   { key: 'property', label: 'العقارات' },
+  { key: 'produce', label: 'المنتجات' },
 ];
 
 export const ListingCategoryFilter = memo(function ListingCategoryFilter({ value, onChange, colors, counts }: ListingCategoryFilterProps) {

@@ -60,19 +60,21 @@ export function toOrderable(device: {
   };
 }
 
-/** Car/property ListingRecord → orderable product (quantity is 1 by contract). */
+/** Car/property/produce ListingRecord → orderable product. Cars/properties
+ * are exactly one unit by contract; produce carries its real whole-unit stock. */
 export function toListingOrderable(listing: {
   id: string;
   brand: string;
   model: string;
   price: { amount: number | null };
+  quantity: number;
 }): OrderableProduct {
   return {
     id: listing.id,
     brand: listing.brand,
     model: listing.model,
     unitPrice: listing.price.amount,
-    stock: 1,
+    stock: listing.quantity,
   };
 }
 

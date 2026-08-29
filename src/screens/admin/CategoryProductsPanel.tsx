@@ -26,7 +26,7 @@ import { getCategoryLabel } from '../../services/categories-service';
 
 type DomainFilter = CategoryProductDomain | 'all';
 
-const DOMAIN_FILTERS: DomainFilter[] = ['all', 'phone', 'car', 'property'];
+const DOMAIN_FILTERS: DomainFilter[] = ['all', 'phone', 'car', 'property', 'produce'];
 
 function memberLabel(member: CategoryMemberAdmin): string {
   const parts = [member.brand, member.model].filter((s) => s && s.trim() !== '');
@@ -85,7 +85,7 @@ export const CategoryProductsPanel = memo(function CategoryProductsPanel({
     setCandidatesLoading(true);
     try {
       const board = await loadAdminListingsBoard();
-      setCandidates([...board.phones, ...board.cars, ...board.properties]);
+      setCandidates([...board.phones, ...board.cars, ...board.properties, ...board.produce]);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -321,7 +321,9 @@ export const CategoryProductsPanel = memo(function CategoryProductsPanel({
                         ? t('categoryProducts.domain.phone')
                         : d === 'car'
                           ? t('categoryProducts.domain.car')
-                          : t('categoryProducts.domain.property'),
+                          : d === 'property'
+                            ? t('categoryProducts.domain.property')
+                            : t('categoryProducts.domain.produce'),
                   }))}
                 />
               </Flex>

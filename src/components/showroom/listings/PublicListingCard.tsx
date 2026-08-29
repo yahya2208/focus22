@@ -2,7 +2,7 @@ import { memo, useState } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { listingImageUrl } from '../../../services/listing-service';
-import { listingLabel } from '../../../domains/listings';
+import { listingLabel, produceUnitLabel } from '../../../domains/listings';
 import type { PublicListingCardModel } from '../../../domains/listings';
 
 export interface PublicListingCardProps {
@@ -29,10 +29,19 @@ export const PublicListingCard = memo(function PublicListingCard({
   // broken <img>. Tracked per-URL so a re-fetched cover retries the image.
   const [failedSrc, setFailedSrc] = useState('');
   const showCover = coverUrl !== '' && failedSrc !== coverUrl;
-  const monthlySuffix = model.pricePeriod === 'monthly' ? ' / شهر' : '';
 
-  const categoryLabelKey =
-    model.category === 'car' ? 'showroom.catCars' : 'showroom.catProperties';
+  const categoryLabelKey = model.category === 'car'
+    ? 'showroom.catCars'
+    : model.category === 'property'
+      ? 'showroom.catProperties'
+      : 'showroom.catProduce';
+
+  const unitSuffix =
+    model.unit != null
+      ? ` / ${produceUnitLabel(model.unit)}`
+      : model.pricePeriod === 'monthly'
+        ? ' / شهر'
+        : '';
 
   return (
     <button
@@ -85,7 +94,7 @@ export const PublicListingCard = memo(function PublicListingCard({
               fontSize: '2.2rem',
             }}
           >
-            {model.category === 'car' ? '🚗' : '🏠'}
+            {model.category === 'car' ? '🚗' : model.category === 'produce' ? '🥦' : '🏠'}
           </div>
         )}
         <span
@@ -145,7 +154,7 @@ export const PublicListingCard = memo(function PublicListingCard({
       >
         {model.price != null ? (
           <span style={{ color: colors.accent, fontWeight: 800, fontSize: '0.9rem' }}>
-            {model.price.toLocaleString('en-US')} د.ج{monthlySuffix}
+            {model.price.toLocaleString('en-US')} د.ج{unitSuffix}
           </span>
         ) : (
           <span style={{ color: colors.textMuted, fontWeight: 700, fontSize: '0.78rem' }}>
