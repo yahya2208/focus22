@@ -157,7 +157,7 @@ describe('P8.5 toPublicCardModel — presenter semantics pass through untouched'
     // A phone-style variant string is not even representable on a car record;
     // the shape lock proves the decorator invents nothing beyond its contract.
     expect(Object.keys(m).sort()).toEqual(
-      ['category', 'chips', 'city', 'deepLink', 'image', 'price', 'priceLabelKey', 'pricePeriod', 'subtitle', 'title'],
+      ['category', 'chips', 'city', 'deepLink', 'image', 'price', 'priceLabelKey', 'pricePeriod', 'subtitle', 'title', 'unit'],
     );
     // And every chip value traces to a presenter labelKey — nothing anonymous.
     expect(m.chips.every((c) => c.labelKey.startsWith('listings.car.'))).toBe(true);

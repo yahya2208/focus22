@@ -26,7 +26,7 @@ const MOCK = vi.hoisted(() => {
   const setActive = vi.fn(async (_categoryId: string, _productId: string, _active: boolean): Promise<void> => {});
   const setFeatured = vi.fn(async (_categoryId: string, _productId: string, _featured: boolean): Promise<void> => {});
   const reorder = vi.fn(async (_categoryId: string, _items: unknown[]): Promise<void> => {});
-  const loadBoard = vi.fn(async (): Promise<AdminListingsBoard> => ({ phones: [], cars: [], properties: [] }));
+  const loadBoard = vi.fn(async (): Promise<AdminListingsBoard> => ({ phones: [], cars: [], properties: [], produce: [] }));
   const getLabel = () => 'Phones';
   return { list, assign, remove, setActive, setFeatured, reorder, loadBoard, getLabel };
 });
@@ -68,7 +68,7 @@ describe('CategoryProductsPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     MOCK.list.mockResolvedValue([]);
-    MOCK.loadBoard.mockResolvedValue({ phones: [], cars: [], properties: [] });
+    MOCK.loadBoard.mockResolvedValue({ phones: [], cars: [], properties: [], produce: [] });
   });
 
   it('lists assigned members with their label and domain', async () => {
@@ -112,7 +112,7 @@ describe('CategoryProductsPanel', () => {
       conditionGroup: null, quantity: 1, status: 'in_stock', isPublished: true, images: [],
       createdAt: '', updatedAt: '',
     };
-    MOCK.loadBoard.mockResolvedValue({ phones: [phoneCandidate], cars: [], properties: [] });
+    MOCK.loadBoard.mockResolvedValue({ phones: [phoneCandidate], cars: [], properties: [], produce: [] });
     renderPanel();
     await screen.findByText('categoryProducts.noProducts');
     fireEvent.click(screen.getByText(/categoryProducts\.assign/));

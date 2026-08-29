@@ -206,6 +206,8 @@ describe('P8.6 public projection leak-proof', () => {
       'phone_variant',
       'price',
       'price_period',
+      'produce_grade',
+      'produce_origin',
       'property_area_m2',
       'property_bathrooms',
       'property_bedrooms',
@@ -217,6 +219,7 @@ describe('P8.6 public projection leak-proof', () => {
       'quantity',
       'status',
       'transaction_type',
+      'unit',
       'updated_at',
       'warranty',
     ]);

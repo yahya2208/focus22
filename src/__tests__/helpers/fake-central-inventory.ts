@@ -62,6 +62,10 @@ export interface FakeInventoryRow {
   car_details?: Record<string, unknown> | null;
   /** Normalized snake-key property details (mirrors public.property_details). */
   property_details?: Record<string, unknown> | null;
+  /** Sales/pricing unit for produce (piece|kg|g|liter|dozen|bag). */
+  unit?: string | null;
+  /** Normalized snake-key produce details (mirrors public.produce_details). */
+  produce_details?: Record<string, unknown> | null;
 }
 
 export interface FakeMovementRow {
@@ -182,6 +186,10 @@ function nowIso(): string {
 
 const CAR_DETAIL_KEYS = ['trim', 'year', 'mileageKm', 'mileage_km', 'fuel', 'transmission', 'bodyType', 'body_type', 'engineCc', 'engine_cc', 'conditionState', 'condition_state'];
 const PROPERTY_DETAIL_KEYS = ['propertyType', 'property_type', 'transactionType', 'transaction_type', 'district', 'areaM2', 'area_m2', 'bedrooms', 'bathrooms', 'floor', 'furnished', 'conditionState', 'condition_state'];
+const PRODUCE_DETAIL_KEYS = ['origin', 'grade'];
+
+/** Mirrors the produce_units CHECK constraint in migration 00053. */
+const PRODUCE_UNIT_VALUES = ['piece', 'kg', 'g', 'liter', 'dozen', 'bag']; 
 
 function reject(msg: string): never {
   throw new Error(msg);
@@ -281,6 +289,16 @@ export function normalizePropertyPayload(raw: Record<string, unknown>): Record<s
   };
 }
 
+export function normalizeProducePayload(raw: Record<string, unknown>): Record<string, unknown> {
+  for (const k of Object.keys(raw)) {
+    if (!PRODUCE_DETAIL_KEYS.includes(k)) reject(`listing details: unknown produce key "${k}"`);
+  }
+  return {
+    origin: String(raw.origin ?? ''),
+    grade: String(raw.grade ?? ''),
+  };
+}
+
 export function assertPublishable(
   category: string,
   price: number | null | undefined,
@@ -339,6 +357,9 @@ export interface FakePublicListingRow {
   property_floor: number | null;
   property_furnished: boolean | null;
   property_condition_state: string | null;
+  unit: string | null;
+  produce_origin: string | null;
+  produce_grade: string | null;
   images: string[];
   created_at: string;
   updated_at: string;
@@ -356,6 +377,7 @@ export type FakeAdminListingRow = FakePublicListingRow & { is_published: boolean
 function projectListingRow(r: FakeInventoryRow, imagePaths: string[]): FakePublicListingRow {
   const cd = (r.car_details ?? {}) as Record<string, unknown>;
   const pd = (r.property_details ?? {}) as Record<string, unknown>;
+  const prd = (r.produce_details ?? {}) as Record<string, unknown>;
   return {
     id: r.id,
     category: r.category ?? 'phone',
@@ -392,6 +414,9 @@ function projectListingRow(r: FakeInventoryRow, imagePaths: string[]): FakePubli
     property_floor: (pd.floor as number) ?? null,
     property_furnished: (pd.furnished as boolean) ?? null,
     property_condition_state: (pd.condition_state as string) ?? null,
+    unit: r.unit ?? null,
+    produce_origin: (prd.origin as string) ?? null,
+    produce_grade: (prd.grade as string) ?? null,
     images: imagePaths,
     created_at: r.created_at,
     updated_at: r.updated_at,
@@ -675,21 +700,32 @@ class FakeCentralDb {
     if (!this.adminMode) reject('admin role required');
     const category = String(args.p_category ?? '');
     if (category === 'phone') reject('phones must use the legacy inventory_add_item flow');
-    if (!['car', 'property'].includes(category)) reject(`unknown category "${category}": use car|property`);
+    if (!['car', 'property', 'produce'].includes(category)) reject(`unknown category "${category}": use car|property|produce`);
 
     const brand = String(args.p_brand ?? '').trim();
     const model = String(args.p_model ?? '').trim();
     // Brand is the car Make (required); property keeps an optional developer.
     if (category === 'car') {
       if (brand === '' || model === '') reject('car make and model are required');
+    } else if (category === 'property') {
+      if (model === '') reject('property listing title is required');
     } else if (model === '') {
-      reject('property listing title is required');
+      reject('produce product name is required');
     }
 
     const period = String(args.p_price_period ?? 'sale');
     if (!['sale', 'monthly'].includes(period)) reject(`invalid price_period "${period}" (sale|monthly)`);
     const quantity = Number(args.p_quantity ?? 1);
-    if (quantity !== 1) reject('quantity must be exactly 1 for car/property listings');
+    if (category === 'produce') {
+      // Unit is a first-class produce column, not a detail.
+      const unit = args.p_unit != null && String(args.p_unit) !== '' ? String(args.p_unit) : '';
+      if (!PRODUCE_UNIT_VALUES.includes(unit)) reject(`invalid unit "${unit}": use piece|kg|g|liter|dozen|bag`);
+      if (quantity == null || Number.isNaN(quantity) || quantity < 1 || !Number.isInteger(quantity)) {
+        reject('quantity must be >= 1 for produce listings');
+      }
+    } else if (quantity !== 1) {
+      reject('quantity must be exactly 1 for car/property listings');
+    }
     const price = args.p_price != null ? Number(args.p_price) : null;
 
     const rawDetails = args.p_details;
@@ -700,7 +736,7 @@ class FakeCentralDb {
     if (category === 'car') {
       if (period !== 'sale') reject('car listings pair with price_period=sale');
       payload = normalizeCarPayload(rawDetails as Record<string, unknown>);
-    } else {
+    } else if (category === 'property') {
       payload = normalizePropertyPayload(rawDetails as Record<string, unknown>);
       if (payload.transaction_type === 'rent' && period !== 'monthly') {
         reject('rental property pairs with price_period=monthly');
@@ -708,6 +744,8 @@ class FakeCentralDb {
       if (payload.transaction_type === 'sale' && period !== 'sale') {
         reject('for-sale property pairs with price_period=sale');
       }
+    } else {
+      payload = normalizeProducePayload(rawDetails as Record<string, unknown>);
     }
 
     const isPublished = Boolean(args.p_is_published);
@@ -743,6 +781,8 @@ class FakeCentralDb {
       price_period: period,
       car_details: category === 'car' ? payload : null,
       property_details: category === 'property' ? payload : null,
+      unit: category === 'produce' ? String(args.p_unit ?? '') : null,
+      produce_details: category === 'produce' ? payload : null,
     };
     this.rows.push(row);
     this.movement(row, 'created', quantity);
@@ -754,7 +794,7 @@ class FakeCentralDb {
     const key = String(id ?? '');
     const row = this.find(key);
     if (!row) reject(`listing ${key} not found`);
-    if (!['car', 'property'].includes(row.category ?? '')) {
+    if (!['car', 'property', 'produce'].includes(row.category ?? '')) {
       reject(`${caller} targets car/property listings only`);
     }
     return row;
@@ -771,17 +811,28 @@ class FakeCentralDb {
     // Brand is mandatory only for cars; property keeps its optional developer.
     if (row.category === 'car') {
       if (newBrand === '' || newModel === '') reject('car make and model are required');
+    } else if (row.category === 'property') {
+      if (newModel === '') reject('property listing title is required');
     } else if (newModel === '') {
-      reject('property listing title is required');
+      reject('produce product name is required');
     }
     if (newPeriod !== 'sale' && newPeriod !== 'monthly') reject('invalid price_period');
+    if (row.category === 'produce' && newPeriod !== 'sale') reject('produce listings pair with price_period=sale');
     const payload = (row.category === 'car'
       ? row.car_details
-      : row.property_details) as Record<string, unknown> ?? {};
+      : row.category === 'property'
+        ? row.property_details
+        : row.produce_details) as Record<string, unknown> ?? {};
     if (row.category === 'car' && newPeriod !== 'sale') reject('car listings pair with price_period=sale');
     if (row.category === 'property') {
       if (payload.transaction_type === 'rent' && newPeriod !== 'monthly') reject('rental property pairs with price_period=monthly');
       if (payload.transaction_type === 'sale' && newPeriod !== 'sale') reject('for-sale property pairs with price_period=sale');
+    }
+    for (const k of ['p_unit']) {
+      if (args[k] != null && String(args[k]) !== '' && row.category === 'produce') {
+        const unit = String(args[k]);
+        if (!PRODUCE_UNIT_VALUES.includes(unit)) reject(`invalid unit "${unit}": use piece|kg|g|liter|dozen|bag`);
+      }
     }
     // Validate BEFORE mutating (mirrors single-statement atomicity in Postgres).
     if (row.is_published) assertPublishable(row.category ?? 'car', newPrice, newCity, payload);
@@ -791,6 +842,9 @@ class FakeCentralDb {
     row.model = newModel;
     row.sell_price = newPrice;
     row.price_period = newPeriod;
+    if (row.category === 'produce') {
+      if (args.p_unit != null && String(args.p_unit) !== '') row.unit = String(args.p_unit);
+    }
     if (args.p_color != null) row.color = String(args.p_color);
     row.city = newCity !== '' ? newCity : null;
     if (args.p_description != null) row.description = String(args.p_description);
@@ -814,6 +868,10 @@ class FakeCentralDb {
       // Validate BEFORE mutating (mirrors single-statement atomicity).
       if (row.is_published) assertPublishable('car', row.sell_price, row.city, merged);
       row.car_details = merged;
+    } else if (row.category === 'produce') {
+      const merged = normalizeProducePayload({ ...(row.produce_details ?? {}), ...patch });
+      if (row.is_published) assertPublishable('produce', row.sell_price, row.city, merged);
+      row.produce_details = merged;
     } else {
       const merged = normalizePropertyPayload({ ...(row.property_details ?? {}), ...patch });
       if (row.is_published) assertPublishable('property', row.sell_price, row.city, merged);
@@ -840,8 +898,8 @@ class FakeCentralDb {
     if (!this.adminMode) reject('admin role required');
     const category = String(args.p_category ?? '');
     if (category === 'phone') reject('phones are managed through inventory_management_list');
-    if (!['car', 'property'].includes(category)) {
-      reject(`unknown category "${category}": use car|property`);
+    if (!['car', 'property', 'produce'].includes(category)) {
+      reject(`unknown category "${category}": use car|property|produce`);
     }
     const items = this.rows
       .filter((r) => (r.category ?? 'phone') === category && r.status !== 'deleted')
@@ -864,8 +922,8 @@ class FakeCentralDb {
 
   listingSearch(args: Record<string, unknown>): { total: number; items: FakePublicListingRow[] } {
     const category = String(args.p_category ?? '');
-    if (!['phone', 'car', 'property'].includes(category)) {
-      reject(`unknown category "${category}" (phone|car|property)`);
+    if (!['phone', 'car', 'property', 'produce'].includes(category)) {
+      reject(`unknown category "${category}" (phone|car|property|produce)`);
     }
     const sort = String(args.p_sort ?? 'latest');
     if (!['latest', 'cheapest', 'expensive'].includes(sort)) {
@@ -900,6 +958,12 @@ class FakeCentralDb {
       if (filters.transactionType != null && !(PROPERTY_TRANSACTION_TYPES as readonly string[]).includes(String(filters.transactionType))) {
         reject(`invalid transactionType filter "${String(filters.transactionType)}"`);
       }
+    } else if (category === 'produce') {
+      for (const k of Object.keys(filters)) {
+        if (!['origin', 'grade'].includes(k)) {
+          reject(`unknown produce filter "${k}"`);
+        }
+      }
     } else if (Object.keys(filters).length > 0) {
       reject('phone search takes no filters');
     }
@@ -912,7 +976,7 @@ class FakeCentralDb {
       if (query === '') return true;
       const haystack = [
         r.brand, r.model, r.city ?? '', r.code ?? '',
-        r.car_trim ?? '', r.property_district ?? '',
+        r.car_trim ?? '', r.property_district ?? '', r.produce_origin ?? '',
       ].join(' ').toLowerCase();
       return haystack.includes(query);
     };
@@ -930,6 +994,8 @@ class FakeCentralDb {
       if (filters.areaM2Min != null && (r.property_area_m2 ?? NaN) < Number(filters.areaM2Min)) return false;
       if (filters.areaM2Max != null && (r.property_area_m2 ?? Infinity) > Number(filters.areaM2Max)) return false;
       if (filters.furnished != null && r.property_furnished !== filters.furnished) return false;
+      if (filters.origin != null && r.produce_origin !== filters.origin) return false;
+      if (filters.grade != null && r.produce_grade !== filters.grade) return false;
       return true;
     };
 

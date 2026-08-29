@@ -4,6 +4,7 @@ import {
   isPhoneListing,
   isCarListing,
   isPropertyListing,
+  isProduceListing,
   LISTING_FILTER_SCHEMAS,
   registerListingPresenter,
   getListingPresenter,
@@ -14,6 +15,7 @@ import {
   type ListingRecord,
   type CarDetails,
   type PropertyDetails,
+  type ProduceDetails,
   type ListingPresenter,
   type ListingCategory,
 } from '../../domains/listings';
@@ -41,6 +43,11 @@ const propertyDetails: PropertyDetails = {
   floor: 4,
   furnished: true,
   conditionState: 'good',
+};
+
+const produceDetails: ProduceDetails = {
+  origin: 'M\'Sila',
+  grade: 'A',
 };
 
 function makeListing(overrides: Partial<ListingRecord> = {}): ListingRecord {
@@ -99,6 +106,7 @@ describe('listings domain — types & guards', () => {
     expect(isPhoneListing(phone)).toBe(true);
     expect(isCarListing(phone)).toBe(false);
     expect(isPropertyListing(phone)).toBe(false);
+    expect(isProduceListing(phone)).toBe(false);
 
     // Category 'car' WITHOUT details must not pass the strict guard.
     const brokenCar = makeListing({ category: 'car' });
@@ -116,6 +124,14 @@ describe('listings domain — types & guards', () => {
       propertyDetails,
     });
     expect(isPropertyListing(property)).toBe(true);
+
+    // Produce requires both category 'produce' AND produce details.
+    const brokenProduce = makeListing({ category: 'produce' });
+    expect(isProduceListing(brokenProduce)).toBe(false);
+
+    const produce = makeListing({ category: 'produce', produce: produceDetails, unit: 'kg' });
+    expect(isProduceListing(produce)).toBe(true);
+    expect(isPropertyListing(produce)).toBe(false);
   });
 
   it('keeps rent expressible without any second money column', () => {
@@ -132,10 +148,11 @@ describe('listings domain — types & guards', () => {
 // ── Filter schemas ──────────────────────────────────────────────────────────
 
 describe('listings domain — filter schemas', () => {
-  it('covers exactly the three approved categories', () => {
+  it('covers exactly the four approved categories', () => {
     expect(Object.keys(LISTING_FILTER_SCHEMAS).sort()).toEqual([
       'car',
       'phone',
+      'produce',
       'property',
     ]);
   });
@@ -144,7 +161,7 @@ describe('listings domain — filter schemas', () => {
     expect(LISTING_FILTER_SCHEMAS.phone.fields).toHaveLength(0);
   });
 
-  it.each(['car', 'property'] as const)(
+  it.each(['car', 'property', 'produce'] as const)(
     '%s schema fields are structurally valid',
     (category) => {
       const { fields } = LISTING_FILTER_SCHEMAS[category];
