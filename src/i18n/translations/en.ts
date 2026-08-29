@@ -1001,6 +1001,7 @@ const en = {
   'showroom.catPhones': 'Phones',
   'showroom.catCars': 'Cars',
   'showroom.catProperties': 'Properties',
+  'showroom.catProduce': 'Produce',
 
   // Phone Details (Product Details sales page — Phase 3B)
   'phoneDetails.title': 'Phone Details',
@@ -1373,6 +1374,7 @@ const en = {
   'categoryProducts.domain.phone': 'Phone',
   'categoryProducts.domain.car': 'Car',
   'categoryProducts.domain.property': 'Property',
+  'categoryProducts.domain.produce': 'Produce',
 
   'delivery.pill': 'Delivery available',
   'delivery.estimate': 'Estimated {min}–{max} min',

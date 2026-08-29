@@ -7,7 +7,7 @@
  * categories and a category may hold many products.
  */
 
-export type CategoryProductDomain = 'phone' | 'car' | 'property';
+export type CategoryProductDomain = 'phone' | 'car' | 'property' | 'produce';
 
 /** Public, visible member row returned by category_products_for_category. */
 export interface CategoryMember {
@@ -65,7 +65,7 @@ export interface CategoryMemberAdminRow extends CategoryMemberRow {
 }
 
 export function isCategoryProductDomain(value: string | undefined | null): value is CategoryProductDomain {
-  return value === 'phone' || value === 'car' || value === 'property';
+  return value === 'phone' || value === 'car' || value === 'property' || value === 'produce';
 }
 
 export function normalizeCategoryMember(row: CategoryMemberRow): CategoryMember {

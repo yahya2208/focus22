@@ -981,6 +981,7 @@ const tr: Record<TranslationKey, string> = {
   'showroom.catPhones': 'Telefonlar',
   'showroom.catCars': 'Arabalar',
   'showroom.catProperties': 'Emlak',
+  'showroom.catProduce': 'Ürünler',
 
   // Phone Details (Product Details sales page — Phase 3B)
   'phoneDetails.title': 'Telefon Detayları',
@@ -1353,6 +1354,7 @@ const tr: Record<TranslationKey, string> = {
   'categoryProducts.domain.phone': 'Telefon',
   'categoryProducts.domain.car': 'Araba',
   'categoryProducts.domain.property': 'Emlak',
+  'categoryProducts.domain.produce': 'Ürün',
 
   'delivery.pill': 'Teslimat mevcut',
   'delivery.estimate': 'Tahmini {min}–{max} dk',

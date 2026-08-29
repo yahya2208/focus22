@@ -9,7 +9,7 @@ import type { InventoryRecord } from '../services/inventory-service';
 export type ShowroomConditionFilter = 'all' | 'new' | 'used';
 export type ShowroomSort = 'latest' | 'cheapest' | 'expensive';
 /** P8.5 — public showroom category. 'phone' is the untouched default. */
-export type ShowroomCategory = 'phone' | 'car' | 'property';
+export type ShowroomCategory = 'phone' | 'car' | 'property' | 'produce';
 
 export interface ShowroomUiState {
   scrollY: number;

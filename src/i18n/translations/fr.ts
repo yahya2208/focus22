@@ -453,6 +453,7 @@ const fr: Record<string, string> = {
   'showroom.catPhones': 'Téléphones',
   'showroom.catCars': 'Voitures',
   'showroom.catProperties': 'Immobilier',
+  'showroom.catProduce': 'Produits',
 
   // Phone Details (Product Details sales page — Phase 3B)
   'phoneDetails.title': 'Détails du téléphone',
@@ -664,6 +665,7 @@ const fr: Record<string, string> = {
   'categoryProducts.domain.phone': 'Téléphone',
   'categoryProducts.domain.car': 'Voiture',
   'categoryProducts.domain.property': 'Immobilier',
+  'categoryProducts.domain.produce': 'Produit',
 
   'delivery.pill': 'Livraison disponible',
   'delivery.estimate': 'Livraison estimée {min}–{max} min',

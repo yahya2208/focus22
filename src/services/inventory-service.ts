@@ -81,7 +81,7 @@ export interface InventoryRecord {
    * so car/property rows never surface through the phone-shaped inventory
    * grid / InventoryService adapter.
    */
-  category?: 'phone' | 'car' | 'property';
+  category?: 'phone' | 'car' | 'property' | 'produce';
 }
 
 export type TimelineEventType =

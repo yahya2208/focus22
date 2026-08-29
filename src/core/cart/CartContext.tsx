@@ -10,7 +10,7 @@
  */
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
-export type CartDomain = 'phone' | 'car' | 'property';
+export type CartDomain = 'phone' | 'car' | 'property' | 'produce';
 export type CartPricePeriod = 'sale' | 'monthly';
 
 export interface CartLine {
@@ -20,14 +20,15 @@ export interface CartLine {
   readonly catalogRef: string;
   readonly categoryId?: string;
   readonly domain: CartDomain;
-  readonly category: 'phone' | 'car' | 'property';
+  readonly category: 'phone' | 'car' | 'property' | 'produce';
   readonly brand: string;
   readonly model: string;
   /** DISPLAY ONLY — never used to compute order totals. */
   readonly displayUnitPrice: number | null;
   readonly quantity: number;
-  /** Phones: real stock; cars pinned to 1. */
+  /** Phones: real stock; cars pinned to 1; produce: whole units in stock. */
   readonly stock: number;
+  readonly unit?: 'piece' | 'kg' | 'g' | 'liter' | 'dozen' | 'bag';
   readonly image?: string;
   readonly pricePeriod: CartPricePeriod;
 }
@@ -36,11 +37,12 @@ export interface CartLineInput {
   catalogRef: string;
   categoryId?: string;
   domain: CartDomain;
-  category: 'phone' | 'car' | 'property';
+  category: 'phone' | 'car' | 'property' | 'produce';
   brand: string;
   model: string;
   displayUnitPrice: number | null;
   stock?: number;
+  unit?: 'piece' | 'kg' | 'g' | 'liter' | 'dozen' | 'bag';
   image?: string;
   pricePeriod?: CartPricePeriod;
   quantity?: number;
@@ -80,6 +82,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       displayUnitPrice: input.displayUnitPrice,
       quantity,
       stock,
+      unit: input.unit,
       image: input.image,
       pricePeriod: input.pricePeriod ?? 'sale',
     };

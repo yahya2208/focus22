@@ -38,6 +38,8 @@ import type {
   ListingPricePeriod,
   ListingRecord,
   ListingStatus,
+  ProduceDetails,
+  ProduceUnit,
   PropertyDetails,
 } from '../domains/listings';
 
@@ -47,6 +49,7 @@ import type {
 export interface PublicListingRow {
   id: string;
   category: ListingCategory;
+  unit: ProduceUnit | null;
   brand: string;
   model: string;
   color: string | null;
@@ -82,6 +85,8 @@ export interface PublicListingRow {
   property_floor: number | null;
   property_furnished: boolean | null;
   property_condition_state: string | null;
+  produce_origin: string | null;
+  produce_grade: string | null;
   images: string[];
   created_at: string;
   updated_at: string;
@@ -98,6 +103,11 @@ interface ListingCreateCommon {
   description?: string;
   code?: string;
   warranty?: string;
+  /**
+   * Sales/pricing unit for unit-priced domains (produce). Omitted/undefined
+   * for phone/car/property. Whole-unit stock semantics: quantity = units.
+   */
+  unit?: ProduceUnit;
   /** Publish immediately; defaults to FALSE (explicit publishing). */
   publish?: boolean;
 }
@@ -112,7 +122,17 @@ export interface CreatePropertyListingInput extends ListingCreateCommon {
   propertyDetails: PropertyDetails;
 }
 
-export type CreateListingInput = CreateCarListingInput | CreatePropertyListingInput;
+export interface CreateProduceListingInput extends ListingCreateCommon {
+  category: 'produce';
+  produce: ProduceDetails;
+  /** Stock, in whole units (e.g. 100 = 100 kg). Defaults to 1. */
+  quantity?: number;
+}
+
+export type CreateListingInput =
+  | CreateCarListingInput
+  | CreatePropertyListingInput
+  | CreateProduceListingInput;
 
 /** Tri-state core patch: omitted fields are kept unchanged (server-side NULL). */
 export interface UpdateListingCorePatch {
@@ -126,6 +146,8 @@ export interface UpdateListingCorePatch {
   description?: string;
   code?: string;
   warranty?: string;
+  /** Unit for unit-priced domains; leave undefined to keep current. */
+  unit?: ProduceUnit | null;
 }
 
 export type ListingSearchSort = 'latest' | 'cheapest' | 'expensive';
@@ -199,6 +221,7 @@ export function mapPublicListingRow(row: PublicListingRow): ListingRecord {
     quantity: row.quantity,
     status,
     isPublished: true, // view only exposes published rows
+    unit: isProduceUnit(row.unit) ? row.unit : null,
     images: Array.isArray(row.images) ? row.images : [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -232,8 +255,19 @@ export function mapPublicListingRow(row: PublicListingRow): ListingRecord {
         row.property_condition_state,
       ) as PropertyDetails['conditionState'],
     };
+  } else if (category === 'produce') {
+    base.produce = {
+      origin: row.produce_origin ?? '',
+      grade: row.produce_grade ?? '',
+    };
   }
   return base;
+}
+
+const PRODUCE_UNITS: readonly ProduceUnit[] = ['piece', 'kg', 'g', 'liter', 'dozen', 'bag'];
+
+function isProduceUnit(value: string | null | undefined): value is ProduceUnit {
+  return value != null && (PRODUCE_UNITS as readonly string[]).includes(value);
 }
 
 /**
@@ -263,6 +297,7 @@ export function listingFromInventoryRecord(record: InventoryRecord): ListingReco
     // Publishing lives DB-side for phones; mapped-in records represent
     // sellable stock, so they present as published.
     isPublished: true,
+    unit: null,
     images: record.images ?? [],
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
@@ -288,15 +323,24 @@ async function callRpc<T>(fn: string, args: Record<string, unknown>): Promise<T>
 // ── API ─────────────────────────────────────────────────────────────────────
 
 /**
- * Creates a car or property listing (core row + child details) atomically via
- * one SECURITY DEFINER call. Rejects category='phone' by design — phones use
- * the legacy inventory flow.
+ * Creates a car/property/produce listing (core row + child details) atomically
+ * via one SECURITY DEFINER call. Rejects category='phone' by design — phones
+ * use the legacy inventory flow.
  */
 export async function createListing(input: CreateListingInput): Promise<string> {
-  const details =
-    input.category === 'car'
-      ? { ...input.car }
-      : { ...(input.propertyDetails as unknown as Record<string, unknown>) };
+  let details: Record<string, unknown>;
+  let quantity = 1;
+  let unit: ProduceUnit | null = null;
+
+  if (input.category === 'car') {
+    details = { ...input.car };
+  } else if (input.category === 'property') {
+    details = { ...input.propertyDetails };
+  } else {
+    details = { ...input.produce };
+    quantity = input.quantity ?? 1;
+    unit = input.unit ?? null;
+  }
 
   return callRpc<string>('listing_create', {
     p_category: input.category,
@@ -309,9 +353,10 @@ export async function createListing(input: CreateListingInput): Promise<string> 
     p_description: input.description ?? null,
     p_code: input.code ?? null,
     p_warranty: input.warranty ?? null,
-    p_quantity: 1, // car/property listings are exactly one unit (server pins too)
+    p_quantity: quantity,
     p_is_published: input.publish ?? false,
     p_details: details,
+    p_unit: unit,
   });
 }
 
@@ -328,18 +373,18 @@ export async function updateListingCore(id: string, patch: UpdateListingCorePatc
     p_description: patch.description ?? null,
     p_code: patch.code ?? null,
     p_warranty: patch.warranty ?? null,
+    p_unit: patch.unit !== undefined ? patch.unit : null,
   });
 }
 
 /**
- * Merge-updates the child details row (car_details / property_details).
- * Partial patches are the point: omitted keys keep their stored values,
- * unknown keys are rejected upstream. The category is inferred from the
- * payload shape ('propertyType' ⇒ property, else car).
+ * Merge-updates the child details row (car_details / property_details /
+ * produce_details). Partial patches are the point: omitted keys keep their
+ * stored values, unknown keys are rejected upstream.
  */
 export async function updateListingDetails(
   id: string,
-  details: Partial<CarDetails> | Partial<PropertyDetails>,
+  details: Partial<CarDetails> | Partial<PropertyDetails> | Partial<ProduceDetails>,
 ): Promise<void> {
   const payload = { ...(details as unknown as Record<string, unknown>) };
   await callRpc<null>('listing_update_details', {
@@ -406,14 +451,14 @@ export function listingImageUrl(path: string): string {
  * rejected server-side on purpose: inventory_management_list stays their
  * single admin read path.
  */
-export async function fetchMyListings(category: 'car' | 'property'): Promise<ListingRecord[]> {
+export async function fetchMyListings(category: 'car' | 'property' | 'produce'): Promise<ListingRecord[]> {
   const result = await callRpc<{ total: number; items: PublicListingRow[] }>('listing_my_listings', {
     p_category: category,
   });
   return (result?.items ?? []).map((row) => {
     // No silent category fallback: a malformed row is a data bug, not a
     // row to reinterpret (house rule — errors must stay visible).
-    if (row.category !== 'car' && row.category !== 'property') {
+    if (row.category !== 'car' && row.category !== 'property' && row.category !== 'produce') {
       throw new Error(`listing_my_listings: unexpected category "${String(row.category)}"`);
     }
     return { ...mapPublicListingRow(row), isPublished: Boolean(row.is_published) };

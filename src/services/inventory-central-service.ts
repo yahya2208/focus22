@@ -143,7 +143,7 @@ function mapPublic(row: PublicRow): InventoryRecord {
     updatedAt: row.updated_at,
     totalPurchased: 0,
     totalSold: 0,
-    category: (row.category ?? 'phone') as 'phone' | 'car' | 'property',
+    category: (row.category ?? 'phone') as 'phone' | 'car' | 'property' | 'produce',
   };
 }
 
@@ -172,7 +172,7 @@ function mapFull(row: FullRow): InventoryRecord {
     description: row.description ?? undefined,
     code: row.code ?? undefined,
     sourceLabel: row.source_label ?? undefined,
-    category: (row.category ?? 'phone') as 'phone' | 'car' | 'property',
+    category: (row.category ?? 'phone') as 'phone' | 'car' | 'property' | 'produce',
   };
 }
 

@@ -981,6 +981,7 @@ const ar: Record<TranslationKey, string> = {
   'showroom.catPhones': 'الهواتف',
   'showroom.catCars': 'السيارات',
   'showroom.catProperties': 'العقارات',
+  'showroom.catProduce': 'المنتجات',
 
   // Phone Details (Product Details sales page — Phase 3B)
   'phoneDetails.title': 'تفاصيل الهاتف',
@@ -1353,6 +1354,7 @@ const ar: Record<TranslationKey, string> = {
   'categoryProducts.domain.phone': 'هاتف',
   'categoryProducts.domain.car': 'سيارة',
   'categoryProducts.domain.property': 'عقار',
+  'categoryProducts.domain.produce': 'منتج',
 
   'delivery.pill': 'التوصيل متاح',
   'delivery.estimate': 'الوقت التقديري {min}–{max} دقيقة',
