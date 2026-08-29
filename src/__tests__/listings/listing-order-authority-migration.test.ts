@@ -44,11 +44,19 @@ function numericPrefix(name: string): number | null {
 }
 
 describe('00052 — Listing Order Authority', () => {
-  it('is the highest migration and exists on disk', () => {
+  it('exists on disk and predates the produce widening (00053/00054)', () => {
     const names = Object.keys(MIGRATIONS).map(basename);
     const nums = names.map(numericPrefix).filter((n): n is number => n !== null);
-    expect(Math.max(...nums)).toBe(52);
+    expect(Math.max(...nums)).toBeGreaterThanOrEqual(52);
     expect(names).toContain('00052_listing_order_authority.sql');
+    // The order authority MUST stay below (before) any produce migrations so
+    // the widening never redefines it (one order authority, no parallel path).
+    const idx52 = names.indexOf('00052_listing_order_authority.sql');
+    const idx53 = names.indexOf('00053_produce_domain.sql');
+    const idx54 = names.indexOf('00054_listing_rpcs_produce.sql');
+    expect(idx52 >= 0).toBe(true);
+    expect(idx53 > idx52).toBe(true);
+    expect(idx54 > idx53).toBe(true);
   });
 
   it('is additive — only replaces delivery_create_order, creates no tables/policies', () => {

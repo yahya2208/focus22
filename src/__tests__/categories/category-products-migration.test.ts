@@ -40,11 +40,16 @@ function numericPrefix(name: string): number | null {
 }
 
 describe('00051 — Product ↔ Category content layer', () => {
-  it('is present on disk (00052 supersedes it as the highest additive migration)', () => {
+  it('is present on disk and stays below the order authority + produce widening', () => {
     const names = Object.keys(MIGRATIONS).map(basename);
     const nums = names.map(numericPrefix).filter((n): n is number => n !== null);
-    expect(Math.max(...nums)).toBe(52);
+    expect(Math.max(...nums)).toBeGreaterThanOrEqual(52);
     expect(names).toContain('00051_category_content.sql');
+    const idx51 = names.indexOf('00051_category_content.sql');
+    expect(idx51 >= 0).toBe(true);
+    expect(names.indexOf('00052_listing_order_authority.sql') > idx51).toBe(true);
+    expect(names.indexOf('00053_produce_domain.sql') > idx51).toBe(true);
+    expect(names.indexOf('00054_listing_rpcs_produce.sql') > idx51).toBe(true);
   });
 
   it('creates category_products with real FKs + membership uniqueness', () => {

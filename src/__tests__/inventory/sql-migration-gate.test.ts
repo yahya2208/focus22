@@ -127,12 +127,16 @@ describe('Migration numbering', () => {
     expect(legacy).toEqual(['003_add_session_lifecycle.sql', '004_add_analytics_events_indexes.sql']);
   });
 
-  it('00051 is the highest migration number; 00020..00034 + 00042..00051 all exist', () => {
+  it('00051 exists and stays below the produce widening; 00020..00034 + 00042..00051 all exist', () => {
     const nums = Object.keys(MIGRATIONS)
       .map(basename)
       .map(numericPrefix)
       .filter((n): n is number => n !== null);
-    expect(Math.max(...nums)).toBe(52);
+    expect(Math.max(...nums)).toBeGreaterThanOrEqual(52);
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00051_category_content.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00052_listing_order_authority.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00053_produce_domain.sql');
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00054_listing_rpcs_produce.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00020_ads_multi_image.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00021_ad_images_device_id.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00022_generic_ads_destinations.sql');
