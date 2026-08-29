@@ -71,6 +71,8 @@ export const BACK_MATRIX: Record<ScreenName, BackMatrixRow> = {
   'tic-tac-toe-results': { screen: 'tic-tac-toe-results', backTarget: 'tic-tac-toe-intro', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'fullscreen results; back to intro' },
   'ttt-invite-landing': { screen: 'ttt-invite-landing', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'invite link landing; deep-linkable, back to home' },
   'ttt-multiplayer': { screen: 'ttt-multiplayer', backTarget: 'tic-tac-toe-intro', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'friend play board; back to intro (quit dialog via useBackGuard)' },
+  category: { screen: 'category', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'DB-driven category landing (00050); deep-linkable via slug aliases (#/phones, #/fresh-market/vegetables); in-content Back → home' },
+  'admin-categories': { screen: 'admin-categories', backTarget: 'previous', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'protected; category admin CRUD (00050)' },
 };
 
 export function getBackMatrixRow(screen: ScreenName): BackMatrixRow | undefined {

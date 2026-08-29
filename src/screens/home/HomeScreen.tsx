@@ -15,6 +15,13 @@ import { Flex } from '../../design-system/components/Flex';
 import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 import { InventoryService, type InventoryRecord } from '../../services/inventory-service';
 import { getInventoryReady, subscribeCentralInventory } from '../../services/inventory-central-service';
+import { CategoryNav } from '../../components/categories/CategoryNav';
+import {
+  ensureCategoriesLoaded,
+  getCategories,
+  subscribeCategories,
+  type CategoryNode,
+} from '../../services/categories-service';
 import { useInventoryImages } from '../../hooks/useInventoryImages';
 import { resolveDefaultGameEntry } from '../../challenge/active-challenge-resolver';
 import { getActiveChallengeId } from '../../challenge/challenge-context';
@@ -172,6 +179,7 @@ export const HomeScreen = memo(function HomeScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [devices, setDevices] = useState<InventoryRecord[]>([]);
   const [inventoryReady, setInventoryReady] = useState(() => getInventoryReady());
+  const [categoryRoots, setCategoryRoots] = useState<CategoryNode[]>(() => getCategories());
 
   useEffect(() => {
     return subscribeCentralInventory(() => setInventoryReady(getInventoryReady()));
@@ -180,6 +188,11 @@ export const HomeScreen = memo(function HomeScreen() {
   useEffect(() => {
     if (inventoryReady) setDevices(InventoryService.getExchangeableDevices());
   }, [inventoryReady]);
+
+  useEffect(() => {
+    ensureCategoriesLoaded().catch(() => {});
+    return subscribeCategories(() => setCategoryRoots(getCategories()));
+  }, []);
 
   const canUseSticker = permissionGuard.can(researchRole, 'sticker', 'write');
 
@@ -256,6 +269,13 @@ export const HomeScreen = memo(function HomeScreen() {
 
         <HomeMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
 
+        <Flex align="flex-start" wrap gap="xl">
+          {categoryRoots.length > 0 && (
+            <div style={{ flex: '1 1 250px', minWidth: '250px', maxWidth: '340px' }}>
+              <CategoryNav />
+            </div>
+          )}
+          <Stack gap="lg" style={{ flex: '3 1 300px', minWidth: '0', width: '100%' }}>
         {/* Ad — the first main content, directly below the top bar.
             Renders nothing when no published ad exists, so no space is reserved. */}
         <AdContactBanner placement="home" />
@@ -504,6 +524,8 @@ export const HomeScreen = memo(function HomeScreen() {
             </Card>
           )}
         </div>
+          </Stack>
+        </Flex>
 
         {/* Brand identity */}
         <BrandFooter />

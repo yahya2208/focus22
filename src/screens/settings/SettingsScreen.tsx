@@ -194,6 +194,9 @@ export const SettingsScreen = memo(function SettingsScreen() {
           <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'challenge-admin' })} style={{ width: '100%', marginTop: '8px' }}>
             Challenge Admin
           </Button>
+          <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'admin-categories' })} style={{ width: '100%', marginTop: '8px' }}>
+            Categories
+          </Button>
         </Card>
 
         <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'home' })} style={{ marginTop: '0.5rem' }}>

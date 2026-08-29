@@ -127,12 +127,12 @@ describe('Migration numbering', () => {
     expect(legacy).toEqual(['003_add_session_lifecycle.sql', '004_add_analytics_events_indexes.sql']);
   });
 
-  it('00049 is the highest migration number; 00020..00034 + 00042..00049 all exist', () => {
+  it('00050 is the highest migration number; 00020..00034 + 00042..00050 all exist', () => {
     const nums = Object.keys(MIGRATIONS)
       .map(basename)
       .map(numericPrefix)
       .filter((n): n is number => n !== null);
-    expect(Math.max(...nums)).toBe(49);
+    expect(Math.max(...nums)).toBe(50);
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00020_ads_multi_image.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00021_ad_images_device_id.sql');
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00022_generic_ads_destinations.sql');
@@ -157,6 +157,8 @@ describe('Migration numbering', () => {
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00048_record_tic_tac_toe_session_9x9.sql');
     // TIC TAC TOE FRIEND PLAY (00049, file only — owner applies in SQL Editor):
     expect(Object.keys(MIGRATIONS).map(basename)).toContain('00049_ttt_multiplayer.sql');
+    // MULTI-SERVICE CATEGORIES + DELIVERY (00050, file only — owner applies in SQL Editor):
+    expect(Object.keys(MIGRATIONS).map(basename)).toContain('00050_categories_delivery.sql');
   });
 
   it('00019 body (after header comments) matches 01-inventory-apply.sql body', () => {

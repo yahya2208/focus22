@@ -72,6 +72,8 @@ const TicTacToeScreen = lazy(() => import('./screens/tic-tac-toe/TicTacToeScreen
 const TicTacToeResultsScreen = lazy(() => import('./screens/tic-tac-toe/TicTacToeResultsScreen').then(m => ({ default: m.TicTacToeResultsScreen })));
 const TttInviteLandingScreen = lazy(() => import('./screens/tic-tac-toe/TttInviteLandingScreen').then(m => ({ default: m.TttInviteLandingScreen })));
 const TttMultiplayerScreen = lazy(() => import('./screens/tic-tac-toe/TttMultiplayerScreen').then(m => ({ default: m.TttMultiplayerScreen })));
+const CategoryScreen = lazy(() => import('./screens/categories/CategoryScreen').then(m => ({ default: m.CategoryScreen })));
+const AdminCategoriesScreen = lazy(() => import('./screens/admin/CategoriesAdminScreen').then(m => ({ default: m.CategoriesAdminScreen })));
 
 const screens: Record<ScreenName, React.ComponentType> = {
   home: HomeScreen,
@@ -122,6 +124,8 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'tic-tac-toe-results': TicTacToeResultsScreen,
   'ttt-invite-landing': TttInviteLandingScreen,
   'ttt-multiplayer': TttMultiplayerScreen,
+  'category': CategoryScreen,
+  'admin-categories': AdminCategoriesScreen,
 };
 
 function HtmlSync() {
@@ -358,6 +362,21 @@ export function InitialRoute() {
         });
         return;
       }
+
+      // Category deep-links (00050): any slug path — e.g. #/phones,
+      // #/fresh-market, #/fresh-market/vegetables — resolves to the DB-driven
+      // category screen. Slugs are [a-z0-9]+(-[a-z0-9]+)* path segments; the
+      // LAST segment is the category slug (the parent path is the deep link).
+      const CATEGORY_SLUG_PATH = /^[a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)*$/;
+      if (CATEGORY_SLUG_PATH.test(screenPart)) {
+        const slug = screenPart.split('/').pop() ?? screenPart;
+        dispatch({
+          type: 'REPLACE',
+          screen: 'category',
+          params: { ...params, slug },
+        });
+        return;
+      }
     }
 
     runSilentCalibration().then((profile) => {
@@ -474,6 +493,12 @@ function ScreenRouter() {
     content = (
       <ProtectedRoute requiredResource="catalog" requiredAction="write">
         <CatalogApprovalScreen />
+      </ProtectedRoute>
+    );
+  } else if (currentScreen === 'admin-categories') {
+    content = (
+      <ProtectedRoute requiredResource="catalog" requiredAction="write">
+        <AdminCategoriesScreen />
       </ProtectedRoute>
     );
   } else if (currentScreen === 'challenge-admin') {

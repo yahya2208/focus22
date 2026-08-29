@@ -51,7 +51,9 @@ export type ScreenName =
   | 'tic-tac-toe'
   | 'tic-tac-toe-results'
   | 'ttt-invite-landing'
-  | 'ttt-multiplayer';
+  | 'ttt-multiplayer'
+  | 'category'
+  | 'admin-categories';
 
 export interface SessionRecord {
   readonly id: string;
@@ -166,6 +168,8 @@ export const ALL_SCREEN_NAMES: readonly ScreenName[] = [
   'tic-tac-toe-results',
   'ttt-invite-landing',
   'ttt-multiplayer',
+  'category',
+  'admin-categories',
 ];
 
 const SCREEN_NAMES: ReadonlySet<string> = new Set<ScreenName>(ALL_SCREEN_NAMES);
