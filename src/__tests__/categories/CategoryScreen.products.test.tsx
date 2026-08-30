@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { AppProvider, useAppDispatch } from '../../store/navigation';
 import { CategoryScreen } from '../../screens/categories/CategoryScreen';
 import { ensureAdminListingPresenters } from '../../domains/listings';
+import { resetListingPresentersForTests, hasListingPresenter } from '../../domains/listings/presenters/registry';
 import type { ListingRecord } from '../../domains/listings/types';
 import type { CategoryMember } from '../../core/categories/membership';
 
@@ -125,6 +126,16 @@ function makeProperty(id: string): ListingRecord {
   };
 }
 
+function makeProduce(id: string): ListingRecord {
+  return {
+    id, category: 'produce', brand: 'بلدي', model: 'بطاطا', description: '', color: '',
+    city: 'بشار', warranty: '', code: '', price: { amount: 120, period: 'sale' },
+    conditionGroup: null, quantity: 1, status: 'in_stock', isPublished: true, images: [],
+    createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    unit: 'kg', produce: { origin: 'بلدي', grade: 'A' },
+  };
+}
+
 function member(id: string, domain: CategoryMember['domain']): CategoryMember {
   return { categoryId: 'c-phones', productId: id, sortOrder: 0, isFeatured: false, domain: domain, brand: '', model: '', price: null, pricePeriod: 'sale', images: [] };
 }
@@ -161,6 +172,17 @@ describe('CategoryScreen — membership-driven products', () => {
     expect(await screen.findByText(/Apartment Mazzeh/)).toBeTruthy();
     expect(MOCK_STATE.getListing).toHaveBeenCalledWith('car-1');
     expect(MOCK_STATE.getListing).toHaveBeenCalledWith('prop-1');
+  });
+
+  it('renders produce members on cold load (self-registers presenters)', async () => {
+    resetListingPresentersForTests();
+    expect(hasListingPresenter('produce')).toBe(false);
+    MOCK_STATE.membersOf.mockResolvedValue([member('produce-1', 'produce')]);
+    MOCK_STATE.getListing.mockResolvedValue(makeProduce('produce-1'));
+    renderWithSlug('phones');
+    expect(await screen.findByText(/بطاطا/)).toBeTruthy();
+    expect(MOCK_STATE.getListing).toHaveBeenCalledWith('produce-1');
+    expect(screen.queryByText('category.storefrontComingSoon')).toBeNull();
   });
 
   it('shows the empty state for a phones category with no members', async () => {

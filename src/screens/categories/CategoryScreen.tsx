@@ -39,6 +39,7 @@ import {
   toPublicCardModel,
   type PublicListingCardModel,
 } from '../../domains/listings/publicCard';
+import { ensureAdminListingPresenters } from '../../domains/listings';
 import { PublicListingCard } from '../../components/showroom/listings/PublicListingCard';
 
 function CategoryProductCard({ device, accent, onOpen }: {
@@ -177,6 +178,7 @@ export const CategoryScreen = memo(function CategoryScreen() {
       setListingCards([]);
       return;
     }
+    ensureAdminListingPresenters();
     let cancelled = false;
     setMembersLoading(true);
     getCategoryMembers(category.id)
