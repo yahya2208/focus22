@@ -1336,6 +1336,13 @@ const ar: Record<TranslationKey, string> = {
   'adminCategories.hideInactive': 'أخفِ المعطّلة',
   'adminCategories.slugTaken': 'هذا المعرّف مستخدم من قبل تصنيف آخر.',
   'adminCategories.loading': 'جارٍ تحميل التصنيفات...',
+  'adminCategories.productDomain': 'نطاق المنتج',
+  'adminCategories.productDomainHint': 'اختيار نطاق منتج يتيح لك إنشاء منتجات لهذا التصنيف مباشرة. التصنيفات بدون نطاق هي للعرض فقط.',
+  'adminCategories.domain_none': 'بلا (للعرض فقط)',
+  'adminCategories.domain_phone': 'هاتف',
+  'adminCategories.domain_car': 'سيارة',
+  'adminCategories.domain_property': 'عقار',
+  'adminCategories.domain_produce': 'خضر/فواكه',
 
   'categoryProducts.productsFor': 'المنتجات في {category}',
   'categoryProducts.assign': 'إسناد منتجات',
@@ -1355,6 +1362,8 @@ const ar: Record<TranslationKey, string> = {
   'categoryProducts.domain.car': 'سيارة',
   'categoryProducts.domain.property': 'عقار',
   'categoryProducts.domain.produce': 'منتج',
+  'categoryProducts.createHere': 'إضافة منتج لهذا التصنيف',
+  'categoryProducts.newProduct': 'منتج جديد في {category}',
 
   'delivery.pill': 'التوصيل متاح',
   'delivery.estimate': 'الوقت التقديري {min}–{max} دقيقة',

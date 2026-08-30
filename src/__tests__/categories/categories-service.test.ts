@@ -59,6 +59,7 @@ import {
   getChildren,
   getCategoryParent,
   subscribeCategories,
+  refreshCategories,
   resetCategoriesService,
 } from '../../services/categories-service';
 
@@ -143,5 +144,27 @@ describe('categories-service', () => {
     await ensureCategoriesLoaded();
     expect(getCategories()).toHaveLength(0);
     expect(getAllCategories()).toHaveLength(0);
+  });
+
+  it('refreshCategories() invalidates a stale cache so newly-added domains reach the panel', async () => {
+    // Pre-00055 shape: rows carry NO `domain` key → normalized to domain=''.
+    resetCategoriesService();
+    resetDefaults([
+      seedRow({ slug: 'vegetables', name: 'Vegetables', sort_order: 1 }),
+      seedRow({ slug: 'fruits', name: 'Fruits', sort_order: 2 }),
+    ]);
+    await ensureCategoriesLoaded();
+    expect(getAllCategories().map((c) => c.domain)).toEqual(['', '']);
+
+    // 00055 applied live: the same rows now come back with domain='produce'.
+    // The admin screen calls refreshCategories() on mount, replacing the stale cache.
+    resetDefaults([
+      seedRow({ slug: 'vegetables', name: 'Vegetables', sort_order: 1, domain: 'produce' }),
+      seedRow({ slug: 'fruits', name: 'Fruits', sort_order: 2, domain: 'produce' }),
+    ]);
+    await refreshCategories();
+
+    const bySlug = Object.fromEntries(getAllCategories().map((c) => [c.slug, c.domain]));
+    expect(bySlug).toEqual({ vegetables: 'produce', fruits: 'produce' });
   });
 });

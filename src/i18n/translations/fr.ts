@@ -647,6 +647,13 @@ const fr: Record<string, string> = {
   'adminCategories.hideInactive': 'Masquer les inactives',
   'adminCategories.slugTaken': 'Ce slug est déjà utilisé par une autre catégorie.',
   'adminCategories.loading': 'Chargement des catégories...',
+  'adminCategories.productDomain': 'Domaine produit',
+  'adminCategories.productDomainHint': 'Choisir un domaine produit permet de créer des produits pour cette catégorie directement. Les catégories sans domaine sont en lecture seule.',
+  'adminCategories.domain_none': 'Aucun (affichage seul)',
+  'adminCategories.domain_phone': 'Téléphone',
+  'adminCategories.domain_car': 'Voiture',
+  'adminCategories.domain_property': 'Immobilier',
+  'adminCategories.domain_produce': 'Produit frais',
 
   'categoryProducts.productsFor': 'Produits dans {category}',
   'categoryProducts.assign': 'Assigner des produits',
@@ -666,6 +673,8 @@ const fr: Record<string, string> = {
   'categoryProducts.domain.car': 'Voiture',
   'categoryProducts.domain.property': 'Immobilier',
   'categoryProducts.domain.produce': 'Produit',
+  'categoryProducts.createHere': 'Ajouter un produit pour cette catégorie',
+  'categoryProducts.newProduct': 'Nouveau produit dans {category}',
 
   'delivery.pill': 'Livraison disponible',
   'delivery.estimate': 'Livraison estimée {min}–{max} min',

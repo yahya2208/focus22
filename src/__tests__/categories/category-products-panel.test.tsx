@@ -49,7 +49,7 @@ vi.mock('../../services/categories-service', () => ({
 const CATEGORY: Category = {
   id: 'c-phones', slug: 'phones', name: 'Phones', nameAr: '', description: '', descriptionAr: '',
   icon: '📱', coverImage: '', parentId: null, sortOrder: 1, isActive: true,
-  displayMode: 'phones', theme: 'technology', deliveryAvailable: false, isFeatured: false,
+  displayMode: 'phones', theme: 'technology', deliveryAvailable: false, isFeatured: false, domain: '',
 };
 
 const MEMBER: CategoryMemberAdmin = {

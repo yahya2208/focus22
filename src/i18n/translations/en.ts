@@ -1356,6 +1356,13 @@ const en = {
   'adminCategories.hideInactive': 'Hide inactive',
   'adminCategories.slugTaken': 'This slug is already used by another category.',
   'adminCategories.loading': 'Loading categories...',
+  'adminCategories.productDomain': 'Product domain',
+  'adminCategories.productDomainHint': 'Selecting a product domain lets you create products for this category directly. Categories without a domain are display-only.',
+  'adminCategories.domain_none': 'None (display only)',
+  'adminCategories.domain_phone': 'Phone',
+  'adminCategories.domain_car': 'Car',
+  'adminCategories.domain_property': 'Property',
+  'adminCategories.domain_produce': 'Produce',
 
   'categoryProducts.productsFor': 'Products in {category}',
   'categoryProducts.assign': 'Assign products',
@@ -1375,6 +1382,8 @@ const en = {
   'categoryProducts.domain.car': 'Car',
   'categoryProducts.domain.property': 'Property',
   'categoryProducts.domain.produce': 'Produce',
+  'categoryProducts.createHere': 'Add product for this category',
+  'categoryProducts.newProduct': 'New product for {category}',
 
   'delivery.pill': 'Delivery available',
   'delivery.estimate': 'Estimated {min}–{max} min',

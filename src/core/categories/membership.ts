@@ -9,6 +9,34 @@
 
 export type CategoryProductDomain = 'phone' | 'car' | 'property' | 'produce';
 
+/**
+ * All product domains a navigation category can point at (the empty string is
+ * the display-only hint, i.e. no product creation). This is the registry the
+ * capability gate reads from — domains are NOT special-cased by category name.
+ */
+export const PRODUCT_DOMAINS: readonly CategoryProductDomain[] = [
+  'phone',
+  'car',
+  'property',
+  'produce',
+] as const;
+
+export function isProductDomain(value: string | undefined | null): value is CategoryProductDomain {
+  return (PRODUCT_DOMAINS as readonly string[]).includes(value ?? '');
+}
+
+/**
+ * Capability gate: can an admin create products for a navigation category?
+ *
+ * Category-driven ("Add Product for this category") is surfaced only when the
+ * category explicitly declares a product domain. A category WITHOUT a domain is
+ * display-only, so no create entry is shown. Multiple categories may share the
+ * same domain (الخضروات and الفواكه both → 'produce') with NO per-category branch.
+ */
+export function canCreateProducts(categoryDomain: string | undefined | null): boolean {
+  return isProductDomain(categoryDomain);
+}
+
 /** Public, visible member row returned by category_products_for_category. */
 export interface CategoryMember {
   categoryId: string;

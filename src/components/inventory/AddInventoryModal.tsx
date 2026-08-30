@@ -11,9 +11,10 @@ import { PhoneImageUploader } from '../showroom/PhoneImageUploader';
 interface AddInventoryModalProps {
   colors: ThemeColors;
   onDone: () => void;
+  onCreated?: (id: string) => void;
 }
 
-export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDone }: AddInventoryModalProps) {
+export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDone, onCreated }: AddInventoryModalProps) {
   const [step, setStep] = useState<'brand' | 'variant' | 'condition' | 'quantity'>('brand');
   const [selectedBrand, setSelectedBrand] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
@@ -90,6 +91,7 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
       if (record && images.length > 0) {
         await InventoryService.updateImages(record.id, images);
       }
+      onCreated?.(record.id);
       onDone();
     } finally {
       setSaving(false);

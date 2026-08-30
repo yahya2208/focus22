@@ -1336,6 +1336,13 @@ const tr: Record<TranslationKey, string> = {
   'adminCategories.hideInactive': 'Pasifleri gizle',
   'adminCategories.slugTaken': 'Bu kısa ad başka bir kategori tarafından kullanılıyor.',
   'adminCategories.loading': 'Kategoriler yükleniyor...',
+  'adminCategories.productDomain': 'Ürün alanı',
+  'adminCategories.productDomainHint': 'Bir ürün alanı seçmek, bu kategori için doğrudan ürün oluşturmanızı sağlar. Alanı olmayan kategoriler yalnızca görüntüleme amaçlıdır.',
+  'adminCategories.domain_none': 'Yok (yalnızca görüntüleme)',
+  'adminCategories.domain_phone': 'Telefon',
+  'adminCategories.domain_car': 'Araba',
+  'adminCategories.domain_property': 'Emlak',
+  'adminCategories.domain_produce': 'Taze ürün',
 
   'categoryProducts.productsFor': '{category} kategorisindeki ürünler',
   'categoryProducts.assign': 'Ürün ata',
@@ -1355,6 +1362,8 @@ const tr: Record<TranslationKey, string> = {
   'categoryProducts.domain.car': 'Araba',
   'categoryProducts.domain.property': 'Emlak',
   'categoryProducts.domain.produce': 'Ürün',
+  'categoryProducts.createHere': 'Bu kategori için ürün ekle',
+  'categoryProducts.newProduct': '{category} için yeni ürün',
 
   'delivery.pill': 'Teslimat mevcut',
   'delivery.estimate': 'Tahmini {min}–{max} dk',

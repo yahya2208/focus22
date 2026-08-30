@@ -21,8 +21,13 @@ import {
 import { loadAdminListingsBoard } from '../../domains/listings/adminBoard';
 import type { ListingRecord } from '../../domains/listings/types';
 import type { CategoryMemberAdmin, CategoryProductDomain } from '../../core/categories/membership';
+import { canCreateProducts } from '../../core/categories/membership';
 import type { Category } from '../../core/categories/types';
 import { getCategoryLabel } from '../../services/categories-service';
+import { CarListingForm } from '../../components/inventory/listings/CarListingForm';
+import { PropertyListingForm } from '../../components/inventory/listings/PropertyListingForm';
+import { ProduceListingForm } from '../../components/inventory/listings/ProduceListingForm';
+import { AddInventoryModal } from '../../components/inventory/AddInventoryModal';
 
 type DomainFilter = CategoryProductDomain | 'all';
 
@@ -62,6 +67,9 @@ export const CategoryProductsPanel = memo(function CategoryProductsPanel({
   const [candidateQuery, setCandidateQuery] = useState('');
   const [candidateDomain, setCandidateDomain] = useState<DomainFilter>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const canCreate = canCreateProducts(category.domain);
 
   async function loadMembers() {
     setMembersLoading(true);
@@ -113,6 +121,21 @@ export const CategoryProductsPanel = memo(function CategoryProductsPanel({
     try {
       await adminAssignProducts(category.id, ids);
       setSelected(new Set());
+      setAssignOpen(false);
+      await loadMembers();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setActing(null);
+    }
+  }
+
+  async function handleCreated(productId: string) {
+    setActing('create');
+    setError('');
+    try {
+      await adminAssignProducts(category.id, [productId]);
+      setCreateOpen(false);
       setAssignOpen(false);
       await loadMembers();
     } catch (e) {
@@ -209,7 +232,49 @@ export const CategoryProductsPanel = memo(function CategoryProductsPanel({
           <Button size="sm" variant="primary" onClick={openAssign}>
             + {t('categoryProducts.assign')}
           </Button>
+          {canCreate && (
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => { setError(''); setCreateOpen((v) => !v); setAssignOpen(false); }}
+              disabled={acting !== null}
+              aria-label={t('categoryProducts.createHere')}
+            >
+              + {t('categoryProducts.createHere')}
+            </Button>
+          )}
         </Flex>
+
+        {createOpen && (
+          <Card padding="lg" style={{ width: '100%' }}>
+            <Stack gap="md">
+              <Flex justify="space-between" align="center" gap="sm" wrap>
+                <span style={{ color: colors.text, fontWeight: 800, fontSize: '0.9rem' }}>
+                  {t('categoryProducts.newProduct').replace('{category}', getCategoryLabel(category, locale))}
+                </span>
+                <Button variant="ghost" size="sm" onClick={() => setCreateOpen(false)}>
+                  {t('adminCategories.cancel')}
+                </Button>
+              </Flex>
+              {canCreate && category.domain === 'produce' && (
+                <ProduceListingForm colors={colors} busy={acting !== null} onDone={handleCreated} />
+              )}
+              {canCreate && category.domain === 'car' && (
+                <CarListingForm colors={colors} busy={acting !== null} onDone={handleCreated} />
+              )}
+              {canCreate && category.domain === 'property' && (
+                <PropertyListingForm colors={colors} busy={acting !== null} onDone={handleCreated} />
+              )}
+              {canCreate && category.domain === 'phone' && (
+                <AddInventoryModal
+                  colors={colors}
+                  onDone={() => setCreateOpen(false)}
+                  onCreated={handleCreated}
+                />
+              )}
+            </Stack>
+          </Card>
+        )}
 
         {membersLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 0' }}>
@@ -217,9 +282,21 @@ export const CategoryProductsPanel = memo(function CategoryProductsPanel({
           </div>
         ) : members.length === 0 ? (
           <Card padding="lg" style={{ width: '100%' }}>
-            <span style={{ color: colors.textMuted, fontSize: '0.82rem' }}>
-              {t('categoryProducts.noProducts')}
-            </span>
+            <Stack gap="md">
+              <span style={{ color: colors.textMuted, fontSize: '0.82rem' }}>
+                {t('categoryProducts.noProducts')}
+              </span>
+              {canCreate && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => { setError(''); setCreateOpen(true); setAssignOpen(false); }}
+                  disabled={acting !== null}
+                >
+                  + {t('categoryProducts.createHere')}
+                </Button>
+              )}
+            </Stack>
           </Card>
         ) : (
           <Stack gap="sm">

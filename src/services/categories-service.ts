@@ -96,6 +96,7 @@ export function normalizeCategoryRow(row: CategoryRow | Category): Category {
     theme: String(r.theme ?? 'technology'),
     delivery_available: Boolean(r.delivery_available ?? r.deliveryAvailable ?? false),
     is_featured: Boolean(r.is_featured ?? r.isFeatured ?? false),
+    domain: String(r.domain ?? ''),
     created_at: r.created_at != null ? String(r.created_at) : undefined,
     updated_at: r.updated_at != null ? String(r.updated_at) : undefined,
   });
@@ -244,6 +245,7 @@ function toRpcJson(input: CategoryAdminInput): Record<string, unknown> {
   if (input.theme !== undefined) out.theme = input.theme;
   if (input.deliveryAvailable !== undefined) out.delivery_available = input.deliveryAvailable;
   if (input.isFeatured !== undefined) out.is_featured = input.isFeatured;
+  if (input.domain !== undefined) out.domain = input.domain;
   return out;
 }
 

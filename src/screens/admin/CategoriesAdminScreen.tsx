@@ -14,6 +14,7 @@ import { Loader } from '../../design-system/components/Loader';
 import { Badge } from '../../design-system/components/Badge';
 import {
   ensureCategoriesLoaded,
+  refreshCategories,
   getAllCategories,
   subscribeCategories,
   getCategoryLabel,
@@ -51,7 +52,16 @@ const EMPTY_FORM: Omit<CategoryAdminInput, 'parentId' | 'sortOrder'> & {
   theme: 'technology',
   deliveryAvailable: false,
   isFeatured: false,
+  domain: '',
 };
+
+const CATEGORY_PRODUCT_DOMAINS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: '', label: 'none' },
+  { value: 'phone', label: 'phone' },
+  { value: 'car', label: 'car' },
+  { value: 'property', label: 'property' },
+  { value: 'produce', label: 'produce' },
+];
 
 function CategoryRowCard({
   category,
@@ -168,6 +178,7 @@ function EditorModal({
           theme: editing.theme,
           deliveryAvailable: editing.deliveryAvailable,
           isFeatured: editing.isFeatured,
+          domain: editing.domain ?? '',
         }
       : { ...EMPTY_FORM },
   );
@@ -296,6 +307,28 @@ function EditorModal({
             </div>
           </Flex>
           <Flex gap="sm" wrap>
+            <div style={{ flex: '1 1 200px' }}>
+              <label style={{ color: colors.textMuted, fontSize: '0.7rem', fontWeight: 600 }}>{t('adminCategories.productDomain')}</label>
+              <Select
+                value={form.domain}
+                onChange={(e) => set('domain', e.target.value)}
+                options={CATEGORY_PRODUCT_DOMAINS.map((d) => ({
+                  value: d.value,
+                  label: d.value === 'phone'
+                    ? t('adminCategories.domain_phone')
+                    : d.value === 'car'
+                      ? t('adminCategories.domain_car')
+                      : d.value === 'property'
+                        ? t('adminCategories.domain_property')
+                        : d.value === 'produce'
+                          ? t('adminCategories.domain_produce')
+                          : t('adminCategories.domain_none'),
+                }))}
+              />
+              <span style={{ color: colors.textMuted, fontSize: '0.68rem' }}>{t('adminCategories.productDomainHint')}</span>
+            </div>
+          </Flex>
+          <Flex gap="sm" wrap>
             <div style={{ flex: '1 1 120px' }}>
               <label style={{ color: colors.textMuted, fontSize: '0.7rem', fontWeight: 600 }}>{t('adminCategories.order')}</label>
               <Input
@@ -344,12 +377,25 @@ export const CategoriesAdminScreen = memo(function CategoriesAdminScreen() {
   const [showInactive, setShowInactive] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [productsCategory, setProductsCategory] = useState<Category | null>(null);
+  const [productsCategoryId, setProductsCategoryId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Category | null>(null);
   const [acting, setActing] = useState<string | null>(null);
 
+  // Derive the live category from the current `categories` state (the single
+  // source of truth), never from a captured object. If `domain` changes after a
+  // refresh (e.g. '' → 'produce') the open panel re-renders with the new value,
+  // so it can never be pinned to a stale category.
+  const productsCategory = productsCategoryId
+    ? (categories.find((c) => c.id === productsCategoryId) ?? null)
+    : null;
+
   useEffect(() => {
-    ensureCategoriesLoaded().then(() => setLoaded(true)).catch(() => setLoaded(true));
+    // Always refetch on mount so out-of-band schema/data changes (e.g. a newly
+    // populated `domain` column) are reflected instead of a stale module cache.
+    Promise.all([
+      ensureCategoriesLoaded(),
+      refreshCategories(),
+    ]).then(() => setLoaded(true)).catch(() => setLoaded(true));
     return subscribeCategories(() => setCategories(getAllCategories()));
   }, []);
 
@@ -471,7 +517,7 @@ export const CategoriesAdminScreen = memo(function CategoriesAdminScreen() {
                 onToggle={handleToggle}
                 onDelete={(cat) => setPendingDelete(cat)}
                 onMove={handleMove}
-                onProducts={(cat) => setProductsCategory(cat)}
+                onProducts={(cat) => setProductsCategoryId(cat.id)}
                 acting={acting}
               />
             ))}
@@ -508,7 +554,7 @@ export const CategoriesAdminScreen = memo(function CategoriesAdminScreen() {
       {productsCategory && (
         <CategoryProductsPanel
           category={productsCategory}
-          onClose={() => setProductsCategory(null)}
+          onClose={() => setProductsCategoryId(null)}
         />
       )}
     </Screen>

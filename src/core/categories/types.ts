@@ -52,6 +52,7 @@ export interface CategoryRow {
   theme: string;
   delivery_available: boolean;
   is_featured: boolean;
+  domain: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -73,6 +74,7 @@ export interface Category {
   theme: CategoryTheme;
   deliveryAvailable: boolean;
   isFeatured: boolean;
+  domain: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -98,6 +100,7 @@ export interface CategoryAdminInput {
   theme?: CategoryTheme;
   deliveryAvailable?: boolean;
   isFeatured?: boolean;
+  domain?: string;
 }
 
 export function rowToCategory(row: CategoryRow): Category {
@@ -117,6 +120,7 @@ export function rowToCategory(row: CategoryRow): Category {
     theme: isCategoryTheme(row.theme) ? row.theme : 'technology',
     deliveryAvailable: row.delivery_available ?? false,
     isFeatured: row.is_featured ?? false,
+    domain: row.domain ?? '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
