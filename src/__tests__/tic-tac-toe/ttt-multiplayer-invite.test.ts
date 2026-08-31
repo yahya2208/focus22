@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { buildTttInviteUrl, parseInviteFromHash, copyText } from '../../core/ttt-multiplayer/invite';
+import { buildTttInviteUrl, parseInviteFromHash, copyText, nativeShare } from '../../core/ttt-multiplayer/invite';
 
 describe('ttt-multiplayer/invite — URL + clipboard', () => {
   it('builds a deep-linkable invite URL with the token in the query', () => {
@@ -51,6 +51,30 @@ describe('ttt-multiplayer/invite — URL + clipboard', () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
     expect(await copyText('hello')).toBe(false);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: orig });
+  });
+
+  it('nativeShare invokes navigator.share and returns true on success', async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    const orig = navigator.share;
+    Object.defineProperty(navigator, 'share', { configurable: true, value: share });
+    expect(await nativeShare({ title: 'Tic Tac Toe', url: 'https://x.com/#/ttt-invite-landing?invite=a' })).toBe(true);
+    expect(share).toHaveBeenCalledWith({ title: 'Tic Tac Toe', url: 'https://x.com/#/ttt-invite-landing?invite=a' });
+    Object.defineProperty(navigator, 'share', { configurable: true, value: orig });
+  });
+
+  it('nativeShare returns false when Web Share is unavailable', async () => {
+    const orig = navigator.share;
+    Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
+    expect(await nativeShare({ text: 'x' })).toBe(false);
+    Object.defineProperty(navigator, 'share', { configurable: true, value: orig });
+  });
+
+  it('nativeShare returns false when the user cancels or share throws', async () => {
+    const share = vi.fn().mockRejectedValue(new Error('AbortError'));
+    const orig = navigator.share;
+    Object.defineProperty(navigator, 'share', { configurable: true, value: share });
+    expect(await nativeShare({ text: 'x' })).toBe(false);
+    Object.defineProperty(navigator, 'share', { configurable: true, value: orig });
   });
 
   afterEach(() => {

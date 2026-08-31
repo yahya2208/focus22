@@ -48,3 +48,19 @@ export async function copyText(text: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Shares via the native Web Share API when supported.
+ * Returns true when the share sheet was invoked; false when the API is
+ * unavailable, the feature flag is off, or the user cancelled — the caller
+ * falls back to copyText in those cases.
+ */
+export async function nativeShare(data: { title?: string; text?: string; url?: string }): Promise<boolean> {
+  try {
+    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return false;
+    await navigator.share(data);
+    return true;
+  } catch {
+    return false;
+  }
+}

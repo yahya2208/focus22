@@ -13,9 +13,10 @@ import { BOARD_SIZE, indexToRowCol } from '../../core/tic-tac-toe/types';
 import type { CalibrationProfile } from '../../core/calibration';
 import { buildAppUrl } from '../../core/base-path';
 import { copyText } from '../../core/ttt-multiplayer/invite';
+import { MarkGlyph } from '../../core/ttt-multiplayer/visual';
 
 const TTT_CELL_MAX = 54;
-const TTT_CELL_MIN = 20;
+const TTT_CELL_MIN = 24;
 const BOARD_GAP = 3;
 const BOARD_PADDING = 10;
 const ROOT_PADDING = 20;
@@ -87,6 +88,7 @@ const PLACEHOLDER_CALIBRATION: CalibrationProfile = {
 const TTT_KEYFRAMES = `
 @keyframes tttCellPop{0%{transform:scale(0.6)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
 @keyframes tttWinPulse{0%,100%{filter:brightness(1) drop-shadow(0 0 0 rgba(255,255,255,0))}50%{filter:brightness(1.2) drop-shadow(0 0 8px rgba(255,255,255,0.4))}}
+@keyframes tttWinPop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
 @media (prefers-reduced-motion: reduce){
   #ttt-root *,[id^="ttt-"]{animation:none!important;transition:none!important}
 }`;
@@ -113,6 +115,7 @@ function Cell({
   cellSize: number;
 }) {
   const [row, col] = indexToRowCol(index);
+  const markColor = value === 'X' ? colors.accent : value === 'O' ? colors.danger : undefined;
   return (
     <button
       ref={cellRef}
@@ -126,23 +129,28 @@ function Cell({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: '1.25rem',
-        fontWeight: 800,
-        fontFamily: 'inherit',
-        color: value === 'X' ? colors.accent : value === 'O' ? colors.danger : 'transparent',
-        background: isWinning ? colors.accent : colors.glass,
-        border: `1px solid ${isWinning ? colors.accent : colors.glassBorder}`,
+        background: colors.glass,
+        border: `1px solid ${isWinning && markColor ? markColor : colors.borderLight}`,
+        borderWidth: isWinning ? 2 : 1,
         borderRadius: 8,
         cursor: disabled || value !== null ? 'default' : 'pointer',
-        opacity: value !== null ? (isWinning ? 1 : 0.85) : 1,
+        opacity: value !== null && !isWinning ? 0.82 : 1,
         transition: 'background 150ms ease, border-color 150ms ease',
-        animation: value !== null && !isWinning ? 'tttCellPop 0.18s ease-out' : isWinning ? 'tttWinPulse 1s ease-in-out infinite' : undefined,
+        animation: value !== null && !isWinning
+          ? 'tttCellPop 0.18s ease-out'
+          : isWinning
+            ? 'tttWinPulse 1s ease-in-out infinite'
+            : undefined,
         outline: 'none',
         touchAction: 'manipulation',
-        boxShadow: isLast ? `0 0 0 2px ${colors.accent}` : undefined,
+        boxShadow: isWinning && markColor
+          ? `0 0 16px ${markColor}55`
+          : (isLast && markColor)
+            ? `0 0 0 2px ${markColor}`
+            : undefined,
       }}
     >
-      {value ?? ''}
+      {value ? <MarkGlyph mark={value} size={Math.max(12, Math.round(cellSize * 0.62))} colors={colors} /> : null}
     </button>
   );
 }
@@ -344,10 +352,19 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
 
   return (
     <div id="ttt-root" style={{
+      position: 'relative',
       display: 'flex', flexDirection: 'column', alignItems: 'stretch',
-      minHeight: '100vh', padding: '1.25rem', color: colors.text, background: colors.bg,
-      boxSizing: 'border-box',
+      minHeight: '100vh', padding: '1.25rem', color: colors.text, background: colors.gradient,
+      overflow: 'hidden', boxSizing: 'border-box',
     }}>
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute', inset: 0,
+          background: `radial-gradient(115% 60% at 50% -8%, ${colors.accentGlow}, transparent 62%)`,
+          pointerEvents: 'none',
+        }}
+      />
       {/* header: title + exit */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -360,7 +377,7 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
             border: `1px solid ${colors.glassBorder}`, borderRadius: 8, padding: '2px 8px',
             background: colors.glass,
           }}>
-            {t(`ticTacToe.difficulty.${difficulty}` as any)}
+            {t(`ticTacToe.difficulty.${difficulty}` as never)}
           </span>
         </div>
         <button
@@ -394,8 +411,9 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
           width: '100%',
           maxWidth: computeTttBoardSide(cellSize),
           background: colors.bgCard,
-          borderRadius: 16,
-          border: `1px solid ${colors.border}`,
+          borderRadius: 18,
+          border: `1px solid ${colors.borderLight}`,
+          boxShadow: '0 18px 44px rgba(0,0,0,0.3)',
           boxSizing: 'border-box',
         }}
       >
@@ -434,8 +452,21 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
 
       {phase === 'session-complete' && (
         <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 14,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 14,
         }}>
+          {matchResult !== 'pending' && matchResult !== 'draw' && (
+            <span aria-hidden="true" style={{ animation: 'tttWinPop 380ms ease-out', lineHeight: 0 }}>
+              <MarkGlyph mark={matchResult === 'win' ? 'X' : 'O'} size={64} colors={colors} />
+            </span>
+          )}
+          {matchResult === 'draw' && (
+            <span aria-hidden="true" style={{
+              display: 'flex', gap: 12, alignItems: 'center', animation: 'tttWinPop 380ms ease-out',
+            }}>
+              <MarkGlyph mark="X" size={42} colors={colors} />
+              <MarkGlyph mark="O" size={42} colors={colors} />
+            </span>
+          )}
           <button
             type="button"
             onClick={() => { reset(); navigate.replace('tic-tac-toe', { difficulty }); }}

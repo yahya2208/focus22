@@ -61,21 +61,69 @@ describe('00049 migration — server-authoritative friend-play guarantees', () =
     expect(migrationSql).toContain('GAME_NOT_WAITING');
   });
 
-  it('grants execution only to anon + authenticated for every RPC', () => {
+  it('grants ALL RPCs to authenticated (guests are always signed in)', () => {
     const names = [
       'ttt_create_game', 'ttt_get_invite', 'ttt_join_game',
       'ttt_play_move', 'ttt_get_game', 'ttt_abandon_game', 'ttt_admin_stats',
     ];
     for (const n of names) {
       expect(migrationSql).toContain(`GRANT EXECUTE ON FUNCTION public.${n}`);
-      expect(migrationSql).toContain('TO anon, authenticated');
+      expect(migrationSql).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${n}[^;]*authenticated`));
     }
-    expect(migrationSql).toContain('REVOKE ALL ON FUNCTION public.' + names[0] + '() FROM PUBLIC');
+  });
+
+  it('grants anon ONLY to the read-only invite preview (pre-auth landing read)', () => {
+    // ttt_get_invite renders invite metadata BEFORE a guest signs in, so it is the
+    // single RPC callable under `anon` (and still guards auth.uid() + returns no uids).
+    expect(migrationSql).toContain('GRANT EXECUTE ON FUNCTION public.ttt_get_invite(uuid) TO anon, authenticated');
+    // Every write RPC must NOT be granted to anon (least privilege; guests are always
+    // signed in under the `authenticated` role).
+    const writes = ['ttt_create_game', 'ttt_join_game', 'ttt_play_move', 'ttt_abandon_game', 'ttt_get_game', 'ttt_admin_stats'];
+    for (const n of writes) {
+      expect(migrationSql).not.toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${n}[^;]*anon`));
+    }
+  });
+
+  it('protects write RPCs with the auth.uid() IS NOT NULL gate', () => {
+    const writes = ['ttt_create_game', 'ttt_join_game', 'ttt_play_move', 'ttt_abandon_game'];
+    for (const n of writes) {
+      const bodyStart = migrationSql.indexOf(`CREATE OR REPLACE FUNCTION public.${n}`);
+      const nextFn = migrationSql.indexOf('CREATE OR REPLACE FUNCTION', bodyStart + 1);
+      const body = migrationSql.slice(bodyStart, nextFn === -1 ? migrationSql.length : nextFn);
+      expect(body).toMatch(/v_uid\s+uuid\s*:=\s*auth\.uid\(\)/);
+      expect(body).toContain("IF v_uid IS NULL THEN");
+      expect(body).toContain("RAISE EXCEPTION 'UNAUTHENTICATED'");
+    }
+  });
+
+  it('makes ttt_join_game idempotent per joiner — already-joined check precedes status/full', () => {
+    const fnStart = migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.ttt_join_game');
+    const fnEnd = migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.ttt_play_move', fnStart + 1);
+    const fn = migrationSql.slice(fnStart, fnEnd === -1 ? migrationSql.length : fnEnd);
+    // idempotent success branch runs before the status/seat guards
+    const alreadyJoinedIdx = fn.indexOf("IF v_game.joiner_id = v_uid");
+    const notWaitingIdx = fn.indexOf("RAISE EXCEPTION 'GAME_NOT_WAITING'");
+    const fullIdx = fn.indexOf("RAISE EXCEPTION 'GAME_FULL'");
+    expect(alreadyJoinedIdx).toBeGreaterThan(-1);
+    expect(notWaitingIdx).toBeGreaterThan(alreadyJoinedIdx);
+    expect(fullIdx).toBeGreaterThan(alreadyJoinedIdx);
+    expect(fn).toContain("'already_joined', true");
   });
 
   it('gates admin aggregates behind a role check', () => {
     expect(migrationSql).toContain("v_role NOT IN ('admin', 'super_admin', 'researcher')");
     expect(migrationSql).toContain("RAISE EXCEPTION 'ADMIN_REQUIRED'");
+  });
+
+  it('uses type-safe users.id comparisons (live DB users.id is uuid; never uuid = text)', () => {
+    // Live-DB regression: ttt_get_invite/ttt_admin_stats compared the uuid
+    // users.id column to a ::text value → 'operator does not exist: uuid = text'
+    // → 500 on the invite landing (the "Could not start a friend match" flow).
+    expect(migrationSql).toContain('WHERE id::text = v_game.created_by::text');
+    expect(migrationSql).toContain('WHERE id::text = v_uid::text');
+    // no bare `id = ...::text` comparisons remain
+    expect(migrationSql).not.toContain('WHERE id = v_game.created_by::text');
+    expect(migrationSql).not.toContain('WHERE id = v_uid::text');
   });
 
   it('implements the full status state machine', () => {

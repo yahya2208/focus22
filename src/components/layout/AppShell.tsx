@@ -9,7 +9,7 @@ import { shouldShowBackAffordance } from '../../core/navigation/back-matrix';
 import type { ScreenName } from '../../store/navigation';
 
 const fullscreenScreens: ScreenName[] = ['calibration', 'countdown', 'game'];
-const isTicTacToe = (s: ScreenName) => s === 'tic-tac-toe-intro' || s === 'tic-tac-toe' || s === 'tic-tac-toe-results';
+const isTicTacToe = (s: ScreenName) => s === 'tic-tac-toe-intro' || s === 'tic-tac-toe' || s === 'tic-tac-toe-results' || s === 'ttt-multiplayer' || s === 'ttt-invite-landing';
 
 const transitionStyle = document.createElement('style');
 transitionStyle.textContent = `

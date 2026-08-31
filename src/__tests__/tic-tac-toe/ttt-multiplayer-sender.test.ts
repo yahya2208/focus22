@@ -34,15 +34,16 @@ beforeEach(() => {
  */
 describe('ttt-multiplayer-sender — RPC contract', () => {
   it('creates a game via ttt_create_game with no args', async () => {
-    okResolve({ gameId: GAME_ID, inviteToken: INVITE, status: 'waiting', createdBy: 'u1', createdAt: 't' });
+    okResolve({ game_id: GAME_ID, invite_token: INVITE, status: 'waiting', created_by: 'u1', created_at: 't' });
     const out = await tttCreateGame();
     expect(rpcMock.rpc).toHaveBeenCalledTimes(1);
     expect(rpcMock.rpc.mock.calls[0]![0]).toBe('ttt_create_game');
     expect(out.gameId).toBe(GAME_ID);
+    expect(out.createdBy).toBe('u1');
   });
 
   it('loads an invite via ttt_get_invite(p_invite_token)', async () => {
-    okResolve({ gameId: GAME_ID, status: 'waiting', hostDisplayName: 'Ari', expiresAt: null });
+    okResolve({ game_id: GAME_ID, status: 'waiting', host_display_name: 'Ari', expires_at: null });
     const out = await tttGetInvite(INVITE);
     expect(rpcMock.rpc.mock.calls[0]![0]).toBe('ttt_get_invite');
     expect(rpcMock.rpc.mock.calls[0]![1]).toEqual({ p_invite_token: INVITE });
@@ -50,37 +51,39 @@ describe('ttt-multiplayer-sender — RPC contract', () => {
   });
 
   it('joins a game via ttt_join_game(p_invite_token)', async () => {
-    okResolve({ gameId: GAME_ID, status: 'active', creatorUid: 'u1', joinerUid: 'u2' });
+    okResolve({ game_id: GAME_ID, status: 'active', creator_uid: 'u1', joiner_uid: 'u2' });
     const out = await tttJoinGame(INVITE);
     expect(rpcMock.rpc.mock.calls[0]![0]).toBe('ttt_join_game');
     expect(rpcMock.rpc.mock.calls[0]![1]).toEqual({ p_invite_token: INVITE });
     expect(out.creatorUid).toBe('u1');
+    expect(out.joinerUid).toBe('u2');
   });
 
   it('plays a move via ttt_play_move(p_game_id, p_position)', async () => {
-    okResolve({ gameId: GAME_ID, status: 'active', winner: null, winningLine: null, moveCount: 1, lastMark: 'X' });
+    okResolve({ game_id: GAME_ID, status: 'active', winner: null, winning_line: null, move_count: 1, last_mark: 'X' });
     await tttPlayMove(GAME_ID, 40);
     expect(rpcMock.rpc.mock.calls[0]![0]).toBe('ttt_play_move');
     expect(rpcMock.rpc.mock.calls[0]![1]).toEqual({ p_game_id: GAME_ID, p_position: 40 });
   });
 
   it('gets game via ttt_get_game(p_game_id)', async () => {
-    okResolve({ gameId: GAME_ID, status: 'active', createdBy: 'u1', joinerId: 'u2', moves: [], winner: null, winningLine: null, createdAt: 't', finishedAt: null });
+    okResolve({ game_id: GAME_ID, status: 'active', created_by: 'u1', joiner_id: 'u2', moves: [], winner: null, winning_line: null, created_at: 't', finished_at: null });
     const out = await tttGetGame(GAME_ID);
     expect(rpcMock.rpc.mock.calls[0]![0]).toBe('ttt_get_game');
     expect(rpcMock.rpc.mock.calls[0]![1]).toEqual({ p_game_id: GAME_ID });
     expect(out.status).toBe('active');
+    expect(out.moves).toEqual([]);
   });
 
   it('abandons via ttt_abandon_game(p_game_id)', async () => {
-    okResolve({ gameId: GAME_ID, status: 'abandoned' });
+    okResolve({ game_id: GAME_ID, status: 'abandoned' });
     const out = await tttAbandonGame(GAME_ID);
     expect(rpcMock.rpc.mock.calls[0]![0]).toBe('ttt_abandon_game');
     expect(out.status).toBe('abandoned');
   });
 
   it('reads admin stats via ttt_admin_stats with no args', async () => {
-    okResolve({ totalGames: 3, byStatus: { completed: 2 }, byWinner: {}, avgMoves: 10, recent: [] });
+    okResolve({ total_games: 3, by_status: { completed: 2 }, by_winner: {}, avg_moves: 10, recent: [] });
     const out = await tttAdminStats();
     expect(rpcMock.rpc.mock.calls[0]![0]).toBe('ttt_admin_stats');
     expect(out.totalGames).toBe(3);
@@ -116,7 +119,7 @@ describe('ttt-multiplayer-sender — RPC contract', () => {
   });
 
   it('never sends user_id / email / token in any payload', () => {
-    okResolve({ gameId: GAME_ID, inviteToken: INVITE, status: 'waiting', createdBy: 'u1', createdAt: 't' });
+    okResolve({ game_id: GAME_ID, invite_token: INVITE, status: 'waiting', created_by: 'u1', created_at: 't' });
     void tttCreateGame();
     void tttGetInvite(INVITE);
     void tttJoinGame(INVITE);

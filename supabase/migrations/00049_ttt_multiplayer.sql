@@ -20,7 +20,8 @@
 -- Identity: ALL writes derive user identity from auth.uid() server-side.
 --   Guests reach here via Supabase ANONYMOUS AUTH (signInAnonymously), so both
 --   the host and a friend arriving through an invite link hold a real auth.uid()
---   with ZERO login friction. The client NEVER supplies identity fields.
+--   (issued under the `authenticated` Postgres role) with ZERO login friction.
+--   The client NEVER supplies identity fields. No device ids/login UI are used.
 --
 -- Server-authoritative moves & winner:
 --   ttt_play_move() re-plays the board from stored moves, verifies strict
@@ -32,14 +33,22 @@
 -- Security:
 --   SECURITY DEFINER for every write RPC (runs as table owner).
 --   SET search_path = '' everywhere (prevents search-path hijack).
---   REVOKE ALL ... FROM PUBLIC; GRANT EXECUTE TO anon, authenticated.
+--   REVOKE ALL ... FROM PUBLIC, then GRANT EXECUTE by least privilege:
+--     - ttt_get_invite (read-only invite preview rendered BEFORE a guest signs
+--       in) is the ONLY RPC callable under `anon`.
+--     - every other RPC is granted to `authenticated` only — guests are always
+--       signed in (Anonymous Auth), so auth.uid() is NOT NULL for them.
+--     - ALL RPCs (incl. ttt_get_invite) still guard with `IF v_uid IS NULL
+--       THEN RAISE UNAUTHENTICATED` and never grant direct table access.
 --   Direct table access is NOT granted to anon/authenticated (data flows only
 --   through the RPCs). RLS is enabled as defense-in-depth.
 --   ttt_admin_stats() additionally checks the caller's users.role.
 --
 -- Idempotency / concurrency:
---   Joining & moving use conditional updates + ROW (row-level) locking so two
---   concurrent requests cannot both win a join or both play the same turn.
+--   ttt_join_game() checks the already-joined joiner FIRST so a retry/reload by
+--   the same player returns the current state (already_joined=true) instead of
+--   raising GAME_NOT_WAITING. Joining & moving use ROW (row-level) locking so
+--   two concurrent requests cannot both win a join or both play the same turn.
 --
 -- Rollback:
 --   DROP TABLE IF EXISTS public.ttt_invites, public.ttt_moves, public.ttt_games;
@@ -180,7 +189,7 @@ BEGIN
     RAISE EXCEPTION 'INVITE_NOT_FOUND';
   END IF;
 
-  SELECT display_name INTO v_host FROM public.users WHERE id = v_game.created_by::text;
+  SELECT display_name INTO v_host FROM public.users WHERE id::text = v_game.created_by::text;
 
   RETURN jsonb_build_object(
     'game_id', v_game.id,
@@ -220,19 +229,32 @@ BEGIN
     RAISE EXCEPTION 'INVITE_NOT_FOUND';
   END IF;
 
+  -- IDEMPOTENCY CONTRACT — ordering matters. An already-joined participant
+  -- (and the host re-reading their own invite after a join) must get the
+  -- current state back regardless of status, so retries/reloads succeed.
+  IF v_game.joiner_id = v_uid
+     OR (v_game.created_by = v_uid AND v_game.joiner_id IS NOT NULL) THEN
+    RETURN jsonb_build_object(
+      'game_id', v_game.id,
+      'status', v_game.status,
+      'creator_uid', v_game.created_by,
+      'joiner_uid', v_game.joiner_id,
+      'already_joined', true
+    );
+  END IF;
+
+  -- a non-participant who is the host cannot join their own game
   IF v_game.created_by = v_uid THEN
-    -- host re-reading their own invite: idempotently return current state
-    IF v_game.joiner_id IS NOT NULL THEN
-      RETURN jsonb_build_object('game_id', v_game.id, 'status', v_game.status, 'creator_uid', v_game.created_by, 'joiner_uid', v_game.joiner_id, 'already_joined', true);
-    END IF;
     RAISE EXCEPTION 'CANNOT_JOIN_OWN_GAME';
   END IF;
 
+  -- a NEW player may only join a game still waiting for an opponent
   IF v_game.status <> 'waiting' THEN
     RAISE EXCEPTION 'GAME_NOT_WAITING';
   END IF;
 
-  IF v_game.joiner_id IS NOT NULL AND v_game.joiner_id IS DISTINCT FROM v_uid THEN
+  -- the joiner seat is taken by someone else
+  IF v_game.joiner_id IS NOT NULL THEN
     RAISE EXCEPTION 'GAME_FULL';
   END IF;
 
@@ -550,7 +572,7 @@ BEGIN
     RAISE EXCEPTION 'UNAUTHENTICATED';
   END IF;
 
-  SELECT role INTO v_role FROM public.users WHERE id = v_uid::text;
+  SELECT role INTO v_role FROM public.users WHERE id::text = v_uid::text;
   IF v_role IS NULL OR v_role NOT IN ('admin', 'super_admin', 'researcher') THEN
     RAISE EXCEPTION 'ADMIN_REQUIRED';
   END IF;
@@ -581,7 +603,8 @@ END;
 $$;
 
 -- ===========================================================================
--- 6) Grant / revoke execution on all new RPCs (anon + authenticated only)
+-- 6) Grant / revoke execution on all new RPCs (anonymous only for the read-only
+--    invite preview; authenticated everywhere — guests sign in as authenticated)
 -- ===========================================================================
 REVOKE ALL ON FUNCTION public.ttt_create_game() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.ttt_get_invite(uuid) FROM PUBLIC;
@@ -591,12 +614,17 @@ REVOKE ALL ON FUNCTION public.ttt_get_game(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.ttt_abandon_game(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.ttt_admin_stats() FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION public.ttt_create_game() TO anon, authenticated;
+-- Least privilege: Anonymous Auth guests are always signed in, so write RPCs and
+-- participant reads run under the `authenticated` role (auth.uid() is NOT NULL).
+-- ONLY the read-only invite preview (rendered BEFORE a guest signs in) is callable
+-- under `anon`. Every write RPC still guards with `IF v_uid IS NULL THEN
+-- RAISE UNAUTHENTICATED`, so no direct-table access / RLS is ever bypassed.
+GRANT EXECUTE ON FUNCTION public.ttt_create_game() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.ttt_get_invite(uuid) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.ttt_join_game(uuid) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.ttt_play_move(uuid, integer) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.ttt_get_game(uuid) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.ttt_abandon_game(uuid) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.ttt_admin_stats() TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ttt_join_game(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.ttt_play_move(uuid, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.ttt_get_game(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.ttt_abandon_game(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.ttt_admin_stats() TO authenticated;
 
 COMMIT;

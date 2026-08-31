@@ -4,8 +4,11 @@ import type {
   TttInviteInfo,
   TttJoinGameResult,
   TttGameState,
+  TttGameStatus,
   TttPlayMoveResult,
   TttAdminStats,
+  TttPersistedMove,
+  TttWinner,
   TttErrorCode,
 } from '../core/ttt-multiplayer/types';
 
@@ -59,19 +62,104 @@ function mapError(error: unknown): TttMultiplayerError {
   return { code: 'NETWORK_ERROR', message: 'Network error — please try again' };
 }
 
-async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
+type RecordMap = Readonly<Record<string, unknown>>;
+
+/**
+ * The RPCs return JSONB with snake_case keys (00049). Normalize each payload to
+ * the camelCase domain contract here — the wire layer is the single choke point,
+ * so callers always work with the typed Ttt* interfaces.
+ */
+function toCreateGameResult(d: RecordMap): TttCreateGameResult {
+  return {
+    gameId: d.game_id as string,
+    inviteToken: d.invite_token as string,
+    status: d.status as TttGameStatus,
+    createdBy: d.created_by as string,
+    createdAt: d.created_at as string,
+  };
+}
+
+function toInviteInfo(d: RecordMap): TttInviteInfo {
+  return {
+    gameId: d.game_id as string,
+    status: d.status as TttGameStatus,
+    hostDisplayName: d.host_display_name as string,
+    expiresAt: (d.expires_at as string | null) ?? null,
+  };
+}
+
+function toJoinGameResult(d: RecordMap): TttJoinGameResult {
+  const result: TttJoinGameResult = {
+    gameId: d.game_id as string,
+    status: d.status as TttGameStatus,
+    creatorUid: d.creator_uid as string,
+    joinerUid: (d.joiner_uid as string | null) ?? null,
+    ...(d.already_joined != null ? { alreadyJoined: Boolean(d.already_joined) } : {}),
+  };
+  return result;
+}
+
+function toPlayMoveResult(d: RecordMap): TttPlayMoveResult {
+  return {
+    gameId: d.game_id as string,
+    status: d.status as TttGameStatus,
+    winner: d.winner as TttWinner,
+    winningLine: (d.winning_line as readonly number[] | null) ?? null,
+    moveCount: d.move_count as number,
+    lastMark: d.last_mark as 'X' | 'O',
+  };
+}
+
+function toGameState(d: RecordMap): TttGameState {
+  return {
+    gameId: d.game_id as string,
+    status: d.status as TttGameStatus,
+    createdBy: d.created_by as string,
+    joinerId: (d.joiner_id as string | null) ?? null,
+    moves: (d.moves as readonly TttPersistedMove[]) ?? [],
+    winner: d.winner as TttWinner,
+    winningLine: (d.winning_line as readonly number[] | null) ?? null,
+    createdAt: d.created_at as string,
+    finishedAt: (d.finished_at as string | null) ?? null,
+  };
+}
+
+function toAbandonResult(d: RecordMap): { gameId: string; status: string } {
+  return {
+    gameId: d.game_id as string,
+    status: d.status as string,
+  };
+}
+
+function toAdminStats(d: RecordMap): TttAdminStats {
+  const recent = ((d.recent as RecordMap[]) ?? []).map((r) => ({
+    gameId: r.game_id as string,
+    status: r.status as TttGameStatus,
+    winner: r.winner as TttWinner,
+    moveCount: r.move_count as number,
+    createdAt: r.created_at as string,
+  }));
+  return {
+    totalGames: d.total_games as number,
+    byStatus: (d.by_status as Record<string, number>) ?? {},
+    byWinner: (d.by_winner as Record<string, number>) ?? {},
+    avgMoves: d.avg_moves as number,
+    recent,
+  };
+}
+
+async function rpc(name: string, args: Record<string, unknown>): Promise<RecordMap> {
   const { data, error } = await getSupabaseClient().rpc(name, args);
   if (error) throw mapError(error);
   if (data == null) {
     throw { code: 'UNKNOWN_ERROR', message: 'No data returned from server' } as TttMultiplayerError;
   }
-  return data as T;
+  return data as RecordMap;
 }
 
 export async function tttCreateGame(): Promise<TttCreateGameResult> {
   try {
-    const data = await rpc<TttCreateGameResult>('ttt_create_game', {});
-    return data;
+    return toCreateGameResult(await rpc('ttt_create_game', {}));
   } catch (e) {
     throw mapError(e);
   }
@@ -79,8 +167,7 @@ export async function tttCreateGame(): Promise<TttCreateGameResult> {
 
 export async function tttGetInvite(inviteToken: string): Promise<TttInviteInfo> {
   try {
-    const data = await rpc<TttInviteInfo>('ttt_get_invite', { p_invite_token: inviteToken });
-    return data;
+    return toInviteInfo(await rpc('ttt_get_invite', { p_invite_token: inviteToken }));
   } catch (e) {
     throw mapError(e);
   }
@@ -88,8 +175,7 @@ export async function tttGetInvite(inviteToken: string): Promise<TttInviteInfo> 
 
 export async function tttJoinGame(inviteToken: string): Promise<TttJoinGameResult> {
   try {
-    const data = await rpc<TttJoinGameResult>('ttt_join_game', { p_invite_token: inviteToken });
-    return data;
+    return toJoinGameResult(await rpc('ttt_join_game', { p_invite_token: inviteToken }));
   } catch (e) {
     throw mapError(e);
   }
@@ -100,11 +186,11 @@ export async function tttPlayMove(
   position: number,
 ): Promise<TttPlayMoveResult> {
   try {
-    const data = await rpc<TttPlayMoveResult>('ttt_play_move', {
+    const data = await rpc('ttt_play_move', {
       p_game_id: gameId,
       p_position: position,
     });
-    return data;
+    return toPlayMoveResult(data);
   } catch (e) {
     throw mapError(e);
   }
@@ -112,8 +198,7 @@ export async function tttPlayMove(
 
 export async function tttGetGame(gameId: string): Promise<TttGameState> {
   try {
-    const data = await rpc<TttGameState>('ttt_get_game', { p_game_id: gameId });
-    return data;
+    return toGameState(await rpc('ttt_get_game', { p_game_id: gameId }));
   } catch (e) {
     throw mapError(e);
   }
@@ -121,10 +206,9 @@ export async function tttGetGame(gameId: string): Promise<TttGameState> {
 
 export async function tttAbandonGame(gameId: string): Promise<{ gameId: string; status: string }> {
   try {
-    const data = await rpc<{ gameId: string; status: string }>('ttt_abandon_game', {
+    return toAbandonResult(await rpc('ttt_abandon_game', {
       p_game_id: gameId,
-    });
-    return data;
+    }));
   } catch (e) {
     throw mapError(e);
   }
@@ -132,8 +216,7 @@ export async function tttAbandonGame(gameId: string): Promise<{ gameId: string; 
 
 export async function tttAdminStats(): Promise<TttAdminStats> {
   try {
-    const data = await rpc<TttAdminStats>('ttt_admin_stats', {});
-    return data;
+    return toAdminStats(await rpc('ttt_admin_stats', {}));
   } catch (e) {
     throw mapError(e);
   }
