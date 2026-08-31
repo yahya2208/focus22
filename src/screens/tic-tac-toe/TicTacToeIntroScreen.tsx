@@ -1,10 +1,11 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import type { Difficulty } from '../../core/tic-tac-toe/types';
 import { useTttMultiplayer } from '../../hooks/use-ttt-multiplayer';
 import { GridMotif, MarkGlyph } from '../../core/ttt-multiplayer/visual';
+import { track } from '../../core/telemetry';
 
 const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard'];
 
@@ -22,6 +23,10 @@ export const TicTacToeIntroScreen = memo(function TicTacToeIntroScreen() {
   const { createGame } = useTttMultiplayer();
   const [friendPending, setFriendPending] = useState(false);
   const [friendError, setFriendError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void track({ event: 'game_intro_view', entityType: 'game', properties: { game: 'ttt' } });
+  }, []);
 
   const handleStart = () => {
     navigate.push('tic-tac-toe', { difficulty });

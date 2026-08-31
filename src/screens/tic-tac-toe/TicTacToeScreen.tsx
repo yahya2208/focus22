@@ -8,6 +8,7 @@ import { getAvailableMoves } from '../../core/tic-tac-toe/board';
 import { getGlobalSessionService } from '../../core/session/service';
 import { sendTicTacToeSession } from '../../services/tic-tac-toe-sender';
 import type { TicTacToeMatchData } from '../../services/tic-tac-toe-sender';
+import { track } from '../../core/telemetry';
 import type { MovePosition } from '../../core/tic-tac-toe/types';
 import { BOARD_SIZE, indexToRowCol } from '../../core/tic-tac-toe/types';
 import type { CalibrationProfile } from '../../core/calibration';
@@ -179,6 +180,8 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
   );
   const sessionIdRef = useRef<string | null>(null);
   const completedRef = useRef(false);
+  const playAgainRef = useRef(false);
+  const quitConfirmedRef = useRef(false);
   const matchStartTimeRef = useRef<string>(new Date().toISOString());
   const boardRef = useRef<HTMLDivElement | null>(null);
   const cellRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -235,6 +238,8 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
     const sessionId = sessionService.startSession({ gameMode: 'tic-tac-toe' });
     sessionIdRef.current = sessionId;
     dispatch({ type: 'START_SESSION', sessionId, gameMode: 'tic-tac-toe' });
+    playAgainRef.current = false;
+    void track({ event: 'game_start', entityType: 'game', entityId: sessionId, properties: { game: 'ttt', size: 9 } });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -242,6 +247,8 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
       const sessionId = sessionIdRef.current;
       if (sessionId && !completedRef.current) {
         getGlobalSessionService().abandonSession(sessionId, 'abandoned');
+      } else if (sessionId && completedRef.current && !quitConfirmedRef.current && !playAgainRef.current) {
+        void track({ event: 'game_exit', entityType: 'game', entityId: sessionId, properties: { game: 'ttt' } });
       }
     };
   }, []);
@@ -281,6 +288,7 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
     if (!completedRef.current && sessionId) {
       completedRef.current = true;
       sendTicTacToeSession({ sessionId, difficulty, matches: [matchData] });
+      void track({ event: 'game_complete', entityType: 'game', entityId: sessionId, properties: { game: 'ttt', outcome: matchResult } });
       getGlobalSessionService().completeSession(sessionId, {
         rawRts: [],
         correctedRts: [],
@@ -313,11 +321,13 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
     const sessionId = sessionIdRef.current;
     if (!completedRef.current && sessionId) {
       completedRef.current = true;
+      quitConfirmedRef.current = true;
       getGlobalSessionService().abandonSession(sessionId, 'abandoned');
+      void track({ event: 'game_abandon', entityType: 'game', entityId: sessionId, properties: { game: 'ttt', turns: moveCount } });
     }
     reset();
     navigate.replace('home');
-  }, [navigate, reset, setStopConfirmOpen]);
+  }, [navigate, reset, setStopConfirmOpen, moveCount]);
 
   const handleShareResult = useCallback(async () => {
     const shareUrl = buildAppUrl('');
@@ -469,7 +479,7 @@ export const TicTacToeScreen = memo(function TicTacToeScreen() {
           )}
           <button
             type="button"
-            onClick={() => { reset(); navigate.replace('tic-tac-toe', { difficulty }); }}
+            onClick={() => { playAgainRef.current = true; reset(); navigate.replace('tic-tac-toe', { difficulty }); }}
             style={{
               padding: '12px 34px', borderRadius: 10, border: 'none',
               background: colors.accent, color: '#0a0a12',
