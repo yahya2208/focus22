@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -8,6 +8,7 @@ import { Input } from '../../design-system/components/Input';
 import { Select } from '../../design-system/components/Select';
 import { Flex } from '../../design-system/components/Flex';
 import { useCart } from '../../core/cart/CartContext';
+import { track } from '../../core/telemetry';
 import { useWhatsApp } from '../../providers/WhatsAppProvider';
 import { buildCartRequestMessage } from '../../services/whatsapp-service';
 import { produceUnitLabel } from '../../domains/listings';
@@ -48,6 +49,20 @@ export const RequestScreen = memo(function RequestScreen() {
     [zones, locale],
   );
 
+  // T3.2 telemetry — `request_start` fires once per entry to the request
+  // terminal with a non-empty cart (the user actively began a request by
+  // tapping "send request"). Deduped so rerenders never re-fire.
+  const requestStartedRef = useRef(false);
+  useEffect(() => {
+    if (isEmpty) {
+      requestStartedRef.current = false;
+      return;
+    }
+    if (requestStartedRef.current) return;
+    requestStartedRef.current = true;
+    void track({ event: 'request_start' });
+  }, [isEmpty]);
+
   if (isEmpty) {
     return (
       <Screen ariaLabel={t('request.title')} maxWidth="700px">
@@ -80,7 +95,14 @@ export const RequestScreen = memo(function RequestScreen() {
   }
 
   function handleSubmit() {
-    if (!validate()) return;
+    if (!validate()) {
+      // T3.2 telemetry — validation failure: request never left the terminal.
+      // `error_code` is the only allowed field; no phone/message/content is sent.
+      void track({ event: 'request_failed', properties: { error_code: 'validation' } });
+      return;
+    }
+    // Local validation passed — the submit was initiated by the user.
+    void track({ event: 'request_submit' });
     const requestLines = lines.map((line) => ({
       name: `${line.brand} ${line.model}`.trim() || line.model,
       quantity: line.quantity,
@@ -94,7 +116,13 @@ export const RequestScreen = memo(function RequestScreen() {
       notes: notes.trim(),
     });
     clear();
+    // Fire-and-forget WhatsApp handoff. `send` synchronously initiates the
+    // same-tab wa.me navigation (returns void, never throws by contract). The
+    // handoff is actually initiated here — that is the success point for this
+    // design, not merely passing local validation.
     whatsapp.send(message, { action: 'inquiry' });
+    void track({ event: 'request_success' });
+    void track({ event: 'whatsapp_open', properties: { method: 'wa.me' } });
   }
 
   return (

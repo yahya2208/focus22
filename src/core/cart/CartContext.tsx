@@ -9,6 +9,7 @@
  * only `sale` listings are cart-able here.
  */
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { track } from '../telemetry';
 
 export type CartDomain = 'phone' | 'car' | 'property' | 'produce';
 export type CartPricePeriod = 'sale' | 'monthly';
@@ -100,18 +101,37 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setQuantity = useCallback((catalogRef: string, quantity: number) => {
-    setLines((prev) =>
-      prev.map((l) =>
-        l.catalogRef === catalogRef ? { ...l, quantity: clampQty(quantity, l.stock) } : l,
-      ),
-    );
+    setLines((prev) => {
+      const line = prev.find((l) => l.catalogRef === catalogRef);
+      if (!line) return prev;
+      const nextQty = clampQty(quantity, line.stock);
+      // T3.2 telemetry — `cart_quantity_change` with qty only; no product content.
+      void track({ event: 'cart_quantity_change', entityType: 'product', entityId: catalogRef, properties: { qty: nextQty } });
+      return prev.map((l) =>
+        l.catalogRef === catalogRef ? { ...l, quantity: nextQty } : l,
+      );
+    });
   }, []);
 
   const removeLine = useCallback((catalogRef: string) => {
-    setLines((prev) => prev.filter((l) => l.catalogRef !== catalogRef));
+    setLines((prev) => {
+      // T3.2 telemetry — `cart_remove` (no properties); entityId only.
+      if (prev.some((l) => l.catalogRef === catalogRef)) {
+        void track({ event: 'cart_remove', entityType: 'product', entityId: catalogRef });
+      }
+      return prev.filter((l) => l.catalogRef !== catalogRef);
+    });
   }, []);
 
-  const clear = useCallback(() => setLines([]), []);
+  const clear = useCallback(() => {
+    setLines((prev) => {
+      if (prev.length > 0) {
+        // T3.2 telemetry — `cart_clear` with line count only (captured before wipe).
+        void track({ event: 'cart_clear', properties: { count: prev.length } });
+      }
+      return [];
+    });
+  }, []);
 
   const value = useMemo<CartContextValue>(() => {
     const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);

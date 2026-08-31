@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -7,6 +7,7 @@ import { Card } from '../../design-system/components/Card';
 import { Button } from '../../design-system/components/Button';
 import { Flex } from '../../design-system/components/Flex';
 import { useCart } from '../../core/cart/CartContext';
+import { track } from '../../core/telemetry';
 import { produceUnitLabel } from '../../domains/listings';
 
 /** Marketplace cart — multi-item. Display values are UX-only; the server is authoritative. */
@@ -16,6 +17,20 @@ export const CartScreen = memo(function CartScreen() {
   const { t, dir, locale } = useTranslation();
   const colors = useThemeColors();
   const { lines, itemCount, subtotal, isEmpty, setQuantity, removeLine, clear } = useCart();
+
+  // T3.2 telemetry — `cart_view` fires once per entry to a non-empty cart
+  // (line count only, never cart contents). Guarded so rerenders and later
+  // refreshes of an already-empty cart do not spam.
+  const cartViewFiredRef = useRef(false);
+  useEffect(() => {
+    if (isEmpty) {
+      cartViewFiredRef.current = false;
+      return;
+    }
+    if (cartViewFiredRef.current) return;
+    cartViewFiredRef.current = true;
+    void track({ event: 'cart_view', properties: { count: lines.length } });
+  }, [isEmpty, lines.length]);
 
   const backArrow = dir === 'rtl' ? '→' : '←';
   const returnScreen = (routeParams.returnTo as 'showroom' | 'category' | 'home') ?? 'home';
