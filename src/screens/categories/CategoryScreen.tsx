@@ -1,5 +1,6 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
+import { track } from '../../core/telemetry';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Screen, Grid, Stack } from '../../design-system/layout';
@@ -223,6 +224,29 @@ export const CategoryScreen = memo(function CategoryScreen() {
     setCategory(slug ? getCategoryBySlug(slug) : undefined);
   }, [slug]);
 
+  // Telemetry (T3.1): `category_view` fires once per loaded category; the
+  // product-list-view fires once per category when its phone product grid renders.
+  const categoryViewedRef = useRef<string | null>(null);
+  const productListViewFiredRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (category && category.isActive && categoryViewedRef.current !== category.id) {
+      categoryViewedRef.current = category.id;
+      void track({ event: 'category_view', entityType: 'category', entityId: category.slug });
+    }
+  }, [category]);
+
+  useEffect(() => {
+    if (category && phoneDevices.length > 0 && productListViewFiredRef.current !== category.id) {
+      productListViewFiredRef.current = category.id;
+      void track({
+        event: 'category_product_list_view',
+        entityType: 'category',
+        entityId: category.slug,
+        properties: { count: phoneDevices.length },
+      });
+    }
+  }, [category, phoneDevices.length]);
+
   const parentChain = useMemo(() => {
     const chain: Category[] = [];
     let cursor: Category | undefined = category;
@@ -263,7 +287,10 @@ export const CategoryScreen = memo(function CategoryScreen() {
   const description = getCategoryDescription(category, locale);
   const accent = theme!.accent;
 
-  const openPhone = (device: InventoryRecord) => {
+  const openPhone = (device: InventoryRecord, position: number) => {
+    // category context is the current category; product entity + grid position
+    // only — never the product object or any free text.
+    void track({ event: 'category_product_click', entityType: 'product', entityId: device.id, properties: { position } });
     dispatch({ type: 'NAVIGATE', screen: 'phone-details', params: { device: device.id } });
   };
 
@@ -354,7 +381,10 @@ export const CategoryScreen = memo(function CategoryScreen() {
                   key={child.id}
                   variant="interactive"
                   padding="lg"
-                  onClick={() => dispatch({ type: 'REPLACE', screen: 'category', params: { slug: child.slug } })}
+                  onClick={() => {
+                    void track({ event: 'subcategory_view', entityType: 'category', entityId: child.slug });
+                    dispatch({ type: 'REPLACE', screen: 'category', params: { slug: child.slug } });
+                  }}
                   style={{ textAlign: 'center', border: '1px solid transparent' }}
                 >
                   <span role="img" aria-hidden="true" style={{ fontSize: '1.6rem', display: 'block', marginBottom: '0.4rem' }}>
@@ -392,14 +422,14 @@ export const CategoryScreen = memo(function CategoryScreen() {
               <Stack gap="lg">
                 {phoneDevices.length > 0 && (
                   <Grid minColumnWidth="150px" gap="md">
-                    {phoneDevices.map((device) => (
-                      <CategoryProductCard
-                        key={device.id}
-                        device={device}
-                        accent={accent}
-                        onOpen={() => openPhone(device)}
-                      />
-                    ))}
+                {phoneDevices.map((device, idx) => (
+                  <CategoryProductCard
+                    key={device.id}
+                    device={device}
+                    accent={accent}
+                    onOpen={() => openPhone(device, idx)}
+                  />
+                ))}
                   </Grid>
                 )}
                 {listingCards.length > 0 && (

@@ -3,6 +3,8 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useInventoryImages } from '../../hooks/useInventoryImages';
 import { useServerViewCounter } from '../../hooks/useServerViewCounter';
+import { useTelemetryImpression } from '../../hooks/useTelemetryImpression';
+import { track } from '../../core/telemetry';
 import { PhoneCardCarousel, USE_NEW_GALLERY } from './phone-gallery';
 import type { InventoryRecord } from '../../services/inventory-service';
 
@@ -10,6 +12,8 @@ export interface PhoneCardProps {
   device: InventoryRecord;
   compact?: boolean;
   onSelect: (device: InventoryRecord) => void;
+  /** Grid position used for product_impression (0-based). */
+  position?: number;
 }
 
 /**
@@ -18,12 +22,27 @@ export interface PhoneCardProps {
  * opens the details page. The old gallery-only tap is gone — gallery lives in
  * the details page.
  */
-export const PhoneCard = memo(function PhoneCard({ device, compact = false, onSelect }: PhoneCardProps) {
+export const PhoneCard = memo(function PhoneCard({ device, compact = false, onSelect, position = 0 }: PhoneCardProps) {
   const colors = useThemeColors();
   const { t } = useTranslation();
   const images = useInventoryImages(device.id, device.images ?? []);
   const primary = images[0];
   const { observe } = useServerViewCounter(device.id, 'card_view');
+  const observeImpression = useTelemetryImpression({
+    threshold: 0.6,
+    durationMs: 1000,
+    onVisible: () => {
+      // `dedupeKey` collapses repeated impressions of the same product within a
+      // session; only the entity + position are sent (never product content).
+      void track({
+        event: 'product_impression',
+        entityType: 'product',
+        entityId: device.id,
+        properties: { position },
+        dedupeKey: `impression:${device.id}`,
+      });
+    },
+  });
 
   const handleClick = useCallback(() => {
     onSelect(device);
@@ -156,7 +175,7 @@ export const PhoneCard = memo(function PhoneCard({ device, compact = false, onSe
       data-device-id={device.id}
       aria-label={`${device.brand} ${device.model} ${device.variant}`}
       onClick={handleClick}
-      ref={observe}
+      ref={(el) => { observe(el); observeImpression(el); }}
       style={{
         textAlign: 'right', padding: 0, margin: 0, border: 'none', cursor: 'pointer',
         fontFamily: 'inherit', background: 'transparent', display: 'block', width: '100%',
@@ -209,10 +228,11 @@ export const PhoneShowroom = memo(function PhoneShowroom({ devices, onSelect, em
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 160px), 1fr))', gap: '0.75rem' }}>
-      {devices.map((device) => (
+      {devices.map((device, idx) => (
         <PhoneCard
           key={`${device.id}-${device.variant}-${device.condition}`}
           device={device}
+          position={idx}
           onSelect={onSelect}
         />
       ))}

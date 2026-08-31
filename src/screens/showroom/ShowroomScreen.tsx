@@ -1,5 +1,6 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
+import { track } from '../../core/telemetry';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Screen, Stack, Grid } from '../../design-system/layout';
@@ -126,6 +127,22 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
     if (category !== 'phone') return;
     recordSearch(state.query, visible.length);
   }, [category, state.query, visible.length, recordSearch]);
+
+  // Telemetry (T3.1): `category_search` — records ONLY `has_result`, never the
+  // raw query text. Debounced so keystrokes don't spam; fires only once a real,
+  // non-empty search is (reasonably) settled.
+  const searchTrackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const q = state.query.trim();
+    if (searchTrackRef.current) clearTimeout(searchTrackRef.current);
+    if (q === '') return;
+    searchTrackRef.current = setTimeout(() => {
+      void track({ event: 'category_search', entityType: 'category', entityId: state.category, properties: { has_result: visible.length > 0 } });
+    }, 400);
+    return () => {
+      if (searchTrackRef.current) clearTimeout(searchTrackRef.current);
+    };
+  }, [state.query, state.category, visible.length]);
 
   const handleSelect = useCallback((device: InventoryRecord) => {
     // Link selection to originating search event if available

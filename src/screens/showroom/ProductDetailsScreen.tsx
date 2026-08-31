@@ -22,6 +22,7 @@ import { useFavorites } from '../../hooks/useFavorites';
 import { useCart } from '../../core/cart/CartContext';
 import { sendContactOwnerWhatsApp } from '../../services/whatsapp-service';
 import { recordIntent } from '../../services/intent-tracking';
+import { track } from '../../core/telemetry';
 import { buildAppUrl } from '../../core/base-path';
 import type { InventoryRecord } from '../../services/inventory-service';
 
@@ -92,6 +93,16 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
   const images = useInventoryImages(device?.id, device?.images ?? []);
   const cart = useCart();
 
+  // Telemetry (T3.1): `product_view` fires once the product detail is actually
+  // loaded on screen (not on bare component creation). Legacy recordPhoneView
+  // keeps running untouched alongside it.
+  const productViewedRef = useRef(false);
+  useEffect(() => {
+    if (!device || productViewedRef.current) return;
+    productViewedRef.current = true;
+    void track({ event: 'product_view', entityType: 'product', entityId: device.id });
+  }, [device]);
+
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
   const [qty, setQty] = useState(1);
 
@@ -110,6 +121,7 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
         shared = false;
       }
     }
+    void track({ event: 'product_share', entityType: 'product', entityId: deviceId ?? null, properties: { method: shared ? 'native' : 'clipboard' } });
     if (!shared) {
       await copyToClipboard(url);
       setToast({ message: t('phoneDetails.shareCopied'), type: 'success' });
@@ -152,6 +164,7 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
       pricePeriod: 'sale',
       quantity: qty,
     });
+    void track({ event: 'cart_add', entityType: 'product', entityId: device.id, properties: { qty } });
     dispatch({ type: 'NAVIGATE', screen: 'cart' });
   }, [device, cart, images, qty, dispatch]);
 

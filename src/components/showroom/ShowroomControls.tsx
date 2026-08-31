@@ -3,6 +3,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Input } from '../../design-system/components/Input';
 import { Chip } from '../../design-system/components/Chip';
+import { track } from '../../core/telemetry';
 import type { InventoryRecord } from '../../services/inventory-service';
 import {
   getAvailableCities,
@@ -49,17 +50,23 @@ export const ShowroomControls = memo(function ShowroomControls({
   const handleCondition = (value: ShowroomConditionFilter) => {
     if (value === state.condition) return;
     onChange({ condition: value });
+    // T3.1 telemetry — `category_filter` with the existing category identifier.
+    void track({ event: 'category_filter', entityType: 'category', entityId: state.category, properties: { filter: 'condition', active: value !== 'all' } });
   };
 
   const handleCity = (value: string) => {
     const next = state.city === value ? '' : value;
     if (next === state.city) return;
     onChange({ city: next });
+    void track({ event: 'category_filter', entityType: 'category', entityId: state.category, properties: { filter: 'city', active: next !== '' } });
   };
 
   const handleSort = (value: ShowroomSort) => {
     if (value === state.sort) return;
     onChange({ sort: value });
+    // T3.1 telemetry — `category_sort` with the sort value; no direction field
+    // is invented (schema allows `sort` only when direction is omitted).
+    void track({ event: 'category_sort', entityType: 'category', entityId: state.category, properties: { sort: value } });
   };
 
   return (
