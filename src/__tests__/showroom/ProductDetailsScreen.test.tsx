@@ -88,11 +88,12 @@ describe('Phase 3B §3.2/§3.3 — ProductDetailsScreen', () => {
     expect(screen.getByText(`${target.sellPrice!.toLocaleString()} د.ج`)).toBeTruthy();
     expect(screen.getByText(/Specifications/i)).toBeTruthy();
     expect(screen.getByText(/Similar Phones/i)).toBeTruthy();
-    // BATCH 3 — contact CTA + marketplace add-to-cart + buy-now CTAs present;
-    // no exchange/installment/inquiry/sell buttons.
+    // BATCH 3 — contact CTA + request-cart add-to-cart present; NO buy-now/checkout
+    // CTAs and no exchange/installment/inquiry/sell buttons (mediator only).
     expect(screen.getByRole('button', { name: /Contact the ad owner/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Add to cart/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Buy now/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Add to request cart/i })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Buy now/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Proceed to checkout/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /Exchange/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /Installment/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /Inquiry/i })).toBeNull();

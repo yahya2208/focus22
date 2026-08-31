@@ -1,12 +1,12 @@
 /**
- * Marketplace cart (additive — the existing single-item OrderForm quick-buy is
- * preserved). READ FIRST: the client is NEVER authoritative for price or
- * identity. Every line keeps the `catalogRef` = inventory_items.id so the
- * server (`delivery_create_order` + 00052) resolves the authoritative
- * price/name/quantity. `displayUnitPrice` is UX-only.
+ * Marketplace Request Cart — product selection only. FOCUS never sells/pays
+ * in-app: the cart collects lines (keyed by `catalogRef` = inventory_items.id)
+ * and the terminal step sends ONE organized WhatsApp request card to the
+ * business number. `displayUnitPrice` is display-only — final price is agreed
+ * over WhatsApp, never computed as a confirmed total in the app.
  *
  * Property MONTHLY rentals never enter the cart (they are lead/contact-only);
- * only `sale` listings are orderable here.
+ * only `sale` listings are cart-able here.
  */
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 

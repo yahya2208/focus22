@@ -77,8 +77,7 @@ export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
   category: ['home', 'deep-link', 'category'],
   'admin-categories': ['settings', 'home'],
   cart: ['phone-details', 'listing-details', 'showroom', 'category', 'home'],
-  checkout: ['cart'],
-  'order-confirmation': ['checkout'],
+  request: ['cart'],
 };
 
 export function assertNoOrphans(edges: Record<ScreenName, readonly EdgeSource[]> = EDGES): ScreenName[] {

@@ -75,8 +75,7 @@ export const BACK_MATRIX: Record<ScreenName, BackMatrixRow> = {
   category: { screen: 'category', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'DB-driven category landing (00050); deep-linkable via slug aliases (#/phones, #/fresh-market/vegetables); in-content Back → home' },
   'admin-categories': { screen: 'admin-categories', backTarget: 'previous', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'protected; category admin CRUD (00050)' },
   cart: { screen: 'cart', backTarget: 'previous', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'multi-item marketplace cart; back = previous (details/category)' },
-  checkout: { screen: 'checkout', backTarget: 'cart', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'delivery checkout from cart; back → cart' },
-  'order-confirmation': { screen: 'order-confirmation', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'post-order receipt; reached by REPLACE — back → home' },
+  request: { screen: 'request', backTarget: 'cart', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'request cart → WhatsApp form; back → cart' },
 };
 
 export function getBackMatrixRow(screen: ScreenName): BackMatrixRow | undefined {

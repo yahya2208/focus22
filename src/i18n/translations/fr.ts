@@ -712,23 +712,25 @@ const fr: Record<string, string> = {
   'delivery.orderNumber': 'Numéro de commande',
   'delivery.eta': 'Livraison estimée',
 
-  'cart.title': 'Panier',
-  'cart.empty': 'Votre panier est vide. Ajoutez des téléphones ou des voitures pour commencer.',
-  'cart.continueShopping': 'Continuer vos achats',
+  'cart.title': 'Panier de demande',
+  'cart.empty': 'Votre panier de demande est vide. Ajoutez des produits pour commencer.',
+  'cart.continueShopping': 'Continuer mes achats',
   'cart.clear': 'Vider le panier',
   'cart.items': 'Articles',
   'cart.remove': 'Retirer',
-  'cart.checkout': 'Passer au paiement',
-  'cart.addToCart': 'Ajouter au panier',
-  'cart.buyNow': 'Acheter maintenant',
+  'cart.sendRequest': 'Envoyer la demande via WhatsApp',
+  'cart.addToCart': 'Ajouter au panier de demande',
 
-  'checkout.title': 'Paiement',
-  'checkout.backToCart': 'Retour au panier',
-  'checkout.placeOrder': 'Passer la commande',
-
-  'orderConfirmation.title': 'Confirmation de commande',
-  'orderConfirmation.pending': 'Préparation du reçu…',
-  'orderConfirmation.continue': 'Continuer vos achats',
+  'request.title': 'Détails de la demande',
+  'request.backToCart': 'Retour au panier de demande',
+  'request.phone': 'Téléphone',
+  'request.phoneRequired': 'Veuillez saisir votre numéro de téléphone.',
+  'request.zone': 'Quartier / zone',
+  'request.selectZone': 'Sélectionnez le quartier / la zone',
+  'request.zoneFreeText': 'Saisissez le quartier / la zone',
+  'request.address': 'Adresse',
+  'request.notes': 'Notes (facultatif)',
+  'request.submitWhatsApp': 'Envoyer la demande via WhatsApp',
 };
 
 export default fr;

@@ -1421,23 +1421,25 @@ const en = {
   'delivery.orderNumber': 'Order number',
   'delivery.eta': 'Estimated delivery',
 
-  'cart.title': 'Cart',
-  'cart.empty': 'Your cart is empty. Add phones or cars to get started.',
+  'cart.title': 'Request Cart',
+  'cart.empty': 'Your request cart is empty. Add products to start.',
   'cart.continueShopping': 'Continue shopping',
   'cart.clear': 'Clear cart',
   'cart.items': 'Items',
   'cart.remove': 'Remove',
-  'cart.checkout': 'Proceed to checkout',
-  'cart.addToCart': 'Add to cart',
-  'cart.buyNow': 'Buy now',
+  'cart.sendRequest': 'Send request via WhatsApp',
+  'cart.addToCart': 'Add to request cart',
 
-  'checkout.title': 'Checkout',
-  'checkout.backToCart': 'Back to cart',
-  'checkout.placeOrder': 'Place order',
-
-  'orderConfirmation.title': 'Order confirmation',
-  'orderConfirmation.pending': 'Preparing your receipt…',
-  'orderConfirmation.continue': 'Continue shopping',
+  'request.title': 'Request details',
+  'request.backToCart': 'Back to request cart',
+  'request.phone': 'Phone',
+  'request.phoneRequired': 'Please enter your phone number.',
+  'request.zone': 'District / area',
+  'request.selectZone': 'Select district / area',
+  'request.zoneFreeText': 'Enter district / area',
+  'request.address': 'Address',
+  'request.notes': 'Notes (optional)',
+  'request.submitWhatsApp': 'Send request via WhatsApp',
 } as const;
 
 export default en;

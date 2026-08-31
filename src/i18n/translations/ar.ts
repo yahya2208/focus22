@@ -1401,23 +1401,25 @@ const ar: Record<TranslationKey, string> = {
   'delivery.orderNumber': 'رقم الطلب',
   'delivery.eta': 'التوصيل المتوقع',
 
-  'cart.title': 'السلة',
-  'cart.empty': 'سلتك فارغة. أضف هواتف أو سيارات للبدء.',
+  'cart.title': 'سلة الطلب',
+  'cart.empty': 'سلتك فارغة. أضف منتجات للبدء.',
   'cart.continueShopping': 'مواصلة التسوق',
   'cart.clear': 'إفراغ السلة',
   'cart.items': 'المنتجات',
   'cart.remove': 'إزالة',
-  'cart.checkout': 'إتمام الشراء',
-  'cart.addToCart': 'أضف إلى السلة',
-  'cart.buyNow': 'اشترِ الآن',
+  'cart.sendRequest': 'إرسال الطلب عبر WhatsApp',
+  'cart.addToCart': 'أضف إلى سلة الطلب',
 
-  'checkout.title': 'إتمام الطلب',
-  'checkout.backToCart': 'العودة إلى السلة',
-  'checkout.placeOrder': 'تأكيد الطلب',
-
-  'orderConfirmation.title': 'تأكيد الطلب',
-  'orderConfirmation.pending': 'جارٍ تحضير الإيصال…',
-  'orderConfirmation.continue': 'مواصلة التسوق',
+  'request.title': 'بيانات الطلب',
+  'request.backToCart': 'العودة إلى سلة الطلب',
+  'request.phone': 'الهاتف',
+  'request.phoneRequired': 'يرجى إدخال رقم الهاتف.',
+  'request.zone': 'الحي/المنطقة',
+  'request.selectZone': 'اختر الحي/المنطقة',
+  'request.zoneFreeText': 'أدخل الحي/المنطقة',
+  'request.address': 'العنوان',
+  'request.notes': 'الملاحظة (اختياري)',
+  'request.submitWhatsApp': 'إرسال الطلب عبر WhatsApp',
 };
 
 export default ar;

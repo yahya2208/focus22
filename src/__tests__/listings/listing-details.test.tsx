@@ -3,8 +3,9 @@
  *
  * Data path under test: getPublicListing(id) → v_public_listings ONLY.
  * Scope pins verified here: presenter spec rows render; B1 contact CTA (via
- * WhatsApp mediator, cars + properties) and order CTA (cars ONLY — properties
- * are contact/lead only); no view counter; BACK returns to the showroom surface.
+ * WhatsApp mediator, cars + properties) and Request Cart add-to-cart CTA
+ * (cars/produce — properties stay contact/lead only); no view counter; BACK
+ * returns to the showroom surface.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -102,18 +103,18 @@ describe('P8.5 listing-details — valid records', () => {
     expect(screen.getByText('450 د.ج / شهر')).toBeTruthy();
   });
 
-  it('B1: property has a contact CTA but NO order CTA (contact/lead only)', async () => {
+  it('B1: property has a contact CTA but NO request-cart CTA (contact/lead only)', async () => {
     renderDetails(ids.propertyId);
     await waitFor(() => expect(screen.getByText('Apartment Mazzeh 3 rooms')).toBeTruthy());
     expect(screen.getByText('تواصل مع صاحب الإعلان')).toBeTruthy(); // mediator contact
-    expect(screen.queryByText('اطلب مع التوصيل')).toBeNull(); // NOT orderable
+    expect(screen.queryByText('أضف إلى سلة الطلب')).toBeNull(); // properties are NOT orderable
   });
 
-  it('B1: car has BOTH contact CTA and order CTA; still no view counter', async () => {
+  it('B1: car has BOTH contact CTA and request-cart CTA; still no view counter', async () => {
     renderDetails(ids.carId);
     await waitFor(() => expect(screen.getByText('Toyota Corolla GLX')).toBeTruthy());
     expect(screen.getByText('تواصل مع صاحب الإعلان')).toBeTruthy(); // mediator contact (car+property)
-    expect(screen.getByText('اطلب مع التوصيل')).toBeTruthy(); // order CTA (cars only)
+    expect(screen.getByText('أضف إلى سلة الطلب')).toBeTruthy(); // request-cart CTA (cars/produce)
     expect(screen.queryByText(/مشاهدة|views?/i)).toBeNull(); // no view counter
   });
 });

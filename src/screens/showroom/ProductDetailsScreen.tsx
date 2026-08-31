@@ -10,7 +10,6 @@ import { AdContactBanner } from '../../components/ad-contact/AdContactBanner';
 import { ProductImageGallery } from '../../components/showroom/ProductImageGallery';
 import { PhoneGallery, USE_NEW_GALLERY } from '../../components/showroom/phone-gallery';
 import { ContactOwnerAction } from '../../components/showroom/ContactOwnerAction';
-import { OrderForm, toOrderable, type DeliveryCustomerDraft } from '../../components/delivery/OrderForm';
 import { ProductNotFound } from '../../components/showroom/ProductNotFound';
 import { SimilarPhones } from '../../components/showroom/SimilarPhones';
 import { useProductDetails } from '../../hooks/useProductDetails';
@@ -94,12 +93,7 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
   const cart = useCart();
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
-
-  // Delivery order (00050). Opening the form never creates an account (P3);
-  // the draft is preserved so returning from sign-in keeps the entered data.
-  const [orderOpen, setOrderOpen] = useState(false);
-  const [orderQty, setOrderQty] = useState(1);
-  const [orderDraft, setOrderDraft] = useState<DeliveryCustomerDraft | null>(null);
+  const [qty, setQty] = useState(1);
 
   const handleBack = useCallback(() => {
     dispatch({ type: 'BACK' });
@@ -144,45 +138,22 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
     [dispatch],
   );
 
-  const handleOpenOrder = useCallback(() => {
-    if (!device || device.quantity <= 0) return;
-    setOrderDraft(null);
-    setOrderQty(1);
-    setOrderOpen(true);
-  }, [device]);
-
   const handleAddToCart = useCallback(() => {
     if (!device || device.quantity <= 0) return;
-    const orderable = toOrderable(device);
     cart.addLine({
-      catalogRef: orderable.id,
+      catalogRef: device.id,
       domain: 'phone',
       category: 'phone',
-      brand: orderable.brand,
-      model: orderable.model,
-      displayUnitPrice: orderable.unitPrice,
-      stock: orderable.stock,
+      brand: device.brand,
+      model: device.model,
+      displayUnitPrice: device.sellPrice != null ? device.sellPrice : null,
+      stock: device.quantity,
       image: images[0],
       pricePeriod: 'sale',
-      quantity: orderQty,
+      quantity: qty,
     });
     dispatch({ type: 'NAVIGATE', screen: 'cart' });
-  }, [device, cart, images, orderQty, dispatch]);
-
-  // Go to the existing sign-in flow. The order draft has already been lifted
-  // into state, so re-opening the form restores the entered data.
-  const handleRequestSignIn = useCallback(() => {
-    setOrderOpen(false);
-    dispatch({ type: 'NAVIGATE', screen: 'login' });
-  }, [dispatch]);
-
-  const handleOrderDraftChange = useCallback((next: DeliveryCustomerDraft) => {
-    setOrderDraft(next);
-  }, []);
-
-  const handleOrderClose = useCallback(() => {
-    setOrderOpen(false);
-  }, []);
+  }, [device, cart, images, qty, dispatch]);
 
   if (notFound) {
     return (
@@ -331,27 +302,27 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
                 <div style={{ fontSize: '0.78rem', color: colors.textSecondary, fontWeight: 700 }}>
                   {t('delivery.quantity')}
                   <span style={{ display: 'block', color: colors.textMuted, fontWeight: 600, fontSize: '0.68rem', marginTop: '0.1rem' }}>
-                    {t('delivery.subtotal')}: {(device.sellPrice ?? 0) * orderQty} د.ج
+                    {t('delivery.subtotal')}: {(device.sellPrice ?? 0) * qty} د.ج
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <button
                     type="button"
                     aria-label="decrease"
-                    disabled={orderQty <= 1}
-                    onClick={() => setOrderQty((q) => Math.max(1, q - 1))}
+                    disabled={qty <= 1}
+                    onClick={() => setQty((v) => Math.max(1, v - 1))}
                     style={{ ...headerBtn, padding: '0.4rem 0.7rem' }}
                   >
                     −
                   </button>
                   <span style={{ minWidth: '1.6rem', textAlign: 'center', fontWeight: 800, color: colors.text, fontVariantNumeric: 'tabular-nums' }}>
-                    {orderQty}
+                    {qty}
                   </span>
                   <button
                     type="button"
                     aria-label="increase"
-                    disabled={orderQty >= device.quantity}
-                    onClick={() => setOrderQty((q) => Math.min(device.quantity, q + 1))}
+                    disabled={qty >= device.quantity}
+                    onClick={() => setQty((v) => Math.min(device.quantity, v + 1))}
                     style={{ ...headerBtn, padding: '0.4rem 0.7rem' }}
                   >
                     +
@@ -363,12 +334,6 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
             {device.quantity > 0 && (
               <Button variant="primary" size="lg" fullWidth onClick={handleAddToCart} style={{ marginTop: '0.5rem' }}>
                 🛒 {t('cart.addToCart')}
-              </Button>
-            )}
-
-            {device.quantity > 0 && (
-              <Button variant="success" size="lg" fullWidth onClick={handleOpenOrder} style={{ marginTop: '0.5rem' }}>
-                🛵 {t('delivery.orderButton')} — {t('cart.buyNow')}
               </Button>
             )}
           </Stack>
@@ -407,18 +372,6 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
           {dir === 'rtl' ? '→' : '←'} {t('phoneDetails.title')}
         </button>
       </Stack>
-
-      {orderOpen && (
-        <OrderForm
-          open={orderOpen}
-          item={toOrderable(device)}
-          initialQuantity={orderQty}
-          draft={orderDraft ?? undefined}
-          onClose={handleOrderClose}
-          onDraftChange={handleOrderDraftChange}
-          onRequestSignIn={handleRequestSignIn}
-        />
-      )}
 
       {favorites.showToast && (
         <div style={{ position: 'fixed', insetInline: '1rem', bottom: '1.25rem', zIndex: 999 }}>

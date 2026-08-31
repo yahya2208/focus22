@@ -231,13 +231,6 @@ describe('PG-01: لا signInAsGuest() تلقائياً لمجرد فتح الت�
       [
         'App.tsx',
         'screens/auth/LoginScreen.tsx',
-        // Marketplace order checkout (00050 delivery): only on the user's
-        // explicit "Continue as guest" consent at submission time — browsing and
-        // opening the order form NEVER create an account (P3 preserved).
-        'components/delivery/OrderForm.tsx',
-        // Marketplace checkout (multi-item cart routed checkout): the same
-        // explicit "Continue as guest" consent at submission time only.
-        'screens/checkout/CheckoutScreen.tsx',
         // TTT Friend Play: an explicit "Play with a Friend" / "Join Game" tap
         // auto-signs-in a guest (owner-authorized, NOT auto-on-app-open).
         'hooks/use-ttt-multiplayer.ts',

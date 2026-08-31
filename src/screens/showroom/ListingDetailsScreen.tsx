@@ -7,7 +7,6 @@ import { Card } from '../../design-system/components/Card';
 import { ProductImageGallery } from '../../components/showroom/ProductImageGallery';
 import { ProductNotFound } from '../../components/showroom/ProductNotFound';
 import { ContactListingAction } from '../../components/showroom/ContactListingAction';
-import { OrderForm, toListingOrderable, type DeliveryCustomerDraft } from '../../components/delivery/OrderForm';
 import { getPublicListing, listingImageUrl } from '../../services/listing-service';
 import { buildListingContactMessage } from '../../services/whatsapp-service';
 import { useWhatsApp } from '../../providers/WhatsAppProvider';
@@ -45,9 +44,9 @@ const navBtn: React.CSSProperties = {
  * B1 makes the screen ACTIONABLE:
  *   • Contact (cars + properties) — mediator WhatsApp via the presenter's
  *     pre-authored `contact(viewRecord, deepLink)` payload + `useWhatsApp`.
- *   • Order (cars ONLY) — reuse OrderForm with a neutral `OrderableProduct`;
- *     server is authoritative over price/stock via migration 00052. Properties
- *     stay contact/lead-only (rent/high-ticket ≠ delivery sale).
+ *   • Request Cart (cars/produce ONLY, sale) — add to cart → cart → WhatsApp
+ *     request card. Properties stay contact/lead-only (rent/high-ticket ≠
+ *     cart products).
  * Deliberately NOT in this phase: view counter, similar listings, analytics.
  */
 export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
@@ -61,8 +60,6 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
   const id = routeParams.id ?? '';
   const [record, setRecord] = useState<ListingRecord | null | undefined>(undefined);
   const [error, setError] = useState('');
-  const [orderOpen, setOrderOpen] = useState(false);
-  const [orderDraft, setOrderDraft] = useState<DeliveryCustomerDraft | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -108,9 +105,8 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
 
   const presenter = viewRecord ? getRequiredListingPresenter(viewRecord.category) : null;
 
-  // B1 — cars and produce are physically orderable (single-unit sale for cars,
-  // whole-unit stock for produce; server-authoritative price/stock via 00052);
-  // properties are contact/lead ONLY.
+  // Request Cart — cars and produce are cart-able (single-unit cars, whole-unit
+  // produce); properties are contact/lead ONLY.
   const orderable = !!viewRecord && (viewRecord.category === 'car' || viewRecord.category === 'produce') && presenter !== null;
 
   const handleContact = useCallback(() => {
@@ -118,20 +114,6 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
     const info = presenter.contact(viewRecord, listingDeepLink(viewRecord.id));
     whatsapp.send(buildListingContactMessage(info), { action: 'inquiry' });
   }, [viewRecord, presenter, whatsapp]);
-
-  const handleOpenOrder = useCallback(() => {
-    if (!viewRecord || !presenter) return;
-    setOrderDraft(null);
-    setOrderOpen(true);
-  }, [viewRecord, presenter]);
-
-  const handleOrderClose = useCallback(() => {
-    setOrderOpen(false);
-  }, []);
-
-  const handleOrderDraftChange = useCallback((next: DeliveryCustomerDraft) => {
-    setOrderDraft(next);
-  }, []);
 
   // Add-to-cart for orderable domains. Cars: single-unit sale. Produce:
   // whole-unit sale with real stock, so multiple units are allowed and the
@@ -173,13 +155,6 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
     }
     dispatch({ type: 'NAVIGATE', screen: 'cart' });
   }, [viewRecord, presenter, cart, dispatch]);
-
-  // Go to the existing sign-in flow; the order draft has been lifted into
-  // state so re-opening restores the entered data.
-  const handleRequestSignIn = useCallback(() => {
-    setOrderOpen(false);
-    dispatch({ type: 'NAVIGATE', screen: 'login' });
-  }, [dispatch]);
 
   return (
     <Screen ariaLabel="Listing details" bottomPad="6rem">
@@ -295,7 +270,7 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
             )}
 
             <Stack gap="sm" style={{ marginTop: '0.25rem' }}>
-              {orderable && viewRecord.price.period === 'sale' && (
+              {orderable && (
                 <button
                   type="button"
                   data-action="add-to-cart-listing"
@@ -322,33 +297,6 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
                   <span>{t('cart.addToCart')}</span>
                 </button>
               )}
-              {orderable && (
-                <button
-                  type="button"
-                  data-action="order-listing"
-                  aria-label={`🛒 ${t('listingDetails.actions.order')}`}
-                  onClick={handleOpenOrder}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                    padding: '0.85rem 1rem',
-                    background: 'var(--success, #10b981)',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '14px',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    fontSize: '0.95rem',
-                    fontWeight: 800,
-                  }}
-                >
-                  <span aria-hidden>🛒</span>
-                  <span>{t('listingDetails.actions.order')}</span>
-                </button>
-              )}
               <ContactListingAction
                 label={presenter.card(viewRecord).title}
                 onContact={handleContact}
@@ -356,17 +304,6 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
             </Stack>
           </>
         ) : null}
-
-        {orderOpen && viewRecord && presenter && (
-          <OrderForm
-            open={orderOpen}
-            item={toListingOrderable(viewRecord)}
-            draft={orderDraft ?? undefined}
-            onClose={handleOrderClose}
-            onDraftChange={handleOrderDraftChange}
-            onRequestSignIn={handleRequestSignIn}
-          />
-        )}
       </Stack>
     </Screen>
   );

@@ -18,7 +18,6 @@ export const CartScreen = memo(function CartScreen() {
   const { lines, itemCount, subtotal, isEmpty, setQuantity, removeLine, clear } = useCart();
 
   const backArrow = dir === 'rtl' ? '→' : '←';
-  // Optional deep link: return to a given screen/params after checkout.
   const returnScreen = (routeParams.returnTo as 'showroom' | 'category' | 'home') ?? 'home';
 
   const domainLabel = useMemo(() => {
@@ -156,9 +155,9 @@ export const CartScreen = memo(function CartScreen() {
           variant="success"
           size="lg"
           fullWidth
-          onClick={() => dispatch({ type: 'NAVIGATE', screen: 'checkout', params: routeParams.returnTo ? { returnTo: routeParams.returnTo } : undefined })}
+          onClick={() => dispatch({ type: 'NAVIGATE', screen: 'request', params: routeParams.returnTo ? { returnTo: routeParams.returnTo } : undefined })}
         >
-          🛵 {t('cart.checkout')}
+          🛵 {t('cart.sendRequest')}
         </Button>
 
         <button

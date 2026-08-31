@@ -1401,23 +1401,25 @@ const tr: Record<TranslationKey, string> = {
   'delivery.orderNumber': 'Sipariş numarası',
   'delivery.eta': 'Tahmini teslimat',
 
-  'cart.title': 'Sepet',
-  'cart.empty': 'Sepetiniz boş. Başlamak için telefon veya araba ekleyin.',
+  'cart.title': 'Talep Sepeti',
+  'cart.empty': 'Talep sepetiniz boş. Başlamak için ürün ekleyin.',
   'cart.continueShopping': 'Alışverişe devam et',
   'cart.clear': 'Sepeti temizle',
   'cart.items': 'Ürünler',
   'cart.remove': 'Kaldır',
-  'cart.checkout': 'Ödemeye geç',
-  'cart.addToCart': 'Sepete ekle',
-  'cart.buyNow': 'Şimdi satın al',
+  'cart.sendRequest': 'Talebi WhatsApp ile gönder',
+  'cart.addToCart': 'Talep sepetine ekle',
 
-  'checkout.title': 'Ödeme',
-  'checkout.backToCart': 'Sepete dön',
-  'checkout.placeOrder': 'Siparişi onayla',
-
-  'orderConfirmation.title': 'Sipariş onayı',
-  'orderConfirmation.pending': 'Makbuz hazırlanıyor…',
-  'orderConfirmation.continue': 'Alışverişe devam et',
+  'request.title': 'Talep bilgileri',
+  'request.backToCart': 'Talep sepetine dön',
+  'request.phone': 'Telefon',
+  'request.phoneRequired': 'Lütfen telefon numaranızı girin.',
+  'request.zone': 'Semt / bölge',
+  'request.selectZone': 'Semt / bölge seçin',
+  'request.zoneFreeText': 'Semt / bölge girin',
+  'request.address': 'Adres',
+  'request.notes': 'Notlar (isteğe bağlı)',
+  'request.submitWhatsApp': 'Talebi WhatsApp ile gönder',
 };
 
 export default tr;

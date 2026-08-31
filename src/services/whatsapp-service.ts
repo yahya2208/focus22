@@ -342,3 +342,65 @@ export function listingContactMessage(record: {
     deepLink: record.deepLink,
   });
 }
+
+/**
+ * ── REQUEST CART — WhatsApp order card (Request Cart model) ──────────────────
+ * FOCUS never sells/pays in-app. The final step turns the customer's request
+ * cart into ONE organized WhatsApp message to the business number. Line prices
+ * are shown as CURRENT DISPLAYED PRICES only — never a confirmed "purchase
+ * total"; final agreement happens via WhatsApp.
+ */
+export interface CartRequestLine {
+  /** brand + model (e.g. "بطاطا", "Samsung Galaxy S23"). */
+  name: string;
+  quantity: number;
+  /** Localized unit label (e.g. "كغ") — omitted when the item has none. */
+  unit?: string;
+  /** Displayed unit price (e.g. "120 د.ج") — omitted when unavailable. */
+  priceText?: string;
+}
+
+export interface CartRequestCustomer {
+  /** Customer phone — required. */
+  phone: string;
+  /** District / delivery area (الحي/المنطقة). */
+  zone?: string;
+  address?: string;
+  notes?: string;
+}
+
+export function buildCartRequestMessage(
+  lines: readonly CartRequestLine[],
+  customer: CartRequestCustomer,
+): string {
+  const parts: string[] = [];
+  parts.push('FOCUS — طلب جديد');
+  parts.push('');
+
+  parts.push('المنتجات:');
+  lines.forEach((line, index) => {
+    parts.push(`${index + 1}. ${line.name}`);
+    const details: string[] = [];
+    if (line.priceText && line.priceText.trim()) details.push(`السعر المعروض: ${line.priceText.trim()}`);
+    details.push(`الكمية: ${line.quantity}${line.unit && line.unit.trim() ? ` ${line.unit.trim()}` : ''}`);
+    details.forEach((d) => parts.push(`   ${d}`));
+  });
+
+  parts.push('');
+  parts.push('بيانات العميل:');
+  if (customer.phone.trim()) parts.push(`الهاتف: ${customer.phone.trim()}`);
+  if (customer.zone && customer.zone.trim()) parts.push(`الحي/المنطقة: ${customer.zone.trim()}`);
+  if (customer.address && customer.address.trim()) parts.push(`العنوان: ${customer.address.trim()}`);
+  if (customer.notes && customer.notes.trim()) parts.push(`الملاحظة: ${customer.notes.trim()}`);
+  parts.push('');
+  parts.push('يُرجى تأكيد التوفر والسعر النهائي عبر الواتساب. شكراً.');
+  return parts.join('\n');
+}
+
+/** Sends a request-cart message to the business number through the open helper. */
+export function openCartRequestWhatsApp(
+  lines: readonly CartRequestLine[],
+  customer: CartRequestCustomer,
+): void {
+  openWhatsApp(WHATSAPP_PHONE, buildCartRequestMessage(lines, customer));
+}

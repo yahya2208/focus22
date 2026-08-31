@@ -1,8 +1,10 @@
 /**
- * Delivery foundation service (00050). Public read-only zones/fees feed the
- * "Delivery available · Estimated N–M min" pill and the order preview; order
- * creation flows through the SECURITY DEFINER RPC `delivery_create_order`.
- * This is the foundation the future order-management surface builds on.
+ * Delivery foundation service (00050) — DORMANT order layer, retained for
+ * future order-management. The public read-only `delivery_zones` still feed the
+ * Request Cart form's area field; `estimateDelivery` and `createDeliveryOrder`
+ * are no longer called from the user flow (no in-app purchase/order). They
+ * remain exported as the legacy DB layer (orders / order_items / RPCs are not
+ * deleted).
  */
 
 import { getSupabaseClient } from '../core/supabase/client';

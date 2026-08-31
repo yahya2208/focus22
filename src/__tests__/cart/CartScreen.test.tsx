@@ -101,9 +101,9 @@ describe('CartScreen', () => {
     expect(screen.getByText('Tesla Model 3 2024')).toBeTruthy();
   });
 
-  it('navigates to checkout when proceeding', async () => {
+  it('navigates to the request form when proceeding', async () => {
     renderCart([{ ...phone, quantity: 1 }]);
-    fireEvent.click(screen.getByText(/cart\.checkout/));
-    await waitFor(() => expect(screen.getByTestId('screen').textContent).toBe('checkout'));
+    fireEvent.click(screen.getByText(/cart\.sendRequest/));
+    await waitFor(() => expect(screen.getByTestId('screen').textContent).toBe('request'));
   });
 });

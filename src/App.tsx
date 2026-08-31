@@ -77,8 +77,7 @@ const TttMultiplayerScreen = lazy(() => import('./screens/tic-tac-toe/TttMultipl
 const CategoryScreen = lazy(() => import('./screens/categories/CategoryScreen').then(m => ({ default: m.CategoryScreen })));
 const AdminCategoriesScreen = lazy(() => import('./screens/admin/CategoriesAdminScreen').then(m => ({ default: m.CategoriesAdminScreen })));
 const CartScreen = lazy(() => import('./screens/cart/CartScreen').then(m => ({ default: m.CartScreen })));
-const CheckoutScreen = lazy(() => import('./screens/checkout/CheckoutScreen').then(m => ({ default: m.CheckoutScreen })));
-const OrderConfirmationScreen = lazy(() => import('./screens/checkout/OrderConfirmationScreen').then(m => ({ default: m.OrderConfirmationScreen })));
+const RequestScreen = lazy(() => import('./screens/request/RequestScreen').then(m => ({ default: m.RequestScreen })));
 
 const screens: Record<ScreenName, React.ComponentType> = {
   home: HomeScreen,
@@ -133,8 +132,7 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'category': CategoryScreen,
   'admin-categories': AdminCategoriesScreen,
   'cart': CartScreen,
-  'checkout': CheckoutScreen,
-  'order-confirmation': OrderConfirmationScreen,
+  'request': RequestScreen,
 };
 
 function HtmlSync() {
