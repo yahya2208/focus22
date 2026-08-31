@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import type { ThemeColors } from '../../../hooks/useThemeColors';
-import { createListing } from '../../../services/listing-service';
+import { createListing, createListingForCategory } from '../../../services/listing-service';
 import { InventoryService } from '../../../services/inventory-service';
 import { PhoneImageUploader } from '../../showroom/PhoneImageUploader';
 import { PRODUCE_UNIT_VALUES, UNIT_AR } from '../../../domains/listings';
@@ -10,10 +10,12 @@ const GRADE_OPTIONS = ['', 'A', 'B', 'C', 'organic'];
 interface ProduceListingFormProps {
   colors: ThemeColors;
   busy?: boolean;
+  /** When set, creation is ATOMIC (product + category membership) via 00056. */
+  categoryId?: string;
   onDone: (id: string) => void;
 }
 
-export const ProduceListingForm = memo(function ProduceListingForm({ colors, busy = false, onDone }: ProduceListingFormProps) {
+export const ProduceListingForm = memo(function ProduceListingForm({ colors, busy = false, categoryId, onDone }: ProduceListingFormProps) {
   const [model, setModel] = useState('');
   const [origin, setOrigin] = useState('');
   const [grade, setGrade] = useState('');
@@ -57,7 +59,7 @@ export const ProduceListingForm = memo(function ProduceListingForm({ colors, bus
     }
     setSaving(true);
     try {
-      const id = await createListing({
+      const listing: Parameters<typeof createListing>[0] = {
         category: 'produce',
         brand: origin.trim(),
         model: model.trim(),
@@ -71,7 +73,10 @@ export const ProduceListingForm = memo(function ProduceListingForm({ colors, bus
           origin: origin.trim(),
           grade: grade,
         },
-      });
+      };
+      const id = categoryId
+        ? await createListingForCategory(categoryId, listing)
+        : await createListing(listing);
       // Images ride the EXISTING id-keyed generic image RPCs — no new path.
       if (images.length > 0) await InventoryService.updateImages(id, images);
       onDone(id);

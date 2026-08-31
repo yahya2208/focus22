@@ -327,7 +327,7 @@ async function callRpc<T>(fn: string, args: Record<string, unknown>): Promise<T>
  * via one SECURITY DEFINER call. Rejects category='phone' by design — phones
  * use the legacy inventory flow.
  */
-export async function createListing(input: CreateListingInput): Promise<string> {
+function listingCreateArgs(input: CreateListingInput): Record<string, unknown> {
   let details: Record<string, unknown>;
   let quantity = 1;
   let unit: ProduceUnit | null = null;
@@ -342,7 +342,7 @@ export async function createListing(input: CreateListingInput): Promise<string> 
     unit = input.unit ?? null;
   }
 
-  return callRpc<string>('listing_create', {
+  return {
     p_category: input.category,
     p_brand: input.brand,
     p_model: input.model,
@@ -357,6 +357,28 @@ export async function createListing(input: CreateListingInput): Promise<string> 
     p_is_published: input.publish ?? false,
     p_details: details,
     p_unit: unit,
+  };
+}
+
+export async function createListing(input: CreateListingInput): Promise<string> {
+  return callRpc<string>('listing_create', listingCreateArgs(input));
+}
+
+/**
+ * Creates a car/property/produce listing AND its category membership atomically
+ * via one SECURITY DEFINER call (`create_listing_for_category`, migration
+ * 00056). The server creates the product and inserts the `category_products`
+ * membership in the SAME transaction — no orphan product if the membership
+ * step would ever fail independently. `categoryId` is the navigation-category
+ * row (public.categories.id) whose `domain` must match the product's category.
+ */
+export async function createListingForCategory(
+  categoryId: string,
+  input: CreateListingInput,
+): Promise<string> {
+  return callRpc<string>('create_listing_for_category', {
+    p_category_id: categoryId,
+    ...listingCreateArgs(input),
   });
 }
 

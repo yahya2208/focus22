@@ -27,9 +27,10 @@ const MOCK = vi.hoisted(() => {
   const list = vi.fn(async (): Promise<CategoryMemberAdmin[]> => []);
   const assign = vi.fn(async (_categoryId: string, _productIds: string[]): Promise<number> => 1);
   const createListing = vi.fn(async (): Promise<string> => 'created-1');
+  const createListingForCategory = vi.fn(async (_categoryId: string): Promise<string> => 'created-1');
   const updateImages = vi.fn(async (): Promise<null> => null);
   const getLabel = (c: Category) => c.name;
-  return { list, assign, createListing, updateImages, getLabel };
+  return { list, assign, createListing, createListingForCategory, updateImages, getLabel };
 });
 
 vi.mock('../../services/category-products-service', () => ({
@@ -42,6 +43,7 @@ vi.mock('../../services/category-products-service', () => ({
 }));
 vi.mock('../../services/listing-service', () => ({
   createListing: MOCK.createListing,
+  createListingForCategory: MOCK.createListingForCategory,
 }));
 vi.mock('../../services/inventory-service', () => ({
   InventoryService: { updateImages: MOCK.updateImages },
@@ -92,6 +94,7 @@ describe('Category-scoped Add Product (generic, domain-driven)', () => {
     MOCK.list.mockResolvedValue([]);
     MOCK.assign.mockResolvedValue(1);
     MOCK.createListing.mockResolvedValue('created-1');
+    MOCK.createListingForCategory.mockResolvedValue('created-1');
   });
 
   it('shows the create button for a produce-domain category and no button for display-only', async () => {
@@ -114,8 +117,8 @@ describe('Category-scoped Add Product (generic, domain-driven)', () => {
     expect((await renderedB.findAllByText(/categoryProducts\.createHere/)).length).toBeGreaterThan(0);
   });
 
-  it('renders the produce form and, on submit, creates the listing and auto-binds it to the category', async () => {
-    renderPanel(category({ domain: 'produce' }));
+  it('renders the produce form and, on submit, creates atomically via the category-aware RPC (no post-create assign)', async () => {
+    renderPanel(category({ domain: 'produce', id: 'cat-produce' }));
     await screen.findAllByText(/categoryProducts\.createHere/);
     fireEvent.click(screen.getAllByText(/categoryProducts\.createHere/)[0]!);
 
@@ -128,13 +131,32 @@ describe('Category-scoped Add Product (generic, domain-driven)', () => {
 
     fireEvent.click(screen.getByText('حفظ المنتج'));
 
-    await waitFor(() =>
-      expect(MOCK.createListing).toHaveBeenCalledWith(
+    await waitFor(() => {
+      expect(MOCK.createListingForCategory).toHaveBeenCalledWith(
+        'cat-produce',
         expect.objectContaining({ category: 'produce', model: 'طماطم' }),
-      ),
-    );
-    await waitFor(() => expect(MOCK.assign).toHaveBeenCalledWith('c', ['created-1']));
+      );
+    });
+    // Membership is created server-side with the product — no separate assign.
+    expect(MOCK.assign).not.toHaveBeenCalled();
+    expect(MOCK.createListing).not.toHaveBeenCalled();
     await waitFor(() => expect(MOCK.list).toHaveBeenCalled());
+  });
+
+  it('car domain: the panel renders via the domain-specific form and never auto-assigns', async () => {
+    const rendered = renderPanel(category({ domain: 'car', id: 'cat-car' }));
+    await rendered.findAllByText(/categoryProducts\.createHere/);
+    fireEvent.click(rendered.getAllByText(/categoryProducts\.createHere/)[0]!);
+    expect(await rendered.findByText('categoryProducts.newProduct')).toBeTruthy();
+    await waitFor(() => expect(MOCK.assign).not.toHaveBeenCalled());
+  });
+
+  it('property domain: likewise renders the domain form without a redundant assign', async () => {
+    const rendered = renderPanel(category({ domain: 'property', id: 'cat-property' }));
+    await rendered.findAllByText(/categoryProducts\.createHere/);
+    fireEvent.click(rendered.getAllByText(/categoryProducts\.createHere/)[0]!);
+    expect(await rendered.findByText('categoryProducts.newProduct')).toBeTruthy();
+    await waitFor(() => expect(MOCK.assign).not.toHaveBeenCalled());
   });
 
   it('exposes creation for car and property domains via their domain-specific forms', async () => {
@@ -162,6 +184,7 @@ describe('Category-scoped Add Product (generic, domain-driven)', () => {
 
     await screen.findByText(/الكمية يجب أن تكون/);
     expect(MOCK.createListing).not.toHaveBeenCalled();
+    expect(MOCK.createListingForCategory).not.toHaveBeenCalled();
     expect(MOCK.assign).not.toHaveBeenCalled();
   });
 });
@@ -172,6 +195,7 @@ describe('stale category → refresh → domain="produce" → Add Product appear
     MOCK.list.mockResolvedValue([]);
     MOCK.assign.mockResolvedValue(1);
     MOCK.createListing.mockResolvedValue('created-1');
+    MOCK.createListingForCategory.mockResolvedValue('created-1');
   });
 
   // Mirrors the fixed CategoriesAdminScreen data-flow: the open panel is NOT fed

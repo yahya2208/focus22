@@ -145,6 +145,17 @@ export const CategoryProductsPanel = memo(function CategoryProductsPanel({
     }
   }
 
+  // Produce/car/property create flows are ATOMIC (00056): the server already
+  // inserted the membership with the product — no post-create assign needed.
+  async function handleCreatedAtomic(_productId: string) {
+    setActing('create');
+    setError('');
+    setCreateOpen(false);
+    setAssignOpen(false);
+    await loadMembers();
+    setActing(null);
+  }
+
   async function handleRemove(m: CategoryMemberAdmin) {
     if (acting) return;
     setActing(m.productId);
@@ -257,13 +268,28 @@ export const CategoryProductsPanel = memo(function CategoryProductsPanel({
                 </Button>
               </Flex>
               {canCreate && category.domain === 'produce' && (
-                <ProduceListingForm colors={colors} busy={acting !== null} onDone={handleCreated} />
+                <ProduceListingForm
+                  colors={colors}
+                  busy={acting !== null}
+                  categoryId={category.id}
+                  onDone={handleCreatedAtomic}
+                />
               )}
               {canCreate && category.domain === 'car' && (
-                <CarListingForm colors={colors} busy={acting !== null} onDone={handleCreated} />
+                <CarListingForm
+                  colors={colors}
+                  busy={acting !== null}
+                  categoryId={category.id}
+                  onDone={handleCreatedAtomic}
+                />
               )}
               {canCreate && category.domain === 'property' && (
-                <PropertyListingForm colors={colors} busy={acting !== null} onDone={handleCreated} />
+                <PropertyListingForm
+                  colors={colors}
+                  busy={acting !== null}
+                  categoryId={category.id}
+                  onDone={handleCreatedAtomic}
+                />
               )}
               {canCreate && category.domain === 'phone' && (
                 <AddInventoryModal

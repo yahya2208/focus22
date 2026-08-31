@@ -427,6 +427,8 @@ class FakeCentralDb {
   rows: FakeInventoryRow[] = [];
   movements: FakeMovementRow[] = [];
   images: FakeImageRow[] = [];
+  categories: { id: string; name: string; domain: string; is_active: boolean }[] = [];
+  categoryProducts: { category_id: string; product_id: string }[] = [];
 
   private find(id: string): FakeInventoryRow | undefined {
     return this.rows.find((r) => r.id === id);
@@ -789,6 +791,25 @@ class FakeCentralDb {
     return row.id;
   }
 
+  /** Mirrors the 00056 orchestration RPC: atomic listing_create + category membership. */
+  createListingForCategory(args: Record<string, unknown>): string {
+    if (!this.adminMode) reject('admin role required');
+    const category = String(args.p_category ?? '');
+    if (category === 'phone') reject('phones must use the legacy inventory_add_item flow');
+
+    const categoryId = String(args.p_category_id ?? '');
+    const cat = this.categories.find((c) => c.id === categoryId);
+    if (!cat) reject('CATEGORY_NOT_FOUND');
+    if (!cat.is_active) reject('CATEGORY_INACTIVE');
+    if (cat.domain !== category) reject('CATEGORY_DOMAIN_MISMATCH');
+
+    const productId = this.listingCreate(args);
+    if (!this.categoryProducts.some((m) => m.category_id === categoryId && m.product_id === productId)) {
+      this.categoryProducts.push({ category_id: categoryId, product_id: productId });
+    }
+    return productId;
+  }
+
   private findListing(id: unknown, caller = 'listing_update_core'): FakeInventoryRow {
     if (!this.adminMode) reject('admin role required');
     const key = String(id ?? '');
@@ -1033,6 +1054,10 @@ export function resetFakeCentralDb(): void {
 
 export function seedFakeCentralDb(): void {
   const db = getFakeCentralDb();
+  db.categories.push(
+    { id: 'cat-produce', name: 'الخضروات', domain: 'produce', is_active: true },
+    { id: 'cat-car', name: 'السيارات', domain: 'car', is_active: true },
+  );
   for (const phone of DEFAULT_INVENTORY_SEED) {
     const [ramPart, storagePart] = phone.variant.split('/');
     db.rows.push({
@@ -1136,6 +1161,8 @@ function rpcResult(db: FakeCentralDb, fn: string, args: Record<string, unknown>)
   switch (fn) {
     case 'listing_create':
       return listingMutation(() => db.listingCreate(args));
+    case 'create_listing_for_category':
+      return listingMutation(() => db.createListingForCategory(args));
     case 'listing_update_core':
       return listingMutation(() => db.listingUpdateCore(args));
     case 'listing_update_details':

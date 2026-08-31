@@ -30,11 +30,13 @@ function numericPrefix(name: string): number | null {
 }
 
 describe('00055 — category → product domain resolution', () => {
-  it('is the highest five-digit migration (additive on top of 00050/00051/00053/00054)', () => {
+  it('is a lower migration than the additive 00056 (which stacks on top of it)', () => {
     const names = Object.keys(MIGRATIONS).map(basename);
     const nums = names.map(numericPrefix).filter((n): n is number => n !== null);
-    expect(Math.max(...nums)).toBe(55);
+    // 00055 remains strictly below the new 00056 orchestration migration.
+    expect(Math.max(...nums)).toBe(56);
     expect(names).toContain('00055_category_product_domain.sql');
+    expect(names).toContain('00056_create_listing_for_category.sql');
   });
 
   it('adds a nullable `domain` hint column to public.categories', () => {

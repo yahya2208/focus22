@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import type { ThemeColors } from '../../../hooks/useThemeColors';
-import { createListing } from '../../../services/listing-service';
+import { createListing, createListingForCategory } from '../../../services/listing-service';
 import { InventoryService } from '../../../services/inventory-service';
 import { PhoneImageUploader } from '../../showroom/PhoneImageUploader';
 import {
@@ -18,10 +18,12 @@ const CONDITION_STATE_AR: Record<string, string> = {
 interface PropertyListingFormProps {
   colors: ThemeColors;
   busy?: boolean;
+  /** When set, creation is ATOMIC (product + category membership) via 00056. */
+  categoryId?: string;
   onDone: (id: string) => void;
 }
 
-export const PropertyListingForm = memo(function PropertyListingForm({ colors, busy = false, onDone }: PropertyListingFormProps) {
+export const PropertyListingForm = memo(function PropertyListingForm({ colors, busy = false, categoryId, onDone }: PropertyListingFormProps) {
   const [title, setTitle] = useState('');
   const [developer, setDeveloper] = useState('');
   const [propertyType, setPropertyType] = useState('apartment');
@@ -78,7 +80,7 @@ export const PropertyListingForm = memo(function PropertyListingForm({ colors, b
     }
     setSaving(true);
     try {
-      const id = await createListing({
+      const listing: Parameters<typeof createListing>[0] = {
         category: 'property',
         brand: developer.trim(),
         model: title.trim(),
@@ -97,7 +99,13 @@ export const PropertyListingForm = memo(function PropertyListingForm({ colors, b
           furnished: furnished === '' ? null : furnished === 'yes',
           conditionState: conditionState as never,
         },
-      });
+      };
+      let id: string;
+      if (categoryId) {
+        id = await createListingForCategory(categoryId, listing);
+      } else {
+        id = await createListing(listing);
+      }
       if (images.length > 0) await InventoryService.updateImages(id, images);
       onDone(id);
     } catch (e) {
