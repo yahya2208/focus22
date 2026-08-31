@@ -7,10 +7,15 @@ import { execSync } from 'child_process';
  * P5 Telemetry & QR Removal Acceptance Gates (RED Gates)
  *
  * Under P5 the Analytics/Telemetry/QR machinery is removed entirely from code:
- *  PG-51  telemetry service removed (src/core/telemetry must not exist)
+ *  PG-51  telemetry service = the owner-approved CLOSED contract (2026-08-31):
+ *         src/core/telemetry exists as types/events/privacy/client/index,
+ *         writes RPC-ONLY (never direct), and carries the PII/free-text guard
  *  PG-52  analytics events/tracker removed (src/core/analytics must not exist)
- *  PG-53  no telemetry call-sites left anywhere in production src
- *         (getGlobalTelemetry / .track( / tracker imports / EventTypes)
+ *  PG-53  telemetry call-sites conform to the closed contract: the REMOVED
+ *         legacy APIs (getGlobalTelemetry / telemetry.track / setupSessionTelemetry
+ *         / EventTypes / core/analytics) are gone everywhere; call sites may only
+ *         reference the sanctioned client/index surface; telemetry_events is never
+ *         touched directly (RPC-only).
  *  PG-54  no QR campaign attribution left in navigation/state
  *         (START_QR_FLOW, isQrFlow, campaignId, placementId)
  *  PG-55  QR campaign/referral/deeplink/consent modules removed (src/core/qr)
@@ -95,9 +100,25 @@ function getChangedFiles(): string[] {
   }
 }
 
-describe('PG-51: telemetry service removed', () => {
-  it('src/core/telemetry does not exist', () => {
-    expect(exists('core/telemetry/index.ts')).toBe(false);
+describe('PG-51: telemetry service present as the owner-approved CLOSED contract (2026-08-31)', () => {
+  it('src/core/telemetry exists with the contract files', () => {
+    for (const f of ['core/telemetry/index.ts', 'core/telemetry/types.ts', 'core/telemetry/events.ts', 'core/telemetry/privacy.ts', 'core/telemetry/client.ts']) {
+      expect(exists(f)).toBe(true);
+    }
+  });
+
+  it('the telemetry layer writes RPC-only — no direct table write anywhere in core/telemetry', () => {
+    const writeChain = /\.from\([^)]*\)\s*\.\s*(insert|upsert|update|delete)\b/;
+    for (const f of ['core/telemetry/index.ts', 'core/telemetry/types.ts', 'core/telemetry/events.ts', 'core/telemetry/privacy.ts', 'core/telemetry/client.ts']) {
+      expect(writeChain.test(read(f))).toBe(false);
+    }
+  });
+
+  it('privacy.ts carries the forbidden PII/free-text guard and the sanitizer', () => {
+    const privacy = read('core/telemetry/privacy.ts');
+    expect(privacy).toContain('FORBIDDEN_PROPERTY_KEYS');
+    expect(privacy).toContain('sanitizeProperties');
+    expect(privacy).toContain('isForbiddenKey');
   });
 });
 
@@ -108,15 +129,38 @@ describe('PG-52: analytics events/tracker removed', () => {
   });
 });
 
-describe('PG-53: no telemetry call-sites in production src', () => {
-  it('no file imports or uses the telemetry service', () => {
+describe('PG-53: telemetry call-sites conform to the owner-approved CLOSED contract (RPC-only, no PII, no old API)', () => {
+  const LEGACY_REMOVED = /getGlobalTelemetry|telemetry\.track|setupSessionTelemetry|EventTypes|core\/analytics/;
+
+  it('no production file uses the REMOVED legacy telemetry/analytics APIs', () => {
     const offenders = walkProductionSrc()
       .map((f) => ({ rel: f.rel, content: codeOnly(f.content) }))
-      .filter((f) =>
-        /getGlobalTelemetry|core\/telemetry|\.track\s*\(|telemetry\.track|EventTypes|core\/analytics/.test(f.content),
-      )
+      .filter((f) => LEGACY_REMOVED.test(f.content))
       .map((f) => f.rel);
-    expect(offenders, `files still using telemetry: ${offenders.join(', ')}`).toEqual([]);
+    expect(offenders, `files still using legacy telemetry: ${offenders.join(', ')}`).toEqual([]);
+  });
+
+  it('any production reference to core/telemetry is limited to the sanctioned client/index surface and never a direct table write', () => {
+    // Only the telemetry layer itself and its call sites may reference it.
+    // Call sites may ONLY import the public `track`/barrel — never the internals
+    // that would allow schema/dictionary bypass or direct writes.
+    const layerFiles = new Set(['core/telemetry/index.ts', 'core/telemetry/types.ts', 'core/telemetry/events.ts', 'core/telemetry/privacy.ts', 'core/telemetry/client.ts']);
+    const badRef = /core\/telemetry\/(?!index\b|client\b)[a-z-]+/;
+    const offenders: string[] = [];
+    for (const f of walkProductionSrc()) {
+      if (layerFiles.has(f.rel)) continue;
+      const content = codeOnly(f.content);
+      if (badRef.test(content)) offenders.push(f.rel);
+    }
+    expect(offenders, `files referencing non-public telemetry internals: ${offenders.join(', ')}`).toEqual([]);
+  });
+
+  it('no production file touches telemetry_events directly (RPC-only is the only path)', () => {
+    const offenders = walkProductionSrc()
+      .map((f) => ({ rel: f.rel, content: codeOnly(f.content) }))
+      .filter((f) => /from\(\s*['"]telemetry_events['"]\s*\)/.test(f.content))
+      .map((f) => f.rel);
+    expect(offenders, `files writing/reading telemetry_events directly: ${offenders.join(', ')}`).toEqual([]);
   });
 });
 

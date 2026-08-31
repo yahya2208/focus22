@@ -20,6 +20,7 @@ import { setActiveChallengeId } from './challenge/challenge-context';
 import { resolveDefaultGameEntry } from './challenge/active-challenge-resolver';
 import { TicTacToeProvider } from './screens/tic-tac-toe/TicTacToeContext';
 import { CartProvider } from './core/cart/CartContext';
+import { track } from './core/telemetry';
 import focusIcon from './assets/brand/focus-icon.svg';
 
 // Small/critical screens — lazy loaded to reduce initial bundle size
@@ -198,6 +199,15 @@ export function InitialRoute() {
   const detectedChallengeIdRef = useRef<string | null>(null);
   const [challengeAuthPending, setChallengeAuthPending] = useState(false);
   const [challengeAuthError, setChallengeAuthError] = useState<string | null>(null);
+  const appOpenedRef = useRef(false);
+
+  // Telemetry: fire `app_open` once per app load (fire-and-forget, non-blocking).
+  useEffect(() => {
+    if (appOpenedRef.current) return;
+    if (currentScreen !== 'home' && currentScreen !== 'landing' && currentScreen !== 'message') return;
+    appOpenedRef.current = true;
+    void track({ event: 'app_open' });
+  }, [currentScreen]);
 
   // ── Challenge auth gate ──────────────────────────────────────────────────
   // When a challenge_id is detected, wait for auth to resolve.

@@ -89,6 +89,8 @@ const RUNTIME_PATH: string[] = [
   'screens/register/RegisterScreen.tsx',
   'screens/consent/ConsentScreen.tsx',
   'screens/share/ShareScreen.tsx',
+  // TELEMETRY EVENTS sender (00057) — RPC-only, no direct table writes, no QR tokens.
+  'core/telemetry/client.ts',
 ];
 
 describe('P7-01: لا API متعطشة للخصوصية في الإنتاج', () => {

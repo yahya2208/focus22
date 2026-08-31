@@ -10,6 +10,7 @@ import { ContactListingAction } from '../../components/showroom/ContactListingAc
 import { getPublicListing, listingImageUrl } from '../../services/listing-service';
 import { buildListingContactMessage } from '../../services/whatsapp-service';
 import { useWhatsApp } from '../../providers/WhatsAppProvider';
+import { track } from '../../core/telemetry';
 import { useCart } from '../../core/cart/CartContext';
 import type { ListingRecord } from '../../domains/listings';
 import {
@@ -71,7 +72,10 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
     setError('');
     getPublicListing(id)
       .then((row) => {
-        if (alive) setRecord(row);
+        if (alive) {
+          setRecord(row);
+          if (row) void track({ event: 'listing_view_detail', entityType: 'listing', entityId: row.id });
+        }
       })
       .catch((e: unknown) => {
         if (!alive) return;
@@ -113,6 +117,12 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
     if (!viewRecord || !presenter) return;
     const info = presenter.contact(viewRecord, listingDeepLink(viewRecord.id));
     whatsapp.send(buildListingContactMessage(info), { action: 'inquiry' });
+    void track({
+      event: 'listing_contact',
+      entityType: 'listing',
+      entityId: viewRecord.id,
+      properties: { method: 'whatsapp' },
+    });
   }, [viewRecord, presenter, whatsapp]);
 
   // Add-to-cart for orderable domains. Cars: single-unit sale. Produce:
@@ -154,6 +164,12 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
       });
     }
     dispatch({ type: 'NAVIGATE', screen: 'cart' });
+    void track({
+      event: 'listing_add_to_cart',
+      entityType: 'listing',
+      entityId: viewRecord.id,
+      properties: { qty: 1 },
+    });
   }, [viewRecord, presenter, cart, dispatch]);
 
   return (

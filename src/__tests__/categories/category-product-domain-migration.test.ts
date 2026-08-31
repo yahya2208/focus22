@@ -33,10 +33,12 @@ describe('00055 — category → product domain resolution', () => {
   it('is a lower migration than the additive 00056 (which stacks on top of it)', () => {
     const names = Object.keys(MIGRATIONS).map(basename);
     const nums = names.map(numericPrefix).filter((n): n is number => n !== null);
-    // 00055 remains strictly below the new 00056 orchestration migration.
-    expect(Math.max(...nums)).toBe(56);
+    // 00055 remains strictly below the newest committed migration. The telemetry
+    // layer (00057, owner-approved 2026-08-31) now sits at the top of the series.
+    expect(Math.max(...nums)).toBe(57);
     expect(names).toContain('00055_category_product_domain.sql');
     expect(names).toContain('00056_create_listing_for_category.sql');
+    expect(names).toContain('00057_telemetry_events.sql');
   });
 
   it('adds a nullable `domain` hint column to public.categories', () => {

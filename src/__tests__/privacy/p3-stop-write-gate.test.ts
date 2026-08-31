@@ -16,7 +16,7 @@ import { getVariantsForModel } from '../../data/phone-variants';
  *
  *  PG-01  لا signInAsGuest() تلقائياً لمجرد فتح التطبيق
  *  PG-02  لا كتابة sessions / devices / calibrations من شجرة التطبيق
- *  PG-04  لا analytics_events للتتبع (telemetry معطّل، بلا مُرسِل Supabase)
+ *  PG-04  telemetry_events بعقد مقفل فقط: RPC-only, بلا كتابة جدول مباشرة, بلا PII
  *  PG-05  لا QR/campaign attribution في مسار الإقلاع
  *  PG-27  لا كاتب مخفي على مسار التشغيل (component → hook → service → provider → Supabase/RPC)
  *  PG-30  اللعبة تعمل  ·  PG-50 الإعلانات  ·  PG-51 المخزون  ·  PG-52 الكتالوج
@@ -105,6 +105,8 @@ const RUNTIME_PATH: string[] = [
   'screens/register/RegisterScreen.tsx',
   'screens/consent/ConsentScreen.tsx',
   'screens/share/ShareScreen.tsx',
+  // TELEMETRY EVENTS sender (00057) — RPC-only, no direct table writes.
+  'core/telemetry/client.ts',
 ];
 
 const HARD_STOP_PREFIXES = [
@@ -203,6 +205,14 @@ const AUTHORIZED_CHANGES = [
  * completion-only sender `services/tic-tac-toe-sender.ts`. user_id is
  * derived server-side from auth.uid() and is never client-supplied. The
  * migration 00047_record_tic_tac_toe_session.sql ships as FILE ONLY.
+ *
+ * TELEMETRY EVENTS RPC CARVE-OUT — contract 2026-08-31 (00057).
+ * Exactly ONE additional runtime file may call the single sanctioned telemetry
+ * RPC record_telemetry_event() via .rpc(): the isolated, fire-and-forget,
+ * batching sender `core/telemetry/client.ts`. It never writes telemetry_events
+ * directly (RPC-only) and passes every event through privacy.ts (closed
+ * allowlist + forbidden PII keys) before enqueue. user_id is derived
+ * server-side from auth.uid(); anonymous_id is the non-PII focus_vid_v1.
  */
 const RPC_ALLOWLIST: string[] = [
   'services/qr-measurement.ts',
@@ -210,6 +220,8 @@ const RPC_ALLOWLIST: string[] = [
   'services/tic-tac-toe-sender.ts',
   // TIC TAC TOE FRIEND PLAY RPC layer (00049) — RPC-only, no direct table writes.
   'services/ttt-multiplayer-sender.ts',
+  // TELEMETRY EVENTS sender (00057) — RPC-only, no direct table writes.
+  'core/telemetry/client.ts',
 ];
 
 function findProtectedViolations(changed: string[], prefixes: string[], authorized: string[]): string[] {
@@ -261,13 +273,33 @@ describe('PG-02: لا كتابة sessions / devices / calibrations من شجرة
   });
 });
 
-describe('PG-04: لا analytics_events للتتبع (الـ telemetry أُزيل بالكامل ضمن P5)', () => {
-  it('core/telemetry لم يعد موجوداً (أُزيل، وليس معطّلاً)', () => {
-    const telemetryExists = fs.existsSync(path.join(SRC, 'core/telemetry/index.ts'));
-    expect(telemetryExists).toBe(false);
+describe('PG-04: telemetry_events — closed contract فقط (RPC-only, بلا كتابة جدول مباشرة, بلا PII)', () => {
+  it('core/telemetry موجود بوصفه طبقة العقد المقفلة المعتمدة (owner 2026-08-31): types/events/privacy/client/index', () => {
+    for (const f of ['core/telemetry/index.ts', 'core/telemetry/types.ts', 'core/telemetry/events.ts', 'core/telemetry/privacy.ts', 'core/telemetry/client.ts']) {
+      expect(fs.existsSync(path.join(SRC, f))).toBe(true);
+    }
   });
 
-  it('App.tsx لا يحتوي استدعاءات تتبع في مسار الإقلاع', () => {
+  it('لا كتابة مباشرة (.from + insert/upsert/update/delete) في أي ملف core/telemetry — RPC-only', () => {
+    const writeChain = /\.from\([^)]*\)\s*\.\s*(insert|upsert|update|delete)\b/;
+    const offenders: string[] = [];
+    for (const rel of ['core/telemetry/index.ts', 'core/telemetry/types.ts', 'core/telemetry/events.ts', 'core/telemetry/privacy.ts', 'core/telemetry/client.ts']) {
+      const content = read(rel);
+      if (writeChain.test(content)) offenders.push(rel);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('client يمرر عبر حارس الخصوصية قبل الإرسال (privacy.ts يحوي قائمة المحظور وفلاتر السماح)', () => {
+    const privacy = read('core/telemetry/privacy.ts');
+    expect(privacy).toContain('FORBIDDEN_PROPERTY_KEYS');
+    expect(privacy).toContain('sanitizeProperties');
+    expect(privacy).toContain('isForbiddenKey');
+    const client = read('core/telemetry/client.ts');
+    expect(client).toContain('sanitizeEvent');
+  });
+
+  it('App.tsx لا يستدعي واجهات الـ telemetry القديمة المزالة (setupSessionTelemetry/app_opened/getGlobalTelemetry/telemetry.track)', () => {
     const app = read('App.tsx');
     expect(app).not.toMatch(/telemetry\.track\s*\(/);
     expect(app).not.toContain('setupSessionTelemetry');
@@ -323,12 +355,13 @@ describe('PG-27: لا كاتب مخفي على مسار التشغيل (componen
     expect(offenders).toEqual([]);
   });
 
-  it('regression: القائمة البيضاء تحتوي المرسلين المخوّلين فقط (قياس + علم الجلسات + تك تاك تو)', () => {
+  it('regression: القائمة البيضاء تحتوي المرسلين المخوّلين فقط (قياس + علم الجلسات + تك تاك تو + تليمتري)', () => {
     expect(RPC_ALLOWLIST).toEqual([
       'services/qr-measurement.ts',
       'services/session-science-sender.ts',
       'services/tic-tac-toe-sender.ts',
       'services/ttt-multiplayer-sender.ts',
+      'core/telemetry/client.ts',
     ]);
   });
 
@@ -347,6 +380,8 @@ describe('PG-27: لا كاتب مخفي على مسار التشغيل (componen
     expect(RUNTIME_PATH).toContain('screens/tic-tac-toe/TicTacToeIntroScreen.tsx');
     expect(RUNTIME_PATH).toContain('screens/tic-tac-toe/TicTacToeScreen.tsx');
     expect(RUNTIME_PATH).toContain('screens/tic-tac-toe/TicTacToeResultsScreen.tsx');
+    expect(RUNTIME_PATH).toContain('core/telemetry/client.ts');
+    expect(fs.existsSync(path.join(SRC, 'core/telemetry/client.ts'))).toBe(true);
   });
 
   it('غلاف الحماية متكامل: telemetry معطّل + لا PersistenceProvider + لا ضيف تلقائي + لا QR', () => {
