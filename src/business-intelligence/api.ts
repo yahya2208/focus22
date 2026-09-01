@@ -10,6 +10,7 @@ import type {
 } from './types';
 import type { BranchData } from './actions/types';
 import { devError } from '../core/logging';
+import { getRuntimeSetting, loadRuntimeSettings } from '../core/config/runtime-settings';
 
 export interface BusinessAPI {
   getCommandCenter(): Promise<CommandCenterData>;
@@ -432,6 +433,7 @@ export function createBusinessAPI(): BusinessAPI {
     },
 
     async getPredictions(): Promise<Prediction[]> {
+      loadRuntimeSettings(); // warm centralized settings cache (safe fallback otherwise)
       const cc = await this.getCommandCenter();
       return cc.opportunities.map(o => {
         const visitFactor = Math.min(o.visitCount / 10, 1);
@@ -445,7 +447,7 @@ export function createBusinessAPI(): BusinessAPI {
           purchaseProbability: Math.round((visitFactor * 0.3 + gameFactor * 0.2 + focusFactor + whatsappFactor) * 100),
           whatsappProbability: Math.round((o.whatsappClicked ? 0.8 : visitFactor * 0.4) * 100),
           returnProbability: Math.round(returnFactor * 100),
-          needsDiscount: o.visitCount >= 3 && !o.tradeRequested,
+          needsDiscount: o.visitCount >= getRuntimeSetting('rules.needs_discount_visit_count', 3) && !o.tradeRequested,
         };
       });
     },

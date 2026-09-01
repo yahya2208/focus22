@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { generateId } from '../data-source';
+import { loadRuntimeSettings, getRuntimeSetting } from '../../core/config/runtime-settings';
 
 interface AutomationRule {
   id: string;
@@ -45,31 +46,40 @@ const ACTION_LABELS: Record<AutomationRule['action']['type'], string> = {
   order_stock: 'طلب مخزون',
 };
 
-const TEMPLATES: Array<{ name: string; condition: AutomationRule['condition']; action: AutomationRule['action'] }> = [
-  {
-    name: 'المخزون منخفض',
-    condition: { metric: 'inventory_level', operator: '<', value: 5 },
-    action: { type: 'send_alert', params: 'مخزون منخفض — يرجى إعادة الطلب' },
-  },
-  {
-    name: 'زوار كثر لجهاز',
-    condition: { metric: 'device_visitors', operator: '>', value: 30 },
-    action: { type: 'generate_campaign', params: 'حملة استهداف لأجهزة محددة' },
-  },
-  {
-    name: 'تحويل منخفض',
-    condition: { metric: 'trade_conversion', operator: '<', value: 10 },
-    action: { type: 'send_alert', params: 'نسبة تحويل منخفضة — يرجى المراجعة' },
-  },
-  {
-    name: 'زائر مميز',
-    condition: { metric: 'visitor_count', operator: '>', value: 90 },
-    action: { type: 'show_vip_offer', params: 'عرض VIP للزائر المميز' },
-  },
-];
+type Template = { name: string; condition: AutomationRule['condition']; action: AutomationRule['action'] };
 
-const CURRENT_DATA: SimulatedData = {
-  trade_conversion: 8,
+// Templates read the centralized rule thresholds at use time (DB source of
+// truth; safe hardcoded fallbacks retained). Only the numeric thresholds are
+// centralized — operators/actions/names stay fixed.
+function getTemplates(): Template[] {
+  return [
+    {
+      name: 'المخزون منخفض',
+      condition: { metric: 'inventory_level', operator: '<', value: getRuntimeSetting('rules.inventory_low_threshold', 5) },
+      action: { type: 'send_alert', params: 'مخزون منخفض — يرجى إعادة الطلب' },
+    },
+    {
+      name: 'زوار كثر لجهاز',
+      condition: { metric: 'device_visitors', operator: '>', value: getRuntimeSetting('rules.device_visitors_threshold', 30) },
+      action: { type: 'generate_campaign', params: 'حملة استهداف لأجهزة محددة' },
+    },
+    {
+      name: 'تحويل منخفض',
+      condition: { metric: 'trade_conversion', operator: '<', value: getRuntimeSetting('rules.trade_conversion_threshold', 10) },
+      action: { type: 'send_alert', params: 'نسبة تحويل منخفضة — يرجى المراجعة' },
+    },
+    {
+      name: 'زائر مميز',
+      condition: { metric: 'visitor_count', operator: '>', value: getRuntimeSetting('rules.visitor_count_threshold', 90) },
+      action: { type: 'show_vip_offer', params: 'عرض VIP للزائر المميز' },
+    },
+  ];
+}
+
+// Centralized default threshold for new rules (DB source of truth; fallback 3).
+const defaultRuleThreshold = () => getRuntimeSetting('rules.default_threshold', 3);
+
+const CURRENT_DATA: SimulatedData = {  trade_conversion: 8,
   visitor_count: 95,
   inventory_level: 3,
   device_visitors: 45,
@@ -104,13 +114,14 @@ export function RuleEngine() {
     name: '',
     metric: 'trade_conversion',
     operator: '>',
-    value: 0,
+    value: defaultRuleThreshold(),
     action: 'send_alert',
     params: '',
   });
 
   useEffect(() => {
     setRules(loadRules());
+    loadRuntimeSettings();
   }, []);
 
   const persist = useCallback((next: AutomationRule[]) => {
@@ -131,10 +142,10 @@ export function RuleEngine() {
     };
     persist([newRule, ...rules]);
     setShowForm(false);
-    setForm({ name: '', metric: 'trade_conversion', operator: '>', value: 0, action: 'send_alert', params: '' });
+    setForm({ name: '', metric: 'trade_conversion', operator: '>', value: defaultRuleThreshold(), action: 'send_alert', params: '' });
   };
 
-  const addTemplate = (tpl: typeof TEMPLATES[number]) => {
+  const addTemplate = (tpl: Template) => {
     const newRule: AutomationRule = {
       id: generateId(),
       name: tpl.name,
@@ -307,7 +318,7 @@ export function RuleEngine() {
       }}>
         <div style={{ color: colors.textMuted, fontSize: '0.72rem', marginBottom: '8px' }}>قوالب جاهزة</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-          {TEMPLATES.map((tpl, i) => (
+          {getTemplates().map((tpl, i) => (
             <button key={i} onClick={() => addTemplate(tpl)} style={{
               padding: '5px 12px', borderRadius: '6px', border: `1px solid ${colors.borderLight}`,
               background: colors.bgHover, color: colors.textSecondary, fontSize: '0.72rem',

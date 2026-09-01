@@ -24,12 +24,13 @@
  *    by design to protect the operational stock from analyst edits.
  * ────────────────────────────────────────────────────────────────────────
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { DemoBadge, DemoNotice } from '../DemoBadge';
 import { generateId } from '../data-source';
 import type { DataSource } from '../data-source';
 import type { InventoryItem } from './types';
+import { loadRuntimeSettings, getRuntimeSetting } from '../../core/config/runtime-settings';
 
 const INVENTORY_KEY = 'bi_inventory';
 const SOURCE_KEY = 'bi_inventory_source';
@@ -48,9 +49,10 @@ function saveInventory(items: InventoryItem[], source: DataSource) {
 }
 
 function getStockStatus(item: InventoryItem): 'out' | 'low' | 'normal' | 'over' {
+  const multiplier = getRuntimeSetting('inventory.overstock_multiplier', 3);
   if (item.quantity <= 0) return 'out';
   if (item.quantity <= item.minThreshold) return 'low';
-  if (item.quantity > item.minThreshold * 3) return 'over';
+  if (item.quantity > item.minThreshold * multiplier) return 'over';
   return 'normal';
 }
 
@@ -62,6 +64,12 @@ export function InventoryIntelligence() {
   const [showAdd, setShowAdd] = useState(false);
   const [newItem, setNewItem] = useState<Partial<InventoryItem>>({});
 
+  useEffect(() => {
+    loadRuntimeSettings();
+  }, []);
+
+  const defaultThreshold = () => getRuntimeSetting('rules.default_threshold', 3);
+
   const addItem = () => {
     if (!newItem.brand || !newItem.model) return;
     const item: InventoryItem = {
@@ -71,7 +79,7 @@ export function InventoryIntelligence() {
       storage: newItem.storage ?? '',
       sku: newItem.sku ?? `${(newItem.brand ?? '').slice(0, 3).toUpperCase()}-XX-XX`,
       quantity: newItem.quantity ?? 0,
-      minThreshold: newItem.minThreshold ?? 3,
+      minThreshold: newItem.minThreshold ?? defaultThreshold(),
       buyPrice: newItem.buyPrice ?? 0,
       sellPrice: newItem.sellPrice ?? 0,
       location: newItem.location ?? '',
@@ -132,7 +140,7 @@ export function InventoryIntelligence() {
               style={{ padding: '8px 12px', borderRadius: '8px', border: `1px solid ${colors.border}`, background: colors.bgInput, color: colors.text, fontSize: '0.82rem', fontFamily: 'inherit' }} />
             <input placeholder="الكمية" type="number" value={newItem.quantity ?? ''} onChange={e => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 0 })}
               style={{ padding: '8px 12px', borderRadius: '8px', border: `1px solid ${colors.border}`, background: colors.bgInput, color: colors.text, fontSize: '0.82rem', fontFamily: 'inherit' }} />
-            <input placeholder="الحد الأدنى" type="number" value={newItem.minThreshold ?? 3} onChange={e => setNewItem({ ...newItem, minThreshold: parseInt(e.target.value) || 1 })}
+            <input placeholder="الحد الأدنى" type="number" value={newItem.minThreshold ?? defaultThreshold()} onChange={e => setNewItem({ ...newItem, minThreshold: parseInt(e.target.value) || 1 })}
               style={{ padding: '8px 12px', borderRadius: '8px', border: `1px solid ${colors.border}`, background: colors.bgInput, color: colors.text, fontSize: '0.82rem', fontFamily: 'inherit' }} />
             <input placeholder="سعر الشراء" type="number" value={newItem.buyPrice ?? ''} onChange={e => setNewItem({ ...newItem, buyPrice: parseInt(e.target.value) || 0 })}
               style={{ padding: '8px 12px', borderRadius: '8px', border: `1px solid ${colors.border}`, background: colors.bgInput, color: colors.text, fontSize: '0.82rem', fontFamily: 'inherit' }} />

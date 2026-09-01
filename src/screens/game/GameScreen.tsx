@@ -11,18 +11,26 @@ import { emitDiagnosticLog } from '../../core/supabase/live-diagnostics';
 import { recordFunnel, getActiveCampaignId } from '../../services/qr-measurement';
 import { sendScientificSession } from '../../services/session-science-sender';
 import { getDeviceFingerprint } from '../../core/device/fingerprint';
+import { loadRuntimeSettings, runtimeSettingDefault } from '../../core/config/runtime-settings';
 
 type Phase = 'waiting' | 'visible' | 'hit' | 'miss';
 
-const TOTAL_ROUNDS = 7;
-const MIN_DELAY_MS = 750;
-const MAX_DELAY_MS = 2890;
+// Centralized-safe game config. The DB (app_settings) is the source of truth;
+// these module values are the SAFE fallbacks and are overwritten from the DB at
+// mount. GRID/LAMP_SIZE/REACTION remain architecture constants (never editable).
 const LAMP_SIZE = 90;
-const MIN_POSITION_DISTANCE_PCT = 25;
-
 const GRID_COLS = 5;
 const GRID_ROWS = 4;
 const TOTAL_CELLS = GRID_COLS * GRID_ROWS;
+
+// Mutable config, defaulted to the current hardcoded values; overwritten from
+// the centralized settings on mount (falls back to these if the DB is down).
+const gameConfig = {
+  rounds: runtimeSettingDefault('game.rounds'),
+  minDelayMs: runtimeSettingDefault('game.min_delay_ms'),
+  maxDelayMs: runtimeSettingDefault('game.max_delay_ms'),
+  minPositionDistancePct: runtimeSettingDefault('game.min_position_distance_pct'),
+};
 
 function secureRandom(): number {
   const buf = new Uint32Array(1);
@@ -57,7 +65,7 @@ function pickPosition(prevIdx: number): number {
     const dx = curPos.x - prevPos.x;
     const dy = curPos.y - prevPos.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist >= MIN_POSITION_DISTANCE_PCT) {
+    if (dist >= gameConfig.minPositionDistancePct) {
       candidates.push(i);
     }
   }
@@ -198,6 +206,19 @@ export const GameScreen = memo(function GameScreen() {
     },
   });
 
+  // Load centralized game settings (DB source of truth; safe fallback retained).
+  useEffect(() => {
+    let alive = true;
+    loadRuntimeSettings().then((s) => {
+      if (!alive) return;
+      gameConfig.rounds = s['game.rounds'] ?? gameConfig.rounds;
+      gameConfig.minDelayMs = s['game.min_delay_ms'] ?? gameConfig.minDelayMs;
+      gameConfig.maxDelayMs = s['game.max_delay_ms'] ?? gameConfig.maxDelayMs;
+      gameConfig.minPositionDistancePct = s['game.min_position_distance_pct'] ?? gameConfig.minPositionDistancePct;
+    });
+    return () => { alive = false; };
+  }, []);
+
   useEffect(() => {
     const gameMode = selectedGame ?? 'reaction-light';
     const sessionService = getGlobalSessionService();
@@ -227,10 +248,10 @@ export const GameScreen = memo(function GameScreen() {
 
   const startRound = useCallback(() => {
     const nextRound = roundRef.current + 1;
-    emitDiagnosticLog({ service: 'game', action: 'round_started', caller: 'game-screen', trigger: 'startRound', sessionId: sessionIdRef.current ?? undefined, detail: `round=${nextRound}/${TOTAL_ROUNDS}` });
+    emitDiagnosticLog({ service: 'game', action: 'round_started', caller: 'game-screen', trigger: 'startRound', sessionId: sessionIdRef.current ?? undefined, detail: `round=${nextRound}/${gameConfig.rounds}` });
     setPhase('waiting');
     lastRtRef.current = null;
-    const delay = MIN_DELAY_MS + secureRandom() * (MAX_DELAY_MS - MIN_DELAY_MS);
+    const delay = gameConfig.minDelayMs + secureRandom() * (gameConfig.maxDelayMs - gameConfig.minDelayMs);
     timerRef.current = setTimeout(() => {
       const nextCell = pickPosition(lampCellRef.current);
       lampCellRef.current = nextCell;
@@ -248,7 +269,7 @@ export const GameScreen = memo(function GameScreen() {
   }, []);
 
   useEffect(() => {
-    if (round >= TOTAL_ROUNDS) {
+    if (round >= gameConfig.rounds) {
       const rts = rawRtsRef.current;
       const correctedRts = rts.map((rt) => correctReactionTime(rt, calibration).correctedRtMs);
       const validRounds = rts.filter((rt) => {
@@ -259,7 +280,7 @@ export const GameScreen = memo(function GameScreen() {
         rawRts: rts,
         correctedRts,
         calibration,
-        totalRounds: TOTAL_ROUNDS,
+        totalRounds: gameConfig.rounds,
         validRounds,
         sessionStart: sessionStartRef.current,
         sessionEnd: Date.now(),
@@ -268,7 +289,7 @@ export const GameScreen = memo(function GameScreen() {
       const sessionId = sessionIdRef.current;
       if (sessionId) {
         completedRef.current = true;
-        emitDiagnosticLog({ service: 'game', action: 'game_completed', caller: 'game-screen', trigger: 'round7_reached', sessionId, detail: `rounds=${TOTAL_ROUNDS} valid=${validRounds}` });
+        emitDiagnosticLog({ service: 'game', action: 'game_completed', caller: 'game-screen', trigger: 'round7_reached', sessionId, detail: `rounds=${gameConfig.rounds} valid=${validRounds}` });
         getGlobalSessionService().completeSession(sessionId, results);
         recordFunnel(getActiveCampaignId() ?? '', 'game_complete');
         sendScientificSession({ sessionId, gameMode: gameModeRef.current ?? 'reaction-light', results, deviceFingerprint: getDeviceFingerprint(), calibrationConfidence: calibration.confidence });
@@ -342,7 +363,7 @@ export const GameScreen = memo(function GameScreen() {
     }
   }, [phase, handleLampTap]);
 
-  const progress = Math.round((round / TOTAL_ROUNDS) * 100);
+  const progress = Math.round((round / gameConfig.rounds) * 100);
   const bestTime = bestTimeRef.current;
   const lastRt = (phase === 'hit') ? lastRtRef.current : null;
   const cellIdx = lampCellRef.current;
@@ -354,7 +375,7 @@ export const GameScreen = memo(function GameScreen() {
     <>
       <style dangerouslySetInnerHTML={{ __html: KEYFRAMES_CSS }} />
       <nav
-        aria-label={`Game round ${round + 1} of ${TOTAL_ROUNDS}`}
+        aria-label={`Game round ${round + 1} of ${gameConfig.rounds}`}
         role="application"
         tabIndex={0}
         style={{
@@ -418,8 +439,8 @@ export const GameScreen = memo(function GameScreen() {
               {t('game.round')}
             </span>
             <span style={{ fontSize: '1.3rem', fontWeight: 800, color: colors.text, fontVariantNumeric: 'tabular-nums', display: 'block', lineHeight: 1.1 }}>
-              {Math.min(round + 1, TOTAL_ROUNDS)}
-              <span style={{ fontSize: '0.8rem', fontWeight: 400, color: colors.textMuted }}>/{TOTAL_ROUNDS}</span>
+              {Math.min(round + 1, gameConfig.rounds)}
+              <span style={{ fontSize: '0.8rem', fontWeight: 400, color: colors.textMuted }}>/{gameConfig.rounds}</span>
             </span>
             <div style={{ width: '80px', height: '3px', background: colors.progressBg, borderRadius: '2px', overflow: 'hidden', marginTop: '6px', marginLeft: 'auto' }}>
               <div style={{ width: `${progress}%`, height: '100%', background: colors.accent, borderRadius: '2px', transition: 'width 0.3s' }} />

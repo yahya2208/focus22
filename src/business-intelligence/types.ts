@@ -166,7 +166,7 @@ export interface TreasureModeData {
 
 export type BIDashboardId = 'treasure' | 'command' | 'customers' | 'devices' | 'campaigns' | 'commerce'
   | 'actions' | 'smart-offers' | 'trade-prices' | 'inventory' | 'notifications' | 'ai-assistant' | 'staff' | 'opportunities' | 'competitive'
-  | 'ceo' | 'recommendations' | 'feedback' | 'rules' | 'quality' | 'phone-intelligence';
+  | 'ceo' | 'recommendations' | 'feedback' | 'rules' | 'quality' | 'phone-intelligence' | 'telemetry' | 'settings';
 
 // ── Phone Intelligence types ────────────────────────────────────────────────
 

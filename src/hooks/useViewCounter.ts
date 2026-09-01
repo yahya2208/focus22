@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { loadRuntimeSettings, getRuntimeSetting } from '../core/config/runtime-settings';
 
 const VIEW_COUNTS_KEY = 'showroom_view_counts';
-const MAX_ENTRIES = 500;
+const MAX_ENTRIES = () => getRuntimeSetting('cache.max_entries', 500);
 
 const countedThisSession = new Set<string>();
 
@@ -23,14 +24,16 @@ export function useViewCounter(recordId: string | undefined | null): { count: nu
   const [count, setCount] = useState(0);
 
   useEffect(() => {
+    loadRuntimeSettings();
     if (!recordId) return;
     const counts = loadCounts();
     if (!countedThisSession.has(recordId)) {
       countedThisSession.add(recordId);
       counts[recordId] = (counts[recordId] ?? 0) + 1;
       const keys = Object.keys(counts);
-      if (keys.length > MAX_ENTRIES) {
-        for (const key of keys.slice(0, keys.length - MAX_ENTRIES)) delete counts[key];
+      const cap = MAX_ENTRIES();
+      if (keys.length > cap) {
+        for (const key of keys.slice(0, keys.length - cap)) delete counts[key];
       }
       try {
         localStorage.setItem(VIEW_COUNTS_KEY, JSON.stringify(counts));

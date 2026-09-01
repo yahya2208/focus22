@@ -6,10 +6,15 @@ import type { DataSource } from '../data-source';
 import type { Opportunity } from '../types';
 import type { SmartOffer } from './types';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { loadRuntimeSettings, getRuntimeSetting } from '../../core/config/runtime-settings';
 
 const api = createBusinessAPI();
 const OFFERS_KEY = 'bi_smart_offers';
 const SOURCE_KEY = 'bi_smart_offers_source';
+
+// Centralized-safe offer defaults (DB source of truth; safe fallback retained).
+const DEFAULT_DISCOUNT = () => getRuntimeSetting('offers.default_discount_percent', 5);
+const DEFAULT_MAX_USAGE = () => getRuntimeSetting('offers.default_max_usage', 50);
 
 function loadOffers(): { offers: SmartOffer[]; source: DataSource } {
   try {
@@ -28,12 +33,15 @@ export function SmartOfferEngine() {
   const [{ offers, source }, setState] = useState(loadOffers);
   const [customers, setCustomers] = useState<Opportunity[]>([]);
   const [showCreate, setShowCreate] = useState(false);
-  const [newOffer, setNewOffer] = useState<Partial<SmartOffer>>({
-    type: 'discount', title: '', description: '', discountPercent: 5,
-    targetDevice: null, targetVisitorIds: [], maxUsage: 50,
-  });
+  const [newOffer, setNewOffer] = useState<Partial<SmartOffer>>(() => ({
+    type: 'discount', title: '', description: '', discountPercent: DEFAULT_DISCOUNT(),
+    targetDevice: null, targetVisitorIds: [], maxUsage: DEFAULT_MAX_USAGE(),
+  }));
 
-  useEffect(() => { api.getCustomerList().then(setCustomers); }, []);
+  useEffect(() => {
+    loadRuntimeSettings();
+    api.getCustomerList().then(setCustomers);
+  }, []);
 
   const createOffer = () => {
     const offer: SmartOffer = {
@@ -48,13 +56,13 @@ export function SmartOfferEngine() {
       createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
       usageCount: 0,
-      maxUsage: newOffer.maxUsage ?? 50,
+      maxUsage: newOffer.maxUsage ?? DEFAULT_MAX_USAGE(),
     };
     const updated = [...offers, offer];
     saveOffers(updated, 'live');
     setState({ offers: updated, source: 'live' });
     setShowCreate(false);
-    setNewOffer({ type: 'discount', title: '', description: '', discountPercent: 5, targetDevice: null, targetVisitorIds: [], maxUsage: 50 });
+    setNewOffer({ type: 'discount', title: '', description: '', discountPercent: DEFAULT_DISCOUNT(), targetDevice: null, targetVisitorIds: [], maxUsage: DEFAULT_MAX_USAGE() });
   };
 
   const toggleActive = (id: string) => {
@@ -101,7 +109,7 @@ export function SmartOfferEngine() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div>
                 <label style={{ color: colors.textMuted, fontSize: '0.7rem', display: 'block', marginBottom: '4px' }}>نسبة الخصم</label>
-                <input type="number" value={newOffer.discountPercent ?? 5}
+                <input type="number" value={newOffer.discountPercent ?? DEFAULT_DISCOUNT()}
                   onChange={e => setNewOffer({ ...newOffer, discountPercent: parseInt(e.target.value) || 0 })}
                   style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: `1px solid ${colors.border}`,
                     background: colors.bgInput, color: colors.text, fontSize: '0.82rem', fontFamily: 'inherit' }} />
@@ -226,7 +234,7 @@ export function SmartOfferEngine() {
             { label: `إنشاء عرض خصم لـ ${qualifiedVisitors.length} زائر عائد`, desc: 'زوار عادوا 2+ مرات ولم يطلبوا استبدال', action: () => {
               setNewOffer({
                 type: 'discount', title: 'خصم للزوار العائدين', description: 'نقدر زيارتك المتكررة، إليك خصم خاص',
-                discountPercent: 5, targetVisitorIds: qualifiedVisitors.slice(0, 50).map(v => v.userId), maxUsage: 50,
+                discountPercent: getRuntimeSetting('offers.return_discount_percent', 5), targetVisitorIds: qualifiedVisitors.slice(0, 50).map(v => v.userId), maxUsage: DEFAULT_MAX_USAGE(),
               });
               setShowCreate(true);
             }},
@@ -234,7 +242,7 @@ export function SmartOfferEngine() {
               const whatsappVisitors = customers.filter(c => c.whatsappClicked);
               setNewOffer({
                 type: 'discount', title: 'عرض متابعة واتساب', description: 'شكرًا لتواصلك، خصم إضافي لك',
-                discountPercent: 8, targetVisitorIds: whatsappVisitors.slice(0, 50).map(v => v.userId), maxUsage: 30,
+                discountPercent: getRuntimeSetting('offers.whatsapp_discount_percent', 8), targetVisitorIds: whatsappVisitors.slice(0, 50).map(v => v.userId), maxUsage: getRuntimeSetting('offers.whatsapp_max_usage', 30),
               });
               setShowCreate(true);
             }},
