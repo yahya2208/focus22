@@ -1,6 +1,7 @@
-import { memo } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { useNavigate } from '../../store/navigation';
 import { useTicTacToeState } from './TicTacToeContext';
+import { track } from '../../core/telemetry';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useBackGuard } from '../../core/navigation/BackProvider';
@@ -28,6 +29,21 @@ export const TicTacToeResultsScreen = memo(function TicTacToeResultsScreen() {
       return false;
     },
   });
+
+  // Phase 10A — `game_result_view` fires once when the results UI is shown.
+  // Guarded to prevent re-render duplicates (e.g. difficulty re-render). Mirrors
+  // the reaction-light producer; uses the same `game: 'ttt'` / `game` domain the
+  // single-player TTT screen already emits (game_start/game_complete/game_abandon).
+  const resultViewFiredRef = useRef(false);
+  useEffect(() => {
+    if (resultViewFiredRef.current) return;
+    resultViewFiredRef.current = true;
+    void track({
+      event: 'game_result_view',
+      entityType: 'game',
+      properties: { game: 'ttt' },
+    });
+  }, []);
 
   const outcomeColor =
     sessionOutcome === 'human' ? colors.success
