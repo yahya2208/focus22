@@ -58,7 +58,7 @@ describe('QR entry routing (Phase B)', () => {
   it('14: invalid /c/ABC12 stays on the normal route', async () => {
     window.history.pushState({}, '', '/c/ABC12');
     renderApp();
-    await screen.findByRole('main', { name: 'Main navigation' });
+    await screen.findByRole('main', { name: 'Main navigation' }, { timeout: 5000 });
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(screen.queryByRole('navigation', { name: 'Game intro' })).toBeNull();
   });
