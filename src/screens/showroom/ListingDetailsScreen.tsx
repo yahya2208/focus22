@@ -205,7 +205,7 @@ export const ListingDetailsScreen = memo(function ListingDetailsScreen() {
           </div>
         ) : viewRecord && presenter ? (
           <>
-            <ProductImageGallery images={viewRecord.images.map(listingImageUrl)} name={presenter.card(viewRecord).title} />
+            <ProductImageGallery images={viewRecord.images.map(listingImageUrl)} name={presenter.card(viewRecord).title} entityId={viewRecord.id} />
 
             <Card variant="glass" padding="lg">
               <Stack gap="sm">
