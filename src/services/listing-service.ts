@@ -30,6 +30,7 @@
 
 import { getSupabaseClient } from '../core/supabase/client';
 import type { InventoryRecord } from './inventory-service';
+import { track } from '../core/telemetry';
 import type {
   CarDetails,
   ListingCategory,
@@ -320,6 +321,28 @@ async function callRpc<T>(fn: string, args: Record<string, unknown>): Promise<T>
   return data as T;
 }
 
+/**
+ * Listing write boundary — the single ownership point for Phase 8D listing
+ * lifecycle/outcome events and the system error events they classify. Rules:
+ *  - `..._success`/`listing_publish` fire ONLY after the RPC resolves.
+ *  - `..._failed`/`rpc_error` fire ONLY on a real RPC rejection (rethrow keeps
+ *    the exact pre-existing error behavior so callers never change).
+ *  - `validation_error` is best-effort and NON-throwing: it only reports an
+ *    already-invalid category without ever altering the code path.
+ *  - telemetry never changes the result of the operation (fire-and-forget).
+ */
+const VALID_LISTING_CATEGORIES = new Set<string>(['car', 'property', 'produce']);
+
+function reportInvalidCategoryIfAny(input: CreateListingInput): void {
+  if (!VALID_LISTING_CATEGORIES.has(input.category)) {
+    void track({
+      event: 'validation_error',
+      properties: { error_code: 'INVALID_CATEGORY' },
+    });
+  }
+}
+
+
 // ── API ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -361,7 +384,16 @@ function listingCreateArgs(input: CreateListingInput): Record<string, unknown> {
 }
 
 export async function createListing(input: CreateListingInput): Promise<string> {
-  return callRpc<string>('listing_create', listingCreateArgs(input));
+  reportInvalidCategoryIfAny(input);
+  try {
+    const id = await callRpc<string>('listing_create', listingCreateArgs(input));
+    void track({ event: 'listing_create_success', entityType: 'listing', properties: {} });
+    return id;
+  } catch (e) {
+    void track({ event: 'rpc_error', properties: { rpc: 'listing_create', error_code: 'DB' } });
+    void track({ event: 'listing_create_failed', entityType: 'listing', properties: { error_code: 'DB' } });
+    throw e;
+  }
 }
 
 /**
@@ -376,27 +408,42 @@ export async function createListingForCategory(
   categoryId: string,
   input: CreateListingInput,
 ): Promise<string> {
-  return callRpc<string>('create_listing_for_category', {
-    p_category_id: categoryId,
-    ...listingCreateArgs(input),
-  });
+  reportInvalidCategoryIfAny(input);
+  try {
+    const id = await callRpc<string>('create_listing_for_category', {
+      p_category_id: categoryId,
+      ...listingCreateArgs(input),
+    });
+    void track({ event: 'listing_create_success', entityType: 'listing', properties: {} });
+    return id;
+  } catch (e) {
+    void track({ event: 'rpc_error', properties: { rpc: 'create_listing_for_category', error_code: 'DB' } });
+    void track({ event: 'listing_create_failed', entityType: 'listing', properties: { error_code: 'DB' } });
+    throw e;
+  }
 }
 
 /** Core-field edits (brand/model/price/city/…) for car|property listings. */
 export async function updateListingCore(id: string, patch: UpdateListingCorePatch): Promise<void> {
-  await callRpc<null>('listing_update_core', {
-    p_listing_id: id,
-    p_brand: patch.brand ?? null,
-    p_model: patch.model ?? null,
-    p_price: patch.priceAmount !== undefined ? patch.priceAmount : null,
-    p_price_period: patch.pricePeriod ?? null,
-    p_color: patch.color ?? null,
-    p_city: patch.city ?? null,
-    p_description: patch.description ?? null,
-    p_code: patch.code ?? null,
-    p_warranty: patch.warranty ?? null,
-    p_unit: patch.unit !== undefined ? patch.unit : null,
-  });
+  try {
+    await callRpc<null>('listing_update_core', {
+      p_listing_id: id,
+      p_brand: patch.brand ?? null,
+      p_model: patch.model ?? null,
+      p_price: patch.priceAmount !== undefined ? patch.priceAmount : null,
+      p_price_period: patch.pricePeriod ?? null,
+      p_color: patch.color ?? null,
+      p_city: patch.city ?? null,
+      p_description: patch.description ?? null,
+      p_code: patch.code ?? null,
+      p_warranty: patch.warranty ?? null,
+      p_unit: patch.unit !== undefined ? patch.unit : null,
+    });
+    void track({ event: 'listing_edit_success', entityType: 'listing', properties: {} });
+  } catch (e) {
+    void track({ event: 'rpc_error', properties: { rpc: 'listing_update_core', error_code: 'DB' } });
+    throw e;
+  }
 }
 
 /**
@@ -409,10 +456,15 @@ export async function updateListingDetails(
   details: Partial<CarDetails> | Partial<PropertyDetails> | Partial<ProduceDetails>,
 ): Promise<void> {
   const payload = { ...(details as unknown as Record<string, unknown>) };
-  await callRpc<null>('listing_update_details', {
-    p_listing_id: id,
-    p_details: payload,
-  });
+  try {
+    await callRpc<null>('listing_update_details', {
+      p_listing_id: id,
+      p_details: payload,
+    });
+  } catch (e) {
+    void track({ event: 'rpc_error', properties: { rpc: 'listing_update_details', error_code: 'DB' } });
+    throw e;
+  }
 }
 
 /**
@@ -424,7 +476,11 @@ export async function setListingPublished(id: string, published: boolean): Promi
     p_inventory_id: id,
     p_is_published: published,
   });
-  if (error) throw new Error(`setListingPublished: ${error.message}`);
+  if (error) {
+    void track({ event: 'rpc_error', properties: { rpc: 'inventory_set_published', error_code: 'DB' } });
+    throw new Error(`setListingPublished: ${error.message}`);
+  }
+  void track({ event: 'listing_publish', entityType: 'listing', properties: {} });
 }
 
 /** Customer/admin search over published listings of ONE category. */

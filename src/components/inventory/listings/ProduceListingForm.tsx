@@ -1,9 +1,10 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import type { ThemeColors } from '../../../hooks/useThemeColors';
 import { createListing, createListingForCategory } from '../../../services/listing-service';
 import { InventoryService } from '../../../services/inventory-service';
 import { PhoneImageUploader } from '../../showroom/PhoneImageUploader';
 import { PRODUCE_UNIT_VALUES, UNIT_AR } from '../../../domains/listings';
+import { track } from '../../../core/telemetry';
 
 const GRADE_OPTIONS = ['', 'A', 'B', 'C', 'organic'];
 
@@ -28,6 +29,11 @@ export const ProduceListingForm = memo(function ProduceListingForm({ colors, bus
   const [publish, setPublish] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Telemetry (Phase 8D): the create form became active → a create was started.
+  useEffect(() => {
+    void track({ event: 'listing_create_start', entityType: 'listing', properties: { step: 'form' } });
+  }, []);
 
   const inputStyle = (): React.CSSProperties => ({
     width: '100%', padding: '9px', borderRadius: '8px',
@@ -57,6 +63,8 @@ export const ProduceListingForm = memo(function ProduceListingForm({ colors, bus
       setError('النشر يتطلب سعراً ومدينة.');
       return;
     }
+    // Telemetry (Phase 8D): a real submit once validation passed.
+    void track({ event: 'listing_create_submit', entityType: 'listing', properties: {} });
     setSaving(true);
     try {
       const listing: Parameters<typeof createListing>[0] = {

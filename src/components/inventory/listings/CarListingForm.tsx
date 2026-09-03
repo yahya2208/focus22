@@ -1,8 +1,9 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import type { ThemeColors } from '../../../hooks/useThemeColors';
 import { createListing, createListingForCategory } from '../../../services/listing-service';
 import { InventoryService } from '../../../services/inventory-service';
 import { PhoneImageUploader } from '../../showroom/PhoneImageUploader';
+import { track } from '../../../core/telemetry';
 import {
   CAR_BODY_TYPE_VALUES,
   CAR_CONDITION_STATES,
@@ -47,6 +48,11 @@ export const CarListingForm = memo(function CarListingForm({ colors, busy = fals
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Telemetry (Phase 8D): the create form became active → a create was started.
+  useEffect(() => {
+    void track({ event: 'listing_create_start', entityType: 'listing', properties: { step: 'form' } });
+  }, []);
+
   const inputStyle = (): React.CSSProperties => ({
     width: '100%', padding: '9px', borderRadius: '8px',
     border: `1px solid ${colors.border}`, background: colors.bgInput,
@@ -71,6 +77,8 @@ export const CarListingForm = memo(function CarListingForm({ colors, busy = fals
       setError('النشر يتطلب سعراً ومدينة.');
       return;
     }
+    // Telemetry (Phase 8D): a real submit once validation passed.
+    void track({ event: 'listing_create_submit', entityType: 'listing', properties: {} });
     setSaving(true);
     try {
       const listing: Parameters<typeof createListing>[0] = {
