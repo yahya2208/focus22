@@ -32,11 +32,17 @@ function numericPrefix(name: string): number | null {
 describe('00055 — category → product domain resolution', () => {
   it('is a lower migration than the additive 00056 (which stacks on top of it)', () => {
     const names = Object.keys(MIGRATIONS).map(basename);
-    const nums = names.map(numericPrefix).filter((n): n is number => n !== null);
-    // 00055 remains strictly below the newest committed migration. The settings
-    // control center (00059, Phase 7) now sits at the top of the additive series,
-    // stacked on the frozen 00057/00058 telemetry layers.
-    expect(Math.max(...nums)).toBe(59);
+    // No longer asserts an absolute "latest migration" number: that assumes a
+    // single newest file and breaks every time a later migration lands (00060,
+    // 00063, ...). Instead we only pin what this gate cares about — that the
+    // additive 00056 stacks ON TOP of 00055 (00055 < 00056), and that the
+    // contract layers 00055..00059 all exist. This stays robust as new
+    // migrations are added.
+    const n55 = numericPrefix('00055_category_product_domain.sql');
+    const n56 = numericPrefix('00056_create_listing_for_category.sql');
+    expect(n55).not.toBeNull();
+    expect(n56).not.toBeNull();
+    expect(n55!).toBeLessThan(n56!);
     expect(names).toContain('00055_category_product_domain.sql');
     expect(names).toContain('00056_create_listing_for_category.sql');
     expect(names).toContain('00057_telemetry_events.sql');
