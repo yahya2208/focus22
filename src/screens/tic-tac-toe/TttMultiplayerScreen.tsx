@@ -4,6 +4,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useBackOverlay, useBackGuard } from '../../core/navigation/BackProvider';
 import { useTttMultiplayer } from '../../hooks/use-ttt-multiplayer';
+import { track } from '../../core/telemetry';
 import { computeTttCellSize, computeTttBoardSide } from './TicTacToeScreen';
 import { BOARD_SIZE, indexToRowCol } from '../../core/tic-tac-toe/types';
 import type { MovePosition } from '../../core/tic-tac-toe/types';
@@ -92,13 +93,14 @@ export const TttMultiplayerScreen = memo(function TttMultiplayerScreen() {
   const navigate = useNavigate();
   const { routeParams } = useAppState();
 
-  const gameId = (routeParams.game as string | undefined) ?? null;
+  const initialGameId = (routeParams.game as string | undefined) ?? null;
   const initialInvite = (routeParams.invite as string | undefined) ?? null;
 
   const {
     board,
     status,
     error,
+    gameId,
     role,
     gameStatus,
     winner,
@@ -108,7 +110,7 @@ export const TttMultiplayerScreen = memo(function TttMultiplayerScreen() {
     play,
     abandon,
     createGame,
-  } = useTttMultiplayer({ gameId, role: (routeParams.role as TttRole | undefined) ?? null });
+  } = useTttMultiplayer({ gameId: initialGameId, role: (routeParams.role as TttRole | undefined) ?? null });
 
   const [inviteToken, setInviteToken] = useState<string | null>(initialInvite);
   const [feedback, setFeedback] = useState<InviteFeedback>(null);
@@ -165,11 +167,13 @@ export const TttMultiplayerScreen = memo(function TttMultiplayerScreen() {
   );
 
   const handleCopyLink = useCallback(async (url: string) => {
+    void track({ event: 'ttt_invite_share', entityType: 'game', entityId: gameId ?? undefined, properties: { method: 'copy' } });
     const ok = await copyText(url);
     showFeedback(ok ? 'copied' : 'failed');
-  }, [showFeedback]);
+  }, [showFeedback, gameId]);
 
   const handleShareLink = useCallback(async (url: string) => {
+    void track({ event: 'ttt_invite_share', entityType: 'game', entityId: gameId ?? undefined, properties: { method: 'web_share' } });
     const shared = await nativeShare({
       title: t('ticTacToe.title'),
       text: t('tttInvite.challenge'),
@@ -182,7 +186,7 @@ export const TttMultiplayerScreen = memo(function TttMultiplayerScreen() {
     // Web Share unavailable or cancelled — fall back to copy.
     const ok = await copyText(url);
     showFeedback(ok ? 'copied' : 'failed');
-  }, [showFeedback, t]);
+  }, [showFeedback, t, gameId]);
 
   const handlePlayAgain = useCallback(async () => {
     if (restartPending) return;
@@ -224,6 +228,7 @@ export const TttMultiplayerScreen = memo(function TttMultiplayerScreen() {
     screen: 'ttt-multiplayer',
     beforeBack: () => {
       if (gameStatus === 'completed' || gameStatus === 'abandoned') {
+        void track({ event: 'ttt_game_exit', entityType: 'game', entityId: gameId ?? undefined, properties: {} });
         navigate.replace('home');
         return false;
       }

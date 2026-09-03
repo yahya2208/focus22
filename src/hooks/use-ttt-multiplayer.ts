@@ -8,6 +8,7 @@ import {
   tttAbandonGame,
   tttGetInvite,
 } from '../services/ttt-multiplayer-sender';
+import { track } from '../core/telemetry';
 import { boardFromMoves, currentWinningLine } from '../core/ttt-multiplayer/board';
 import type {
   TttGameState,
@@ -18,7 +19,7 @@ import type {
   TttInviteInfo,
   TttJoinGameResult,
 } from '../core/ttt-multiplayer/types';
-import type { Board, MovePosition } from '../core/tic-tac-toe/types';
+import { BOARD_SIZE, type Board, type MovePosition } from '../core/tic-tac-toe/types';
 
 export type TttMultiplayerStatus = 'idle' | 'pending' | 'ready' | 'error';
 
@@ -158,6 +159,14 @@ export function useTttMultiplayer(options: UseTttMultiplayerOptions = {}): UseTt
         createdAt: result.createdAt,
         finishedAt: null,
       });
+      // Phase 8 — TTT multiplayer: game created (creator enters the lobby).
+      // `size` is the 9x9 board dimension (BOARD_SIZE), matching single-player
+      // `game_start`. (Was incorrectly 3 from the old 3x3 design.)
+      void track({ event: 'ttt_game_create', entityType: 'game', entityId: result.gameId, properties: { mode: 'multiplayer', size: BOARD_SIZE } });
+      void track({ event: 'ttt_lobby_view', entityType: 'game', entityId: result.gameId, properties: {} });
+      if (result.inviteToken) {
+        void track({ event: 'ttt_invite_generate', entityType: 'game', entityId: result.gameId, properties: {} });
+      }
       return result;
     } catch (e) {
       const msg = messageOf(e, 'Failed to start game');
@@ -178,6 +187,7 @@ export function useTttMultiplayer(options: UseTttMultiplayerOptions = {}): UseTt
     if (!myUid) throw new Error('Authentication required');
     setStatus('pending');
     setError(null);
+    void track({ event: 'ttt_join_attempt', entityType: 'game', entityId: undefined, properties: {} });
     try {
       const result = await tttJoinGame(token);
       setGameId(result.gameId);
@@ -195,11 +205,14 @@ export function useTttMultiplayer(options: UseTttMultiplayerOptions = {}): UseTt
         finishedAt: null,
       };
       setGameState(state);
+      void track({ event: 'ttt_join_success', entityType: 'game', entityId: result.gameId, properties: { side: 'O' } });
+      void track({ event: 'ttt_game_ready', entityType: 'game', entityId: result.gameId, properties: { side: 'O' } });
       return result;
     } catch (e) {
       const msg = messageOf(e, 'Failed to join game');
       setStatus('error');
       setError(msg);
+      void track({ event: 'ttt_join_failed', entityType: 'game', entityId: undefined, properties: { error_code: 'join_failed' } });
       throw e;
     }
   }, [ensureAuth]);
@@ -207,30 +220,39 @@ export function useTttMultiplayer(options: UseTttMultiplayerOptions = {}): UseTt
   const play = useCallback(async (position: MovePosition) => {
     const gid = gameIdRef.current;
     if (!gid) return;
-    const result = await tttPlayMove(gid, position);
-    const current = gameRef.current;
-    if (current) {
-      const mark: 'X' | 'O' = role === 'joiner' ? 'O' : 'X';
-      const updated: TttGameState = {
-        ...current,
-        status: result.status,
-        winner: result.winner,
-        winningLine: result.winningLine,
-        moves: [...current.moves, { pos: position, mark, player_id: uidRef.current ?? '' }],
-      };
-      setGameState(updated);
+    void track({ event: 'ttt_move_submit', entityType: 'game', entityId: gid, properties: { index: position } });
+    try {
+      const result = await tttPlayMove(gid, position);
+      const current = gameRef.current;
+      if (current) {
+        const mark: 'X' | 'O' = role === 'joiner' ? 'O' : 'X';
+        const updated: TttGameState = {
+          ...current,
+          status: result.status,
+          winner: result.winner,
+          winningLine: result.winningLine,
+          moves: [...current.moves, { pos: position, mark, player_id: uidRef.current ?? '' }],
+        };
+        setGameState(updated);
+      }
+      if (uidRef.current) void poll(gid, uidRef.current);
+      void track({ event: 'ttt_move_accepted', entityType: 'game', entityId: gid, properties: { index: position } });
+    } catch (e) {
+      void track({ event: 'ttt_move_rejected', entityType: 'game', entityId: gid, properties: { index: position, error_code: 'move_rejected' } });
+      throw e;
     }
-    if (uidRef.current) void poll(gid, uidRef.current);
   }, [role, poll]);
 
   const abandon = useCallback(async () => {
     const gid = gameIdRef.current;
     if (!gid) return;
+    const turns = (gameRef.current?.moves ?? []).length;
     try {
       await tttAbandonGame(gid);
       setGameState((prev) => (prev ? { ...prev, status: 'abandoned' } : prev));
+      void track({ event: 'ttt_game_abandon', entityType: 'game', entityId: gid, properties: { turns } });
     } catch {
-      // best effort
+      void track({ event: 'ttt_game_abandon', entityType: 'game', entityId: gid, properties: { turns } });
     }
   }, []);
 
@@ -262,6 +284,28 @@ export function useTttMultiplayer(options: UseTttMultiplayerOptions = {}): UseTt
     if (myRole === w) return 'win';
     return 'loss';
   })();
+
+  // Phase 8 — TTT multiplayer passive-outcome telemetry. Driven by the single
+  // authoritative gameState in this hook so each event emits exactly once per
+  // transition, keyed by gameId (a fresh createGame id never double-fires).
+  const readyReportedRef = useRef<Record<string, boolean>>({});
+  const outcomeReportedRef = useRef<Record<string, boolean>>({});
+  useEffect(() => {
+    const gid = gameState?.gameId;
+    if (!gid) return;
+    if (gameState.status === 'active' && role === 'creator' && !readyReportedRef.current[gid]) {
+      readyReportedRef.current[gid] = true;
+      void track({ event: 'ttt_game_ready', entityType: 'game', entityId: gid, properties: { side: 'X' } });
+    }
+    if (gameState.status === 'completed' && !outcomeReportedRef.current[gid]) {
+      outcomeReportedRef.current[gid] = true;
+      if (gameState.winner === 'draw') {
+        void track({ event: 'ttt_game_draw', entityType: 'game', entityId: gid, properties: { turns: gameState.moves.length } });
+      } else if (gameState.winner) {
+        void track({ event: 'ttt_game_win', entityType: 'game', entityId: gid, properties: { side: gameState.winner, turns: gameState.moves.length } });
+      }
+    }
+  }, [gameState, role]);
 
   return {
     status,
