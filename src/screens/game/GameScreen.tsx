@@ -12,6 +12,7 @@ import { recordFunnel, getActiveCampaignId } from '../../services/qr-measurement
 import { sendScientificSession } from '../../services/session-science-sender';
 import { getDeviceFingerprint } from '../../core/device/fingerprint';
 import { loadRuntimeSettings, getRuntimeSetting, runtimeSettingDefault } from '../../core/config/runtime-settings';
+import { track } from '../../core/telemetry';
 
 type Phase = 'waiting' | 'visible' | 'hit' | 'miss';
 
@@ -173,6 +174,8 @@ export const GameScreen = memo(function GameScreen() {
   const gameModeRef = useRef<string | null>(null);
   const completedRef = useRef(false);
   const stoppedRef = useRef(false);
+  const completeReportedRef = useRef(false);
+  const abandonReportedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const roundTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const roundTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -235,6 +238,15 @@ export const GameScreen = memo(function GameScreen() {
     gameModeRef.current = gameMode;
     dispatch({ type: 'START_SESSION', sessionId, gameMode });
     recordFunnel(getActiveCampaignId() ?? '', 'game_start');
+    // Phase 8 — product-analytics funnel start. Reuses the existing `game_start`
+    // schema with the reaction-light game value. entityId = the session id
+    // (started-but-not-completed identity; NOT a scientific measurement).
+    void track({
+      event: 'game_start',
+      entityType: 'session',
+      entityId: sessionId,
+      properties: { game: gameMode, size: TOTAL_CELLS },
+    });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Contract: every exit path must end in completeSession() or abandonSession().
@@ -245,6 +257,19 @@ export const GameScreen = memo(function GameScreen() {
       const sessionId = sessionIdRef.current;
       if (sessionId && !completedRef.current) {
         getGlobalSessionService().abandonSession(sessionId, 'abandoned');
+        // Phase 8 — product-analytics abandon for a genuine started-but-not-
+        // completed session (incidental leave / navigation away / close).
+        // Fire-and-forget, never throws; guarded so it emits at most once.
+        if (!abandonReportedRef.current) {
+          abandonReportedRef.current = true;
+          void track({
+            event: 'game_abandon',
+            entityType: 'session',
+            entityId: sessionId,
+            // `turns` = completed rounds at abandon time (real state).
+            properties: { game: gameModeRef.current ?? 'reaction-light', turns: roundRef.current },
+          });
+        }
       }
     };
   }, []);
@@ -272,6 +297,14 @@ export const GameScreen = memo(function GameScreen() {
         roundResolvedRef.current = true;
         rawRtsRef.current.push(REACTION.MAX_RT_MS);
         setRound((r) => r + 1);
+        // Phase 8 — per-round business outcome (miss / late response).
+        // Exactly once per round, gated by roundResolvedRef alongside the hit path.
+        void track({
+          event: 'game_round_complete',
+          entityType: 'session',
+          entityId: sessionIdRef.current,
+          properties: { game: gameModeRef.current ?? 'reaction-light', round_index: roundRef.current + 1, hit: false },
+        });
       }, REACTION.MAX_RT_MS);
     }, delay);
   }, []);
@@ -301,6 +334,18 @@ export const GameScreen = memo(function GameScreen() {
         getGlobalSessionService().completeSession(sessionId, results);
         recordFunnel(getActiveCampaignId() ?? '', 'game_complete');
         sendScientificSession({ sessionId, gameMode: gameModeRef.current ?? 'reaction-light', results, deviceFingerprint: getDeviceFingerprint(), calibrationConfidence: calibration.confidence });
+        // Phase 8 — product-analytics completion. Only when the session actually
+        // reached the final round (not an abandon). Guarded to fire once even if
+        // this effect re-runs. Separate from the scientific RPC above.
+        if (!completeReportedRef.current) {
+          completeReportedRef.current = true;
+          void track({
+            event: 'game_complete',
+            entityType: 'session',
+            entityId: sessionId,
+            properties: { game: gameModeRef.current ?? 'reaction-light', outcome: 'completed' },
+          });
+        }
       }
 
       dispatch({ type: 'SET_RESULTS', results });
@@ -333,6 +378,14 @@ export const GameScreen = memo(function GameScreen() {
       bestTimeRef.current = rt;
     }
     emitDiagnosticLog({ service: 'game', action: 'round_completed', caller: 'game-screen', trigger: 'lamp_tap', sessionId: sessionIdRef.current ?? undefined, detail: `round=${roundRef.current + 1} rt=${Math.round(rt)}ms` });
+    // Phase 8 — per-round business outcome (hit). Exactly once per round,
+    // gated by roundResolvedRef alongside the miss path.
+    void track({
+      event: 'game_round_complete',
+      entityType: 'session',
+      entityId: sessionIdRef.current,
+      properties: { game: gameModeRef.current ?? 'reaction-light', round_index: roundRef.current + 1, hit: true },
+    });
 
     setPhase('hit');
     playBreakSound();
@@ -353,6 +406,19 @@ export const GameScreen = memo(function GameScreen() {
     completedRef.current = true;
     if (sessionId) {
       getGlobalSessionService().abandonSession(sessionId, 'abandoned');
+      // Phase 8 — explicit "Stop" abandonment. Exactly one game_abandon per
+      // abandoned session (the later cleanup skip is gated by completedRef, and
+      // this guarded by abandonReportedRef).
+      if (!abandonReportedRef.current) {
+        abandonReportedRef.current = true;
+        void track({
+          event: 'game_abandon',
+          entityType: 'session',
+          entityId: sessionId,
+          // `turns` = completed rounds at abandon time (real state).
+          properties: { game: gameModeRef.current ?? 'reaction-light', turns: roundRef.current },
+        });
+      }
     }
     dispatch({ type: 'RESET' });
   }, [dispatch]);
