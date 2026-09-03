@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useBackGuard } from '../../core/navigation/BackProvider';
 import { calculateFocusScore } from '../../core/engine/scoring';
@@ -12,6 +12,7 @@ import { useChallengeSubmission } from '../../hooks/useChallengeSubmission';
 import { ChallengeResultCard } from '../../components/challenge/ChallengeResultCard';
 import { Leaderboard } from '../../components/challenge/Leaderboard';
 import { PersonalStats } from '../../components/challenge/PersonalStats';
+import { track } from '../../core/telemetry';
 import { getRuntimeSetting } from '../../core/config/runtime-settings';
 import { Card } from '../../design-system/components/Card';
 import { Stack } from '../../design-system/components/Stack';
@@ -158,6 +159,23 @@ export const ResultsScreen = memo(function ResultsScreen() {
     }, getRuntimeSetting('experience.results_auto_advance_ms', RESULTS_SHOWROOM_AUTO_ADVANCE_MS));
     return () => clearTimeout(timer);
   }, [dispatch, inChallenge]);
+
+  // Phase 8 — `game_result_view` fires once when the measurement results UI is
+  // actually displayed (distinguishes "session completed" from "results seen").
+  // Reports game + session identity only; never the scores/trials (those remain
+  // in the scientific contract).
+  const resultViewFiredRef = useRef(false);
+  useEffect(() => {
+    if (!results || !analysis) return;
+    if (resultViewFiredRef.current) return;
+    resultViewFiredRef.current = true;
+    void track({
+      event: 'game_result_view',
+      entityType: 'session',
+      entityId: currentSession?.id ?? undefined,
+      properties: { game: 'reaction-light' },
+    });
+  }, [results, analysis, currentSession]);
 
   if (!results || !analysis) {
     if (inChallenge && challenge.result) {

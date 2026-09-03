@@ -15,6 +15,7 @@ import { useNavigate, type ScreenName } from '../../store/navigation';
 import { resolveDestination, resolveSlideDestination } from '../../services/ad-destination-resolver';
 import { openExternalUrl } from '../../services/ad-adapters/external';
 import { openWhatsApp } from '../../services/whatsapp-service';
+import { track } from '../../core/telemetry';
 
 interface AdContactBannerProps {
   placement: AdPlacement;
@@ -179,6 +180,9 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
               } catch {
                 // fire-and-forget: tracking must never block anything
               }
+              // Telemetry (Phase 8E): a real ad impression — the banner stayed
+              // in view ≥ 1 s at ≥ 0.6 visibility. Deduplicated per session.
+              void track({ event: 'ad_impression', entityType: 'ad', properties: { position: placement }, dedupeKey: `ad_impression:${placement}` });
             }, 1000);
           } else {
             visible = false;
@@ -345,7 +349,10 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
             type="button"
             data-testid="ad-contact-details"
             aria-label={`${ad.alt || placement} — عرض التفاصيل`}
-            onClick={() => adapter.openDetails(singleImage ?? undefined)}
+            onClick={() => {
+              void track({ event: 'ad_click', entityType: 'ad', properties: { position: placement } });
+              adapter.openDetails(singleImage ?? undefined);
+            }}
             style={{
               position: 'absolute',
               inset: 0,
@@ -361,7 +368,10 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
             type="button"
             data-testid="ad-contact-cta"
             aria-label={`${ad.alt || placement} — فتح المحادثة`}
-            onClick={() => adapter.callToAction(singleImage ?? undefined)}
+            onClick={() => {
+              void track({ event: 'ad_contact', entityType: 'ad', properties: { method: 'whatsapp' } });
+              adapter.callToAction(singleImage ?? undefined);
+            }}
             style={{
               position: 'absolute',
               insetInlineEnd: '0.6rem',

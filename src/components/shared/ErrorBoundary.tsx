@@ -3,6 +3,7 @@ import { t as translate, type Locale, type TranslationKey } from '../../i18n';
 import { getSettings } from '../../core/config/settings';
 import { devError } from '../../core/logging';
 import { registerAppReset, requestInAppReset } from '../../core/navigation/error-reset';
+import { track } from '../../core/telemetry';
 
 interface Props {
   children: ReactNode;
@@ -77,6 +78,11 @@ export class ErrorBoundary extends Component<Props, State> {
     devError('Error stack:', error.stack);
     devError('Component stack:', errorInfo.componentStack);
     devError('═══════════════════════════════════════');
+    // Telemetry (Phase 8G): render-phase error caught by the boundary. Only a
+    // structured error_code — never the raw error/stack. This covers errors in
+    // the render tree; errors that escape every boundary go to the global
+    // `unhandled_error` handler, so a single root cause is never double-counted.
+    void track({ event: 'ui_error', properties: { error_code: 'BOUNDARY_CATCH' } });
   }
 
   private unregister?: () => void;

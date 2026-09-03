@@ -1,6 +1,7 @@
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useEffect, useRef } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useAuth } from '../../core/auth/AuthProvider';
+import { track } from '../../core/telemetry';
 import { getActiveChallengeId } from '../../challenge/challenge-context';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -21,6 +22,16 @@ export const LoginScreen = memo(function LoginScreen() {
   const inChallenge = getActiveChallengeId() !== null;
   const challengeConversionMode = isAnonymous && inChallenge;
 
+  // Phase 8 — guest gate seen: the login surface is shown to an anonymous user.
+  // Tracked once per screen mount; identity link is the auth gate, not a login.
+  const gateSeenRef = useRef(false);
+  useEffect(() => {
+    if (!isAnonymous) return;
+    if (gateSeenRef.current) return;
+    gateSeenRef.current = true;
+    void track({ event: 'auth_guest_gate_seen', entityType: 'user', entityId: undefined, properties: {} });
+  }, [isAnonymous]);
+
   const navigateAfterAuth = useCallback(() => {
     const cid = getActiveChallengeId();
     dispatch({ type: cid ? 'REPLACE' : 'NAVIGATE', screen: cid ? 'results' : 'home', params: cid ? { challenge_id: cid } : undefined });
@@ -35,12 +46,16 @@ export const LoginScreen = memo(function LoginScreen() {
     setError(null);
     try {
       if (challengeConversionMode) {
+        // Phase 8 — guest converting to a real account is the upgrade CTA outcome.
+        void track({ event: 'auth_guest_upgrade_cta', entityType: 'user', entityId: undefined, properties: {} });
         await service.convertGuestToUser(email, password);
       } else {
         await service.signInWithEmail(email, password);
       }
+      void track({ event: 'auth_login_success', entityType: 'user', entityId: undefined, properties: {} });
       navigateAfterAuth();
     } catch (err) {
+      void track({ event: 'auth_login_failed', entityType: 'user', entityId: undefined, properties: { error_code: 'login_failed' } });
       setError(err instanceof Error ? err.message : t('login.failed'));
     } finally {
       setIsLoading(false);

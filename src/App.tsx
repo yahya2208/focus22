@@ -7,7 +7,7 @@ import { AuthProvider, useAuth } from './core/auth/AuthProvider';
 import { useThemeSync } from './hooks/useThemeSync';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { ProtectedRoute } from './components/shared/ProtectedRoute';
-import { isScreenName, type ScreenName } from './store/navigation';
+import { isScreenName, useNavigationTelemetry, type ScreenName } from './store/navigation';
 import { useThemeColors } from './hooks/useThemeColors';
 import { AppShell } from './components/layout/AppShell';
 import { Button } from './components/shared/Button';
@@ -193,13 +193,21 @@ function ChallengeAuthError({
 
 export function InitialRoute() {
   const dispatch = useAppDispatch();
-  const { currentScreen } = useAppState();
+  const { currentScreen, navStack } = useAppState();
   const { state: authState, service } = useAuth();
   const initialRoutingHandledRef = useRef(false);
   const detectedChallengeIdRef = useRef<string | null>(null);
   const [challengeAuthPending, setChallengeAuthPending] = useState(false);
   const [challengeAuthError, setChallengeAuthError] = useState<string | null>(null);
   const appOpenedRef = useRef(false);
+  const appReadyRef = useRef(false);
+  const deepLinkReportedRef = useRef(false);
+
+  // Telemetry (Phase 8A): `screen_view` + `navigation_back` — central and
+  // committed, wired at the app orchestration boundary (InitialRoute) where
+  // real navigation commits. Fires only after a screen change commits, never
+  // during render.
+  useNavigationTelemetry(currentScreen, navStack);
 
   // Telemetry: fire `app_open` once per app load (fire-and-forget, non-blocking).
   useEffect(() => {
@@ -208,6 +216,60 @@ export function InitialRoute() {
     appOpenedRef.current = true;
     void track({ event: 'app_open' });
   }, [currentScreen]);
+
+  // Telemetry (Phase 8B): `app_ready` — reported once per session, only after
+  // the app has booted onto a real screen. Distinct from `app_open` (open = the
+  // launch; ready = the app is usable).
+  useEffect(() => {
+    if (appReadyRef.current) return;
+    if (currentScreen !== 'home' && currentScreen !== 'landing' && currentScreen !== 'message') return;
+    appReadyRef.current = true;
+    void track({ event: 'app_ready' });
+  }, [currentScreen]);
+
+  // Telemetry (Phase 8B): `app_background`/`app_foreground` — reported only on
+  // real document visibility transitions, never for the initial state.
+  useEffect(() => {
+    let prev = document.visibilityState;
+    const onVisibility = () => {
+      const cur = document.visibilityState;
+      if (cur === prev) return;
+      prev = cur;
+      if (cur === 'hidden') void track({ event: 'app_background' });
+      else if (cur === 'visible') void track({ event: 'app_foreground' });
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
+  // Telemetry (Phase 8A): `deep_link_open` — reported once when the app is
+  // entered via a genuine deep link (a non-home hash route or an explicit
+  // challenge code). Never fired for a plain home landing.
+  useEffect(() => {
+    if (deepLinkReportedRef.current) return;
+    const hash = window.location.hash;
+    const search = window.location.search;
+    const isChallengeQuery = new URLSearchParams(search).get('challenge_id') != null;
+    if (hash.startsWith('#/') && hash !== '#/home') {
+      deepLinkReportedRef.current = true;
+      const rest = hash.slice(2);
+      const queryIndex = rest.indexOf('?');
+      const screenPart = queryIndex === -1 ? rest : rest.slice(0, queryIndex);
+      const params = queryIndex === -1 ? null : new URLSearchParams(rest.slice(queryIndex + 1));
+      void track({
+        event: 'deep_link_open',
+        properties: {
+          mode: screenPart === 'challenge-page' || screenPart === 'challenge-winner' ? 'challenge' : 'hash',
+          has_code: params ? params.has('challenge_id') : false,
+        },
+      });
+      return;
+    }
+    if (isChallengeQuery) {
+      deepLinkReportedRef.current = true;
+      void track({ event: 'deep_link_open', properties: { mode: 'query', has_code: true } });
+    }
+  }, []);
 
   // ── Challenge auth gate ──────────────────────────────────────────────────
   // When a challenge_id is detected, wait for auth to resolve.

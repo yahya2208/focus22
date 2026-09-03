@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import type { CalibrationProfile } from '../core/calibration';
 import type { ScoringResult } from '../core/engine/scoring';
 import { registerAppReset } from '../core/navigation/error-reset';
+import { track } from '../core/telemetry';
 
 export type ScreenName =
   | 'home'
@@ -341,4 +342,40 @@ export function useNavigate(): NavigateApi {
   const ctx = useContext(NavigationContext);
   if (!ctx) throw new Error('useNavigate must be used within AppProvider');
   return ctx.navigate;
+}
+
+/**
+ * Telemetry hook (Phase 8A): reports `screen_view` + `navigation_back` from the
+ * central navigation boundary. It observes the committed screen + navStack and
+ * fires only AFTER a screen change commits (never during render). Refs persist
+ * across StrictMode's simulated remount, so the initial view is reported
+ * exactly once and duplicate commits for the same screen are collapsed.
+ *
+ * `navigation_back` is inferred from the navStack depth shrinking (BACK pops
+ * the stack), distinguishing it from NAVIGATE (push/grow) and REPLACE (swap,
+ * same depth). Fire-and-forget and non-throwing like every other wiring.
+ */
+export function useNavigationTelemetry(screen: ScreenName, navStack: ScreenName[]): void {
+  const initialReportedRef = useRef(false);
+  const prevNavRef = useRef<{ screen: ScreenName; depth: number }>({ screen, depth: navStack.length });
+
+  useEffect(() => {
+    const prev = prevNavRef.current;
+
+    if (!initialReportedRef.current) {
+      initialReportedRef.current = true;
+      prevNavRef.current = { screen, depth: navStack.length };
+      void track({ event: 'screen_view', screen, properties: { from: null, is_initial: true } });
+      return;
+    }
+
+    if (prev.screen === screen) return;
+
+    const isBack = navStack.length < prev.depth;
+    prevNavRef.current = { screen, depth: navStack.length };
+    void track({ event: 'screen_view', screen, properties: { from: prev.screen, is_initial: false } });
+    if (isBack) {
+      void track({ event: 'navigation_back', screen, properties: { to: screen } });
+    }
+  }, [screen, navStack]);
 }

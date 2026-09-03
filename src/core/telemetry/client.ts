@@ -26,6 +26,10 @@ import {
   isTelemetryEventName,
 } from './events';
 import {
+  getRuntimeSetting,
+  loadRuntimeSettings,
+} from '../config/runtime-settings';
+import {
   TELEMETRY_MAX_BATCH,
   TELEMETRY_FLUSH_MS,
   TELEMETRY_MAX_BUFFER,
@@ -132,7 +136,7 @@ export async function track(input: TelemetryEventInput): Promise<void> {
     ensureScheduled();
     enforceBufferCap();
 
-    if (buffer.length >= TELEMETRY_MAX_BATCH) {
+    if (buffer.length >= getRuntimeSetting('telemetry.max_batch', TELEMETRY_MAX_BATCH)) {
       void flushNow();
     }
   } catch {
@@ -144,7 +148,7 @@ export async function track(input: TelemetryEventInput): Promise<void> {
  *  flush RPC is unavailable for a long stretch), drop the OLDEST events so
  *  memory stays bounded and the app is never blocked. Fresh events win. */
 function enforceBufferCap(): void {
-  const overflow = buffer.length - TELEMETRY_MAX_BUFFER;
+  const overflow = buffer.length - getRuntimeSetting('telemetry.max_buffer', TELEMETRY_MAX_BUFFER);
   if (overflow > 0) {
     buffer.splice(0, overflow);
   }
@@ -155,7 +159,7 @@ function ensureScheduled(): void {
   timerHandle = setTimeout(() => {
     timerHandle = null;
     void flushNow();
-  }, TELEMETRY_FLUSH_MS);
+  }, getRuntimeSetting('telemetry.flush_ms', TELEMETRY_FLUSH_MS));
 }
 
 /** Flush the buffer to the RPC (RPC-only). Never throws to the caller. */
@@ -193,5 +197,10 @@ if (typeof window !== 'undefined') {
     void flushNow();
   });
 }
+
+// Warm the centralized settings cache so `getRuntimeSetting` reflects any admin
+// override for the telemetry knobs. Idempotent, cached and never rejects; until
+// it resolves (or if the DB is unreachable) the fallback constants apply.
+void loadRuntimeSettings();
 
 export type { TelemetryEventInput } from './types';

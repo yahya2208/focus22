@@ -1,14 +1,19 @@
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Button } from '../../components/shared/Button';
 import { Card } from '../../components/shared/Card';
+import { track } from '../../core/telemetry';
 
 export const AccessDeniedScreen = memo(function AccessDeniedScreen() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const colors = useThemeColors();
+
+  useEffect(() => {
+    void track({ event: 'permission_denied', screen: 'access-denied', properties: { error_code: 'ACCESS_DENIED' } });
+  }, []);
 
   return (
     <nav aria-label="Access Denied" style={{ padding: '2rem', maxWidth: '480px', margin: '0 auto', textAlign: 'center' }}>
