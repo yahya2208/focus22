@@ -88,6 +88,8 @@ const EVENTS = {
   game_pause: { domain: 'game', properties: ['game'], version: 1 },
   game_resume: { domain: 'game', properties: ['game'], version: 1 },
   game_complete: { domain: 'game', properties: ['game', 'outcome'], version: 1 },
+  game_round_complete: { domain: 'game', properties: ['game', 'round_index', 'hit'], version: 1 },
+  game_result_view: { domain: 'game', properties: ['game'], version: 1 },
   game_abandon: { domain: 'game', properties: ['game', 'turns'], version: 1 },
   // ——— tic-tac-toe multiplayer ———
   ttt_lobby_view: { domain: 'ttt', properties: [], version: 1 },
@@ -106,6 +108,13 @@ const EVENTS = {
   ttt_game_draw: { domain: 'ttt', properties: ['turns'], version: 1 },
   ttt_game_exit: { domain: 'ttt', properties: [], version: 1 },
   ttt_game_abandon: { domain: 'ttt', properties: ['turns'], version: 1 },
+  // ——— auth ———
+  auth_login_success: { domain: 'auth', properties: [], version: 1 },
+  auth_login_failed: { domain: 'auth', properties: ['error_code'], version: 1 },
+  auth_register_success: { domain: 'auth', properties: [], version: 1 },
+  auth_register_failed: { domain: 'auth', properties: ['error_code'], version: 1 },
+  auth_guest_gate_seen: { domain: 'auth', properties: [], version: 1 },
+  auth_guest_upgrade_cta: { domain: 'auth', properties: [], version: 1 },
   // ——— system / errors ———
   rpc_error: { domain: 'system', properties: ['rpc', 'error_code'], version: 1 },
   network_error: { domain: 'system', properties: ['error_code'], version: 1 },

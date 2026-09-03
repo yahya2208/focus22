@@ -22,6 +22,7 @@ export const TELEMETRY_DOMAINS = [
   'ad',
   'game',
   'ttt',
+  'auth',
   'system',
 ] as const;
 
@@ -36,6 +37,7 @@ export const TELEMETRY_ENTITY_TYPES = [
   'ad',
   'game',
   'challenge',
+  'user',
   'session',
 ] as const;
 
@@ -109,11 +111,20 @@ export type TelemetryEventName =
   // games
   | 'game_intro_view'
   | 'game_start'
+  | 'game_round_complete'
   | 'game_exit'
   | 'game_pause'
   | 'game_resume'
   | 'game_complete'
+  | 'game_result_view'
   | 'game_abandon'
+  // auth
+  | 'auth_login_success'
+  | 'auth_login_failed'
+  | 'auth_register_success'
+  | 'auth_register_failed'
+  | 'auth_guest_gate_seen'
+  | 'auth_guest_upgrade_cta'
   // tic-tac-toe multiplayer
   | 'ttt_lobby_view'
   | 'ttt_game_create'
