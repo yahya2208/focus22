@@ -25,6 +25,7 @@ import {
   setActiveChallengeId,
   resetChallengeContextForTests,
 } from '../../challenge/challenge-context';
+import { resetTelemetry } from '../../core/telemetry/client';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -130,6 +131,12 @@ beforeEach(() => {
   recoverRpc.mockImplementation(async () => ({ data: null, error: { message: 'recovery disabled in test' } }));
   otherRpc.mockReset();
   resetChallengeContextForTests();
+  // The telemetry client keeps buffered events (e.g. game_result_view) in
+  // module-level state that persists across tests in the shared fork. If not
+  // cleared here they can flush into THIS file's RPC mock and consume a queued
+  // mockResolvedValueOnce meant for a challenge RPC. Reset before each test so
+  // leftover telemetry can never interfere with the challenge assertions.
+  resetTelemetry();
   mockAuthState = {
     status: 'authenticated',
     user: { id: 'user-1', displayName: 'Test' },
