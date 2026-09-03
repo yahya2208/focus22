@@ -3,6 +3,7 @@ import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { runSilentCalibration } from '../../core/calibration/silent';
+import { track } from '../../core/telemetry';
 
 const INTRO_DURATION_MS = 1000;
 
@@ -12,6 +13,10 @@ export const GameIntroScreen = memo(function GameIntroScreen() {
   const colors = useThemeColors();
 
   useEffect(() => {
+    // Phase 10A — reaction-light intro actually displayed. Emitted exactly once
+    // on mount (this intro auto-advances to `game`; no re-render duplication).
+    void track({ event: 'game_intro_view', entityType: 'game', properties: { game: 'reaction-light' } });
+
     runSilentCalibration().then((profile) => {
       if (profile) {
         dispatch({ type: 'SET_CALIBRATION', profile });

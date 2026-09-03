@@ -5,6 +5,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useBackGuard } from '../../core/navigation/BackProvider';
 import { useTttMultiplayer } from '../../hooks/use-ttt-multiplayer';
 import { GridMotif, MarkGlyph } from '../../core/ttt-multiplayer/visual';
+import { track } from '../../core/telemetry';
 import type { TttInviteInfo } from '../../core/ttt-multiplayer/types';
 
 export const TttInviteLandingScreen = memo(function TttInviteLandingScreen() {
@@ -35,6 +36,9 @@ export const TttInviteLandingScreen = memo(function TttInviteLandingScreen() {
     try {
       const i = await loadInvite(invite);
       setInfo(i);
+      // Phase 10A — invite landing actually opened (shared invite link entered
+      // and resolved). Fired exactly once (guarded by loadedRef), not on re-render.
+      void track({ event: 'ttt_invite_open', entityType: 'game' });
     } catch {
       setJoinError(t('tttInvite.invalid') as string);
     }
