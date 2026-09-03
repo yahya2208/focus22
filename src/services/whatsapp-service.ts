@@ -1,8 +1,18 @@
 import { buildAppUrl } from '../core/base-path';
 import type { InventoryRecord } from './inventory-service';
 import type { ListingContactInfo } from '../domains/listings';
+import { getRuntimeSettingString } from '../core/config/runtime-settings';
 
 export const WHATSAPP_PHONE = '+213556254007';
+
+/**
+ * The business WhatsApp line, resolved from the centralized `comm.whatsapp_phone`
+ * Admin Control Center setting (falls back to the hardcoded default above when
+ * the RPC is unreachable / unset). Server-validated (E.164 pattern, 8–15 digits).
+ */
+export function getWhatsAppPhone(): string {
+  return getRuntimeSettingString('comm.whatsapp_phone', WHATSAPP_PHONE);
+}
 
 function formatPhone(phone: string): string {
   const cleaned = phone.replace(/[^0-9]/g, '');
@@ -44,7 +54,7 @@ export function buildBuyRequestMessage(params: { brand: string; model: string; v
 }
 
 export function openBuyRequest(params: { brand: string; model: string; variant?: string; condition?: string }): void {
-  openWhatsApp(WHATSAPP_PHONE, buildBuyRequestMessage(params));
+  openWhatsApp(getWhatsAppPhone(), buildBuyRequestMessage(params));
 }
 
 export function buildSellRequestMessage(params: { brand: string; model: string; variant?: string; condition?: string }): string {
@@ -63,7 +73,7 @@ export function buildSellRequestMessage(params: { brand: string; model: string; 
 }
 
 export function openSellRequest(params: { brand: string; model: string; variant?: string; condition?: string }): void {
-  openWhatsApp(WHATSAPP_PHONE, buildSellRequestMessage(params));
+  openWhatsApp(getWhatsAppPhone(), buildSellRequestMessage(params));
 }
 
 export function buildExchangeRequestMessage(params: { myBrand: string; myModel: string; myVariant?: string; wantBrand: string; wantModel: string; wantVariant?: string }): string {
@@ -85,7 +95,7 @@ export function buildExchangeRequestMessage(params: { myBrand: string; myModel: 
 }
 
 export function openExchangeRequest(params: { myBrand: string; myModel: string; myVariant?: string; wantBrand: string; wantModel: string; wantVariant?: string }): void {
-  openWhatsApp(WHATSAPP_PHONE, buildExchangeRequestMessage(params));
+  openWhatsApp(getWhatsAppPhone(), buildExchangeRequestMessage(params));
 }
 
 export function openRepairRequest(params: { brand: string; model: string; issue: string; description?: string; location?: string; code: string; condition?: string; customerPhone?: string }): void {
@@ -106,7 +116,7 @@ export function openRepairRequest(params: { brand: string; model: string; issue:
     '',
     'شكراً.',
   ].filter(Boolean).join('\n');
-  openWhatsApp(WHATSAPP_PHONE, message);
+  openWhatsApp(getWhatsAppPhone(), message);
 }
 
 export function openInventoryRequest(params: { brand: string; model: string; variant?: string; quantity?: number }): void {
@@ -122,7 +132,7 @@ export function openInventoryRequest(params: { brand: string; model: string; var
     '',
     'شكراً.',
   ].filter(Boolean).join('\n');
-  openWhatsApp(WHATSAPP_PHONE, message);
+  openWhatsApp(getWhatsAppPhone(), message);
 }
 
 export function openCustomMessage(phone: string, message: string): void {
@@ -173,7 +183,7 @@ export function openWhatsAppForAction(
     targetDevice?: { brand: string; model: string; variant?: string };
   },
 ): void {
-  openWhatsApp(WHATSAPP_PHONE, buildWhatsAppForActionMessage(action, params));
+  openWhatsApp(getWhatsAppPhone(), buildWhatsAppForActionMessage(action, params));
 }
 
 export function buildModelNotFoundMessage(brand: string, model: string): string {
@@ -192,7 +202,7 @@ export function buildModelNotFoundMessage(brand: string, model: string): string 
 }
 
 export function openModelNotFoundRequest(brand: string, model: string): void {
-  openWhatsApp(WHATSAPP_PHONE, buildModelNotFoundMessage(brand, model));
+  openWhatsApp(getWhatsAppPhone(), buildModelNotFoundMessage(brand, model));
 }
 
 /**
@@ -297,7 +307,7 @@ export function buildAdClickMessage(
 export function openPhoneAdWhatsApp(
   device: Pick<InventoryRecord, 'id' | 'brand' | 'model' | 'variant' | 'sellPrice' | 'city' | 'code'>,
 ): void {
-  openWhatsApp(WHATSAPP_PHONE, buildAdClickMessage(device));
+  openWhatsApp(getWhatsAppPhone(), buildAdClickMessage(device));
 }
 
 /**
@@ -402,5 +412,5 @@ export function openCartRequestWhatsApp(
   lines: readonly CartRequestLine[],
   customer: CartRequestCustomer,
 ): void {
-  openWhatsApp(WHATSAPP_PHONE, buildCartRequestMessage(lines, customer));
+  openWhatsApp(getWhatsAppPhone(), buildCartRequestMessage(lines, customer));
 }

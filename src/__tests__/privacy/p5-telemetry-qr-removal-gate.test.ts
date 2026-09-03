@@ -53,6 +53,17 @@ import { execSync } from 'child_process';
  * Scope/expiration: this controlled execution only. All other inventory
  *         paths (price-memory, catalog, components/catalog, components/ads)
  *         remain a HARD STOP.
+ *
+ * ADMIN CONTROL CENTER PASS 1 CARVE-OUT — owner-authorized (Pass 1 of the
+ * Admin Control Center execution). Authorized files (EXACT paths only):
+ *   - src/components/ads/AdImageCarousel.tsx
+ *         (ads autoplay / swipe-threshold now read operational settings
+ *          ads.carousel_autoplay_ms / ads.carousel_swipe_threshold_px from the
+ *          centralized settings layer; values fall back to the previous
+ *          hardcoded constants, so ad behaviour is unchanged without an override)
+ * Scope/expiration: this controlled execution only. Every OTHER file under
+ *         src/components/ads/ (and all catalog/price-memory/inventory data)
+ *         remains a HARD STOP — this authorizes only the single exact file.
  */
 
 const SRC = path.resolve(__dirname, '../..');
@@ -261,6 +272,10 @@ describe('PG-61: KEEP — catalog/inventory/ads untouched by P5 (D3)', () => {
   // the three exact src/components/catalog/ UI files below are authorized to
   // present storage-only labels; src/catalog/* data and every other catalog
   // component remain a HARD STOP.
+  // ADMIN CONTROL CENTER PASS 1 CARVE-OUT — owner-authorized (Admin Control
+  // Center Pass 1 execution): the single exact ads file below is authorized to
+  // read the Pass-1 ads operational settings; every other ads/catalog/inventory
+  // path stays a HARD STOP.
   const AUTHORIZED_CHANGES = [
     'src/components/ads/AdBanner.tsx',
     'src/components/ads/AdSpot.tsx',
@@ -271,6 +286,7 @@ describe('PG-61: KEEP — catalog/inventory/ads untouched by P5 (D3)', () => {
     'src/components/catalog/CatalogCascadeSelector.tsx',
     'src/components/catalog/CatalogStepVariant.tsx',
     'src/catalog/loader.ts',
+    'src/components/ads/AdImageCarousel.tsx',
   ];
 
   function findProtectedViolations(changed: string[], prefixes: string[], authorized: string[]): string[] {

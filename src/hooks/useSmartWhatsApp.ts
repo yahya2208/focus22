@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { WHATSAPP_PHONE, buildWhatsAppUrl } from '../services/whatsapp-service';
+import { buildWhatsAppUrl, getWhatsAppPhone } from '../services/whatsapp-service';
+import { getRuntimeSetting } from '../core/config/runtime-settings';
 
 export const WHATSAPP_GUARD_TIMEOUT_MS = 1500;
 
@@ -73,8 +74,8 @@ export function useSmartWhatsApp(): SmartWhatsAppApi {
         if (!leavingRef.current) {
           setModal({ open: true, message: messageRef.current });
         }
-      }, WHATSAPP_GUARD_TIMEOUT_MS);
-      const url = buildWhatsAppUrl(WHATSAPP_PHONE, message);
+      }, getRuntimeSetting('comm.whatsapp_guard_timeout_ms', WHATSAPP_GUARD_TIMEOUT_MS));
+      const url = buildWhatsAppUrl(getWhatsAppPhone(), message);
       window.location.href = url;
     },
     [clearGuard],

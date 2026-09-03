@@ -22,6 +22,7 @@ import type { ShowroomCategory } from '../../hooks/useShowroomState';
 import { useShowroomState, filterAndSortDevices } from '../../hooks/useShowroomState';
 import { useScrollPreservation } from '../../hooks/useScrollPreservation';
 import { useSearchAnalytics } from '../../hooks/useSearchAnalytics';
+import { getRuntimeSetting } from '../../core/config/runtime-settings';
 
 /** P8.5 MVP pagination — fixed first page, no pager UI (approved scope). */
 const PUBLIC_LISTINGS_PAGE_LIMIT = 48;
@@ -85,7 +86,7 @@ export const ShowroomScreen = memo(function ShowroomScreen() {
         category,
         query: state.query,
         sort: state.sort,
-        limit: PUBLIC_LISTINGS_PAGE_LIMIT,
+        limit: getRuntimeSetting('marketplace.listing_page_limit', PUBLIC_LISTINGS_PAGE_LIMIT),
         offset: 0,
       })
         .then((page) => {

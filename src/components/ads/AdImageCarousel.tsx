@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import type { AdImage } from '../../services/ads-service';
+import { getRuntimeSetting } from '../../core/config/runtime-settings';
 
 export type AdCarouselStatus = 'loading' | 'loaded' | 'failed';
 
@@ -162,9 +163,10 @@ export const AdImageCarousel = memo(function AdImageCarousel({
   // single image, while hovered, or when the user prefers reduced motion.
   useEffect(() => {
     if (!canAutoplay || hovered) return;
+    const ms = getRuntimeSetting('ads.carousel_autoplay_ms', AUTOPLAY_MS);
     const id = window.setInterval(() => {
       setIndex((i) => (i + 1) % count);
-    }, AUTOPLAY_MS);
+    }, ms);
     return () => window.clearInterval(id);
   }, [canAutoplay, hovered, interactionTick, count]);
 
@@ -187,7 +189,7 @@ export const AdImageCarousel = memo(function AdImageCarousel({
       if (!t) return;
       const dx = t.clientX - start.x;
       const dy = t.clientY - start.y;
-      if (Math.abs(dx) < SWIPE_THRESHOLD_PX) return; // too short — treat as tap
+      if (Math.abs(dx) < getRuntimeSetting('ads.carousel_swipe_threshold_px', SWIPE_THRESHOLD_PX)) return; // too short — treat as tap
       if (Math.abs(dy) > Math.abs(dx)) return; // vertical scroll — not a swipe
       if (dx < 0) next();
       else prev();

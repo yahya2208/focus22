@@ -147,14 +147,20 @@ describe('registry defaults', () => {
       'rules.default_threshold': 3,
       'rules.needs_discount_visit_count': 3,
       'cache.max_entries': 500,
+      // Telemetry operational knobs (Phase 4.2) — defaults must match the
+      // hardcoded fallbacks so centralization never changes behavior.
+      'telemetry.max_batch': 10,
+      'telemetry.flush_ms': 5000,
+      'telemetry.max_buffer': 50,
     });
-    expect(SETTING_REGISTRY).toHaveLength(17);
+    expect(SETTING_REGISTRY).toHaveLength(33);
   });
 
-  it('every registry entry is within its own bounds', () => {
+  it('every numeric registry entry is within its own bounds', () => {
     for (const meta of SETTING_REGISTRY) {
-      expect(meta.defaultValue).toBeGreaterThanOrEqual(meta.min);
-      expect(meta.defaultValue).toBeLessThanOrEqual(meta.max);
+      if (meta.type !== 'integer' && meta.type !== 'percent') continue;
+      expect(meta.defaultValue).toBeGreaterThanOrEqual(meta.min!);
+      expect(meta.defaultValue).toBeLessThanOrEqual(meta.max!);
     }
   });
 });

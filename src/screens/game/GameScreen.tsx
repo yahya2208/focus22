@@ -11,7 +11,7 @@ import { emitDiagnosticLog } from '../../core/supabase/live-diagnostics';
 import { recordFunnel, getActiveCampaignId } from '../../services/qr-measurement';
 import { sendScientificSession } from '../../services/session-science-sender';
 import { getDeviceFingerprint } from '../../core/device/fingerprint';
-import { loadRuntimeSettings, runtimeSettingDefault } from '../../core/config/runtime-settings';
+import { loadRuntimeSettings, getRuntimeSetting, runtimeSettingDefault } from '../../core/config/runtime-settings';
 
 type Phase = 'waiting' | 'visible' | 'hit' | 'miss';
 
@@ -209,12 +209,20 @@ export const GameScreen = memo(function GameScreen() {
   // Load centralized game settings (DB source of truth; safe fallback retained).
   useEffect(() => {
     let alive = true;
-    loadRuntimeSettings().then((s) => {
+    loadRuntimeSettings().then(() => {
       if (!alive) return;
-      gameConfig.rounds = s['game.rounds'] ?? gameConfig.rounds;
-      gameConfig.minDelayMs = s['game.min_delay_ms'] ?? gameConfig.minDelayMs;
-      gameConfig.maxDelayMs = s['game.max_delay_ms'] ?? gameConfig.maxDelayMs;
-      gameConfig.minPositionDistancePct = s['game.min_position_distance_pct'] ?? gameConfig.minPositionDistancePct;
+      // game.* are numeric settings; getRuntimeSetting returns the DB value or
+      // the safe hardcoded default. These remain PRESENTATION bounds only — the
+      // scientific scoring/measurement contract (core/scientific/constants.ts)
+      // is untouched.
+      const rounds = getRuntimeSetting('game.rounds', gameConfig.rounds);
+      const minDelay = getRuntimeSetting('game.min_delay_ms', gameConfig.minDelayMs);
+      const maxDelay = getRuntimeSetting('game.max_delay_ms', gameConfig.maxDelayMs);
+      const minDist = getRuntimeSetting('game.min_position_distance_pct', gameConfig.minPositionDistancePct);
+      gameConfig.rounds = rounds;
+      gameConfig.minDelayMs = minDelay;
+      gameConfig.maxDelayMs = maxDelay;
+      gameConfig.minPositionDistancePct = minDist;
     });
     return () => { alive = false; };
   }, []);

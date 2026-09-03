@@ -12,6 +12,7 @@ import { useChallengeSubmission } from '../../hooks/useChallengeSubmission';
 import { ChallengeResultCard } from '../../components/challenge/ChallengeResultCard';
 import { Leaderboard } from '../../components/challenge/Leaderboard';
 import { PersonalStats } from '../../components/challenge/PersonalStats';
+import { getRuntimeSetting } from '../../core/config/runtime-settings';
 import { Card } from '../../design-system/components/Card';
 import { Stack } from '../../design-system/components/Stack';
 import { Flex } from '../../design-system/components/Flex';
@@ -154,7 +155,7 @@ export const ResultsScreen = memo(function ResultsScreen() {
     if (inChallenge) return;
     const timer = setTimeout(() => {
       dispatch({ type: 'REPLACE', screen: 'showroom' });
-    }, RESULTS_SHOWROOM_AUTO_ADVANCE_MS);
+    }, getRuntimeSetting('experience.results_auto_advance_ms', RESULTS_SHOWROOM_AUTO_ADVANCE_MS));
     return () => clearTimeout(timer);
   }, [dispatch, inChallenge]);
 

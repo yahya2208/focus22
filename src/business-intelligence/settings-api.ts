@@ -23,16 +23,42 @@ import { devError } from '../core/logging';
  * A successful read returns `error: null` + `settings`.
  */
 
+/**
+ * Setting value type.
+ *   - `integer` / `percent`: numeric scalar, validated against numeric min/max.
+ *   - `text`: a string scalar, validated against a `pattern` / length, stored as
+ *     a JSON string (e.g. the business WhatsApp line).
+ *   - `enum`: an array of strings (JSON array of strings), validated against
+ *     the closed `options` allow-list (e.g. allowed campaign currencies).
+ */
+export type SettingType = 'integer' | 'percent' | 'text' | 'enum';
+
 /** The closed registry of centralizable settings (mirrors the DB registry). */
 export interface SettingMeta {
   readonly key: string;
-  readonly category: 'game' | 'offers' | 'inventory' | 'rules' | 'cache';
-  readonly type: 'integer' | 'percent';
+  readonly category:
+    | 'game'
+    | 'offers'
+    | 'inventory'
+    | 'rules'
+    | 'cache'
+    | 'telemetry'
+    | 'general'
+    | 'marketplace'
+    | 'ads'
+    | 'experience';
+  readonly type: SettingType;
   readonly label: string;
   readonly description: string;
-  readonly defaultValue: number;
-  readonly min: number;
-  readonly max: number;
+  /** Numeric defaults for integer/percent; string/[] for text/enum. */
+  readonly defaultValue: number | string;
+  /** Numeric bounds — present for integer/percent only. */
+  readonly min?: number;
+  readonly max?: number;
+  /** Closed allow-list — present for enum only. */
+  readonly options?: readonly string[];
+  /** Regex pattern — present for text only (validated server-side too). */
+  readonly pattern?: string;
 }
 
 export const SETTING_REGISTRY: readonly SettingMeta[] = [
@@ -53,11 +79,51 @@ export const SETTING_REGISTRY: readonly SettingMeta[] = [
   { key: 'rules.default_threshold', category: 'rules', type: 'integer', label: 'Default rule threshold', description: 'Default automation threshold', defaultValue: 3, min: 1, max: 1000000 },
   { key: 'rules.needs_discount_visit_count', category: 'rules', type: 'integer', label: 'Needs-discount visits', description: 'Visit count to flag needsDiscount', defaultValue: 3, min: 1, max: 1000000 },
   { key: 'cache.max_entries', category: 'cache', type: 'integer', label: 'Max cache entries', description: 'Per-device view-counter cap', defaultValue: 500, min: 1, max: 100000 },
+  // Telemetry operational knobs (Phase 4.2). These bound request volume and
+  // in-memory buffering only — they NEVER touch privacy, event shape, names,
+  // or the record_telemetry_event RPC. Server-side bounds mirror 00060.
+  { key: 'telemetry.max_batch', category: 'telemetry', type: 'integer', label: 'Flush batch size', description: 'Max events per telemetry batch', defaultValue: 10, min: 1, max: 50 },
+  { key: 'telemetry.flush_ms', category: 'telemetry', type: 'integer', label: 'Flush interval (ms)', description: 'Telemetry flush timer (ms)', defaultValue: 5000, min: 250, max: 60000 },
+  { key: 'telemetry.max_buffer', category: 'telemetry', type: 'integer', label: 'Max buffer size', description: 'In-memory telemetry buffer cap', defaultValue: 50, min: 1, max: 1000 },
+
+  // ── Admin Control Center Pass 1 (00063) — operational, non-scientific A-class ──
+  // General
+  {
+    key: 'commerce.currencies', category: 'general', type: 'enum', label: 'Currencies',
+    description: 'Allow-listed campaign currencies', defaultValue: ['USD', 'DA', 'SAR', 'EUR', 'TRY'] as unknown as string,
+    options: ['USD', 'DA', 'SAR', 'EUR', 'TRY'],
+  },
+  // Marketplace / WhatsApp
+  {
+    key: 'comm.whatsapp_phone', category: 'marketplace', type: 'text', label: 'WhatsApp line',
+    description: 'Business WhatsApp number (E.164, + then 8–15 digits)', defaultValue: '+213556254007',
+    pattern: '^\\+[0-9]{8,15}$',
+  },
+  { key: 'comm.whatsapp_guard_timeout_ms', category: 'marketplace', type: 'integer', label: 'WhatsApp guard (ms)', description: 'Same-tab exit guard window', defaultValue: 1500, min: 200, max: 30000 },
+  { key: 'comm.whatsapp_min_digits', category: 'marketplace', type: 'integer', label: 'WhatsApp min digits', description: 'Min digits for a valid number', defaultValue: 8, min: 6, max: 15 },
+  { key: 'comm.whatsapp_max_digits', category: 'marketplace', type: 'integer', label: 'WhatsApp max digits', description: 'Max digits for a valid number', defaultValue: 15, min: 8, max: 15 },
+  { key: 'comm.whatsapp_message_max_length', category: 'marketplace', type: 'integer', label: 'WhatsApp message max length', description: 'Preset message cap (chars)', defaultValue: 1000, min: 100, max: 10000 },
+  { key: 'comm.double_exit_window_ms', category: 'marketplace', type: 'integer', label: 'Double-exit window (ms)', description: 'Back-press window to exit', defaultValue: 3000, min: 500, max: 30000 },
+  { key: 'marketplace.listing_page_limit', category: 'marketplace', type: 'integer', label: 'Listing page size', description: 'Public showroom pagination', defaultValue: 48, min: 1, max: 500 },
+  { key: 'marketplace.similar_phones_limit', category: 'marketplace', type: 'integer', label: 'Similar phones', description: 'Similar-phones carousel cap', defaultValue: 8, min: 1, max: 50 },
+  // Ads
+  { key: 'ads.carousel_autoplay_ms', category: 'ads', type: 'integer', label: 'Ad autoplay (ms)', description: 'Ad carousel slide interval', defaultValue: 2000, min: 500, max: 30000 },
+  { key: 'ads.carousel_swipe_threshold_px', category: 'ads', type: 'integer', label: 'Ad swipe threshold (px)', description: 'Min swipe distance', defaultValue: 50, min: 10, max: 200 },
+  // Experience
+  { key: 'experience.results_auto_advance_ms', category: 'experience', type: 'integer', label: 'Results auto-advance (ms)', description: 'Results→showroom auto-advance', defaultValue: 3000, min: 500, max: 60000 },
+  { key: 'experience.gallery_autoplay_ms', category: 'experience', type: 'integer', label: 'Gallery autoplay (ms)', description: 'Product gallery autoplay interval', defaultValue: 3000, min: 500, max: 60000 },
 ];
 
-export const SETTING_DEFAULTS: Readonly<Record<string, number>> = Object.freeze(
-  Object.fromEntries(SETTING_REGISTRY.map((s) => [s.key, s.defaultValue])) as Record<string, number>,
+export const SETTING_DEFAULTS: Readonly<Record<string, number | string>> = Object.freeze(
+  Object.fromEntries(
+    SETTING_REGISTRY.map((s) => [s.key, Array.isArray(s.defaultValue) ? s.defaultValue.join(',') : s.defaultValue]),
+  ) as Record<string, number | string>,
 );
+
+/** A setting is numeric when its value type is integer/percent. */
+export function isNumericSetting(s: SettingMeta): boolean {
+  return s.type === 'integer' || s.type === 'percent';
+}
 
 export type SettingsError = 'UNAUTHORIZED' | 'FORBIDDEN' | 'INVALID_KEY' | 'INVALID_TYPE' | 'INVALID_VALUE' | 'OUT_OF_RANGE';
 
@@ -74,8 +140,11 @@ export interface SettingsResult {
 
 export interface SetSettingResult {
   readonly error: SettingsError | null;
-  readonly saved: { key: string; value: number; category: string; type: string } | null;
+  readonly saved: { key: string; value: number | string; category: string; type: string } | null;
 }
+
+/** Additive error kind for string/enum validation (mirrors 00063). */
+export type SettingsErrorExtended = SettingsError | 'INVALID_ALLOWED' | 'INVALID_PATTERN';
 
 /** Read the centralized settings. Returns `null` on transport/RPC failure
  *  (distinct from a permission error surfacing as `{error:...}`). */
@@ -97,7 +166,7 @@ export async function getSettings(): Promise<SettingsResult | null> {
 }
 
 /** Update one validated setting. Returns `null` on transport/RPC failure. */
-export async function setSetting(key: string, value: number): Promise<SetSettingResult | null> {
+export async function setSetting(key: string, value: number | string | readonly string[]): Promise<SetSettingResult | null> {
   const client = getSupabaseClient();
   const { data, error } = await client.rpc('set_setting', { p_key: key, p_value: value });
   if (error) {
@@ -125,21 +194,61 @@ export function isSettingsWriteDenied(r: SetSettingResult | null): boolean {
 }
 
 /**
- * Resolve a single setting value with safe fallback to its hardcoded default.
- * - If a DB value is available and within bounds -> use it.
- * - If no DB value / fetch unavailable -> use the default.
- * Never throws and never returns an out-of-range number (defense in depth).
+ * Resolve a single NUMERIC setting value with safe fallback to its hardcoded
+ * default. Meant for integer/percent settings. If the DB value is present and
+ * within bounds -> use it; otherwise fall back to the default. Never throws
+ * and never returns an out-of-range number (defense in depth).
  */
 export function resolveSetting(settings: Readonly<Record<string, SettingEntry>> | undefined, key: string): number {
   const meta = SETTING_REGISTRY.find((s) => s.key === key);
-  const fallback = meta ? meta.defaultValue : 0;
-  if (!settings) return fallback;
+  const fallback = meta && typeof meta.defaultValue === 'number' ? meta.defaultValue : 0;
+  if (!settings || !meta || !isNumericSetting(meta)) return fallback;
   const entry = settings[key];
   if (!entry) return fallback;
   const v = Number(entry.value);
   if (!Number.isFinite(v)) return fallback;
-  if (meta && (v < meta.min || v > meta.max)) return fallback;
+  if (meta.min !== undefined && (v < meta.min || v > meta.max!)) return fallback;
   return v;
+}
+
+/**
+ * Resolve a TEXT setting (string scalar) with safe fallback. Validates against
+ * the registered pattern when present. Never throws.
+ */
+export function resolveSettingString(settings: Readonly<Record<string, SettingEntry>> | undefined, key: string): string {
+  const meta = SETTING_REGISTRY.find((s) => s.key === key);
+  const fallback = meta && typeof meta.defaultValue === 'string' ? meta.defaultValue : '';
+  if (!settings || !meta || meta.type !== 'text') return fallback;
+  const entry = settings[key];
+  if (!entry) return fallback;
+  const v = String(entry.value).trim();
+  if (v === '') return fallback;
+  if (meta.pattern && !new RegExp(meta.pattern).test(v)) return fallback;
+  return v;
+}
+
+/**
+ * Resolve an ENUM setting (array of strings) with safe fallback. Any element
+ * outside the closed allow-list is rejected and the default applied. Never
+ * throws.
+ */
+export function resolveSettingList(settings: Readonly<Record<string, SettingEntry>> | undefined, key: string): string[] {
+  const meta = SETTING_REGISTRY.find((s) => s.key === key);
+  const fallback = meta && Array.isArray(meta.defaultValue) ? [...meta.defaultValue] : [];
+  if (!settings || !meta || meta.type !== 'enum') return fallback;
+  const entry = settings[key];
+  if (!entry) return fallback;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(entry.value));
+  } catch {
+    return fallback;
+  }
+  if (!Array.isArray(parsed)) return fallback;
+  const allowed = meta.options ?? [];
+  const clean = parsed.filter((x): x is string => typeof x === 'string' && allowed.includes(x));
+  if (clean.length === 0) return fallback;
+  return [...new Set(clean)];
 }
 
 /** Convenience: server-side range bounds for the admin UI validation hint. */

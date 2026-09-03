@@ -4,6 +4,7 @@ import { createCampaign, buildCampaignQrUrl } from './campaign-service';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import { useTranslation } from '../../../hooks/useTranslation';
 import type { TranslationKey } from '../../../i18n';
+import { getRuntimeSettingList } from '../../../core/config/runtime-settings';
 
 const GOALS = ['brand_awareness', 'customer_acquisition', 'phone_sales', 'store_visitors', 'research', 'other'] as const;
 const GOAL_KEYS: Record<string, TranslationKey> = {
@@ -194,7 +195,7 @@ export function CampaignWizard({ onClose, onCreated }: Props) {
             <div><label style={labelStyle}>{t('campaign.notes')}</label><textarea style={{ ...inputStyle, height: '60px', resize: 'vertical' }} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('campaign.notesPlaceholder')} /></div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <div style={{ flex: 2 }}><label style={labelStyle}>{t('campaign.budget')}</label><input style={inputStyle} type="number" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="0" /></div>
-              <div style={{ flex: 1 }}><label style={labelStyle}>{t('campaign.currency')}</label><select style={selectStyle} value={budgetCurrency} onChange={(e) => setBudgetCurrency(e.target.value)}>{CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+              <div style={{ flex: 1 }}><label style={labelStyle}>{t('campaign.currency')}</label><select style={selectStyle} value={budgetCurrency} onChange={(e) => setBudgetCurrency(e.target.value)}>{getRuntimeSettingList('commerce.currencies', CURRENCIES).map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
             </div>
             <div style={{ padding: '0.75rem', background: '#1e1e2e', borderRadius: '8px', fontSize: '0.8rem' }}>
               <p style={{ margin: '0 0 0.3rem', color: '#f0f0f0', fontWeight: 600 }}>{t('campaign.review')}</p>

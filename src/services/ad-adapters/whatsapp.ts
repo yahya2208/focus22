@@ -28,6 +28,7 @@
 import type { AdImage, AdPlacement } from '../ads-service';
 import { formatPhone } from '../whatsapp-service';
 import { recordIntent } from '../intent-tracking';
+import { getRuntimeSetting } from '../../core/config/runtime-settings';
 
 export interface WhatsAppDestinationAdapter {
   readonly type: 'whatsapp';
@@ -62,19 +63,23 @@ export const WHATSAPP_MESSAGE_MAX_LENGTH = 1000;
 
 /**
  * A valid WhatsApp destination number: after formatPhone() normalization the
- * result is 8–15 digits (E.164 bound). Rejects empty/whitespace, non-numeric
- * payloads and out-of-range numbers.
+ * result is 8–15 digits (E.164 bound). The digit bounds are centralized in the
+ * Admin Control Center (`comm.whatsapp_min_digits` / `comm.whatsapp_max_digits`)
+ * with safe fallback to the constants above.
  */
 export function isValidWhatsAppNumber(value: string): boolean {
+  const min = getRuntimeSetting('comm.whatsapp_min_digits', WHATSAPP_NUMBER_MIN_DIGITS);
+  const max = getRuntimeSetting('comm.whatsapp_max_digits', WHATSAPP_NUMBER_MAX_DIGITS);
   const digits = formatPhone(value);
-  return digits.length >= WHATSAPP_NUMBER_MIN_DIGITS && digits.length <= WHATSAPP_NUMBER_MAX_DIGITS && /^\d+$/.test(digits);
+  return digits.length >= min && digits.length <= max && /^\d+$/.test(digits);
 }
 
 export function createWhatsAppDestinationAdapter(deps: WhatsAppDestinationAdapterDeps): WhatsAppDestinationAdapter {
   const number = deps.number.trim();
   const isValid = isValidWhatsAppNumber(number);
   const formattedNumber = isValid ? formatPhone(number) : '';
-  const message = deps.message.trim().slice(0, WHATSAPP_MESSAGE_MAX_LENGTH);
+  const maxLen = getRuntimeSetting('comm.whatsapp_message_max_length', WHATSAPP_MESSAGE_MAX_LENGTH);
+  const message = deps.message.trim().slice(0, maxLen);
   const { placement, openChat } = deps;
 
   const canOpenDetails = (_image?: AdImage): boolean => isValid;

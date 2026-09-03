@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { getRuntimeSetting } from '../../core/config/runtime-settings';
 
 interface ProductImageGalleryProps {
   images: readonly string[];
@@ -72,7 +73,7 @@ export const ProductImageGallery = memo(function ProductImageGallery({
   // touching/dragging; any manual interaction restarts the 3s window.
   useEffect(() => {
     if (count <= 1 || paused) return;
-    const id = setInterval(next, GALLERY_AUTOPLAY_MS);
+    const id = setInterval(next, getRuntimeSetting('experience.gallery_autoplay_ms', GALLERY_AUTOPLAY_MS));
     return () => clearInterval(id);
   }, [count, paused, next, index, restartAutoplay]);
 

@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 import { InventoryService, type InventoryRecord } from '../services/inventory-service';
+import { getRuntimeSetting } from '../core/config/runtime-settings';
 
 /**
  * Similar-phones horizontal carousel source (v5.1 §6): same `modelId` first,
  * then same brand+model family, exclude self, capped. When `device` is null
- * (not-found state) returns the top exchangeable devices (6).
+ * (not-found state) returns the top exchangeable devices (6). The result cap
+ * is centralized in the Admin Control Center (`marketplace.similar_phones_limit`).
  */
-export function useSimilarPhones(device: InventoryRecord | null, limit = 8): InventoryRecord[] {
+export function useSimilarPhones(device: InventoryRecord | null, limit = getRuntimeSetting('marketplace.similar_phones_limit', 8)): InventoryRecord[] {
   return useMemo(() => {
     const all = InventoryService.getExchangeableDevices();
     if (!device) return all.slice(0, 6);

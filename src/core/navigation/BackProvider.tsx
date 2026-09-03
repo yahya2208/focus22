@@ -20,6 +20,7 @@ import {
   type BackOverlayKind,
 } from './back-overlays';
 import { createBackController } from './back-dispatcher';
+import { getRuntimeSetting } from '../config/runtime-settings';
 
 interface BackContextValue {
   back(): void;
@@ -69,7 +70,7 @@ export function BackProvider({ children }: { children: ReactNode }) {
         armDoubleExit: () => {
           if (doubleExitTimerRef.current) clearTimeout(doubleExitTimerRef.current);
           setDoubleExitArmed(true);
-          doubleExitTimerRef.current = setTimeout(() => setDoubleExitArmed(false), DOUBLE_EXIT_WINDOW_MS);
+          doubleExitTimerRef.current = setTimeout(() => setDoubleExitArmed(false), getRuntimeSetting('comm.double_exit_window_ms', DOUBLE_EXIT_WINDOW_MS));
         },
         disarmDoubleExit: () => {
           if (doubleExitTimerRef.current) clearTimeout(doubleExitTimerRef.current);
