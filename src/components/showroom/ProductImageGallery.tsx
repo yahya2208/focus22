@@ -1,10 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { track } from '../../core/telemetry';
 import { getRuntimeSetting } from '../../core/config/runtime-settings';
 
 interface ProductImageGalleryProps {
   images: readonly string[];
   name: string;
+  /** Canonical product entity id used for `product_image_view` (non-PII). */
+  entityId?: string | null;
 }
 
 /** Auto-play cadence (§ controlled-fix FIX-01): advance every 3s. */
@@ -32,6 +35,7 @@ export const GALLERY_SIDE_SCALE = 0.9;
 export const ProductImageGallery = memo(function ProductImageGallery({
   images,
   name,
+  entityId,
 }: ProductImageGalleryProps) {
   const colors = useThemeColors();
   const [index, setIndex] = useState(0);
@@ -58,16 +62,42 @@ export const ProductImageGallery = memo(function ProductImageGallery({
     setIndex((i) => (count > 0 ? (i + 1) % count : 0));
   }, [count]);
 
-  const prev = useCallback(() => {
-    setIndex((i) => (count > 0 ? (i - 1 + count) % count : 0));
-  }, [count]);
-
   const goTo = useCallback(
     (target: number) => {
       setIndex(() => Math.min(Math.max(target, 0), Math.max(count - 1, 0)));
     },
     [count],
   );
+
+  // Phase 10A — report a viewed image index (manual navigation only). Passive
+  // autoplay/scroll stays silent; only intentional next/prev/select reports.
+  const reportView = useCallback(
+    (idx: number) => {
+      if (!hasImages) return;
+      void track({
+        event: 'product_image_view',
+        entityType: 'product',
+        entityId: entityId ?? null,
+        properties: { index: idx },
+        dedupeKey: `product_image_view:${entityId ?? name}:${idx}`,
+      });
+    },
+    [hasImages, entityId, name],
+  );
+
+  // Manual next/prev (arrows, keyboard, swipe, side-peek) that BOTH navigate and
+  // report the resulting index. Autoplay keeps using the silent `next`/`prev`.
+  const manualNext = useCallback(() => {
+    const target = count > 0 ? (index + 1) % count : 0;
+    setIndex(() => (count > 0 ? (index + 1) % count : 0));
+    reportView(target);
+  }, [count, index, reportView]);
+
+  const manualPrev = useCallback(() => {
+    const target = count > 0 ? (index - 1 + count) % count : 0;
+    setIndex(() => (count > 0 ? (index - 1 + count) % count : 0));
+    reportView(target);
+  }, [count, index, reportView]);
 
   // Auto-play: single interval, circular wrap. Paused while the user is
   // touching/dragging; any manual interaction restarts the 3s window.
@@ -80,7 +110,17 @@ export const ProductImageGallery = memo(function ProductImageGallery({
   const openFullscreen = useCallback(() => {
     if (!hasImages || draggedRef.current) return;
     setFullscreen(true);
-  }, [hasImages]);
+    // Telemetry (Phase 9): meaningful image-view action — opening the real
+    // fullscreen viewer. `product_image_view { index }`, deduped per product
+    // + index (same image re-viewed within a session collapses).
+    void track({
+      event: 'product_image_view',
+      entityType: 'product',
+      entityId: entityId ?? null,
+      properties: { index },
+      dedupeKey: `product_image_view:${entityId ?? name}:${index}`,
+    });
+  }, [hasImages, index, entityId, name]);
 
   const commitHorizontal = useCallback(
     (dx: number) => {
@@ -92,12 +132,12 @@ export const ProductImageGallery = memo(function ProductImageGallery({
       draggedRef.current = true;
       // Logical direction: in LTR swiping left moves forward; mirrored in RTL.
       const forward = isRTL() ? dx > 0 : dx < 0;
-      if (forward) next();
-      else prev();
+      if (forward) manualNext();
+      else manualPrev();
       setPaused(false);
       restartAutoplay();
     },
-    [isRTL, next, prev, restartAutoplay],
+    [isRTL, manualNext, manualPrev, restartAutoplay],
   );
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
@@ -140,13 +180,13 @@ export const ProductImageGallery = memo(function ProductImageGallery({
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault();
         const forward = e.key === 'ArrowRight' ? !isRTL() : isRTL();
-        if (forward) next();
-        else prev();
+        if (forward) manualNext();
+        else manualPrev();
         setPaused(false);
         restartAutoplay();
       }
     },
-    [isRTL, next, prev, restartAutoplay],
+    [isRTL, manualNext, manualPrev, restartAutoplay],
   );
 
   const prevIndex = count > 0 ? (index - 1 + count) % count : -1;
@@ -256,7 +296,7 @@ export const ProductImageGallery = memo(function ProductImageGallery({
             style={sidePeekStyle('start')}
             onClick={(e) => {
               e.stopPropagation();
-              prev();
+              manualPrev();
               setPaused(false);
               restartAutoplay();
             }}
@@ -271,7 +311,7 @@ export const ProductImageGallery = memo(function ProductImageGallery({
             style={sidePeekStyle('end')}
             onClick={(e) => {
               e.stopPropagation();
-              next();
+              manualNext();
               setPaused(false);
               restartAutoplay();
             }}
@@ -286,7 +326,7 @@ export const ProductImageGallery = memo(function ProductImageGallery({
               style={arrowStyle('start')}
               onClick={(e) => {
                 e.stopPropagation();
-                prev();
+                manualPrev();
                 setPaused(false);
                 restartAutoplay();
               }}
@@ -300,7 +340,7 @@ export const ProductImageGallery = memo(function ProductImageGallery({
               style={arrowStyle('end')}
               onClick={(e) => {
                 e.stopPropagation();
-                next();
+                manualNext();
                 setPaused(false);
                 restartAutoplay();
               }}
@@ -311,7 +351,7 @@ export const ProductImageGallery = memo(function ProductImageGallery({
         )}
       </>
     );
-  }, [hasImages, images, index, count, name, colors.bgInput, colors.textFaint, slideStyle, sidePeekStyle, arrowStyle, prev, next, restartAutoplay, prevSrc, nextSrc]);
+  }, [hasImages, images, index, count, name, colors.bgInput, colors.textFaint, slideStyle, sidePeekStyle, arrowStyle, manualPrev, manualNext, restartAutoplay, prevSrc, nextSrc]);
 
   return (
     <div
@@ -376,6 +416,13 @@ export const ProductImageGallery = memo(function ProductImageGallery({
                 goTo(i);
                 setPaused(false);
                 restartAutoplay();
+                void track({
+                  event: 'product_image_view',
+                  entityType: 'product',
+                  entityId: entityId ?? null,
+                  properties: { index: i },
+                  dedupeKey: `product_image_view:${entityId ?? name}:${i}`,
+                });
               }}
               style={{
                 flex: '0 0 auto',

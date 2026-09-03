@@ -107,8 +107,9 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
   const [qty, setQty] = useState(1);
 
   const handleBack = useCallback(() => {
+    void track({ event: 'product_back', entityType: 'product', entityId: deviceId ?? null });
     dispatch({ type: 'BACK' });
-  }, [dispatch]);
+  }, [dispatch, deviceId]);
 
   const handleShare = useCallback(async () => {
     const url = buildAppUrl(`#/phone-details?device=${deviceId}`);
@@ -139,6 +140,7 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
     } catch {
       // fire-and-forget — WhatsApp continues regardless
     }
+    void track({ event: 'product_contact', entityType: 'product', entityId: device.id, properties: { method: 'whatsapp' } });
     const message = sendContactOwnerWhatsApp(device);
     whatsapp.send(message, { action: 'inquiry', deviceId: device.id });
   }, [device, whatsapp]);
@@ -248,9 +250,9 @@ export const ProductDetailsScreen = memo(function ProductDetailsScreen() {
         <Card variant="glass" padding="lg">
           <Stack gap="md">
             {USE_NEW_GALLERY ? (
-              <PhoneGallery images={images} name={`${device.brand} ${device.model}`} />
+              <PhoneGallery images={images} name={`${device.brand} ${device.model}`} entityId={device.id} />
             ) : (
-              <ProductImageGallery images={images} name={`${device.brand} ${device.model}`} />
+              <ProductImageGallery images={images} name={`${device.brand} ${device.model}`} entityId={device.id} />
             )}
 
             {USE_NEW_GALLERY && (

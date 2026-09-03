@@ -1,10 +1,13 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { usePreloadImages } from './usePreloadImages';
+import { track } from '../../../core/telemetry';
 
 interface PhoneGalleryProps {
   images: readonly string[];
   name: string;
+  /** Canonical product entity id used for `product_image_view` (non-PII). */
+  entityId?: string | null;
 }
 
 /**
@@ -24,6 +27,7 @@ interface PhoneGalleryProps {
 export const PhoneGallery = memo(function PhoneGallery({
   images,
   name,
+  entityId,
 }: PhoneGalleryProps) {
   const colors = useThemeColors();
   const [index, setIndex] = useState(0);
@@ -68,9 +72,31 @@ export const PhoneGallery = memo(function PhoneGallery({
     [index, count],
   );
 
+  // Telemetry (Phase 9): `product_image_view` — a meaningful image-viewing
+  // action, fired at deliberate user transitions only (fullscreen open and
+  // explicit image selection via the dot indicators). Never fired for passive
+  // scroll/autoplay. Deduped per product+index so repeated views of the same
+  // image within a session collapse.
+  const reportImageView = useCallback(
+    (viewedIndex: number) => {
+      if (!hasImages || viewedIndex < 0 || viewedIndex >= count) return;
+      void track({
+        event: 'product_image_view',
+        entityType: 'product',
+        entityId: entityId ?? null,
+        properties: { index: viewedIndex },
+        dedupeKey: `product_image_view:${entityId ?? name}:${viewedIndex}`,
+      });
+    },
+    [hasImages, count, entityId, name],
+  );
+
   const openFullscreen = useCallback(() => {
-    if (hasImages) setFullscreen(true);
-  }, [hasImages]);
+    if (hasImages) {
+      setFullscreen(true);
+      reportImageView(index);
+    }
+  }, [hasImages, index, reportImageView]);
 
   const closeFullscreen = useCallback(() => {
     setFullscreen(false);
@@ -217,6 +243,7 @@ export const PhoneGallery = memo(function PhoneGallery({
                   const slide = el.children[i] as HTMLElement | undefined;
                   if (slide) {
                     slide.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+                    reportImageView(i);
                   }
                 }}
                 data-testid={i === index ? 'phone-gallery-dot-active' : `phone-gallery-dot-${i}`}
