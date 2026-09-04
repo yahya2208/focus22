@@ -548,5 +548,11 @@ export async function fetchMyListings(category: 'car' | 'property' | 'produce'):
  * physically remains. Never a hard DELETE.
  */
 export async function deleteListing(id: string): Promise<void> {
-  await callRpc<null>('listing_delete', { p_listing_id: id });
+  try {
+    await callRpc<null>('listing_delete', { p_listing_id: id });
+    void track({ event: 'listing_delete', entityType: 'listing', properties: {} });
+  } catch (e) {
+    void track({ event: 'rpc_error', properties: { rpc: 'listing_delete', error_code: 'DB' } });
+    throw e;
+  }
 }

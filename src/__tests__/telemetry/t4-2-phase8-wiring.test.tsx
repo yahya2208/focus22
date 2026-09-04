@@ -23,6 +23,7 @@ import {
   createListing,
   updateListingCore,
   setListingPublished,
+  deleteListing,
 } from '../../services/listing-service';
 import type { CreateCarListingInput } from '../../services/listing-service';
 import type { TelemetryEventInput } from '../../core/telemetry';
@@ -231,6 +232,28 @@ describe('Phase 8D — listing service outcome wiring', () => {
     await expect(setListingPublished('L1', true)).rejects.toThrow();
     expect(eventsOf('listing_publish')).toHaveLength(0);
     expect(eventsOf('rpc_error')).toHaveLength(1);
+    assertNoPii();
+  });
+
+  it('delete success fires exactly one listing_delete (no properties) and no rpc_error', async () => {
+    h.supabase.rpc.mockResolvedValueOnce({ data: null, error: null });
+    await deleteListing('L1');
+    const dels = eventsOf('listing_delete');
+    expect(dels).toHaveLength(1);
+    expect(dels[0]!).toMatchObject({ event: 'listing_delete', entityType: 'listing', properties: {} });
+    // Allowlist for listing_delete is [] — no property keys may be present.
+    expect(Object.keys(dels[0]!.properties ?? {})).toEqual([]);
+    expect(eventsOf('rpc_error')).toHaveLength(0);
+    assertNoPii();
+  });
+
+  it('delete failure fires zero listing_delete, only rpc_error, and still throws', async () => {
+    h.supabase.rpc.mockResolvedValueOnce({ data: null, error: { message: 'denied' } });
+    await expect(deleteListing('L1')).rejects.toThrow();
+    expect(eventsOf('listing_delete')).toHaveLength(0);
+    const rpcErr = eventsOf('rpc_error');
+    expect(rpcErr).toHaveLength(1);
+    expect(rpcErr[0]).toMatchObject({ properties: { rpc: 'listing_delete', error_code: 'DB' } });
     assertNoPii();
   });
 });
