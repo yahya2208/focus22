@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { ThemeColors } from '../../../hooks/useThemeColors';
 import {
   CAR_BODY_TYPE_VALUES,
@@ -17,6 +17,7 @@ import {
 } from '../../../domains/listings';
 import type { ListingRecord, ProduceDetails, ProduceUnit } from '../../../domains/listings';
 import { updateListingCore, updateListingDetails } from '../../../services/listing-service';
+import { track } from '../../../core/telemetry';
 
 const CAR_FUEL_AR: Record<string, string> = {
   benzin: 'بنزين', diesel: 'ديزل', hybrid: 'هايبرد', electric: 'كهرباء', lpg: 'غاز',
@@ -77,6 +78,16 @@ export const EditListingModal = memo(function EditListingModal({ record, colors,
 
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // The modal is opened by its parent via conditional mount ({editingListing && …}),
+  // so mounting == starting an edit session. Report `listing_edit_start` exactly once
+  // per open; the ref guards against the dev-mode double-mount.
+  const startedRef = useRef(false);
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    void track({ event: 'listing_edit_start', entityType: 'listing', properties: {} });
+  }, []);
 
   const inputStyle = (): React.CSSProperties => ({
     width: '100%', padding: '9px', borderRadius: '8px',
