@@ -7,7 +7,7 @@ import {
 
 function makeDeps(url: string) {
   const openInNewTab = vi.fn();
-  return { url, openInNewTab };
+  return { placement: 'home' as const, url, openInNewTab };
 }
 
 beforeEach(() => {

@@ -33,6 +33,7 @@ import type { AdImage, AdPlacement } from '../ads-service';
 import { buildAdPhoneLink } from '../ads-service';
 import { resolveAdDevice } from '../ad-device-resolver';
 import { recordIntent } from '../intent-tracking';
+import { track } from '../../core/telemetry';
 import type { ScreenName } from '../../store/navigation';
 
 /**
@@ -115,6 +116,7 @@ export function createInternalDestinationAdapter(deps: InternalDestinationAdapte
   // converts to in-app navigation (mirroring the external/whatsapp adapters).
   const navigateWithTracking = (_image?: AdImage): void => {
     if (!isValid || screen === null || params === null) return;
+    void track({ event: 'ad_click', entityType: 'ad', properties: { position: placement } });
     try {
       recordIntent({
         kind: 'click',

@@ -28,6 +28,7 @@
 import type { AdImage, AdPlacement } from '../ads-service';
 import { formatPhone } from '../whatsapp-service';
 import { recordIntent } from '../intent-tracking';
+import { track } from '../../core/telemetry';
 import { getRuntimeSetting } from '../../core/config/runtime-settings';
 
 export interface WhatsAppDestinationAdapter {
@@ -87,6 +88,7 @@ export function createWhatsAppDestinationAdapter(deps: WhatsAppDestinationAdapte
 
   const openChatWithTracking = (_image?: AdImage): void => {
     if (!isValid) return;
+    void track({ event: 'ad_click', entityType: 'ad', properties: { position: placement } });
     try {
       recordIntent({ kind: 'click', ctaType: 'ad_click', placement });
     } catch {

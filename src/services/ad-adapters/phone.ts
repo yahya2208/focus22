@@ -25,6 +25,7 @@ import type { AdImage, AdPlacement } from '../ads-service';
 import { buildAdPhoneLink } from '../ads-service';
 import { resolveAdDevice, extractAdDeviceId } from '../ad-device-resolver';
 import { recordIntent } from '../intent-tracking';
+import { track } from '../../core/telemetry';
 import { buildAdClickMessage } from '../whatsapp-service';
 import type { InventoryRecord } from '../inventory-service';
 
@@ -108,6 +109,7 @@ export function createPhoneDestinationAdapter(deps: PhoneDestinationAdapterDeps)
   const openDetails = (image?: AdImage): void => {
     const id = slideDeviceId(image);
     if (!id) return;
+    void track({ event: 'ad_click', entityType: 'ad', properties: { position: placement } });
     navigateToDetails(id);
   };
 
@@ -121,6 +123,7 @@ export function createPhoneDestinationAdapter(deps: PhoneDestinationAdapterDeps)
     if (!id) return;
     const dev = resolveSlideDevice(id);
     if (!dev) return;
+    void track({ event: 'ad_click', entityType: 'ad', properties: { position: placement } });
     try {
       recordIntent({ kind: 'click', ctaType: 'ad_click', placement, deviceId: dev.id });
     } catch {

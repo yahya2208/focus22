@@ -23,7 +23,8 @@
  * injected function invoked only from within the operations.
  */
 
-import type { AdImage } from '../ads-service';
+import type { AdImage, AdPlacement } from '../ads-service';
+import { track } from '../../core/telemetry';
 
 export interface ExternalDestinationAdapter {
   readonly type: 'external';
@@ -41,6 +42,7 @@ export interface ExternalDestinationAdapter {
 }
 
 export interface ExternalDestinationAdapterDeps {
+  placement: AdPlacement;
   /** The candidate URL from the Phase-1 destination payload (external.url). */
   url: string;
   /** Opens the URL in a new tab (noopener, noreferrer). Injected for tests. */
@@ -74,17 +76,20 @@ export function createExternalDestinationAdapter(deps: ExternalDestinationAdapte
   const url = deps.url.trim();
   const isValid = isSafeExternalUrl(url);
   const effectiveUrl = isValid ? url : '';
+  const { placement } = deps;
 
   const canOpenDetails = (_image?: AdImage): boolean => isValid;
   const canCallToAction = (_image?: AdImage): boolean => isValid;
 
   const openDetails = (_image?: AdImage): void => {
     if (!isValid) return;
+    void track({ event: 'ad_click', entityType: 'ad', properties: { position: placement } });
     deps.openInNewTab(effectiveUrl);
   };
 
   const callToAction = (_image?: AdImage): void => {
     if (!isValid) return;
+    void track({ event: 'ad_click', entityType: 'ad', properties: { position: placement } });
     deps.openInNewTab(effectiveUrl);
   };
 

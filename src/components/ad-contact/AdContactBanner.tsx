@@ -226,6 +226,7 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
             rel="noopener noreferrer"
             role="banner"
             aria-label={ad.alt || placement}
+            onClick={() => void track({ event: 'ad_click', entityType: 'ad', properties: { position: placement } })}
             style={{ display: 'block' }}
           >
             <AdBanner image={ad.image} images={ad.images} alt={ad.alt || placement} onStateChange={handleStateChange} />
@@ -350,7 +351,6 @@ export const AdContactBanner = memo(function AdContactBanner({ placement }: AdCo
             data-testid="ad-contact-details"
             aria-label={`${ad.alt || placement} — عرض التفاصيل`}
             onClick={() => {
-              void track({ event: 'ad_click', entityType: 'ad', properties: { position: placement } });
               adapter.openDetails(singleImage ?? undefined);
             }}
             style={{

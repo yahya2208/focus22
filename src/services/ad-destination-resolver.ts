@@ -96,6 +96,7 @@ export function resolveDestination(ad: AdConfig, deps: DestinationResolverDeps):
   switch (type) {
     case 'external':
       return createExternalDestinationAdapter({
+        placement: deps.placement,
         url: readExternalUrl(ad),
         openInNewTab: deps.openInNewTab,
       });
