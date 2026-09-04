@@ -447,7 +447,7 @@ export function InitialRoute() {
       // category screen. Slugs are [a-z0-9]+(-[a-z0-9]+)* path segments; the
       // LAST segment is the category slug (the parent path is the deep link).
       const CATEGORY_SLUG_PATH = /^[a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)*$/;
-      if (CATEGORY_SLUG_PATH.test(screenPart)) {
+      if (target !== 'home' && CATEGORY_SLUG_PATH.test(screenPart)) {
         const slug = screenPart.split('/').pop() ?? screenPart;
         dispatch({
           type: 'REPLACE',
