@@ -76,6 +76,11 @@ export const BACK_MATRIX: Record<ScreenName, BackMatrixRow> = {
   'admin-categories': { screen: 'admin-categories', backTarget: 'previous', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'protected; category admin CRUD (00050)' },
   cart: { screen: 'cart', backTarget: 'previous', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'multi-item marketplace cart; back = previous (details/category)' },
   request: { screen: 'request', backTarget: 'cart', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'request cart → WhatsApp form; back → cart' },
+  'pilot-storefront': { screen: 'pilot-storefront', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'Neighborhood Pilot browse surface; back → home (in-content cart CTA)' },
+  'pilot-checkout': { screen: 'pilot-checkout', backTarget: 'pilot-storefront', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'real DB checkout (Gate D); back → storefront' },
+  'pilot-admin': { screen: 'pilot-admin', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'protected; pilot ops (neighborhood/store/orders/reset)' },
+  'pilot-store-ops': { screen: 'pilot-store-ops', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'store-operator orders + items + canonical status (server-authorized RPCs)' },
+  'pilot-courier': { screen: 'pilot-courier', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'courier: available → accept → pickup → delivered (least privilege)' },
 };
 
 export function getBackMatrixRow(screen: ScreenName): BackMatrixRow | undefined {

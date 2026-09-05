@@ -141,7 +141,7 @@ describe('00052 — client wiring hands the server the canonical inventory id', 
     resetDefaults();
     mockRpc.mockResolvedValue({
       data: JSON.stringify({
-        order_id: 'o1', order_number: 'FC-000001', status: 'pending',
+        order_id: 'o1', order_number: 'FC-000001', status: 'confirmed',
         subtotal: 1200, delivery_fee: 10, total: 1210,
         eta_minutes_min: 30, eta_minutes_max: 45,
       }),

@@ -378,6 +378,44 @@ export const HomeScreen = memo(function HomeScreen() {
           </Flex>
         </Card>
 
+        {/* Live neighborhood store — Neighborhood Pilot storefront entry */}
+        <Card
+          variant="interactive"
+          padding="lg"
+          onClick={() => dispatch({ type: 'NAVIGATE', screen: 'pilot-storefront' })}
+          style={{
+            overflow: 'hidden',
+            border: `1px solid ${colors.accent}`,
+            background: `linear-gradient(135deg, ${colors.success}14 0%, ${colors.accentLight}26 100%)`,
+          }}
+        >
+          <Flex justify="space-between" align="center" gap="md">
+            <Flex align="center" gap="md">
+              <span style={{ fontSize: '2rem', lineHeight: 1 }} aria-hidden="true">🥬</span>
+              <div>
+                <p style={{ margin: 0, color: colors.text, fontSize: '1rem', fontWeight: 800 }}>
+                  {t('home.liveStore')}
+                </p>
+                <p style={{ margin: '0.25rem 0 0', color: colors.textSecondary, fontSize: '0.78rem' }}>
+                  {t('home.liveStoreSubtitle')}
+                </p>
+              </div>
+            </Flex>
+            <span
+              aria-hidden="true"
+              style={{
+                flexShrink: 0,
+                width: '38px', height: '38px', borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: colors.accent, color: '#0a0a12',
+                fontWeight: 800, fontSize: '1.1rem',
+              }}
+            >
+              ←
+            </span>
+          </Flex>
+        </Card>
+
         {/* Phone services — flex-wrap strip, no empty cells at any width */}
         <div>
           <p style={{ ...sectionLabel, marginBottom: '0.75rem' }}>

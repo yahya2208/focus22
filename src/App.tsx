@@ -79,6 +79,11 @@ const CategoryScreen = lazy(() => import('./screens/categories/CategoryScreen').
 const AdminCategoriesScreen = lazy(() => import('./screens/admin/CategoriesAdminScreen').then(m => ({ default: m.CategoriesAdminScreen })));
 const CartScreen = lazy(() => import('./screens/cart/CartScreen').then(m => ({ default: m.CartScreen })));
 const RequestScreen = lazy(() => import('./screens/request/RequestScreen').then(m => ({ default: m.RequestScreen })));
+const PilotStorefrontScreen = lazy(() => import('./screens/pilot/PilotStorefrontScreen').then(m => ({ default: m.PilotStorefrontScreen })));
+const PilotCheckoutScreen = lazy(() => import('./screens/pilot/PilotCheckoutScreen').then(m => ({ default: m.PilotCheckoutScreen })));
+const PilotOpsAdminScreen = lazy(() => import('./screens/pilot/PilotOpsAdminScreen').then(m => ({ default: m.PilotOpsAdminScreen })));
+const PilotStoreOpsScreen = lazy(() => import('./screens/pilot/PilotStoreOpsScreen').then(m => ({ default: m.PilotStoreOpsScreen })));
+const PilotCourierScreen = lazy(() => import('./screens/pilot/PilotCourierScreen').then(m => ({ default: m.PilotCourierScreen })));
 
 const screens: Record<ScreenName, React.ComponentType> = {
   home: HomeScreen,
@@ -134,6 +139,11 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'admin-categories': AdminCategoriesScreen,
   'cart': CartScreen,
   'request': RequestScreen,
+  'pilot-storefront': PilotStorefrontScreen,
+  'pilot-checkout': PilotCheckoutScreen,
+  'pilot-admin': PilotOpsAdminScreen,
+  'pilot-store-ops': PilotStoreOpsScreen,
+  'pilot-courier': PilotCourierScreen,
 };
 
 function HtmlSync() {
@@ -578,6 +588,12 @@ function ScreenRouter() {
     content = (
       <ProtectedRoute requiredResource="catalog" requiredAction="write">
         <AdminCategoriesScreen />
+      </ProtectedRoute>
+    );
+  } else if (currentScreen === 'pilot-admin') {
+    content = (
+      <ProtectedRoute requiredResource="catalog" requiredAction="write">
+        <PilotOpsAdminScreen />
       </ProtectedRoute>
     );
   } else if (currentScreen === 'challenge-admin') {

@@ -57,7 +57,12 @@ export type ScreenName =
   | 'category'
   | 'admin-categories'
   | 'cart'
-  | 'request';
+  | 'request'
+  | 'pilot-storefront'
+  | 'pilot-checkout'
+  | 'pilot-admin'
+  | 'pilot-store-ops'
+  | 'pilot-courier';
 
 export interface SessionRecord {
   readonly id: string;
@@ -177,6 +182,11 @@ export const ALL_SCREEN_NAMES: readonly ScreenName[] = [
   'admin-categories',
   'cart',
   'request',
+  'pilot-storefront',
+  'pilot-checkout',
+  'pilot-admin',
+  'pilot-store-ops',
+  'pilot-courier',
 ];
 
 const SCREEN_NAMES: ReadonlySet<string> = new Set<ScreenName>(ALL_SCREEN_NAMES);

@@ -23,6 +23,8 @@ export const TELEMETRY_DOMAINS = [
   'game',
   'ttt',
   'auth',
+  'neighborhood',
+  'order',
   'system',
 ] as const;
 
@@ -39,6 +41,9 @@ export const TELEMETRY_ENTITY_TYPES = [
   'challenge',
   'user',
   'session',
+  'neighborhood',
+  'store',
+  'order',
 ] as const;
 
 export type TelemetryEntityType = (typeof TELEMETRY_ENTITY_TYPES)[number];
@@ -104,6 +109,16 @@ export type TelemetryEventName =
   | 'request_success'
   | 'request_failed'
   | 'whatsapp_open'
+  // neighborhood pilot (Phase 8 — additive to the closed registry)
+  | 'neighborhood_view'
+  | 'store_view'
+  | 'family_view'
+  | 'checkout_start'
+  | 'checkout_submit'
+  | 'order_created'
+  | 'order_failed'
+  | 'order_status_changed'
+  | 'order_completed'
   // ads
   | 'ad_impression'
   | 'ad_click'

@@ -77,6 +77,16 @@ const EVENTS = {
   request_success: { domain: 'request', properties: [], version: 1 },
   request_failed: { domain: 'request', properties: ['error_code'], version: 1 },
   whatsapp_open: { domain: 'request', properties: ['method'], version: 1 },
+  // ——— neighborhood pilot (Phase 8) ———
+  neighborhood_view: { domain: 'neighborhood', properties: [], version: 1 },
+  store_view: { domain: 'neighborhood', properties: [], version: 1 },
+  family_view: { domain: 'neighborhood', properties: [], version: 1 },
+  checkout_start: { domain: 'order', properties: ['items_count', 'with_delivery'], version: 1 },
+  checkout_submit: { domain: 'order', properties: ['items_count'], version: 1 },
+  order_created: { domain: 'order', properties: ['channel'], version: 1 },
+  order_failed: { domain: 'order', properties: ['error_code'], version: 1 },
+  order_status_changed: { domain: 'order', properties: ['status'], version: 1 },
+  order_completed: { domain: 'order', properties: [], version: 1 },
   // ——— ads ———
   ad_impression: { domain: 'ad', properties: ['position'], version: 1 },
   ad_click: { domain: 'ad', properties: ['position'], version: 1 },

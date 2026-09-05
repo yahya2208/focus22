@@ -14,16 +14,18 @@ import type { TelemetryDomain } from '../../core/telemetry/types';
 
 const MIGRATION = path.resolve(__dirname, '../../../supabase/migrations/00057_telemetry_events.sql');
 const MIGRATION_061 = path.resolve(__dirname, '../../../supabase/migrations/00061_telemetry_phase8_events.sql');
+const MIGRATION_067 = path.resolve(__dirname, '../../../supabase/migrations/00067_telemetry_pilot_events.sql');
 const VERIFY = path.resolve(__dirname, '../../../supabase/verify/telemetry_events.sql');
 
 /**
  * The complete server contract. 00057 defines the closed write/read contract;
- * 00061 (Phase 8) is an ADDITIVE re-create of record_telemetry_event and
- * get_telemetry_analytics with extra event->domain / allowlist branches. The
- * inventory checks below therefore read BOTH migrations as one contract.
+ * 00061 (Phase 8) and 00067 (Pilot) are ADDITIVE re-creates of
+ * record_telemetry_event and get_telemetry_analytics with extra event->domain
+ * / allowlist branches. The inventory checks below therefore read ALL THREE
+ * migrations as one contract.
  */
 function contractSql(): string {
-  return [MIGRATION, MIGRATION_061].map((f) => fs.readFileSync(f, 'utf-8')).join('\n');
+  return [MIGRATION, MIGRATION_061, MIGRATION_067].map((f) => fs.readFileSync(f, 'utf-8')).join('\n');
 }
 
 function readSql(rel: string): string {
