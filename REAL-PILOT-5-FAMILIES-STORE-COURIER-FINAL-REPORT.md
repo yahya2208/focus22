@@ -293,3 +293,41 @@ Both additive; 00065/00066/00067/00068 untouched. Structural gate asserts: no `A
 > ## 🟢 **READY — PLATFORM-READY ORDER FLOW + ACCOUNT ARCHITECTURE = PASS**
 
 Confirmed-first order lifecycle verified on production (`pending` never produced); independent operator/courier identities with admin approval enforced (Pending → Approval → Active, instant revocation on suspension with 42501); cross-tenant isolation, strict transitions and legacy data integrity proven in a 21-check transactional smoke that rolled back cleanly; full suite green (3484); delivery committed and pushed. No remaining production or test gaps in scope for this phase.
+---
+
+# SECURITY GATE 0 — F1 ONLY: ANON EXECUTE HARDENING (00071)
+
+Scope gate: anonymous `EXECUTE` hardening. Read-only audit → revoke list approval → additive `00071` → verification. No RLS/policies/SECURITY DEFINER/search_path/function bodies/default ACL/authenticated+service_role grants/RBAC/ROLE maps changed; 00065–00070 untouched.
+
+## RECONCILIATION (count corrected)
+
+Production catalog sweep of every `public` function (`pilot_%` + delivery_create_order + fn_admin_uid + record_telemetry_event + get_telemetry_analytics) → **exactly 33** (no overloads, nothing missing). The earlier "34" was a miscount; the verified set = **27 REVOKE + 5 KEEP + 1 NO-ACTION = 33**, a documentation correction.
+
+## REVOKE (27, exact signatures, anon:EXECUTE only)
+
+`delivery_create_order(jsonb,jsonb)`, `fn_admin_uid()`, `pilot_my_stores()`, `pilot_orders_available()`, `pilot_orders_for_store(uuid)`, `pilot_orders_for_courier()`, `pilot_order_accept(uuid)`, `pilot_order_set_status(uuid,text)`, `pilot_courier_set_status(uuid,text)`, `pilot_order_detail(uuid)`, `pilot_order_status_for_user(uuid)`, `pilot_reset()`, `pilot_admin_require()`, `pilot_admin_link_family(uuid,uuid,boolean)`, `pilot_admin_set_courier(uuid,uuid,boolean)`, `pilot_admin_set_courier_status(uuid,uuid,text)`, `pilot_admin_set_operator_status(uuid,uuid,text)`, `pilot_admin_set_store_inventory(uuid,uuid[])`, `pilot_admin_upsert_family(text,text,text,text)`, `pilot_admin_upsert_neighborhood(text,text,text,text)`, `pilot_admin_upsert_store(uuid,text,text,text,text,uuid)`, `pilot_admin_list_families()`, `pilot_admin_list_neighborhoods()`, `pilot_admin_list_stores(uuid)`, `pilot_admin_list_operators(uuid)`, `pilot_admin_list_couriers(uuid)`, `pilot_admin_pilot_health()`.
+
+## KEEP (5, anonymous contract intact)
+
+`record_telemetry_event(jsonb)` (anonymous telemetry), `pilot_active_neighborhoods()`, `pilot_active_stores(uuid)`, `pilot_store_products(uuid)`, `pilot_neighborhood_families(uuid)` (public browse).
+
+## NO ACTION (1)
+
+`get_telemetry_analytics(...)` — already `anon:EXECUTE` = false before 00071.
+
+## TESTS
+
+Gate test (offline, structural) +3: `00071` contains exactly 27 signature-exact `REVOKE EXECUTE ON FUNCTION public.<fn>(<sig>) FROM anon;`, no `ALTER/GLOBAL/GRANT/FROM authenticated|service_role|PUBLIC/functions/RLS/SECURITY DEFINER/search_path`, revoked list exact, KEEP+NO-ACTION set untouched. Full suite → **3487/3487** (281 files); `tsc --noEmit` → 0 errors.
+
+## PRODUCTION
+
+- **Disposable replay** (BEGIN…ROLLBACK): apply → DO-block asserts `anon_revoked=27, auth_still=0 broken, svc_still=0 broken, keep_anon=5, analytics_no_anon=1, scope=33` → ROLLBACK restored anon (reversible, zero residue).
+- **Apply:** `00071` `--single-transaction` → EXIT 0 (27 REVOKE).
+- **Post-apply matrix (34 rows incl. analytics):** 27 restricted → `anon=f|auth=t|svc=t`; 5 KEEP → `anon=t|auth=t|svc=t`; analytics → `anon=f|auth=t|svc=t`.
+- **Functional probes (`SET ROLE anon` — direct, not via DO):** revoked 6/6 → `permission denied for function` (privilege-level 42501) for `pilot_reset`, `pilot_orders_available`, `pilot_admin_require`, `delivery_create_order`, `pilot_my_stores`, `pilot_order_detail` (spot sample × the 27). KEEP browse `pilot_active_neighborhoods` → returns the live pilot neighborhood row; KEEP telemetry → reaches body (grant-level accepted; body gate `auth.uid()` evaluates against real Gateway claims — function untouched by 00071); NO-ACTION analytics stays denied; control `service_role pilot_orders_available` → reaches body (`UNAUTHENTICATED` from internal gate, NOT permission-denied) proving authenticated/service_role EXECUTE intact.
+
+## F1 VERDICT
+
+> ## 🟢 **PASS — anon:EXECUTE hardening applied and verified on production**
+
+Exactly 27 restricted anonymous-EXECUTE grants revoked (privilege-level denial proven), 5 anonymous contracts preserved (browse + telemetry), analytics unchanged, authenticated/service_role EXECUTE fully intact, scope bound at 33 = 27+5+1 (count corrected from 34), reversible replay verified, full suite green, no RLS/policies/function changes anywhere outside the revoke list.

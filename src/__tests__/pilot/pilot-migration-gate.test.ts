@@ -12,6 +12,7 @@ const M66 = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migration
 const M67 = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations/00067_telemetry_pilot_events.sql'), 'utf-8');
 const M69 = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations/00069_platform_ready_orders.sql'), 'utf-8');
 const M70 = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations/00070_pilot_account_approval.sql'), 'utf-8');
+const M71 = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations/00071_anon_execute_hardening.sql'), 'utf-8');
 
 const FN_IN = (src: string, name: string): string => {
   const start = src.indexOf(`CREATE OR REPLACE FUNCTION public.${name}`);
@@ -394,5 +395,74 @@ describe('00070 — independent accounts + admin approval (account architecture)
     expect(setC).toContain("NOT IN ('pending', 'active', 'inactive', 'suspended')");
     const listC = FN_IN(M70, 'pilot_admin_list_couriers');
     expect(listC).toContain("p_store_id uuid DEFAULT NULL");
+  });
+});
+
+describe('00071 — anon:EXECUTE hardening (Security Gate F1, revoke-only)', () => {
+  const keep: readonly string[] = [
+    'record_telemetry_event(jsonb)',
+    'pilot_active_neighborhoods()',
+    'pilot_active_stores(uuid)',
+    'pilot_store_products(uuid)',
+    'pilot_neighborhood_families(uuid)',
+  ];
+  const noAction: readonly string[] = ['get_telemetry_analytics'];
+  const expected: readonly { name: string; sig: string }[] = [
+    { name: 'delivery_create_order', sig: '(jsonb, jsonb)' },
+    { name: 'fn_admin_uid', sig: '()' },
+    { name: 'pilot_my_stores', sig: '()' },
+    { name: 'pilot_orders_available', sig: '()' },
+    { name: 'pilot_orders_for_store', sig: '(uuid)' },
+    { name: 'pilot_orders_for_courier', sig: '()' },
+    { name: 'pilot_order_accept', sig: '(uuid)' },
+    { name: 'pilot_order_set_status', sig: '(uuid, text)' },
+    { name: 'pilot_courier_set_status', sig: '(uuid, text)' },
+    { name: 'pilot_order_detail', sig: '(uuid)' },
+    { name: 'pilot_order_status_for_user', sig: '(uuid)' },
+    { name: 'pilot_reset', sig: '()' },
+    { name: 'pilot_admin_require', sig: '()' },
+    { name: 'pilot_admin_link_family', sig: '(uuid, uuid, boolean)' },
+    { name: 'pilot_admin_set_courier', sig: '(uuid, uuid, boolean)' },
+    { name: 'pilot_admin_set_courier_status', sig: '(uuid, uuid, text)' },
+    { name: 'pilot_admin_set_operator_status', sig: '(uuid, uuid, text)' },
+    { name: 'pilot_admin_set_store_inventory', sig: '(uuid, uuid[])' },
+    { name: 'pilot_admin_upsert_family', sig: '(text, text, text, text)' },
+    { name: 'pilot_admin_upsert_neighborhood', sig: '(text, text, text, text)' },
+    { name: 'pilot_admin_upsert_store', sig: '(uuid, text, text, text, text, uuid)' },
+    { name: 'pilot_admin_list_families', sig: '()' },
+    { name: 'pilot_admin_list_neighborhoods', sig: '()' },
+    { name: 'pilot_admin_list_stores', sig: '(uuid)' },
+    { name: 'pilot_admin_list_operators', sig: '(uuid)' },
+    { name: 'pilot_admin_list_couriers', sig: '(uuid)' },
+    { name: 'pilot_admin_pilot_health', sig: '()' },
+  ];
+
+  const revokes = M71.match(/REVOKE EXECUTE ON FUNCTION public\.([a-z_]+)\(([^)]*)\) FROM anon;/g) ?? [];
+  const body = M71.replace(/^\s*--.*$/gm, '').trim();
+
+  it('is a single-domain, signature-exact hardening: nothing but anon:EXECUTE revokes', () => {
+    expect(body).not.toMatch(/ALTER (TABLE|DEFAULT PRIVILEGES|ROLE|POLICY)/);
+    expect(body).not.toMatch(/CREATE (OR REPLACE )?FUNCTION/);
+    expect(body).not.toMatch(/SECURITY DEFINER/);
+    expect(body).not.toMatch(/SET search_path/);
+    expect(body).not.toMatch(/DROP POLICY|CREATE POLICY/);
+    expect(body).not.toMatch(/GRANT/);
+    expect(body).not.toMatch(/FROM (authenticated|service_role|PUBLIC)/);
+  });
+
+  it('revokes anon:EXECUTE from exactly the 27 restricted RPCs with exact signatures', () => {
+    expect(revokes).toHaveLength(27);
+    for (const fn of expected) {
+      expect(M71).toContain(`REVOKE EXECUTE ON FUNCTION public.${fn.name}${fn.sig} FROM anon;`);
+    }
+  });
+
+  it('leaves the anonymous contract + NO-ACTION set untouched (telemetry & public browse & analytics)', () => {
+    for (const fn of keep) {
+      expect(M71).not.toContain(`public.${fn} FROM anon`);
+    }
+    for (const fn of noAction) {
+      expect(M71).not.toContain(`public.${fn} FROM anon`);
+    }
   });
 });
