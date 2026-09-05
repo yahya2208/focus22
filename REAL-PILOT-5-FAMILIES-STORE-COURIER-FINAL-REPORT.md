@@ -220,3 +220,76 @@ No production data was deleted or fabricated; no migration history was modified.
 All Gates A–E equivalent checks and the 5-family + store + courier real run passed against production; the courier layer is live (00068 applied), the courier membership is provisioned, and production data integrity is intact.
 
 _Signed: focus software engineering team — REAL PILOT close-out, 2026-09-05._
+
+---
+
+# ACCOUNT ARCHITECTURE RECONCILIATION + PLATFORM-READY ORDER FLOW — CLOSE-OUT
+
+Scope: architecture re-check (store acceptance vs platform-ready orders) + independent operator/courier accounts with admin approval. Production report, 2026-09-05.
+
+## CURRENT STATE
+
+**Production (`fmggysdqigtejxbfpgtg`) at re-check, read-only verified:**
+- Pilot store `pilot-store-1` (`8e1bdb04-…`): `stores.operator_user_id` = **NULL** (no independent operator account).
+- `pilot_couriers`: **1 row** — user `a549a010-…` (yahyamanouni2@gmail.com, **super_admin**). The admin account *is* the courier; no independent courier identity.
+- Courier statuses binary (`active|inactive`); no onboarding/approval lifecycle; no provisioning/approval UI anywhere (no `pilot_admin_set_courier` UI).
+- Orders RLS: `Staff manage/read` only (admin|super_admin via `users.role`); stores admin-gated + public-read-active; couriers admin + self-read. Only helper RPC `fn_admin_uid()`.
+- Data baseline: orders 4, order_items 6, beneficial telemetry 1204 (client-emitted only, rising across real use 938→1144→1204), pilot_couriers 1, users (guest 408 / user 6 / super_admin 1).
+
+## AGREED ARCHITECTURE
+
+1. **Store = fulfilment point, not a marketplace seller.** Platform **pre-builds** the order as `confirmed`; the store's job is `confirmed → preparing` only. No per-order manual store acceptance; no `pending` on the happy path.
+2. **Independent identities:** Store operator (per-store membership) and Courier (per-store membership) are real user accounts, **provisioned by an admin** (`Pending → Admin Approval → Active`). No admin acting as courier/operator in the target model.
+3. Enforcement without RBAC changes: membership tables + `SECURITY DEFINER` RPCs + the existing `stores.operator_user_id` / courier-assignment gates; no new global roles, no `ROLE_PERMISSIONS`/`ROLE_CAPABILITY_MAP` edits, no RLS weakening.
+4. No real human accounts were created; structure + approval workflow only. (The single persistent courier row = the pre-existing admin-as-courier configuration, deliberately left untouched.)
+
+## GAP
+
+| # | Gap (CURRENT vs AGREED) |
+|---|---|
+| G-A | `delivery_create_order` created orders as `pending` and required 3 store clicks (pending→confirm→prepare), a marketplace-acceptance model applied to a fulfilment model. |
+| G-B | No operator account at all (`operator_user_id` NULL) and no approval lifecycle for operator/courier memberships (courier status binary). |
+| G-C | No admin provisioning/approval UI; courier membership is the admin account. |
+
+## CHANGES ALREADY COMPLETED
+
+- **00069 platform-ready orders** (additive redefinition): `INSERT` status `'pending'→'confirmed'` and `RETURN` `'pending'→'confirmed'` — the *only* two deltas vs 00065. Happy path is now born `confirmed`; store prepares directly; `storeActionsFor('pending')` kept for legacy rows. 00065 neither modified nor re-run.
+- **00070 account approval** (additive): `pilot_store_operators` ledger (status `pending|active|suspended`, approved_by/at, UNIQUE(store,user)) + RLS (Operator read own / Admin read all / Admin manage) + `SELECT` grant `authenticated`; `pilot_couriers` status vocabulary extended to `pending|active|inactive|suspended`; 4 new admin RPCs (`pilot_admin_set/list_operator_status`, `pilot_admin_set/list_courier_status`) — SECURITY DEFINER, `search_path=''`, admin-gated, `REVOKE`+`GRANT`; `active` syncs `stores.operator_user_id`, downgrade clears it.
+- **Hardened `pilot_courier_set_status`** (redefinition inside 00070): authorization now requires **ACTIVE membership** (or admin) instead of mere `courier_user_id` assignment → suspension revokes authority instantly with `42501`. Strict transition matrix unchanged.
+- Frontend: `PilotOpsAdminScreen` gained **Store operators** + **Couriers** management sections (approve/suspend); `neighborhood-service.ts`/`courier-service.ts` gained approval RPC clients + types; i18n keys added to **en/ar/fr/tr**.
+
+## NEW CHANGES REQUIRED
+
+None outstanding. The transactional smoke (single round) surfaced the suspended-courier authorization flaw (22023 instead of 42501) which was fixed by the 00070 hardening above and re-verified in the same smoke. The `cli-proof` copy of 00067 mentioned in earlier reports is an **owner-side action on another machine** (not present in this workspace); the repo copy already carries the repaired `ELSE`-positioned function (verified against the live production definition).
+
+## MIGRATIONS
+
+| Migration | SHA (blob) | Status |
+|---|---|---|
+| `00069_platform_ready_orders.sql` | `afa8c325138e3444f4bb00677160fef235c344b7` | Applied, EXIT 0 |
+| `00070_pilot_account_approval.sql` | `5e6ad2820101a3faad819ae9071ca1ef7e21012c` | Applied (idempotent re-apply after hardening), EXIT 0 |
+
+Both additive; 00065/00066/00067/00068 untouched. Structural gate asserts: no `ALTER TABLE users/roles/orders/stores`, no `INSERT INTO ROLE_PERMISSIONS/ROLE_CAPABILITY_MAP`, no `record_telemetry_event` edits, no `service_role`, grants explicitly `REVOKE … FROM PUBLIC` + `GRANT … TO authenticated`.
+
+## TESTS
+
+- `tsc --noEmit` → 0 errors · `vite build` → ✅ · lint on touched files → 0 errors.
+- Full suite → **3484/3484 passed** (281 files). Pilot suite 97 tests/5 files, incl. 00069 gate (confirmed-first, no pending, protections verbatim, additive-only, grant contract), 00070 gate (ledger+RLS, courier vocab, admin-gated SECURITY DEFINER, operator_user_id sync, grants, no weakening, workflow end-to-end, courier set-status ACTIVE hardening), and `pilot-approval-services` (operator/courier approve-suspend-list) tests.
+
+## PRODUCTION
+
+- **Disposable replay** (BEGIN…ROLLBACK): 00069+00070 applied + invariant DO-block verification → REPLAY_OK; verified true rollback.
+- **Apply:** 00069 EXIT 0 → 00070 EXIT 0 (only benign NOTICE/CREATE IF NOT EXISTS). Post-apply: `insert_confirmed`=t, `return_confirmed`=t, courier status check = pending/active/inactive/suspended, RLS on new ledger, 6 EXECUTE grants = 1 each, 5 RPCs SECURITY DEFINER, legacy orders untouched.
+- **Transactional smoke (21 checks, all PASS, then ROLLBACK):** A confirmed-first (pending never produced) · B unapproved operator 42501 · C no-membership + pending courier blocked 42501 · D pending→active approval with `operator_user_id` sync · E store sees `confirmed` immediately + prepares · F cross-store isolation 42501 both directions (store B) · G courier C1 active accepts `out_for_delivery`→`delivered` · H courier C2 cannot see/claim · I family tracks delivered · J suspension: 42501 + store unlink + courier blocked · K pending=0, legacy untouched, in-txn (+1/+1).
+- **Post-rollback proof:** orders 4 / order_items 6 / pilot_store_operators 0 / pilot_couriers 1 / smoke users 0 / store B 0 / smoke order 0; legacy rows `8a20ae85·4e259196·20fca116` pending + `277d3a61` delivered — unchanged. RLS policy sets on orders/order_items/stores/pilot_couriers identical to the pre-00070 surface (+3 policies on the new ledger only). No RLS/RBAC/grants downgrade.
+
+## GIT
+
+- Commit `0d9ec4d` (43 files, +8467/−7) → pushed `368b72f..0d9ec4d main -> main` (https://github.com/yahya2208/focus22.git).
+- Scoped to REAL PILOT only: migrations 00065–00070, `src/screens/pilot/`, `src/services/*`, `src/__tests__/pilot/`, pilot screens/nav telemetry-event registry (`events.ts`/`types.ts`/`migration.test.ts` — pilot-event deltas only), i18n en/ar/fr/tr, reports. Unrelated epics (settings/ads/catalog/inventory, `runtime-settings.ts`, 00064, `supabase/verify/*`, `settings-00064-consumers.test.ts`) **excluded** and remain uncommitted working changes.
+
+## FINAL VERDICT
+
+> ## 🟢 **READY — PLATFORM-READY ORDER FLOW + ACCOUNT ARCHITECTURE = PASS**
+
+Confirmed-first order lifecycle verified on production (`pending` never produced); independent operator/courier identities with admin approval enforced (Pending → Approval → Active, instant revocation on suspension with 42501); cross-tenant isolation, strict transitions and legacy data integrity proven in a 21-check transactional smoke that rolled back cleanly; full suite green (3484); delivery committed and pushed. No remaining production or test gaps in scope for this phase.
