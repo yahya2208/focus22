@@ -2,7 +2,9 @@
 ## Wave A — Canonical Telemetry Contract Hardening & Normalization
 
 - **Status:** ✅ **PASS WITH DEFERRED ITEMS**
-- **Commit:** `79a7d0e` `feat(telemetry): harden canonical event contract (Wave A)` — pushed to `origin/main` (`955125d..79a7d0e`)
+- **HEAD == origin/main:** `01e9c24` `docs(telemetry): add Wave A contract hardening report` — pushed to `origin/main` (`955125d..01e9c24`)
+- **Implementation commit (incl. migration 00076):** `79a7d0e` `feat(telemetry): harden canonical event contract (Wave A)`
+- **Docs commit (this report):** `01e9c24` (`79a7d0e..01e9c24` adds only `TELEMETRY-WAVE-A-REPORT.md`)
 - **Migration applied to production:** `supabase/migrations/00076_telemetry_contract_hardening.sql` (single transaction, THEN verified read-only)
 - **Baseline HEAD:** `955125d security(hardening): close Gate-1 RLS/storage/search_path gaps (00072-00075)`
 
