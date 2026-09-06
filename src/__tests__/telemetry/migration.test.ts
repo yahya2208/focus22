@@ -17,18 +17,20 @@ const MIGRATION = path.resolve(__dirname, '../../../supabase/migrations/00057_te
 const MIGRATION_061 = path.resolve(__dirname, '../../../supabase/migrations/00061_telemetry_phase8_events.sql');
 const MIGRATION_067 = path.resolve(__dirname, '../../../supabase/migrations/00067_telemetry_pilot_events.sql');
 const MIGRATION_076 = path.resolve(__dirname, '../../../supabase/migrations/00076_telemetry_contract_hardening.sql');
+const MIGRATION_077 = path.resolve(__dirname, '../../../supabase/migrations/00077_telemetry_journey_identity.sql');
 const VERIFY = path.resolve(__dirname, '../../../supabase/verify/telemetry_events.sql');
 
 /**
  * The complete server contract. 00057 defines the closed write/read contract;
- * 00061 (Phase 8), 00067 (Pilot) and 00076 (Wave A hardening) are ADDITIVE
- * re-creates of record_telemetry_event with extra event->domain / allowlist
- * branches. 00076 is the LATEST and FINAL authority for the write RPC, so it is
- * read FIRST: the parity matches below must see the current allowlists (e.g.
- * family_id on family_view / checkout_submit / order_created).
+ * 00061 (Phase 8), 00067 (Pilot), 00076 (Wave A hardening) and 00077 (Wave B
+ * journey identity) are ADDITIVE re-creates of record_telemetry_event with
+ * extra event->domain / allowlist / validation branches. 00077 is the LATEST
+ * and FINAL authority for the write RPC and COLUMN LAYOUT (journey_id), so it
+ * is read FIRST: the parity matches below must see the current allowlists and
+ * the journey-aware insert.
  */
 function contractSql(): string {
-  return [MIGRATION_076, MIGRATION, MIGRATION_061, MIGRATION_067].map((f) => fs.readFileSync(f, 'utf-8')).join('\n');
+  return [MIGRATION_077, MIGRATION_076, MIGRATION, MIGRATION_061, MIGRATION_067].map((f) => fs.readFileSync(f, 'utf-8')).join('\n');
 }
 
 function readSql(rel: string): string {
@@ -203,5 +205,66 @@ describe('00076 telemetry contract hardening (Wave A)', () => {
     expect(v).toContain('INVALID_ENTITY_TYPE');
     expect(v).toContain('family_id');
     expect(v).toContain('uidx_telemetry_dedupe');
+  });
+});
+
+describe('00077 telemetry journey identity (Wave B)', () => {
+  it('migration file exists; adds nullable journey_id column; touch nothing else', () => {
+    const sql = fs.readFileSync(MIGRATION_077, 'utf-8');
+    expect(fs.existsSync(MIGRATION_077)).toBe(true);
+    expect(sql).toContain('ALTER TABLE public.telemetry_events');
+    expect(sql).toContain('ADD COLUMN IF NOT EXISTS journey_id text');
+    expect(sql).toContain('journey_id');
+    expect(sql).not.toContain('CREATE OR REPLACE FUNCTION public.get_telemetry_analytics');
+    expect(sql).not.toContain('CREATE INDEX');
+    expect(sql).not.toContain('DROP POLICY');
+  });
+
+  it('declares journey_id is NOT indexed and NOT backfilled (contract statement)', () => {
+    const sql = fs.readFileSync(MIGRATION_077, 'utf-8');
+    expect(sql).toContain('NO backfill');
+    expect(sql).toContain('NO new table, NO index');
+  });
+
+  it('re-created RPC keeps SECURITY DEFINER + search_path + anon/authenticated grants', () => {
+    const sql = fs.readFileSync(MIGRATION_077, 'utf-8');
+    const defBlock = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.record_telemetry_event'), sql.indexOf('$$') + 2);
+    expect(defBlock.toLowerCase()).toContain('security definer');
+    expect(defBlock).toContain("SET search_path = ''");
+    expect(sql).toContain('GRANT EXECUTE ON FUNCTION public.record_telemetry_event(jsonb) TO authenticated, anon');
+    expect(sql).toContain('REVOKE ALL ON FUNCTION public.record_telemetry_event(jsonb) FROM PUBLIC');
+  });
+
+  it('validates journey_id format when present (INVALID_JOURNEY_ID) and allows NULL', () => {
+    const sql = fs.readFileSync(MIGRATION_077, 'utf-8');
+    expect(sql).toContain('INVALID_JOURNEY_ID');
+    expect(sql).toContain('journey_id, properties, context, dedupe_key');
+    expect(sql).toContain("v_journey := v_ev->>'journey_id'");
+  });
+
+  it('the final server insert includes journey_id AND the legacy NOT NULL columns', () => {
+    const sql = fs.readFileSync(MIGRATION_077, 'utf-8');
+    expect(sql).toContain('event_id, event_name, event_version, domain, occurred_at');
+    expect(sql).toContain('session_id, anonymous_id, user_id, screen, entity_type, entity_id');
+    expect(sql).toContain('journey_id, properties, context, dedupe_key');
+  });
+
+  it('97-event parity is preserved through 00077 (server dict + allowlists live in 00077)', () => {
+    const sql = contractSql();
+    for (const ev of Object.keys(TELEMETRY_EVENT_SCHEMAS)) {
+      expect(sql, `server missing event '${ev}' after 00077`).toContain(`WHEN '${ev}'`);
+    }
+    // 00077 itself is a full re-create (has the WITH the whole allowlist CASE)
+    const own = fs.readFileSync(MIGRATION_077, 'utf-8');
+    for (const ev of Object.keys(TELEMETRY_EVENT_SCHEMAS)) {
+      expect(own, `00077 dropped event '${ev}'`).toContain(`WHEN '${ev}'`);
+    }
+  });
+
+  it('verify script exists and covers the journey contract', () => {
+    const v = readSql('supabase/verify/telemetry_journey_identity.sql');
+    expect(v).toContain('journey_id');
+    expect(v).toContain('INVALID_JOURNEY_ID');
+    expect(v).toContain('get_telemetry_analytics');
   });
 });

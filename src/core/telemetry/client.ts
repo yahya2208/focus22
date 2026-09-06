@@ -21,6 +21,7 @@
 import { getSupabaseClient } from '../supabase/client';
 import { getVisitorHash } from '../../services/intent-tracking';
 import { sanitizeEvent } from './privacy';
+import { getJourneyId } from './journey';
 import {
   getEventSchema,
   isTelemetryEventName,
@@ -128,6 +129,7 @@ export async function track(input: TelemetryEventInput): Promise<void> {
       session_id: getTelemetrySessionId(),
       anonymous_id: getVisitorHash(),
       user_id: await currentUserId(),
+      journey_id: getJourneyId(),
       screen: input.screen ?? null,
       entity_type: input.entityType ?? null,
       entity_id: input.entityId ?? null,

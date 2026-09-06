@@ -1,5 +1,6 @@
 import { useState, useEffect, createContext, useContext, useMemo, useRef, type ReactNode } from 'react';
 import { createAuthService, type AuthService, type AuthState } from './index';
+import { reconcileJourneyIdentity } from '../telemetry/journey';
 import { mapToResearchRole, type ResearchRole } from '../research/permissions';
 
 export type { ResearchRole };
@@ -43,9 +44,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // P3 Stop-Write (مسار الخصوصية): لا signInAsGuest() تلقائياً لمجرد فتح
     // التطبيق — إنشاء حساب ضيف هو قرار مستخدم صريح عبر LoginScreen فقط.
-    return service.onStateChange((newState) => {
+    const offJourney = service.onStateChange((newState) => {
+      // Wave B identity plumbing (no producer emission): rotate the journey id
+      // on sign-out / account switch, KEEP it across anonymous→auth.
+      try {
+        reconcileJourneyIdentity(newState);
+      } catch {
+        // never break the app on an identity-bookkeeping hiccup
+      }
+    });
+    const offState = service.onStateChange((newState) => {
       setState(newState);
     });
+    return () => {
+      offJourney();
+      offState();
+    };
   }, [service]);
 
   const researchRole = useMemo(

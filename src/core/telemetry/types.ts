@@ -10,19 +10,25 @@
  *   - Free-form user text, PII and sensitive keys are FORBIDDEN.
  *   - `entity_id` is TEXT by design: DB uuids AND future CatalogId slugs.
  *
- * IDENTITY CONTRACT (three orthogonal, non-PII identifiers):
+ * IDENTITY CONTRACT (four orthogonal, non-PII identifiers):
  *   - `session_id`  — client `crypto.randomUUID()`; scope = ONE page load. It
  *     changes on reload and is NOT persisted. It is deliberately unrelated to
  *     the scientific `sessions` table (Wave B reconciles journeys).
  *   - `anonymous_id` — the non-PII `focus_vid_v1` visitor hash (32 lower-hex);
  *     STABLE across reloads and across the guest->member boundary for one
  *     device. This is the cross-session stitch for a single visitor.
- *   - `user_id` — `auth.uid()` derived SERVER-side only. Guests logs in via
+ *   - `user_id` — `auth.uid()` derived SERVER-side only. Guests log in via
  *     Supabase Anonymous Auth, so guests also carry a (non-null) uid; a
  *     null/absent user_id only means no auth session at wire time. Guest vs
- *     registered cannot be told apart from this field alone (Wave B adds an
- *     explicit auth-state discriminator). This is a privacy VIRTUE (no
- *     profile PII: email/phone/name never reach telemetry).
+ *     registered is discriminated in the JOURNEY layer via `isAnonymous` (an
+ *     explicit auth-state discriminator) — never by `user_id` alone. This is a
+ *     privacy VIRTUE (no profile PII: email/phone/name never reach telemetry).
+ *   - `journey_id` — Wave B: one opaque random UUID per user trajectory. It is
+ *     NOT the app session, the anonymous identity, or a scientific session id.
+ *     Created CLIENT-side (non-blocking, offline-first), persisted in
+ *     localStorage `focus_journey_v1`, rotated on sign-out / registered account
+ *     switch / registered→anonymous, and KEPT across the anonymous→
+ *     authenticated junction. Old rows are NULL (no backfill). NOT PII.
  */
 
 export const TELEMETRY_DOMAINS = [
@@ -216,6 +222,7 @@ export interface TelemetryWireRow {
   readonly session_id: string;
   readonly anonymous_id: string | null;
   readonly user_id: string | null;
+  readonly journey_id: string | null;
   readonly screen: string | null;
   readonly entity_type: string | null;
   readonly entity_id: string | null;

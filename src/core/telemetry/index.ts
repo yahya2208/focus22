@@ -9,6 +9,7 @@
  * call sites are strongly typed without exposing internals.
  */
 export { track, flushNow, setTelemetryEnabled, resetTelemetry, getTelemetrySessionId } from './client';
+export { getJourneyId, reconcileJourneyIdentity, resetJourneyId } from './journey';
 export {
   getEventSchema,
   isTelemetryEventName,

@@ -18,6 +18,7 @@ import {
   resetTelemetry,
   getTelemetrySessionId,
 } from '../../core/telemetry/client';
+import { getJourneyId, resetJourneyId } from '../../core/telemetry/journey';
 import { getVisitorHash, resetVisitorId } from '../../services/intent-tracking';
 
 /**
@@ -38,6 +39,7 @@ describe('telemetry client — RPC-only, fire-and-forget, batching', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetVisitorId();
+    resetJourneyId();
     resetTelemetry();
     setTelemetryEnabled(true);
     mocks.getSupabaseClient.mockImplementation(() => ({
@@ -51,6 +53,7 @@ describe('telemetry client — RPC-only, fire-and-forget, batching', () => {
     resetTelemetry();
     setTelemetryEnabled(true);
     resetVisitorId();
+    resetJourneyId();
   });
 
   it('sends via the record_telemetry_event RPC with a batch payload (RPC-only, no direct table write)', async () => {
@@ -73,6 +76,10 @@ describe('telemetry client — RPC-only, fire-and-forget, batching', () => {
     const events = mocks.mockRpc.mock.calls[0]![1].p_events as Array<Record<string, unknown>>;
     expect(events[0]!.anonymous_id).toBe(getVisitorHash());
     expect(typeof events[0]!.session_id).toBe('string');
+    expect(events[0]!.session_id).toBe(getTelemetrySessionId());
+    // Wave B: journey_id is stamped independently of session/anonymous identity.
+    expect(events[0]!.journey_id).toBe(getJourneyId());
+    expect(events[0]!.journey_id).not.toBe(events[0]!.session_id);
     expect((events[0]!.session_id as string).length).toBeGreaterThan(10);
     expect(events[0]!.entity_id).toBe('8/128-slug');
     expect(events[0]!.entity_type).toBe('listing');
