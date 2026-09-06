@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { FORBIDDEN_KEYS } from '../../core/telemetry/privacy';
 import { TELEMETRY_EVENT_SCHEMAS } from '../../core/telemetry/events';
+import { TELEMETRY_ENTITY_TYPES } from '../../core/telemetry/types';
 import type { TelemetryDomain } from '../../core/telemetry/types';
 
 /**
@@ -15,17 +16,19 @@ import type { TelemetryDomain } from '../../core/telemetry/types';
 const MIGRATION = path.resolve(__dirname, '../../../supabase/migrations/00057_telemetry_events.sql');
 const MIGRATION_061 = path.resolve(__dirname, '../../../supabase/migrations/00061_telemetry_phase8_events.sql');
 const MIGRATION_067 = path.resolve(__dirname, '../../../supabase/migrations/00067_telemetry_pilot_events.sql');
+const MIGRATION_076 = path.resolve(__dirname, '../../../supabase/migrations/00076_telemetry_contract_hardening.sql');
 const VERIFY = path.resolve(__dirname, '../../../supabase/verify/telemetry_events.sql');
 
 /**
  * The complete server contract. 00057 defines the closed write/read contract;
- * 00061 (Phase 8) and 00067 (Pilot) are ADDITIVE re-creates of
- * record_telemetry_event and get_telemetry_analytics with extra event->domain
- * / allowlist branches. The inventory checks below therefore read ALL THREE
- * migrations as one contract.
+ * 00061 (Phase 8), 00067 (Pilot) and 00076 (Wave A hardening) are ADDITIVE
+ * re-creates of record_telemetry_event with extra event->domain / allowlist
+ * branches. 00076 is the LATEST and FINAL authority for the write RPC, so it is
+ * read FIRST: the parity matches below must see the current allowlists (e.g.
+ * family_id on family_view / checkout_submit / order_created).
  */
 function contractSql(): string {
-  return [MIGRATION, MIGRATION_061, MIGRATION_067].map((f) => fs.readFileSync(f, 'utf-8')).join('\n');
+  return [MIGRATION_076, MIGRATION, MIGRATION_061, MIGRATION_067].map((f) => fs.readFileSync(f, 'utf-8')).join('\n');
 }
 
 function readSql(rel: string): string {
@@ -137,5 +140,68 @@ describe('00057 telemetry migration — server contract present & consistent', (
     expect(sql).toContain('INVALID_ANONYMOUS_ID');
     expect(sql).toContain("length(v_anon) <> 32");
     expect(sql).toContain("'^[0-9a-f]{32}$'");
+  });
+});
+
+describe('00076 telemetry contract hardening (Wave A)', () => {
+  it('migration file exists and re-creates the write RPC only (no analytics change)', () => {
+    const sql = fs.readFileSync(MIGRATION_076, 'utf-8');
+    expect(fs.existsSync(MIGRATION_076)).toBe(true);
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.record_telemetry_event(p_events jsonb)');
+    expect(sql).not.toContain('CREATE OR REPLACE FUNCTION public.get_telemetry_analytics');
+  });
+
+  it('preserves SECURITY DEFINER + hardened search_path on the re-created RPC', () => {
+    const sql = fs.readFileSync(MIGRATION_076, 'utf-8');
+    const defBlock = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.record_telemetry_event'), sql.indexOf('$$') + 2);
+    expect(defBlock.toLowerCase()).toContain('security definer');
+    expect(defBlock).toContain("SET search_path = ''");
+  });
+
+  it('keeps EXECUTE grants to BOTH authenticated and anon (anonymous contract intact)', () => {
+    const sql = fs.readFileSync(MIGRATION_076, 'utf-8');
+    expect(sql).toContain('GRANT EXECUTE ON FUNCTION public.record_telemetry_event(jsonb) TO authenticated, anon');
+    expect(sql).toContain('REVOKE ALL ON FUNCTION public.record_telemetry_event(jsonb) FROM PUBLIC');
+  });
+
+  it('enforces the closed entity_type union server-side (INVALID_ENTITY_TYPE)', () => {
+    const sql = fs.readFileSync(MIGRATION_076, 'utf-8');
+    expect(sql).toContain('RAISE EXCEPTION \'INVALID_ENTITY_TYPE\'');
+    for (const t of TELEMETRY_ENTITY_TYPES) {
+      expect(sql, `server entity_type union missing '${t}'`).toContain(`'${t}'`);
+    }
+  });
+
+  it('server entity_type union is EXACTLY the client union (no extra, no missing)', () => {
+    const sql = fs.readFileSync(MIGRATION_076, 'utf-8');
+    const m = /v_etype IN \(\s*([\s\S]*?)\s*\)\)\s*THEN/.exec(sql);
+    expect(m).toBeTruthy();
+    const tokens = m![1]!
+      .split(',')
+      .map((s) => s.trim().replace(/'/g, ''))
+      .filter(Boolean)
+      .sort();
+    expect(tokens).toEqual([...TELEMETRY_ENTITY_TYPES].sort());
+  });
+
+  it('family_id is allowlisted ONLY for family_view / checkout_submit / order_created', () => {
+    const expectFamilyOn = ['family_view', 'checkout_submit', 'order_created'];
+    const expectFamilyOff = Object.keys(TELEMETRY_EVENT_SCHEMAS).filter((ev) => !expectFamilyOn.includes(ev));
+    for (const ev of expectFamilyOn) {
+      const schema = TELEMETRY_EVENT_SCHEMAS[ev as keyof typeof TELEMETRY_EVENT_SCHEMAS];
+      expect((schema as { properties: readonly string[] }).properties).toContain('family_id');
+    }
+    for (const ev of expectFamilyOff) {
+      const schema = TELEMETRY_EVENT_SCHEMAS[ev as keyof typeof TELEMETRY_EVENT_SCHEMAS];
+      expect((schema as { properties: readonly string[] }).properties, `'${ev}' must NOT carry family_id`).not.toContain('family_id');
+    }
+  });
+
+  it('verify script exists and covers the hardened contract', () => {
+    const v = readSql('supabase/verify/telemetry_contract_hardening.sql');
+    expect(v).toContain('record_telemetry_event');
+    expect(v).toContain('INVALID_ENTITY_TYPE');
+    expect(v).toContain('family_id');
+    expect(v).toContain('uidx_telemetry_dedupe');
   });
 });

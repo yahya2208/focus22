@@ -132,3 +132,91 @@ describe('telemetry client — RPC-only, fire-and-forget, batching', () => {
     expect(getTelemetrySessionId()).not.toBe('');
   });
 });
+
+describe('telemetry client — Wave A contract hardening (closed registry + identity)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetVisitorId();
+    resetTelemetry();
+    setTelemetryEnabled(true);
+    mocks.getSupabaseClient.mockImplementation(() => ({
+      rpc: mocks.mockRpc,
+      auth: { getUser: mocks.mockAuthGetUser },
+    }));
+    mocks.mockRpc.mockResolvedValue({ data: null, error: null });
+    mocks.mockAuthGetUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
+  });
+  afterEach(() => {
+    resetTelemetry();
+    setTelemetryEnabled(true);
+    resetVisitorId();
+  });
+
+  it('drops an unknown event name safely (no throw, nothing enqueued)', async () => {
+    await track({ event: 'not_a_canonical_event' } as never);
+    await flushAll();
+    expect(mocks.mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('drops an invalid entity_type safely (no throw, nothing enqueued)', async () => {
+    await track({ event: 'product_view', entityType: 'not_a_union_member' as never });
+    await flushAll();
+    expect(mocks.mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('allows a NULL / absent entity_type (optional contract field)', async () => {
+    await track({ event: 'app_open' });
+    await flushAll();
+    const events = mocks.mockRpc.mock.calls[0]![1].p_events as Array<Record<string, unknown>>;
+    expect(events[0]!.entity_type).toBeNull();
+  });
+
+  it('keeps a valid union entity_type in the wire row', async () => {
+    await track({ event: 'game_start', entityType: 'game', entityId: 'sess-1', properties: { game: 'reaction-light', size: 1 } });
+    await flushAll();
+    const events = mocks.mockRpc.mock.calls[0]![1].p_events as Array<Record<string, unknown>>;
+    expect(events[0]!.entity_type).toBe('game');
+    expect(events[0]!.entity_id).toBe('sess-1');
+  });
+
+  it('preserves guest telemetry: user_id stays null, anonymous_id still sent', async () => {
+    mocks.mockAuthGetUser.mockResolvedValue({ data: { user: null }, error: null } as never);
+    await track({ event: 'screen_view' });
+    await flushAll();
+    expect(mocks.mockRpc).toHaveBeenCalledTimes(1);
+    const events = mocks.mockRpc.mock.calls[0]![1].p_events as Array<Record<string, unknown>>;
+    expect(events[0]!.user_id).toBeNull();
+    expect(events[0]!.anonymous_id).toBe(getVisitorHash());
+  });
+
+  it('preserves authenticated telemetry: user_id from auth.uid(), anonymous_id stable', async () => {
+    await track({ event: 'screen_view' });
+    await flushAll();
+    const events = mocks.mockRpc.mock.calls[0]![1].p_events as Array<Record<string, unknown>>;
+    expect(events[0]!.user_id).toBe('user-123');
+    expect(events[0]!.anonymous_id).toBe(getVisitorHash());
+  });
+
+  it('derives domain from the canonical registry (never caller-supplied)', async () => {
+    await track({ event: 'order_created', domain: 'hacked' } as never);
+    await flushAll();
+    const events = mocks.mockRpc.mock.calls[0]![1].p_events as Array<Record<string, unknown>>;
+    expect(events[0]!.domain).toBe('order');
+  });
+
+  it('always stamps a session_id and a valid event_name/version on the wire row', async () => {
+    await track({ event: 'family_view', entityType: 'neighborhood', properties: { family_id: 'f-1' } });
+    await flushAll();
+    const events = mocks.mockRpc.mock.calls[0]![1].p_events as Array<Record<string, unknown>>;
+    expect(events[0]!).toMatchObject({ event_name: 'family_view', event_version: 1, domain: 'neighborhood' });
+    expect(typeof events[0]!.session_id).toBe('string');
+    expect(events[0]!.session_id).toBe(getTelemetrySessionId());
+  });
+
+  it('family_id reaches the wire for the family-context events (contract fix, not blocked)', async () => {
+    await track({ event: 'checkout_submit', entityType: 'order', properties: { items_count: 2, family_id: 'f-7' } });
+    await flushAll();
+    const events = mocks.mockRpc.mock.calls[0]![1].p_events as Array<Record<string, unknown>>;
+    expect(events[0]!.properties).toEqual({ items_count: 2, family_id: 'f-7' });
+  });
+});

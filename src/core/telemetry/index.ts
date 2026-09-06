@@ -9,7 +9,14 @@
  * call sites are strongly typed without exposing internals.
  */
 export { track, flushNow, setTelemetryEnabled, resetTelemetry, getTelemetrySessionId } from './client';
-export { getEventSchema, isTelemetryEventName, domainOf } from './events';
+export {
+  getEventSchema,
+  isTelemetryEventName,
+  domainOf,
+  isEventEmitted,
+  EMITTED_TELEMETRY_EVENT_NAMES,
+  UNEMITTED_TELEMETRY_EVENT_NAMES,
+} from './events';
 export { sanitizeEvent, sanitizeProperties, isForbiddenKey, FORBIDDEN_KEYS } from './privacy';
 
 export type { TelemetryEventInput, TelemetryEventName, TelemetryDomain } from './types';

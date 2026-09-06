@@ -9,6 +9,20 @@
  *   - Only allowlisted property keys may ever reach the wire.
  *   - Free-form user text, PII and sensitive keys are FORBIDDEN.
  *   - `entity_id` is TEXT by design: DB uuids AND future CatalogId slugs.
+ *
+ * IDENTITY CONTRACT (three orthogonal, non-PII identifiers):
+ *   - `session_id`  — client `crypto.randomUUID()`; scope = ONE page load. It
+ *     changes on reload and is NOT persisted. It is deliberately unrelated to
+ *     the scientific `sessions` table (Wave B reconciles journeys).
+ *   - `anonymous_id` — the non-PII `focus_vid_v1` visitor hash (32 lower-hex);
+ *     STABLE across reloads and across the guest->member boundary for one
+ *     device. This is the cross-session stitch for a single visitor.
+ *   - `user_id` — `auth.uid()` derived SERVER-side only. Guests logs in via
+ *     Supabase Anonymous Auth, so guests also carry a (non-null) uid; a
+ *     null/absent user_id only means no auth session at wire time. Guest vs
+ *     registered cannot be told apart from this field alone (Wave B adds an
+ *     explicit auth-state discriminator). This is a privacy VIRTUE (no
+ *     profile PII: email/phone/name never reach telemetry).
  */
 
 export const TELEMETRY_DOMAINS = [

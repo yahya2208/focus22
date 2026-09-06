@@ -19,6 +19,13 @@ export interface TelemetryEventSchema {
   readonly properties: readonly string[];
   /** 1 = first released schema version; bumped only on breaking shape change. */
   readonly version: number;
+  /**
+   * Lifecycle status. `false` = DEFINED in the canonical registry (and mirrored
+   * server-side) but currently has NO producer in the app — the contract is
+   * stable so a later Wave can wire a producer without registry churn.
+   * Omitted = produced/emitted.
+   */
+  readonly emitted?: boolean;
 }
 
 const EVENTS = {
@@ -27,12 +34,12 @@ const EVENTS = {
   app_ready: { domain: 'app', properties: [], version: 1 },
   app_background: { domain: 'app', properties: [], version: 1 },
   app_foreground: { domain: 'app', properties: [], version: 1 },
-  app_update_detected: { domain: 'app', properties: ['from', 'to'], version: 1 },
-  app_error: { domain: 'system', properties: ['error_code', 'count'], version: 1 },
+  app_update_detected: { domain: 'app', properties: ['from', 'to'], version: 1, emitted: false },
+  app_error: { domain: 'system', properties: ['error_code', 'count'], version: 1, emitted: false },
   // ——— navigation ———
   screen_view: { domain: 'navigation', properties: ['from', 'is_initial'], version: 1 },
   navigation_back: { domain: 'navigation', properties: ['to'], version: 1 },
-  navigation_exit: { domain: 'navigation', properties: [], version: 1 },
+  navigation_exit: { domain: 'navigation', properties: [], version: 1, emitted: false },
   deep_link_open: { domain: 'navigation', properties: ['mode', 'has_code'], version: 1 },
   // ——— categories ———
   category_view: { domain: 'category', properties: [], version: 1 },
@@ -46,10 +53,10 @@ const EVENTS = {
   product_impression: { domain: 'product', properties: ['position'], version: 1 },
   product_view: { domain: 'product', properties: [], version: 1 },
   product_image_view: { domain: 'product', properties: ['index'], version: 1 },
-  product_variant_select: { domain: 'product', properties: ['variant'], version: 1 },
-  product_details_expand: { domain: 'product', properties: ['section'], version: 1 },
+  product_variant_select: { domain: 'product', properties: ['variant'], version: 1, emitted: false },
+  product_details_expand: { domain: 'product', properties: ['section'], version: 1, emitted: false },
   product_share: { domain: 'product', properties: ['method'], version: 1 },
-  product_favorite: { domain: 'product', properties: ['active'], version: 1 },
+  product_favorite: { domain: 'product', properties: ['active'], version: 1, emitted: false },
   product_contact: { domain: 'product', properties: ['method'], version: 1 },
   product_back: { domain: 'product', properties: [], version: 1 },
   // ——— listings ———
@@ -58,7 +65,7 @@ const EVENTS = {
   listing_create_success: { domain: 'listing', properties: [], version: 1 },
   listing_create_failed: { domain: 'listing', properties: ['error_code'], version: 1 },
   listing_view_detail: { domain: 'listing', properties: [], version: 1 },
-  listing_share: { domain: 'listing', properties: ['method'], version: 1 },
+  listing_share: { domain: 'listing', properties: ['method'], version: 1, emitted: false },
   listing_contact: { domain: 'listing', properties: ['method'], version: 1 },
   listing_add_to_cart: { domain: 'listing', properties: ['qty'], version: 1 },
   listing_edit_start: { domain: 'listing', properties: [], version: 1 },
@@ -80,10 +87,10 @@ const EVENTS = {
   // ——— neighborhood pilot (Phase 8) ———
   neighborhood_view: { domain: 'neighborhood', properties: [], version: 1 },
   store_view: { domain: 'neighborhood', properties: [], version: 1 },
-  family_view: { domain: 'neighborhood', properties: [], version: 1 },
+  family_view: { domain: 'neighborhood', properties: ['family_id'], version: 1 },
   checkout_start: { domain: 'order', properties: ['items_count', 'with_delivery'], version: 1 },
-  checkout_submit: { domain: 'order', properties: ['items_count'], version: 1 },
-  order_created: { domain: 'order', properties: ['channel'], version: 1 },
+  checkout_submit: { domain: 'order', properties: ['items_count', 'family_id'], version: 1 },
+  order_created: { domain: 'order', properties: ['channel', 'family_id'], version: 1 },
   order_failed: { domain: 'order', properties: ['error_code'], version: 1 },
   order_status_changed: { domain: 'order', properties: ['status'], version: 1 },
   order_completed: { domain: 'order', properties: [], version: 1 },
@@ -95,8 +102,8 @@ const EVENTS = {
   game_intro_view: { domain: 'game', properties: ['game'], version: 1 },
   game_start: { domain: 'game', properties: ['game', 'size'], version: 1 },
   game_exit: { domain: 'game', properties: ['game'], version: 1 },
-  game_pause: { domain: 'game', properties: ['game'], version: 1 },
-  game_resume: { domain: 'game', properties: ['game'], version: 1 },
+  game_pause: { domain: 'game', properties: ['game'], version: 1, emitted: false },
+  game_resume: { domain: 'game', properties: ['game'], version: 1, emitted: false },
   game_complete: { domain: 'game', properties: ['game', 'outcome'], version: 1 },
   game_round_complete: { domain: 'game', properties: ['game', 'round_index', 'hit'], version: 1 },
   game_result_view: { domain: 'game', properties: ['game'], version: 1 },
@@ -152,3 +159,19 @@ export function isTelemetryEventName(value: string): value is TelemetryEventName
 export function domainOf(name: TelemetryEventName): TelemetryDomain {
   return EVENTS[name].domain;
 }
+
+/** True when the event has a producer in the app (registry status). */
+export function isEventEmitted(name: TelemetryEventName): boolean {
+  const schema = EVENTS[name] as TelemetryEventSchema;
+  return schema.emitted !== false;
+}
+
+/** Events currently produced somewhere in src (88 of 97). */
+export const EMITTED_TELEMETRY_EVENT_NAMES: readonly TelemetryEventName[] = Object.entries(EVENTS)
+  .filter(([, schema]) => (schema as TelemetryEventSchema).emitted !== false)
+  .map(([name]) => name) as TelemetryEventName[];
+
+/** Events DEFINED in the canonical registry but with NO producer yet (9). */
+export const UNEMITTED_TELEMETRY_EVENT_NAMES: readonly TelemetryEventName[] = Object.entries(EVENTS)
+  .filter(([, schema]) => (schema as TelemetryEventSchema).emitted === false)
+  .map(([name]) => name) as TelemetryEventName[];

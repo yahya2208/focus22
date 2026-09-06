@@ -34,6 +34,7 @@ import {
   TELEMETRY_FLUSH_MS,
   TELEMETRY_MAX_BUFFER,
   TELEMETRY_RPC_NAME,
+  TELEMETRY_ENTITY_TYPES,
 } from './types';import type {
   TelemetryEventInput,
   TelemetryWireRow,
@@ -41,6 +42,8 @@ import {
 } from './types';
 
 let enabled = true;
+
+const entityTypes = new Set<string>(TELEMETRY_ENTITY_TYPES);
 
 /** Test seam: true by default; tests may disable the network path. */
 export function setTelemetryEnabled(value: boolean): void {
@@ -102,6 +105,7 @@ export async function track(input: TelemetryEventInput): Promise<void> {
   if (!enabled) return;
   try {
     if (!isTelemetryEventName(input.event)) return;
+    if (input.entityType != null && !entityTypes.has(input.entityType)) return;
 
     // 1) privacy gate (closed allowlist + forbidden keys)
     const clean = sanitizeEvent(input);
