@@ -13,6 +13,10 @@ const M67 = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migration
 const M69 = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations/00069_platform_ready_orders.sql'), 'utf-8');
 const M70 = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations/00070_pilot_account_approval.sql'), 'utf-8');
 const M71 = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations/00071_anon_execute_hardening.sql'), 'utf-8');
+const M72 = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations/00072_secwave_gcr3_preapply_hardening.sql'), 'utf-8');
+const M73 = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations/00073_secwave_storage_listing_restriction.sql'), 'utf-8');
+const M74 = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations/00074_secwave_rls_initplan_hardening.sql'), 'utf-8');
+const M75 = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations/00075_secwave_search_path_hardening.sql'), 'utf-8');
 
 const FN_IN = (src: string, name: string): string => {
   const start = src.indexOf(`CREATE OR REPLACE FUNCTION public.${name}`);
@@ -464,5 +468,129 @@ describe('00071 — anon:EXECUTE hardening (Security Gate F1, revoke-only)', () 
     for (const fn of noAction) {
       expect(M71).not.toContain(`public.${fn} FROM anon`);
     }
+  });
+});
+
+describe('00072 — Security Hardening Wave A: _gcr3_preapply_models exposure', () => {
+  it('enables RLS on the snapshot table (lint rls_disabled_in_public)', () => {
+    expect(M72).toMatch(/ALTER TABLE public\._gcr3_preapply_models ENABLE ROW LEVEL SECURITY;/);
+    expect(M72).not.toMatch(/DISABLE ROW LEVEL SECURITY/);
+    expect(M72).not.toMatch(/FORCE ROW LEVEL SECURITY/);
+  });
+
+  it('adds a primary key on id (lint no_primary_key, dedup key)', () => {
+    expect(M72).toMatch(/ADD PRIMARY KEY \(id\)/);
+  });
+
+  it('revokes ALL from anon + authenticated only; preserves service_role', () => {
+    expect(M72).toContain('REVOKE ALL ON public._gcr3_preapply_models FROM anon;');
+    expect(M72).toContain('REVOKE ALL ON public._gcr3_preapply_models FROM authenticated;');
+    expect(M72).toContain('GRANT ALL ON public._gcr3_preapply_models TO service_role;');
+    expect(M72).toMatch(/REVOKE ALL ON public\._gcr3_preapply_models/g);
+    expect(M72).not.toMatch(/REVOKE .* FROM (postgres|service_role|PUBLIC)/);
+  });
+
+  it('touches nothing else: no functions, no policies, no other tables', () => {
+    const body = M72.replace(/^\s*--.*$/gm, '').trim();
+    expect(body).not.toMatch(/CREATE (OR REPLACE )?FUNCTION/);
+    expect(body).not.toMatch(/(CREATE|DROP) POLICY/);
+    expect(body).not.toMatch(/ALTER TABLE public\.(?!_gcr3_preapply_models)/);
+    expect(body).not.toMatch(/GRANT (?!ALL ON public\._gcr3_preapply_models)/);
+  });
+});
+
+describe('00073 — Security Hardening Wave C: storage bucket listing restriction', () => {
+  it('drops exactly the two public SELECT policies for non-listed buckets', () => {
+    const drops = M73.match(/DROP POLICY IF EXISTS "([^"]+)" ON storage\.objects;/g) ?? [];
+    expect(drops).toHaveLength(2);
+    expect(drops[0]).toContain('Public read ads-images');
+    expect(drops[1]).toContain('Public read category-covers');
+  });
+
+  it('keeps inventory-images public read (anon listing is a real client path)', () => {
+    expect(M73).not.toMatch(/DROP POLICY.*[Ii]nventory/);
+    const drops = M73.match(/DROP POLICY IF EXISTS "([^"]+)" ON storage\.objects;/g) ?? [];
+    expect(drops.every((d) => d.includes('ads-images') || d.includes('category-covers'))).toBe(true);
+  });
+
+  it('is a single-domain, policy-only change', () => {
+    const body = M73.replace(/^\s*--.*$/gm, '').trim();
+    expect(body).not.toMatch(/CREATE (OR REPLACE )?FUNCTION/);
+    expect(body).not.toMatch(/(CREATE|ALTER) POLICY/);
+    expect(body).not.toMatch(/GRANT|REVOKE|ALTER TABLE/);
+  });
+});
+
+describe('00074 — Security Hardening Wave E: RLS auth_rls_initplan hardening', () => {
+  const EN_EXPECTED = 39;
+  const drops = M74.match(/^DROP POLICY IF EXISTS "([^"]+)" ON public\.(\w+);/gm) ?? [];
+  const creates = M74.split(/\n(?=CREATE POLICY )/).filter((s) => s.startsWith('CREATE POLICY '));
+
+  it(`declares ${EN_EXPECTED} DROP+CREATE policy pairs (Gate-1 initplan list)`, () => {
+    expect(drops).toHaveLength(EN_EXPECTED);
+    expect(creates).toHaveLength(EN_EXPECTED);
+  });
+
+  it('every CREATE is paired 1:1 with the DROP of the same (name, table)', () => {
+    const dropOf = (stmt: string) => {
+      const m = stmt.match(/^CREATE POLICY "([^"]+)" ON public\.(\w+)/);
+      return m ? `DROP POLICY IF EXISTS "${m[1]}" ON public.${m[2]};` : null;
+    };
+    for (const c of creates) {
+      const d = dropOf(c);
+      expect(d, c.slice(0, 80)).not.toBeNull();
+      expect(M74, c.slice(0, 80)).toContain(d as string);
+    }
+  });
+
+  it('only touches initplan-prone policies and never weakens access shape', () => {
+    expect(M74).not.toMatch(/ALTER POLICY/);
+    expect(M74).not.toMatch(/GRANT|REVOKE/);
+    expect(M74).not.toMatch(/CREATE (OR REPLACE )?FUNCTION/);
+    expect(M74).not.toMatch(/SECURITY DEFINER/);
+    expect(M74).not.toMatch(/is_admin\(\)|fn_admin_uid\(\)|catalog_is_admin\(\)|is_research_role\(\)/);
+  });
+
+  it('wraps every auth.<fn>() call in a (select ...) initplan (semantic identity)', () => {
+    for (const stmt of creates) {
+      const uid = stmt.match(/auth\.uid\(\)/g) ?? [];
+      const wuid = stmt.match(/\(select auth\.uid\(\)\)/g) ?? [];
+      const role = stmt.match(/auth\.role\(\)/g) ?? [];
+      const wrole = stmt.match(/\(select auth\.role\(\)\)/g) ?? [];
+      expect(uid.length, stmt.slice(0, 90)).toBe(wuid.length);
+      expect(role.length, stmt.slice(0, 90)).toBe(wrole.length);
+      expect(wuid.length + wrole.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('every policy keeps an explicit AS PERMISSIVE FOR <cmd> TO <roles> clause', () => {
+    for (const stmt of creates) {
+      expect(stmt).toMatch(/^CREATE POLICY "([^"]+)" ON public\.\w+ AS PERMISSIVE FOR (SELECT|INSERT|UPDATE|DELETE|ALL) TO (anon|authenticated|public)/);
+    }
+  });
+});
+
+describe('00075 — Security Hardening Wave B: search_path hardening (INVOKER fns)', () => {
+  const fns = M75.match(/CREATE OR REPLACE FUNCTION public\.([a-z_]+)\([^)]*\)[\s\S]*?\$function\$/g) ?? [];
+
+  it('redefines exactly the 2 INVOKER functions with empty search_path', () => {
+    const names = M75.match(/CREATE OR REPLACE FUNCTION public\.([a-z_]+)/g) ?? [];
+    expect(names.map((n) => n.replace('CREATE OR REPLACE FUNCTION public.', ''))).toEqual([
+      'update_updated_at',
+      'inventory_calc_status',
+    ]);
+    expect(M75).toMatch(/CREATE OR REPLACE FUNCTION public\.update_updated_at\(\)[\s\S]*?SET search_path = ''/);
+    expect(M75).toMatch(/CREATE OR REPLACE FUNCTION public\.inventory_calc_status\(p_quantity integer\)[\s\S]*?SET search_path = ''/);
+  });
+
+  it('preserves bodies/logic exactly (no runtime resolution change)', () => {
+    expect(M75).toContain('new.updated_at = now();');
+    expect(M75).toContain("WHEN p_quantity<=0 THEN 'out_of_stock' WHEN p_quantity<=3 THEN 'low_stock' ELSE 'in_stock'");
+    expect(fns).toHaveLength(2);
+  });
+
+  it('never adds SECURITY DEFINER (these stay INVOKER) and touches nothing else', () => {
+    expect(M75).not.toMatch(/SECURITY DEFINER/);
+    expect(M75).not.toMatch(/GRANT|REVOKE|ALTER TABLE|CREATE POLICY|DROP POLICY/);
   });
 });

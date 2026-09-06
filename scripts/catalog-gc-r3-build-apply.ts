@@ -294,6 +294,13 @@ END $$;
 -- 1) PRE-APPLY SNAPSHOT (backup table used by 05-rollback.sql)
 DROP TABLE IF EXISTS public._gcr3_preapply_models;
 CREATE TABLE public._gcr3_preapply_models AS SELECT id, canonical_id FROM public.catalog_models;
+-- SECURITY WAVE 00072: keep the snapshot closed to clients even when recreated
+-- (the migration hardened the current instance; this keeps future recreations closed).
+ALTER TABLE public._gcr3_preapply_models ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public._gcr3_preapply_models ADD PRIMARY KEY (id);
+REVOKE ALL ON public._gcr3_preapply_models FROM anon;
+REVOKE ALL ON public._gcr3_preapply_models FROM authenticated;
+GRANT ALL ON public._gcr3_preapply_models TO service_role;
 
 -- 2) SQL IDENTITY MIRROR UPGRADE (37 new overrides; 41 total)
 ${mirrorUpgrade}
