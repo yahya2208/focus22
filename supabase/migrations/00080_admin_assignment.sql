@@ -240,7 +240,7 @@ DECLARE
   v_def             text;
   v_dml             int;
   v_hist_ok         boolean;
-  v_grants_ok       int;
+  v_grants_ok       boolean;
 BEGIN
   SELECT pg_get_functiondef('public.pilot_admin_assign_order(uuid, uuid)'::regprocedure)
     INTO v_def;
