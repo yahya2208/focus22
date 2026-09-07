@@ -1541,6 +1541,22 @@ const tr: Record<TranslationKey, string> = {
   'pilot.msg.COURIER_STATUS_UPDATED': 'Kurye durumu güncellendi.',
   'pilot.error.OPERATORS_LOAD_FAILED': 'Operatörler güncellenemedi.',
   'pilot.error.COURIERS_LOAD_FAILED': 'Kuryeler güncellenemedi.',
+  'pilot.provisionTitle': 'Pilot üyesi ekle',
+  'pilot.provisionHint': 'Mevcut bir hesabı e-posta ile bulup bu mağazaya bağlayın. Yeni üyelikler onay bekliyor olarak oluşturulur.',
+  'pilot.emailPlaceholder': 'Kullanıcı e-postasını girin',
+  'pilot.findUser': 'Kullanıcıyı bul',
+  'pilot.addOperator': 'Operatör olarak ekle',
+  'pilot.addCourier': 'Kurye olarak ekle',
+  'pilot.noUsersFound': 'Eşleşen kullanıcı yok.',
+  'pilot.notMemberHere': 'Henüz bu mağazanın üyesi değil.',
+  'pilot.operatorMember': 'operatör',
+  'pilot.courierMember': 'kurye',
+  'pilot.provisionStoreHint': 'Üye eklemek için yukarıdan bir mağaza seçin.',
+  'pilot.memberStatus': 'Durum',
+  'pilot.msg.PROVISION_OK': 'Üyelik oluşturuldu (onay bekliyor).',
+  'pilot.msg.SEARCH_DONE': 'Kullanıcılar bulundu.',
+  'pilot.error.SEARCH_FAILED': 'Kullanıcı araması başarısız (yalnızca admin).',
+  'pilot.error.PROVISION_FAILED': 'Üyelik oluşturulamadı.',
 };
 
 export default tr;

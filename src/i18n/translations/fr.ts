@@ -852,6 +852,22 @@ const fr: Record<string, string> = {
   'pilot.msg.COURIER_STATUS_UPDATED': 'Statut du coursier mis à jour.',
   'pilot.error.OPERATORS_LOAD_FAILED': 'Impossible de mettre à jour les opérateurs.',
   'pilot.error.COURIERS_LOAD_FAILED': 'Impossible de mettre à jour les coursiers.',
+  'pilot.provisionTitle': 'Ajouter un membre au pilote',
+  'pilot.provisionHint': 'Recherchez un compte existant par e-mail et liez-le à cette boutique. Les nouvelles adhésions sont créées en attente et doivent être approuvées.',
+  'pilot.emailPlaceholder': 'Saisir l’e-mail de l’utilisateur',
+  'pilot.findUser': 'Rechercher l’utilisateur',
+  'pilot.addOperator': 'Ajouter comme opérateur',
+  'pilot.addCourier': 'Ajouter comme coursier',
+  'pilot.noUsersFound': 'Aucun utilisateur correspondant.',
+  'pilot.notMemberHere': 'Pas encore membre de cette boutique.',
+  'pilot.operatorMember': 'opérateur',
+  'pilot.courierMember': 'coursier',
+  'pilot.provisionStoreHint': 'Sélectionnez une boutique ci-dessus pour ajouter des membres.',
+  'pilot.memberStatus': 'Statut',
+  'pilot.msg.PROVISION_OK': 'Adhésion créée (en attente d’approbation).',
+  'pilot.msg.SEARCH_DONE': 'Utilisateurs trouvés.',
+  'pilot.error.SEARCH_FAILED': 'La recherche a échoué (admin uniquement).',
+  'pilot.error.PROVISION_FAILED': 'Impossible de créer l’adhésion.',
 };
 
 export default fr;

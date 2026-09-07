@@ -1541,6 +1541,22 @@ const ar: Record<TranslationKey, string> = {
   'pilot.msg.COURIER_STATUS_UPDATED': 'تم تحديث حالة المندوب.',
   'pilot.error.OPERATORS_LOAD_FAILED': 'تعذّر تحديث المشغّلين.',
   'pilot.error.COURIERS_LOAD_FAILED': 'تعذّر تحديث المندوبين.',
+  'pilot.provisionTitle': 'إضافة عضو للبيع التجريبي',
+  'pilot.provisionHint': 'ابحث عن حساب موجود بالبريد لإضافته إلى هذا المتجر. تُنشأ العضويات بحالة «قيد المراجعة» ولا تعمل إلا بعد الموافقة.',
+  'pilot.emailPlaceholder': 'أدخل بريد المستخدم',
+  'pilot.findUser': 'بحث عن المستخدم',
+  'pilot.addOperator': 'إضافة كمشغّل متجر',
+  'pilot.addCourier': 'إضافة كمندوب',
+  'pilot.noUsersFound': 'لا يوجد مستخدمون مطابقون.',
+  'pilot.notMemberHere': 'ليس عضوًا في هذا المتجر بعد.',
+  'pilot.operatorMember': 'مشغّل متجر',
+  'pilot.courierMember': 'مندوب',
+  'pilot.provisionStoreHint': 'اختر متجرًا أعلاه لإضافة أعضاء.',
+  'pilot.memberStatus': 'الحالة',
+  'pilot.msg.PROVISION_OK': 'تم إنشاء العضوية (بانتظار الموافقة).',
+  'pilot.msg.SEARCH_DONE': 'تم العثور على المستخدمين.',
+  'pilot.error.SEARCH_FAILED': 'فشل البحث عن المستخدمين (للمدير فقط).',
+  'pilot.error.PROVISION_FAILED': 'تعذّر إنشاء العضوية.',
 };
 
 export default ar;

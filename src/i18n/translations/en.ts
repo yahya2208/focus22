@@ -1561,6 +1561,22 @@ const en = {
   'pilot.msg.COURIER_STATUS_UPDATED': 'Courier status updated.',
   'pilot.error.OPERATORS_LOAD_FAILED': 'Could not update operators.',
   'pilot.error.COURIERS_LOAD_FAILED': 'Could not update couriers.',
+  'pilot.provisionTitle': 'Add pilot member',
+  'pilot.provisionHint': 'Find an existing account by email and link it to this store. New memberships are created pending and must be approved.',
+  'pilot.emailPlaceholder': 'Enter user email',
+  'pilot.findUser': 'Find user',
+  'pilot.addOperator': 'Add as operator',
+  'pilot.addCourier': 'Add as courier',
+  'pilot.noUsersFound': 'No matching users.',
+  'pilot.notMemberHere': 'Not yet a member of this store.',
+  'pilot.operatorMember': 'operator',
+  'pilot.courierMember': 'courier',
+  'pilot.provisionStoreHint': 'Select a store above to add members.',
+  'pilot.memberStatus': 'Status',
+  'pilot.msg.PROVISION_OK': 'Membership created (pending approval).',
+  'pilot.msg.SEARCH_DONE': 'Users found.',
+  'pilot.error.SEARCH_FAILED': 'User search failed (admin only).',
+  'pilot.error.PROVISION_FAILED': 'Could not create the membership.',
 } as const;
 
 export default en;

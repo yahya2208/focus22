@@ -5,6 +5,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { Screen, Stack, Divider } from '../../design-system/layout';
 import { Button } from '../../design-system/components/Button';
 import { Select } from '../../design-system/components/Select';
+import { Input } from '../../design-system/components/Input';
 import { Flex } from '../../design-system/components/Flex';
 import {
   adminListNeighborhoods,
@@ -12,11 +13,13 @@ import {
   adminListFamilies,
   adminListOperators,
   adminSetOperatorStatus,
+  adminFindUsers,
   type Neighborhood,
   type Store,
   type FamilyGroup,
   type OperatorMembership,
   type OperatorStatus,
+  type AdminUserLookup,
 } from '../../services/neighborhood-service';
 import {
   adminListCouriers,
@@ -56,6 +59,9 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
   const [health, setHealth] = useState<PilotHealth | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [searchResults, setSearchResults] = useState<AdminUserLookup[]>([]);
+  const [searching, setSearching] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -97,21 +103,22 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
       .catch(() => setError('ORDER_LOAD_FAILED'));
   }, [storeId]);
 
+  const refreshMembers = useCallback(async (sid: string) => {
+    const [ops, cos] = await Promise.all([adminListOperators(sid), adminListCouriers(sid)]);
+    setOperators(ops);
+    setCouriers(cos);
+  }, []);
+
   useEffect(() => {
     if (!storeId) {
       setOperators([]);
       setCouriers([]);
       return;
     }
-    void Promise.all([adminListOperators(storeId), adminListCouriers(storeId)])
-      .then(([ops, cos]) => {
-        setOperators(ops);
-        setCouriers(cos);
-      })
-      .catch(() => {
-        setError('ADMIN_LOAD_FAILED');
-      });
-  }, [storeId]);
+    void refreshMembers(storeId).catch(() => {
+      setError('ADMIN_LOAD_FAILED');
+    });
+  }, [storeId, refreshMembers]);
 
   const setOperator = useCallback(
     async (userId: string, status: OperatorStatus) => {
@@ -157,6 +164,39 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
       }
     },
     [storeId],
+  );
+
+  const searchUsers = useCallback(async () => {
+    if (!storeId) return;
+    setSearching(true);
+    try {
+      setSearchResults(await adminFindUsers(email, 20));
+      setMessage('SEARCH_DONE');
+      setError(null);
+    } catch {
+      setError('SEARCH_FAILED');
+    } finally {
+      setSearching(false);
+    }
+  }, [email, storeId]);
+
+  const provisionMember = useCallback(
+    async (userId: string, kind: 'operator' | 'courier') => {
+      if (!storeId) return;
+      try {
+        if (kind === 'operator') {
+          await adminSetOperatorStatus(storeId, userId, 'pending');
+        } else {
+          await adminSetCourierStatus(storeId, userId, 'pending');
+        }
+        setMessage('PROVISION_OK');
+        setError(null);
+        await refreshMembers(storeId);
+      } catch {
+        setError('PROVISION_FAILED');
+      }
+    },
+    [storeId, refreshMembers],
   );
 
   const handleReset = useCallback(async () => {
@@ -294,6 +334,60 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
               </Flex>
             </div>
           ))
+        )}
+
+        <Divider />
+
+        <span style={labelStyle}>{t('pilot.provisionTitle')}</span>
+        <span style={mutedStyle}>{t('pilot.provisionHint')}</span>
+        {storeId ? (
+          <>
+            <Flex gap="sm" align="center">
+              <Input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t('pilot.emailPlaceholder')}
+                aria-label={t('pilot.emailPlaceholder')}
+              />
+              <Button variant="primary" size="sm" onClick={() => void searchUsers()} disabled={searching}>
+                {t('pilot.findUser')}
+              </Button>
+            </Flex>
+            {searchResults.length === 0 ? (
+              <span style={mutedStyle}>{t('pilot.noUsersFound')}</span>
+            ) : (
+              searchResults.map((u) => {
+                const op = u.operator_memberships?.some((m) => m.store_id === storeId && m.status === 'active');
+                const cr = u.courier_memberships?.some((m) => m.store_id === storeId && m.status === 'active');
+                return (
+                  <div
+                    key={u.user_id}
+                    style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: 10, background: colors.bgCard }}
+                  >
+                    <Flex justify="space-between" align="center">
+                      <span style={{ color: colors.text, fontWeight: 700 }}>{u.display_name ?? u.email ?? u.user_id}</span>
+                      <span style={mutedStyle}>{u.email}</span>
+                    </Flex>
+                    <span style={mutedStyle}>
+                      {op ? t('pilot.operatorMember') : cr ? t('pilot.courierMember') : t('pilot.notMemberHere')}
+                    </span>
+                    {!op && !cr && (
+                      <Flex justify="flex-start" align="center" gap="sm">
+                        <Button variant="primary" size="sm" onClick={() => void provisionMember(u.user_id, 'operator')}>
+                          {t('pilot.addOperator')}
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={() => void provisionMember(u.user_id, 'courier')}>
+                          {t('pilot.addCourier')}
+                        </Button>
+                      </Flex>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </>
+        ) : (
+          <span style={mutedStyle}>{t('pilot.provisionStoreHint')}</span>
         )}
 
         <Divider />

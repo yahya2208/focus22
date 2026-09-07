@@ -249,3 +249,30 @@ export async function adminListOperators(storeId?: string): Promise<OperatorMemb
   );
   return (data ?? []).map((row) => toOperator(row as Record<string, unknown>));
 }
+
+/* ————————————————————— account provisioning & lookup (00081) ————————————————————— */
+
+export interface MembershipRef {
+  readonly store_id: string;
+  readonly status: string;
+}
+
+export interface AdminUserLookup {
+  readonly user_id: string;
+  readonly email: string | null;
+  readonly display_name: string | null;
+  readonly role: string | null;
+  readonly is_anonymous: boolean;
+  readonly created_at: string | null;
+  readonly operator_memberships: MembershipRef[];
+  readonly courier_memberships: MembershipRef[];
+}
+
+/** Admin exact-email user lookup (00081) — existing REAL identities only. */
+export async function adminFindUsers(email?: string, limit?: number): Promise<AdminUserLookup[]> {
+  const data = await callRpc<unknown[]>(
+    'pilot_admin_find_users',
+    { p_email: email ?? '', p_limit: limit ?? 20 },
+  );
+  return (data ?? []).map((row) => row as unknown as AdminUserLookup);
+}
