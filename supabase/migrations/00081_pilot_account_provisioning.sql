@@ -114,6 +114,11 @@ CREATE POLICY "Admin read membership history"
 
 GRANT SELECT ON public.pilot_membership_history TO authenticated;
 
+-- Append-only from the client's perspective: no direct INSERT/UPDATE/DELETE.
+-- Default CREATE TABLE privileges would otherwise grant ALL to anon/authenticated.
+REVOKE INSERT, UPDATE, DELETE ON public.pilot_membership_history FROM anon;
+REVOKE INSERT, UPDATE, DELETE ON public.pilot_membership_history FROM authenticated;
+
 -- ============================================================================
 -- 2) Operator exclusivity — ONE active operator per store (DB-enforced)
 -- ============================================================================
@@ -539,7 +544,7 @@ BEGIN
   IF v_def IS NULL OR v_def NOT LIKE '%TRANSITION_NOT_ALLOWED%' THEN
     RAISE EXCEPTION 'INTEGRITY_OPERATOR_TRANSITIONS_MISSING';
   END IF;
-  IF v_def NOT LIKE '%pilot_membership_history%' THEN
+  IF v_def NOT LIKE '%pilot_write_membership_event%' THEN
     RAISE EXCEPTION 'INTEGRITY_OPERATOR_AUDIT_MISSING';
   END IF;
   IF v_def NOT LIKE '%FOR UPDATE%' THEN
@@ -551,7 +556,7 @@ BEGIN
   IF v_def IS NULL OR v_def NOT LIKE '%TRANSITION_NOT_ALLOWED%' THEN
     RAISE EXCEPTION 'INTEGRITY_COURIER_TRANSITIONS_MISSING';
   END IF;
-  IF v_def NOT LIKE '%pilot_membership_history%' THEN
+  IF v_def NOT LIKE '%pilot_write_membership_event%' THEN
     RAISE EXCEPTION 'INTEGRITY_COURIER_AUDIT_MISSING';
   END IF;
 
