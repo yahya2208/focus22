@@ -29,6 +29,14 @@ vi.mock('../../hooks/useThemeColors', () => ({
   useThemeColors: () => new Proxy({}, { get: () => '#111111' }),
 }));
 
+vi.mock('../../core/auth/AuthProvider', () => ({
+  useAuth: () => ({
+    state: { status: 'unauthenticated', user: null, error: null },
+    service: {},
+    researchRole: 'user',
+  }),
+}));
+
 vi.mock('../../services/neighborhood-service', async () => {
   const actual = await vi.importActual<typeof import('../../services/neighborhood-service')>(
     '../../services/neighborhood-service',

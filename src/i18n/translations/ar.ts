@@ -1486,6 +1486,7 @@ const ar: Record<TranslationKey, string> = {
   'pilot.error.SERVER_ERROR': 'تعذّر تأكيد الطلب. حاول مجددًا.',
   'settings.pilotStoreOps': 'عمليات المتجر',
   'settings.pilotCourier': 'توصيل المندوب',
+  'settings.pilotMyOrders': 'طلباتي',
   'home.liveStore': 'محل الحي التجريبي',
   'home.liveStoreSubtitle': 'أول محل تجريبي — تصفّح واطلب من المنزل',
   'pilot.family': 'عائلتك',
@@ -1557,6 +1558,17 @@ const ar: Record<TranslationKey, string> = {
   'pilot.msg.SEARCH_DONE': 'تم العثور على المستخدمين.',
   'pilot.error.SEARCH_FAILED': 'فشل البحث عن المستخدمين (للمدير فقط).',
   'pilot.error.PROVISION_FAILED': 'تعذّر إنشاء العضوية.',
+  'pilot.myOrdersTitle': 'طلباتي',
+  'pilot.myOrdersEmpty': 'لا توجد طلبات بعد.',
+  'pilot.noTimeline': 'لا توجد أحداث في السجل.',
+  'pilot.staleIndicator': 'جارٍ تحديث القائمة…',
+  'pilot.error.TIMELINE_FAILED': 'تعذّر تحميل السجل الزمني.',
+  'pilot.status.pending': 'قيد الانتظار',
+  'pilot.status.confirmed': 'مؤكّد',
+  'pilot.status.preparing': 'جارٍ التحضير',
+  'pilot.status.outForDelivery': 'خرج للتوصيل',
+  'pilot.status.delivered': 'تم التوصيل',
+  'pilot.status.cancelled': 'ملغى',
 };
 
 export default ar;

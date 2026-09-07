@@ -81,6 +81,7 @@ export const BACK_MATRIX: Record<ScreenName, BackMatrixRow> = {
   'pilot-admin': { screen: 'pilot-admin', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'protected; pilot ops (neighborhood/store/orders/reset)' },
   'pilot-store-ops': { screen: 'pilot-store-ops', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'store-operator orders + items + canonical status (server-authorized RPCs)' },
   'pilot-courier': { screen: 'pilot-courier', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'courier: available → accept → pickup → delivered (least privilege)' },
+  'pilot-my-orders': { screen: 'pilot-my-orders', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'customer My Orders + timeline (GATE 6); back → settings (in-content)' },
 };
 
 export function getBackMatrixRow(screen: ScreenName): BackMatrixRow | undefined {

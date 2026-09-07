@@ -1506,6 +1506,7 @@ const en = {
   'pilot.error.SERVER_ERROR': 'Could not place the order. Try again.',
   'settings.pilotStoreOps': 'Store operations',
   'settings.pilotCourier': 'Courier delivery',
+  'settings.pilotMyOrders': 'My Orders',
   'home.liveStore': 'Live neighborhood store',
   'home.liveStoreSubtitle': 'Our first pilot store — browse and order from home',
   'pilot.family': 'Your family',
@@ -1577,6 +1578,17 @@ const en = {
   'pilot.msg.SEARCH_DONE': 'Users found.',
   'pilot.error.SEARCH_FAILED': 'User search failed (admin only).',
   'pilot.error.PROVISION_FAILED': 'Could not create the membership.',
+  'pilot.myOrdersTitle': 'My Orders',
+  'pilot.myOrdersEmpty': 'No orders yet.',
+  'pilot.noTimeline': 'No timeline events.',
+  'pilot.staleIndicator': 'Feed is refreshing…',
+  'pilot.error.TIMELINE_FAILED': 'Could not load timeline.',
+  'pilot.status.pending': 'Pending',
+  'pilot.status.confirmed': 'Confirmed',
+  'pilot.status.preparing': 'Preparing',
+  'pilot.status.outForDelivery': 'Out for delivery',
+  'pilot.status.delivered': 'Delivered',
+  'pilot.status.cancelled': 'Cancelled',
 } as const;
 
 export default en;

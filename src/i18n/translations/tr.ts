@@ -1486,6 +1486,7 @@ const tr: Record<TranslationKey, string> = {
   'pilot.error.SERVER_ERROR': 'Sipariş oluşturulamadı. Tekrar deneyin.',
   'settings.pilotStoreOps': 'Mağaza işlemleri',
   'settings.pilotCourier': 'Kurye teslimatı',
+  'settings.pilotMyOrders': 'Siparişlerim',
   'home.liveStore': 'Canlı mahalle mağazası',
   'home.liveStoreSubtitle': 'İlk pilot mağazamız — göz atın ve evden sipariş verin',
   'pilot.family': 'Aileniz',
@@ -1557,6 +1558,17 @@ const tr: Record<TranslationKey, string> = {
   'pilot.msg.SEARCH_DONE': 'Kullanıcılar bulundu.',
   'pilot.error.SEARCH_FAILED': 'Kullanıcı araması başarısız (yalnızca admin).',
   'pilot.error.PROVISION_FAILED': 'Üyelik oluşturulamadı.',
+  'pilot.myOrdersTitle': 'Siparişlerim',
+  'pilot.myOrdersEmpty': 'Henüz sipariş yok.',
+  'pilot.noTimeline': 'Olay kaydı yok.',
+  'pilot.staleIndicator': 'Yenileniyor\u2026',
+  'pilot.error.TIMELINE_FAILED': 'Zaman çizelgesi yüklenemedi.',
+  'pilot.status.pending': 'Beklemede',
+  'pilot.status.confirmed': 'Onaylandı',
+  'pilot.status.preparing': 'Hazırlanıyor',
+  'pilot.status.outForDelivery': 'Teslimatta',
+  'pilot.status.delivered': 'Teslim edildi',
+  'pilot.status.cancelled': '\u0130ptal edildi',
 };
 
 export default tr;

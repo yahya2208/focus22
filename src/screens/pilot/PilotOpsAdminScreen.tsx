@@ -1,7 +1,8 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useAuth } from '../../core/auth/AuthProvider';
 import { Screen, Stack, Divider } from '../../design-system/layout';
 import { Button } from '../../design-system/components/Button';
 import { Select } from '../../design-system/components/Select';
@@ -36,6 +37,7 @@ import {
   type PilotOrder,
   type PilotHealth,
 } from '../../services/order-service';
+import { createPilotOrderRealtime, type PilotRealtimeFeedStatus } from '../../services/pilot-realtime-service';
 import type { TranslationKey } from '../../i18n';
 
 /**
@@ -48,6 +50,7 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
   const dispatch = useAppDispatch();
   const { t, locale } = useTranslation();
   const colors = useThemeColors();
+  const { state: authState } = useAuth();
 
   const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
@@ -62,6 +65,8 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
   const [email, setEmail] = useState('');
   const [searchResults, setSearchResults] = useState<AdminUserLookup[]>([]);
   const [searching, setSearching] = useState(false);
+  const [feedStatus, setFeedStatus] = useState<PilotRealtimeFeedStatus>('idle');
+  const feedRef = useRef<ReturnType<typeof createPilotOrderRealtime> | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -102,6 +107,30 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
       })
       .catch(() => setError('ORDER_LOAD_FAILED'));
   }, [storeId]);
+
+  // Realtime subscription — the admin live view rides on the narrow
+  // "Realtime read all orders (admin)" RLS policy (00082); admins need no
+  // client filter, RLS + fn_admin_uid() authorizes the stream server-side.
+  useEffect(() => {
+    if (authState.status === 'unauthenticated') return;
+    const feed = createPilotOrderRealtime({
+      table: 'orders',
+      channelPrefix: 'pilot-admin-ops',
+      onPayload: () => {
+        if (!storeId) return;
+        void fetchStoreOrders(storeId).then(setOrders).catch(() => {});
+      },
+      onStatus: setFeedStatus,
+      onPollFetch: async () => {
+        if (!storeId) return;
+        const os = await fetchStoreOrders(storeId);
+        setOrders(os);
+      },
+    });
+    feedRef.current = feed;
+    feed.start();
+    return () => { feed.stop(); feedRef.current = null; };
+  }, [authState.status, storeId]);
 
   const refreshMembers = useCallback(async (sid: string) => {
     const [ops, cos] = await Promise.all([adminListOperators(sid), adminListCouriers(sid)]);
@@ -233,6 +262,12 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
 
         {message && <span style={{ color: colors.successText, fontSize: '0.85rem' }}>{tMsg(message)}</span>}
         {error && <span style={{ color: colors.danger, fontSize: '0.85rem' }}>{tError(error)}</span>}
+
+        {feedStatus === 'fallback' && (
+          <span style={{ color: colors.warning, fontSize: '0.8rem' }}>
+            {t('pilot.staleIndicator' as TranslationKey)}
+          </span>
+        )}
 
         <span style={labelStyle}>{t('pilot.neighborhoods')}</span>
         {neighborhoods.length === 0 ? (

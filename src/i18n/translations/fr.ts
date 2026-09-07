@@ -797,6 +797,7 @@ const fr: Record<string, string> = {
   'pilot.error.SERVER_ERROR': 'Impossible de passer la commande. Réessayez.',
   'settings.pilotStoreOps': 'Opérations du magasin',
   'settings.pilotCourier': 'Livraison du coursier',
+  'settings.pilotMyOrders': 'Mes commandes',
   'home.liveStore': 'Magasin de quartier pilote',
   'home.liveStoreSubtitle': 'Notre premier magasin pilote — parcourez et commandez depuis chez vous',
   'pilot.family': 'Votre famille',
@@ -867,7 +868,18 @@ const fr: Record<string, string> = {
   'pilot.msg.PROVISION_OK': 'Adhésion créée (en attente d’approbation).',
   'pilot.msg.SEARCH_DONE': 'Utilisateurs trouvés.',
   'pilot.error.SEARCH_FAILED': 'La recherche a échoué (admin uniquement).',
-  'pilot.error.PROVISION_FAILED': 'Impossible de créer l’adhésion.',
+  'pilot.error.PROVISION_FAILED': 'Impossible de créer l\u2019adhésion.',
+  'pilot.myOrdersTitle': 'Mes commandes',
+  'pilot.myOrdersEmpty': 'Pas encore de commande.',
+  'pilot.noTimeline': 'Aucun événement dans le journal.',
+  'pilot.staleIndicator': 'Mise à jour en cours\u2026',
+  'pilot.error.TIMELINE_FAILED': 'Impossible de charger le journal.',
+  'pilot.status.pending': 'En attente',
+  'pilot.status.confirmed': 'Confirmée',
+  'pilot.status.preparing': 'En préparation',
+  'pilot.status.outForDelivery': 'En livraison',
+  'pilot.status.delivered': 'Livrée',
+  'pilot.status.cancelled': 'Annulée',
 };
 
 export default fr;

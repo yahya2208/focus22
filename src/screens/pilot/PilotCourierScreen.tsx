@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -17,6 +17,7 @@ import {
   type OrderDetailPayload,
   type CourierAction,
 } from '../../services/courier-service';
+import { createPilotOrderRealtime, type PilotRealtimeFeedStatus } from '../../services/pilot-realtime-service';
 import type { PilotOrderStatus } from '../../services/order-service';
 import type { TranslationKey } from '../../i18n';
 
@@ -39,6 +40,8 @@ export const PilotCourierScreen = memo(function PilotCourierScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [feedStatus, setFeedStatus] = useState<PilotRealtimeFeedStatus>('idle');
+  const feedRef = useRef<ReturnType<typeof createPilotOrderRealtime> | null>(null);
 
   const load = useCallback(async () => {
     const [a, m] = await Promise.all([fetchAvailableOrders(), fetchMyDeliveries()]);
@@ -56,6 +59,24 @@ export const PilotCourierScreen = memo(function PilotCourierScreen() {
       alive = false;
     };
   }, [authState.status, load]);
+
+  // Realtime subscription — live updates for orders assigned to this courier.
+  useEffect(() => {
+    if (authState.status === 'unauthenticated' || !authState.user?.id) return;
+    const feed = createPilotOrderRealtime({
+      table: 'orders',
+      filter: `courier_user_id=eq.${authState.user.id}`,
+      channelPrefix: 'pilot-courier-ops',
+      onPayload: () => {
+        void load().catch(() => {});
+      },
+      onStatus: setFeedStatus,
+      onPollFetch: load,
+    });
+    feedRef.current = feed;
+    feed.start();
+    return () => { feed.stop(); feedRef.current = null; };
+  }, [authState.status, authState.user?.id, load]);
 
   const toggleDetail = useCallback(async (orderId: string) => {
     if (expanded === orderId) {
@@ -193,6 +214,12 @@ export const PilotCourierScreen = memo(function PilotCourierScreen() {
 
         {message && <span style={{ color: colors.successText, fontSize: '0.85rem' }}>{tMsg(message)}</span>}
         {error && <span style={{ color: colors.danger, fontSize: '0.85rem' }}>{tError(error)}</span>}
+
+        {feedStatus === 'fallback' && (
+          <span style={{ color: colors.warning, fontSize: '0.8rem' }}>
+            {t('pilot.staleIndicator' as TranslationKey)}
+          </span>
+        )}
 
         {loading ? (
           <span style={labelStyle}>{t('pilot.loading')}</span>

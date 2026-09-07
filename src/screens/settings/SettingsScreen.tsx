@@ -206,6 +206,9 @@ export const SettingsScreen = memo(function SettingsScreen() {
           <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'pilot-courier' })} style={{ width: '100%', marginTop: '8px' }}>
             {t('settings.pilotCourier')}
           </Button>
+          <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'pilot-my-orders' })} style={{ width: '100%', marginTop: '8px' }}>
+            {t('settings.pilotMyOrders')}
+          </Button>
           <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'pilot-admin' })} style={{ width: '100%', marginTop: '8px' }}>
             {t('settings.pilotOps')}
           </Button>

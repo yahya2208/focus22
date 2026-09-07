@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -15,6 +15,10 @@ import {
   type PilotOrderStatus,
 } from '../../services/order-service';
 import { fetchOrderDetail, type OrderDetailPayload } from '../../services/courier-service';
+import {
+  createPilotOrderRealtime,
+  type PilotRealtimeFeedStatus,
+} from '../../services/pilot-realtime-service';
 import type { TranslationKey } from '../../i18n';
 
 /**
@@ -36,6 +40,8 @@ export const PilotStoreOpsScreen = memo(function PilotStoreOpsScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [feedStatus, setFeedStatus] = useState<PilotRealtimeFeedStatus>('idle');
+  const feedRef = useRef<ReturnType<typeof createPilotOrderRealtime> | null>(null);
 
   const loadStores = useCallback(async () => {
     const ss = await fetchMyStores();
@@ -63,6 +69,27 @@ export const PilotStoreOpsScreen = memo(function PilotStoreOpsScreen() {
       .then(setOrders)
       .catch(() => setError('ORDER_LOAD_FAILED'));
   }, [storeId]);
+
+  // Realtime subscription — live order updates for the selected store.
+  useEffect(() => {
+    if (!storeId || authState.status === 'unauthenticated') return;
+    const feed = createPilotOrderRealtime({
+      table: 'orders',
+      filter: `store_id=eq.${storeId}`,
+      channelPrefix: 'pilot-store-ops',
+      onPayload: () => {
+        void fetchStoreOrders(storeId).then(setOrders).catch(() => {});
+      },
+      onStatus: setFeedStatus,
+      onPollFetch: async () => {
+        const refreshed = await fetchStoreOrders(storeId);
+        setOrders(refreshed);
+      },
+    });
+    feedRef.current = feed;
+    feed.start();
+    return () => { feed.stop(); feedRef.current = null; };
+  }, [storeId, authState.status]);
 
   const toggleDetail = useCallback(async (orderId: string) => {
     if (expanded === orderId) {
@@ -129,6 +156,12 @@ export const PilotStoreOpsScreen = memo(function PilotStoreOpsScreen() {
 
         {message && <span style={{ color: colors.successText, fontSize: '0.85rem' }}>{tMsg(message)}</span>}
         {error && <span style={{ color: colors.danger, fontSize: '0.85rem' }}>{tError(error)}</span>}
+
+        {feedStatus === 'fallback' && (
+          <span style={{ color: colors.warning, fontSize: '0.8rem' }}>
+            {t('pilot.staleIndicator' as TranslationKey)}
+          </span>
+        )}
 
         {loading ? (
           <span style={labelStyle}>{t('pilot.loading')}</span>
