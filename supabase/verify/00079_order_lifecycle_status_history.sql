@@ -118,14 +118,14 @@ DECLARE
   v_bad boolean;
   v_mtx text;
 BEGIN
-  -- schema: base columns present with right nullability
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'order_status_history'
-      AND column_name IN ('id','order_id','previous_status','new_status',
-                          'event_type','actor_user_id','actor_role','created_at')
-    GROUP BY 1 HAVING count(*) = 0
-  ) THEN RAISE EXCEPTION '00079-check: base history columns missing'; END IF;
+  -- schema: base columns present with right nullability (exact count of the
+  -- 8 canonical columns must be present; historical HAVING count(*)=0 inverted
+  -- this so it raised exactly when the columns existed)
+  IF (SELECT count(*) FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'order_status_history'
+        AND column_name IN ('id','order_id','previous_status','new_status',
+                            'event_type','actor_user_id','actor_role','created_at')
+  ) <> 8 THEN RAISE EXCEPTION '00079-check: base history columns missing'; END IF;
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 'order_status_history'
