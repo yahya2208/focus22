@@ -74,10 +74,9 @@ export interface CourierAction {
   readonly labelKey: string;
 }
 
-/** Courier transitions (canonical statuses only — mirrors 00068 enforcement). */
+/** Courier transitions (canonical statuses only — mirrors 00079 enforcement). */
 export function courierActionsFor(status: string): CourierAction[] {
   switch (status) {
-    case 'confirmed':
     case 'preparing':
       return [{ status: 'out_for_delivery', labelKey: 'pilot.pickup' }];
     case 'out_for_delivery':
@@ -144,6 +143,7 @@ export interface CourierMembership {
   readonly store_id: string;
   readonly user_id: string;
   readonly status: CourierStatus;
+  readonly operational_ready?: boolean;
   readonly created_at: string;
   readonly updated_at: string;
   readonly user_email?: string | null;

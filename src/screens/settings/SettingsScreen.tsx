@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useSettingsContext } from '../../hooks/useSettings';
 import { useAuth } from '../../core/auth/AuthProvider';
+import { usePilotMembership } from '../../hooks/usePilotMembership';
 import { permissionGuard } from '../../core/research/permissions';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors, THEME_IDS, THEME_META } from '../../hooks/useThemeColors';
@@ -61,6 +62,7 @@ export const SettingsScreen = memo(function SettingsScreen() {
   const navDispatch = useAppDispatch();
   const { settings, update } = useSettingsContext();
   const { state, service, researchRole } = useAuth();
+  const pilotAccess = usePilotMembership();
   const { t } = useTranslation();
   const colors = useThemeColors();
 
@@ -200,18 +202,24 @@ export const SettingsScreen = memo(function SettingsScreen() {
           <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'pilot-storefront' })} style={{ width: '100%', marginTop: '8px' }}>
             {t('settings.pilotStorefront')}
           </Button>
-          <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'pilot-store-ops' })} style={{ width: '100%', marginTop: '8px' }}>
-            {t('settings.pilotStoreOps')}
-          </Button>
-          <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'pilot-courier' })} style={{ width: '100%', marginTop: '8px' }}>
-            {t('settings.pilotCourier')}
-          </Button>
+          {pilotAccess.canViewOperator && (
+            <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'pilot-store-ops' })} style={{ width: '100%', marginTop: '8px' }}>
+              {t('settings.pilotStoreOps')}
+            </Button>
+          )}
+          {pilotAccess.canViewCourier && (
+            <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'pilot-courier' })} style={{ width: '100%', marginTop: '8px' }}>
+              {t('settings.pilotCourier')}
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'pilot-my-orders' })} style={{ width: '100%', marginTop: '8px' }}>
             {t('settings.pilotMyOrders')}
           </Button>
-          <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'pilot-admin' })} style={{ width: '100%', marginTop: '8px' }}>
-            {t('settings.pilotOps')}
-          </Button>
+          {pilotAccess.isAdmin && (
+            <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'pilot-admin' })} style={{ width: '100%', marginTop: '8px' }}>
+              {t('settings.pilotOps')}
+            </Button>
+          )}
         </Card>
 
         <Button variant="secondary" onClick={() => navDispatch({ type: 'NAVIGATE', screen: 'home' })} style={{ marginTop: '0.5rem' }}>

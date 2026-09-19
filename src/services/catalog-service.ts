@@ -4,6 +4,7 @@ import { PHONE_VARIANTS, getVariantsForModel, formatVariant } from '../data/phon
 import { searchWithAliases, resolveAlias, buildAliasIndex } from './alias-engine';
 import { PhonePopularity } from './popularity-engine';
 import { getApprovedCatalogModelsCached } from './catalog-approved-service';
+import { catalogSearchResultLimit } from '../core/config/runtime-settings';
 
 export interface CatalogSearchResult {
   brand: string;
@@ -14,7 +15,7 @@ export interface CatalogSearchResult {
   popularityScore?: number;
 }
 
-export function searchCatalog(query: string, limit = 20): CatalogSearchResult[] {
+export function searchCatalog(query: string, limit = catalogSearchResultLimit()): CatalogSearchResult[] {
   if (!query.trim()) return [];
   const aliasResults = searchWithAliases(query, limit);
   const seen = new Set<string>();

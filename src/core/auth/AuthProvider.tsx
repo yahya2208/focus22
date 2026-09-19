@@ -21,6 +21,7 @@ const STUB_SERVICE: AuthService = {
   signUpWithEmail: async () => { throw new Error('Supabase not configured'); },
   signInWithMagicLink: async () => { throw new Error('Supabase not configured'); },
   convertGuestToUser: async () => { throw new Error('Supabase not configured'); },
+  setAccountPassword: async () => { throw new Error('Supabase not configured'); },
   signOut: async () => { throw new Error('Supabase not configured'); },
   getCurrentUser: () => null,
 };

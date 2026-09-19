@@ -63,8 +63,8 @@ describe('Pass-1 registry — 13 A-class keys present with correct shape', () =>
     }
   });
 
-  it('defaults map has 33 entries (20 base+telemetry + 13 Pass-1)', () => {
-    expect(Object.keys(SETTING_DEFAULTS)).toHaveLength(33);
+  it('defaults map has 38 entries (20 base+telemetry + 13 Pass-1 + 5 Pass-2)', () => {
+    expect(Object.keys(SETTING_DEFAULTS)).toHaveLength(38);
     expect(Object.keys(SETTING_DEFAULTS)).toEqual(expect.arrayContaining(PASS1_KEYS));
   });
 

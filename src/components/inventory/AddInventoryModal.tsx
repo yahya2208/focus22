@@ -7,6 +7,7 @@ import { InventoryService } from '../../services/inventory-service';
 import { ALL_CONDITIONS, type DeviceCondition } from '../../services/price-memory';
 import type { CatalogSearchResult, PhoneVariant } from '../../services/catalog-service';
 import { PhoneImageUploader } from '../showroom/PhoneImageUploader';
+import { inventoryMaxImages } from '../../core/config/runtime-settings';
 
 interface AddInventoryModalProps {
   colors: ThemeColors;
@@ -230,7 +231,7 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
           </div>
 
           <div style={{ marginBottom: '12px' }}>
-            <PhoneImageUploader images={images} onImagesChange={setImages} maxImages={6} />
+            <PhoneImageUploader images={images} onImagesChange={setImages} maxImages={inventoryMaxImages()} />
           </div>
 
           {isApple && (

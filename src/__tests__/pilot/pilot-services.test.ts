@@ -43,6 +43,8 @@ import {
   classifySubmissionError,
   updateStoreOrderStatus,
   fetchStoreOrders,
+  setDeliveredActuals,
+  settleFamilyOrder,
   resetPilot,
   fetchEstimate,
   ensureOrderSession,
@@ -146,9 +148,50 @@ describe('order-service — submission path (Phase 6)', () => {
     expect(mocks.createDeliveryOrder).toHaveBeenCalledWith(
       { name: 'A', phone: '5', zoneId: 'z', address: 'a', notes: '' },
       [{ catalogRef: 'pilot:item-1', quantity: 2, name: 'Item', unitPrice: 999 }],
+      false, // intent marker is OFF unless the customer explicitly confirmed a new order
     );
     expect(mocks.track).toHaveBeenCalledWith(expect.objectContaining({ event: 'checkout_submit' }));
     expect(mocks.track).toHaveBeenCalledWith(expect.objectContaining({ event: 'order_created', entityId: 'o1' }));
+  });
+
+  it('passes the intent marker ONLY on an explicit new-order confirmation (OQ4=B)', async () => {
+    mocks.createDeliveryOrder
+      .mockRejectedValueOnce(new Error('DUPLICATE_ORDER'))
+      .mockResolvedValueOnce({ orderId: 'o2', orderNumber: 'ORD-2', total: 45 });
+    const first = submitPilotOrder({
+      name: 'A', phone: '5', zoneId: 'z', address: 'a',
+      items: [{ catalogRef: 'pilot:item-1', quantity: 1 }],
+    });
+    await expect(first).rejects.toThrow('DUPLICATE_ORDER');
+    expect(mocks.createDeliveryOrder).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), false);
+    const second = await submitPilotOrder({
+      name: 'A', phone: '5', zoneId: 'z', address: 'a',
+      items: [{ catalogRef: 'pilot:item-1', quantity: 1 }],
+      intentional: true,
+    });
+    expect(second.orderId).toBe('o2');
+    expect(mocks.createDeliveryOrder).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), true);
+  });
+
+  it('is single-flight: a second submit while one is in flight reuses the first request', async () => {
+    mocks.createDeliveryOrder.mockResolvedValue({ orderId: 'o3', orderNumber: 'ORD-3', total: 45 });
+    const p1 = submitPilotOrder({
+      name: 'A', phone: '5', zoneId: 'z', address: 'a',
+      items: [{ catalogRef: 'pilot:item-1', quantity: 1 }],
+    });
+    const p2 = submitPilotOrder({
+      name: 'A', phone: '5', zoneId: 'z', address: 'a',
+      items: [{ catalogRef: 'pilot:item-1', quantity: 1 }],
+    });
+    const [r1, r2] = await Promise.all([p1, p2]);
+    expect(r1.orderId).toBe('o3');
+    expect(r2.orderId).toBe('o3');
+    expect(mocks.createDeliveryOrder).toHaveBeenCalledTimes(1);
+  });
+
+  it('classifies the Gate A server responses DUPLICATE_ORDER and FAMILY_ACCOUNT_REQUIRED', async () => {
+    expect(classifySubmissionError(new Error('DUPLICATE_ORDER'))).toBe('DUPLICATE_ORDER');
+    expect(classifySubmissionError(new Error('FAMILY_ACCOUNT_REQUIRED'))).toBe('FAMILY_ACCOUNT_REQUIRED');
   });
 
   it('classifies server-authoritative failures and tracks order_failed', async () => {
@@ -220,6 +263,82 @@ describe('order-service — store operations + reset', () => {
   it('recognizes the closed status vocabulary', () => {
     for (const s of PILOT_ORDER_STATUSES) expect(isPilotOrderStatus(s)).toBe(true);
     expect(isPilotOrderStatus('shipped')).toBe(false);
+  });
+});
+
+describe('order-service — family settlement (Gate B)', () => {
+  beforeEach(() => mocks.rpc.mockReset());
+
+  const items = [
+    { id: 'i1', delivered_quantity: 5.3 },
+    { id: 'i2', delivered_quantity: 2 },
+  ];
+
+  it('records delivered actuals through the canonical RPC', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: { updated_items: 2 }, error: null });
+    const updated = await setDeliveredActuals('o1', items);
+    expect(mocks.rpc).toHaveBeenCalledWith('pilot_set_delivered_actuals', {
+      p_order_id: 'o1',
+      p_items: items,
+    });
+    expect(updated).toBe(2);
+  });
+
+  it('surfaces the transport message when recording actuals fails', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'PERMISSION_DENIED' } });
+    await expect(setDeliveredActuals('o1', items)).rejects.toThrow('PERMISSION_DENIED');
+  });
+
+  it('settles through pilot_family_settle_and_deliver with a default empty reason', async () => {
+    const result = {
+      order_id: 'o1',
+      status: 'delivered',
+      final_subtotal: 530,
+      delivery_fee: 20,
+      final_total: 550,
+      balance_after: 100,
+      debt_remaining: 450,
+    };
+    mocks.rpc.mockResolvedValueOnce({ data: result, error: null });
+    const settled = await settleFamilyOrder('o1', items);
+    expect(mocks.rpc).toHaveBeenCalledWith('pilot_family_settle_and_deliver', {
+      p_order_id: 'o1',
+      p_items: items,
+      p_reason: '',
+    });
+    expect(settled).toEqual(result);
+  });
+
+  it('returns server totals untouched (no client balance/ledger math)', async () => {
+    const result = {
+      order_id: 'o1',
+      status: 'delivered',
+      final_subtotal: 530,
+      delivery_fee: 20,
+      final_total: 550,
+      balance_after: -200,
+      debt_remaining: 450,
+    };
+    mocks.rpc.mockResolvedValueOnce({ data: result, error: null });
+    const settled = await settleFamilyOrder('o1', items, 'cash on delivery');
+    expect(settled.final_total).toBe(550);
+    expect(settled.balance_after).toBe(-200);
+    expect(settled.debt_remaining).toBe(450);
+    // The client must never derive one figure from another.
+    expect(Object.keys(settled).sort()).toEqual([
+      'balance_after',
+      'debt_remaining',
+      'delivery_fee',
+      'final_subtotal',
+      'final_total',
+      'order_id',
+      'status',
+    ]);
+  });
+
+  it('surfaces ORDER_ALREADY_SETTLED so the UI can block a duplicate', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'ORDER_ALREADY_SETTLED' } });
+    await expect(settleFamilyOrder('o1', items)).rejects.toThrow('ORDER_ALREADY_SETTLED');
   });
 });
 

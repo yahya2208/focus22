@@ -23,6 +23,29 @@ export interface AuthState {
 
 export type AuthStateChangeHandler = (state: AuthState) => void;
 
+function parseInviteFragment(hash: string | null | undefined): 'invite' | null {
+  if (!hash) return null;
+  if (!hash.includes('access_token=')) return null;
+  if (!/[?&]type=invite(&|$)/.test(hash)) return null;
+  return 'invite';
+}
+
+let pendingInviteIntent: 'invite' | null =
+  typeof window !== 'undefined' ? parseInviteFragment(window.location.hash) : null;
+
+export function consumePendingInviteIntent(): 'invite' | null {
+  const intent = pendingInviteIntent;
+  pendingInviteIntent = null;
+  return intent;
+}
+
+/** Pure fallback reader: re-reads the invite fragment from the CURRENT URL
+ *  using the exact same parsing semantics as the module-load capture. Never
+ *  mutates pendingInviteIntent. */
+export function readPendingInviteIntentFromLocation(): 'invite' | null {
+  return typeof window !== 'undefined' ? parseInviteFragment(window.location.hash) : null;
+}
+
 export interface AuthService {
   getState(): AuthState;
   onStateChange(handler: AuthStateChangeHandler): () => void;
@@ -31,6 +54,19 @@ export interface AuthService {
   signUpWithEmail(email: string, password: string, displayName?: string): Promise<AuthUser>;
   signInWithMagicLink(email: string): Promise<void>;
   convertGuestToUser(email: string, password: string, displayName?: string): Promise<AuthUser>;
+  /**
+   * Set (or reset) the current session user's password. Used ONLY by the
+   * invite-completion flow for users who arrived via an invitation link and
+   * therefore never chose a password. Requires a live session (invite or
+   * magic-link); the password travels exclusively inside the Supabase Auth
+   * API call — never stored, logged, telemetered, or placed in a URL.
+   *
+   * Gate 1B defense-in-depth: when boundUserId is supplied, the operation is
+   * ALLOWED only if the current session user IS that bound identity — never
+   * a stale/foreign session. Otherwise throws INVITE_IDENTITY_MISMATCH and
+   * updateUser is never invoked.
+   */
+  setAccountPassword(password: string, boundUserId?: string): Promise<void>;
   signOut(): Promise<void>;
   getCurrentUser(): AuthUser | null;
 }
@@ -163,6 +199,18 @@ export function createAuthService(client?: SupabaseClient): AuthService {
       const user = await enrichWithProfileRole(base);
       setState({ status: 'authenticated', user, error: null });
       return user;
+    },
+
+    async setAccountPassword(password: string, boundUserId?: string): Promise<void> {
+      if (boundUserId) {
+        const { data } = await supa.auth.getSession();
+        const sessionUserId = data?.session?.user?.id ?? null;
+        if (!sessionUserId || sessionUserId !== boundUserId) {
+          throw new Error('INVITE_IDENTITY_MISMATCH');
+        }
+      }
+      const { error } = await supa.auth.updateUser({ password });
+      if (error) throw new Error(error.message);
     },
 
     async signOut(): Promise<void> {

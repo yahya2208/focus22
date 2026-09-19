@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useCatalogBrands } from '../../hooks/useCatalogBrands';
+import { adminCatalogPageSize } from '../../core/config/runtime-settings';
 
 // ─── Filter State ─────────────────────────────────────────────────────────────
 
@@ -12,6 +13,7 @@ export interface CatalogFilters {
   page: number;
 }
 
+/** Legacy fallback — the runtime accessor (catalog.admin_page_size) is authoritative. */
 export const PAGE_SIZE = 50;
 
 export const EMPTY_FILTERS: CatalogFilters = {
@@ -111,11 +113,12 @@ export function PaginationControls({ page, total, loading, onPrev, onNext, color
   onNext: () => void;
   colors: ReturnType<typeof useThemeColors>;
 }) {
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const size = adminCatalogPageSize();
+  const totalPages = Math.max(1, Math.ceil(total / size));
   const canPrev = page > 1 && !loading;
   const canNext = page < totalPages && !loading;
-  const start = (page - 1) * PAGE_SIZE + 1;
-  const end = Math.min(page * PAGE_SIZE, total);
+  const start = (page - 1) * size + 1;
+  const end = Math.min(page * size, total);
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', fontSize: '0.8rem', color: colors.textSecondary }}>

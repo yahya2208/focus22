@@ -163,6 +163,15 @@ export const LoginScreen = memo(function LoginScreen() {
           <Button variant="secondary" onClick={handleMagicLink} disabled={isLoading}>
             {t('login.magicLink')}
           </Button>
+          <button
+            onClick={() => dispatch({ type: 'NAVIGATE', screen: 'invite-setup' })}
+            style={{
+              background: 'none', border: 'none', color: colors.textMuted,
+              fontSize: '0.85rem', cursor: 'pointer', textAlign: 'center',
+            }}
+          >
+            {t('login.invitedSetup')}
+          </button>
         </div>
       </Card>
 

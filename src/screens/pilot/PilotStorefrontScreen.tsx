@@ -1,22 +1,32 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { useAppDispatch } from '../../store/navigation';
+import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { Screen, Stack, Divider } from '../../design-system/layout';
 import { Button } from '../../design-system/components/Button';
 import { Select } from '../../design-system/components/Select';
 import { Flex } from '../../design-system/components/Flex';
-import { useCart } from '../../core/cart/CartContext';
+import { useCart, type CartDomain } from '../../core/cart/CartContext';
+import { useAuth } from '../../core/auth/AuthProvider';
+import { normalizeQuantityUnit } from '../../core/cart/quantity';
+import { saveFamilyItem } from '../../services/pilot-family-service';
+import type { TranslationKey } from '../../i18n';
+import { produceUnitLabel, type ProduceUnit } from '../../domains/listings';
 import { track } from '../../core/telemetry';
 import {
   fetchActiveNeighborhoods,
   fetchActiveStores,
-  fetchNeighborhoodFamilies,
   fetchStoreProducts,
   type Neighborhood,
   type Store,
   type PilotProduct,
 } from '../../services/neighborhood-service';
+
+export function pilotDomain(category: string): CartDomain {
+  return category === 'produce' || category === 'car' || category === 'property'
+    ? category
+    : 'phone';
+}
 
 /**
  * Pilot Storefront — Phase 1-4 browse surface for the Neighborhood Pilot.
@@ -26,20 +36,25 @@ import {
  */
 export const PilotStorefrontScreen = memo(function PilotStorefrontScreen() {
   const dispatch = useAppDispatch();
+  const { routeParams } = useAppState();
   const { t, locale } = useTranslation();
   const colors = useThemeColors();
   const { addLine, itemCount } = useCart();
+  const { state: authState, service: { signInAsGuest } } = useAuth();
+
+  const categoryFilter = routeParams.category === 'produce' ? 'produce' : null;
+  const produceMode = categoryFilter === 'produce';
 
   const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
   const [neighborhoodId, setNeighborhoodId] = useState('');
   const [stores, setStores] = useState<Store[]>([]);
   const [storeId, setStoreId] = useState('');
   const [products, setProducts] = useState<PilotProduct[]>([]);
-  const [families, setFamilies] = useState<Array<{ id: string; name: string }>>([]);
-  const [familyId, setFamilyId] = useState('');
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [savedRefs, setSavedRefs] = useState<ReadonlySet<string>>(() => new Set());
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let alive = true;
@@ -72,14 +87,7 @@ export const PilotStorefrontScreen = memo(function PilotStorefrontScreen() {
         if (first) setStoreId(first.id);
       })
       .catch(() => setError('LOAD_FAILED'));
-    void fetchNeighborhoodFamilies(neighborhoodId).then((fs) => {
-      setFamilies(fs.map((f) => ({ id: f.id, name: locale === 'ar' && f.name_ar ? f.name_ar : f.name })));
-      if (fs.length > 0) {
-        setFamilyId((prev) => prev || fs[0]!.id);
-        void track({ event: 'family_view', entityType: 'neighborhood', entityId: neighborhoodId });
-      }
-    });
-  }, [neighborhoodId, locale]);
+  }, [neighborhoodId]);
 
   useEffect(() => {
     if (!storeId) {
@@ -92,21 +100,58 @@ export const PilotStorefrontScreen = memo(function PilotStorefrontScreen() {
 
   const addToCart = useCallback(
     (p: PilotProduct) => {
+      const domain = pilotDomain(p.category);
       addLine({
         catalogRef: p.id,
-        domain: 'phone',
-        category: 'phone',
+        domain,
+        category: domain,
         brand: p.brand,
         model: p.model,
         displayUnitPrice: p.sell_price,
         stock: p.quantity,
+        unit: normalizeQuantityUnit(p.unit),
         quantity: 1,
       });
     },
     [addLine],
   );
 
-  const buyable = useMemo(() => products.filter((p) => p.quantity > 0 && p.status !== 'out_of_stock'), [products]);
+  const handleSaveForFamily = useCallback(
+    async (p: PilotProduct) => {
+      if (authState.status !== 'authenticated') {
+        try {
+          await signInAsGuest();
+        } catch {
+          return;
+        }
+      }
+      setSaving((cur) => ({ ...cur, [p.id]: true }));
+      try {
+        await saveFamilyItem(p.id, 1);
+        setSavedRefs((cur) => new Set(cur).add(p.id));
+      } catch {
+        setError('SAVE_FAILED');
+      } finally {
+        setSaving((cur) => {
+          const next = { ...cur };
+          delete next[p.id];
+          return next;
+        });
+      }
+    },
+    [authState.status, signInAsGuest],
+  );
+
+  const buyable = useMemo(
+    () =>
+      products.filter(
+        (p) =>
+          p.quantity > 0 &&
+          p.status !== 'out_of_stock' &&
+          (categoryFilter == null || p.category === categoryFilter),
+      ),
+    [products, categoryFilter],
+  );
 
   const labelStyle = { color: colors.textMuted, fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.3rem', display: 'block' } as const;
   const mutedStyle = { color: colors.textMuted, fontSize: '0.7rem', fontWeight: 600, marginBottom: '0.25rem', display: 'block' } as const;
@@ -119,27 +164,36 @@ export const PilotStorefrontScreen = memo(function PilotStorefrontScreen() {
         <Flex justify="space-between" align="center">
           <div>
             <h1 style={{ margin: 0, color: colors.text, fontSize: '1.15rem' }}>
-              {t('pilot.storefrontTitle')}
+              {t(produceMode ? 'pilot.storefrontVegetablesTitle' : 'pilot.storefrontTitle')}
             </h1>
-            <span style={labelStyle}>{t('pilot.storefrontSubtitle')}</span>
+            <span style={labelStyle}>
+              {t(produceMode ? 'pilot.storefrontVegetablesSubtitle' : 'pilot.storefrontSubtitle')}
+            </span>
           </div>
-          <Button
-            variant="primary"
-            disabled={itemCount === 0}
-            onClick={() =>
-              dispatch({
-                type: 'NAVIGATE',
-                screen: 'pilot-checkout',
-                params: {
-                  storeId: storeId ?? '',
-                  familyId: familyId ?? '',
-                  familyName: families.find((f) => f.id === familyId)?.name ?? '',
-                },
-              })
-            }
-          >
-            {`${t('pilot.cart')}${itemCount > 0 ? ` (${String(itemCount)})` : ''}`}
-          </Button>
+          <Flex align="center" gap="sm">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => dispatch({ type: 'NAVIGATE', screen: 'pilot-family-purchases' })}
+            >
+              {t('pilot.familyBasketTitle' as TranslationKey)}
+            </Button>
+            <Button
+              variant="primary"
+              disabled={itemCount === 0}
+              onClick={() =>
+                dispatch({
+                  type: 'NAVIGATE',
+                  screen: 'pilot-checkout',
+                  params: {
+                    storeId: storeId ?? '',
+                  },
+                })
+              }
+            >
+              {`${t('pilot.cart')}${itemCount > 0 ? ` (${String(itemCount)})` : ''}`}
+            </Button>
+          </Flex>
         </Flex>
 
         <Divider />
@@ -174,18 +228,6 @@ export const PilotStorefrontScreen = memo(function PilotStorefrontScreen() {
               </>
             )}
 
-            {families.length > 0 && (
-              <>
-                <label style={labelStyle}>{t('pilot.family')}</label>
-                <Select
-                  options={families.map((f) => ({ value: f.id, label: f.name }))}
-                  value={familyId}
-                  onChange={(e) => setFamilyId(e.target.value)}
-                  aria-label={t('pilot.family')}
-                />
-              </>
-            )}
-
             <Divider />
 
             {buyable.length === 0 ? (
@@ -205,13 +247,18 @@ export const PilotStorefrontScreen = memo(function PilotStorefrontScreen() {
                     onClick={() => setExpandedProduct((cur) => (cur === p.id ? null : p.id))}
                   >
                     <div style={{ fontWeight: 700, color: colors.text, fontSize: '0.95rem' }}>
-                      {p.brand} {p.model}
+                      {[p.brand, p.model].filter(Boolean).join(' ')}
                     </div>
-                    <span style={labelStyle}>{p.condition}</span>
+                    {p.condition ? <span style={labelStyle}>{p.condition}</span> : null}
                     <div style={cardStyle}>
-                      {p.sell_price != null ? `${p.sell_price.toFixed(2)} ${t('pilot.currency')}` : '—'}
+                      {p.sell_price != null
+                        ? `${p.sell_price.toFixed(2)} ${t('pilot.currency')}${p.unit ? ` / ${produceUnitLabel(p.unit as ProduceUnit)}` : ''}`
+                        : '—'}
                     </div>
-                    <span style={labelStyle}>{t('pilot.stockLabel')}: {String(p.quantity)}</span>
+                    <span style={labelStyle}>
+                      {t('pilot.stockLabel')}: {String(p.quantity)}
+                      {p.unit ? ` ${produceUnitLabel(p.unit as ProduceUnit)}` : ''}
+                    </span>
                     {expandedProduct === p.id && (
                       <div style={{ padding: '6px 0 10px' }}>
                         {p.description ? (
@@ -233,6 +280,22 @@ export const PilotStorefrontScreen = memo(function PilotStorefrontScreen() {
                     >
                       {t('pilot.addToCart')}
                     </Button>
+                    {produceMode && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={saving[p.id] === true}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleSaveForFamily(p);
+                        }}
+                        style={{ width: '100%', marginTop: 8 }}
+                      >
+                        {savedRefs.has(p.id)
+                          ? t('pilot.savedForFamily')
+                          : t('pilot.saveForFamily')}
+                      </Button>
+                    )}
                   </div>
                 ))}
               </Flex>

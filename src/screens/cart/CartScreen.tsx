@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -7,8 +7,57 @@ import { Card } from '../../design-system/components/Card';
 import { Button } from '../../design-system/components/Button';
 import { Flex } from '../../design-system/components/Flex';
 import { useCart } from '../../core/cart/CartContext';
+import {
+  allowsDecimalQuantity,
+  formatQuantity,
+  minQuantity,
+  quantityStep,
+} from '../../core/cart/quantity';
 import { track } from '../../core/telemetry';
 import { produceUnitLabel } from '../../domains/listings';
+
+/**
+ * Editable quantity for decimal (kg) lines. Keeps a local draft so a shopper can
+ * type "1.25" before it is clamped on blur/Enter; the server re-validates anyway.
+ */
+function QuantityField({
+  value,
+  unit,
+  max,
+  onCommit,
+}: {
+  value: number;
+  unit: string | null | undefined;
+  max: number;
+  onCommit: (next: number) => void;
+}) {
+  const colors = useThemeColors();
+  const [draft, setDraft] = useState(() => formatQuantity(value, unit));
+  useEffect(() => {
+    setDraft(formatQuantity(value, unit));
+  }, [value, unit]);
+  const commit = () => {
+    const parsed = Number(draft);
+    onCommit(Number.isFinite(parsed) ? parsed : value);
+  };
+  return (
+    <input
+      type="number"
+      inputMode="decimal"
+      step={quantityStep(unit)}
+      min={minQuantity(unit)}
+      max={max}
+      value={draft}
+      aria-label="quantity"
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+      }}
+      style={{ width: '3.4rem', textAlign: 'center', fontWeight: 800, color: colors.text, fontVariantNumeric: 'tabular-nums', background: colors.bgInput, border: `1px solid ${colors.border}`, borderRadius: '9px', padding: '0.25rem', fontFamily: 'inherit' }}
+    />
+  );
+}
 
 /** Marketplace cart — multi-item. Display values are UX-only; the server is authoritative. */
 export const CartScreen = memo(function CartScreen() {
@@ -130,16 +179,25 @@ export const CartScreen = memo(function CartScreen() {
                   <button
                     type="button"
                     aria-label="decrease"
-                    disabled={line.quantity <= 1}
-                    onClick={() => setQuantity(line.catalogRef, line.quantity - 1)}
+                    disabled={line.quantity <= minQuantity(line.unit)}
+                    onClick={() => setQuantity(line.catalogRef, line.quantity - quantityStep(line.unit))}
                     style={{ width: '30px', height: '30px', borderRadius: '9px', border: `1px solid ${colors.border}`, background: colors.bgInput, color: colors.text, cursor: 'pointer', fontWeight: 800, fontFamily: 'inherit' }}
                   >−</button>
-                  <span style={{ minWidth: '1.4rem', textAlign: 'center', fontWeight: 800, color: colors.text, fontVariantNumeric: 'tabular-nums' }}>{line.quantity}</span>
+                  {allowsDecimalQuantity(line.unit) ? (
+                    <QuantityField
+                      value={line.quantity}
+                      unit={line.unit}
+                      max={line.stock}
+                      onCommit={(next) => setQuantity(line.catalogRef, next)}
+                    />
+                  ) : (
+                    <span style={{ minWidth: '1.4rem', textAlign: 'center', fontWeight: 800, color: colors.text, fontVariantNumeric: 'tabular-nums' }}>{line.quantity}</span>
+                  )}
                   <button
                     type="button"
                     aria-label="increase"
                     disabled={line.quantity >= line.stock}
-                    onClick={() => setQuantity(line.catalogRef, line.quantity + 1)}
+                    onClick={() => setQuantity(line.catalogRef, line.quantity + quantityStep(line.unit))}
                     style={{ width: '30px', height: '30px', borderRadius: '9px', border: `1px solid ${colors.border}`, background: colors.bgInput, color: colors.text, cursor: 'pointer', fontWeight: 800, fontFamily: 'inherit' }}
                   >+</button>
                 </div>

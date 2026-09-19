@@ -4,9 +4,11 @@ import { ThemeProvider } from './design-system/use-theme';
 import { SettingsProvider } from './hooks/useSettings';
 import { TranslationProvider, useTranslation } from './hooks/useTranslation';
 import { AuthProvider, useAuth } from './core/auth/AuthProvider';
+import { consumePendingInviteIntent, readPendingInviteIntentFromLocation } from './core/auth';
 import { useThemeSync } from './hooks/useThemeSync';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { ProtectedRoute } from './components/shared/ProtectedRoute';
+import { PilotWorkspaceGuard } from './components/shared/PilotWorkspaceGuard';
 import { isScreenName, useNavigationTelemetry, type ScreenName } from './store/navigation';
 import { useThemeColors } from './hooks/useThemeColors';
 import { AppShell } from './components/layout/AppShell';
@@ -38,6 +40,7 @@ const RegisterScreen = lazy(() => import('./screens/register/RegisterScreen').th
 const ConsentScreen = lazy(() => import('./screens/consent/ConsentScreen').then(m => ({ default: m.ConsentScreen })));
 const PreGameMessageScreen = lazy(() => import('./screens/message/PreGameMessageScreen').then(m => ({ default: m.PreGameMessageScreen })));
 const LoginScreen = lazy(() => import('./screens/auth/LoginScreen').then(m => ({ default: m.LoginScreen })));
+const InviteSetupScreen = lazy(() => import('./screens/auth/InviteSetupScreen').then(m => ({ default: m.InviteSetupScreen })));
 const AdminSetupScreen = lazy(() => import('./screens/auth/AdminSetupScreen').then(m => ({ default: m.AdminSetupScreen })));
 const AccessDeniedScreen = lazy(() => import('./screens/auth/AccessDeniedScreen').then(m => ({ default: m.AccessDeniedScreen })));
 const AchievementsScreen = lazy(() => import('./screens/achievements/AchievementsScreen').then(m => ({ default: m.AchievementsScreen })));
@@ -85,6 +88,7 @@ const PilotOpsAdminScreen = lazy(() => import('./screens/pilot/PilotOpsAdminScre
 const PilotStoreOpsScreen = lazy(() => import('./screens/pilot/PilotStoreOpsScreen').then(m => ({ default: m.PilotStoreOpsScreen })));
 const PilotCourierScreen = lazy(() => import('./screens/pilot/PilotCourierScreen').then(m => ({ default: m.PilotCourierScreen })));
 const PilotMyOrdersScreen = lazy(() => import('./screens/pilot/PilotMyOrdersScreen').then(m => ({ default: m.PilotMyOrdersScreen })));
+const PilotFamilyPurchasesScreen = lazy(() => import('./screens/pilot/PilotFamilyPurchasesScreen').then(m => ({ default: m.PilotFamilyPurchasesScreen })));
 
 const screens: Record<ScreenName, React.ComponentType> = {
   home: HomeScreen,
@@ -107,6 +111,7 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'business-intelligence': BusinessIntelligenceCenter,
   coach: CoachScreen,
   login: LoginScreen,
+  'invite-setup': InviteSetupScreen,
   'admin-setup': AdminSetupScreen,
   'access-denied': AccessDeniedScreen,
   'phone-services': PhoneServicesScreen,
@@ -146,6 +151,7 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'pilot-store-ops': PilotStoreOpsScreen,
   'pilot-courier': PilotCourierScreen,
   'pilot-my-orders': PilotMyOrdersScreen,
+  'pilot-family-purchases': PilotFamilyPurchasesScreen,
 };
 
 function HtmlSync() {
@@ -214,6 +220,7 @@ export function InitialRoute() {
   const appOpenedRef = useRef(false);
   const appReadyRef = useRef(false);
   const deepLinkReportedRef = useRef(false);
+  const inviteRoutingHandledRef = useRef(false);
 
   // Telemetry (Phase 8A): `screen_view` + `navigation_back` — central and
   // committed, wired at the app orchestration boundary (InitialRoute) where
@@ -477,6 +484,22 @@ export function InitialRoute() {
     });
   }, [currentScreen, dispatch]);
 
+  // Invite callback routing: a Supabase invitation fragment
+  // (#access_token=...&type=invite) carries NO usable screen path — consume the
+  // intent captured synchronously at module load (before supabase-js clears the
+  // fragment) and route the authenticated invitee to InviteSetup exactly once.
+  useEffect(() => {
+    if (authState.status !== 'authenticated') return;
+    if (inviteRoutingHandledRef.current) return;
+    // fallback before the decision: module-load capture first, else re-read the
+    // fragment NOW (last moment supabase-js may still not have stripped it).
+    const intent =
+      consumePendingInviteIntent() ?? readPendingInviteIntentFromLocation();
+    if (intent !== 'invite') return;
+    inviteRoutingHandledRef.current = true;
+    dispatch({ type: 'REPLACE', screen: 'invite-setup' });
+  }, [authState.status, dispatch]);
+
   if (challengeAuthError) {
     const retryChallengeId = detectedChallengeIdRef.current
       ?? new URLSearchParams(window.location.search).get('challenge_id');
@@ -597,6 +620,18 @@ function ScreenRouter() {
       <ProtectedRoute requiredResource="catalog" requiredAction="write">
         <PilotOpsAdminScreen />
       </ProtectedRoute>
+    );
+  } else if (currentScreen === 'pilot-store-ops') {
+    content = (
+      <PilotWorkspaceGuard workspace="operator">
+        <PilotStoreOpsScreen />
+      </PilotWorkspaceGuard>
+    );
+  } else if (currentScreen === 'pilot-courier') {
+    content = (
+      <PilotWorkspaceGuard workspace="courier">
+        <PilotCourierScreen />
+      </PilotWorkspaceGuard>
     );
   } else if (currentScreen === 'challenge-admin') {
     content = (

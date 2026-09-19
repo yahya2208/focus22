@@ -3,6 +3,7 @@ import { useAppDispatch, useAppState } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useAuth } from '../../core/auth/AuthProvider';
+import { usePilotMembership } from '../../hooks/usePilotMembership';
 import { permissionGuard } from '../../core/research/permissions';
 import { HomeMenu } from '../../components/navigation/HomeMenu';
 import { BrandLogo } from '../../components/brand/BrandLogo';
@@ -176,6 +177,15 @@ export const HomeScreen = memo(function HomeScreen() {
   const { t } = useTranslation();
   const colors = useThemeColors();
   const { state, researchRole } = useAuth();
+  const pilotAccess = usePilotMembership();
+  const pilotStateLabel = (
+    entry: 'none' | 'pending' | 'not-ready' | 'suspended' | 'operational',
+  ): string =>
+    entry === 'operational'
+      ? t('pilot.ready')
+      : entry === 'pending'
+        ? t('pilot.pendingApproval')
+        : t('pilot.notReady');
   const [menuOpen, setMenuOpen] = useState(false);
   const [devices, setDevices] = useState<InventoryRecord[]>([]);
   const [inventoryReady, setInventoryReady] = useState(() => getInventoryReady());
@@ -415,6 +425,125 @@ export const HomeScreen = memo(function HomeScreen() {
             </span>
           </Flex>
         </Card>
+
+        {/* Vegetables — fresh produce storefront entry (Neighborhood Pilot) */}
+        <Card
+          variant="interactive"
+          padding="lg"
+          onClick={() =>
+            dispatch({ type: 'NAVIGATE', screen: 'pilot-storefront', params: { category: 'produce' } })
+          }
+          style={{
+            overflow: 'hidden',
+            border: `1px solid ${colors.border}`,
+            background: `linear-gradient(135deg, ${colors.success}14 0%, ${colors.border}22 100%)`,
+          }}
+        >
+          <Flex justify="space-between" align="center" gap="md">
+            <Flex align="center" gap="md">
+              <span style={{ fontSize: '2rem', lineHeight: 1 }} aria-hidden="true">🥦</span>
+              <div>
+                <p style={{ margin: 0, color: colors.text, fontSize: '1rem', fontWeight: 800 }}>
+                  {t('home.vegetables')}
+                </p>
+                <p style={{ margin: '0.25rem 0 0', color: colors.textSecondary, fontSize: '0.78rem' }}>
+                  {t('home.vegetablesSubtitle')}
+                </p>
+              </div>
+            </Flex>
+            <span
+              aria-hidden="true"
+              style={{
+                flexShrink: 0,
+                width: '38px', height: '38px', borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: colors.success, color: '#0a0a12',
+                fontWeight: 800, fontSize: '1.1rem',
+              }}
+            >
+              ←
+            </span>
+          </Flex>
+        </Card>
+
+        {/* Pilot workspaces — role-aware entries (P1). Nothing renders here
+            without a pilot membership, so the customer baseline is unchanged. */}
+        {pilotAccess.status === 'ready' && pilotAccess.operatorEntry !== 'none' && (
+          <Card
+            variant="interactive"
+            padding="lg"
+            onClick={() => dispatch({ type: 'NAVIGATE', screen: 'pilot-store-ops' })}
+            style={{
+              overflow: 'hidden',
+              border: `1px solid ${colors.accent}`,
+              background: `linear-gradient(135deg, ${colors.success}14 0%, ${colors.accentLight}26 100%)`,
+            }}
+          >
+            <Flex justify="space-between" align="center" gap="md">
+              <Flex align="center" gap="md">
+                <span style={{ fontSize: '2rem', lineHeight: 1 }} aria-hidden="true">🏪</span>
+                <div>
+                  <p style={{ margin: 0, color: colors.text, fontSize: '1rem', fontWeight: 800 }}>
+                    {t('pilot.merchantWorkspace')}
+                  </p>
+                  <p style={{ margin: '0.25rem 0 0', color: colors.textSecondary, fontSize: '0.78rem' }}>
+                    {t('pilot.merchantWorkspaceSubtitle')} · {pilotStateLabel(pilotAccess.operatorEntry)}
+                  </p>
+                </div>
+              </Flex>
+              <span
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                  width: '38px', height: '38px', borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: colors.accent, color: '#0a0a12',
+                  fontWeight: 800, fontSize: '1.1rem',
+                }}
+              >
+                →
+              </span>
+            </Flex>
+          </Card>
+        )}
+        {pilotAccess.status === 'ready' && pilotAccess.courierEntry !== 'none' && (
+          <Card
+            variant="interactive"
+            padding="lg"
+            onClick={() => dispatch({ type: 'NAVIGATE', screen: 'pilot-courier' })}
+            style={{
+              overflow: 'hidden',
+              border: `1px solid ${colors.accent}`,
+              background: `linear-gradient(135deg, ${colors.success}14 0%, ${colors.accentLight}26 100%)`,
+            }}
+          >
+            <Flex justify="space-between" align="center" gap="md">
+              <Flex align="center" gap="md">
+                <span style={{ fontSize: '2rem', lineHeight: 1 }} aria-hidden="true">🛵</span>
+                <div>
+                  <p style={{ margin: 0, color: colors.text, fontSize: '1rem', fontWeight: 800 }}>
+                    {t('pilot.courierWorkspace')}
+                  </p>
+                  <p style={{ margin: '0.25rem 0 0', color: colors.textSecondary, fontSize: '0.78rem' }}>
+                    {t('pilot.courierWorkspaceSubtitle')} · {pilotStateLabel(pilotAccess.courierEntry)}
+                  </p>
+                </div>
+              </Flex>
+              <span
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                  width: '38px', height: '38px', borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: colors.accent, color: '#0a0a12',
+                  fontWeight: 800, fontSize: '1.1rem',
+                }}
+              >
+                →
+              </span>
+            </Flex>
+          </Card>
+        )}
 
         {/* Phone services — flex-wrap strip, no empty cells at any width */}
         <div>

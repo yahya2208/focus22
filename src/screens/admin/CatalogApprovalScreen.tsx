@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useAppDispatch } from '../../store/navigation';
 import { getSupabaseClient } from '../../core/supabase/client';
-import { CatalogSearchBar, EMPTY_FILTERS, PAGE_SIZE, type CatalogFilters } from './CatalogSearchBar';
+import { CatalogSearchBar, EMPTY_FILTERS, type CatalogFilters } from './CatalogSearchBar';
+import { adminCatalogPageSize } from '../../core/config/runtime-settings';
 import { CatalogModelCard, type CatalogModelRow } from './CatalogModelCard';
 import { CatalogModelForm } from './CatalogModelForm';
 import { CatalogVariantForm } from './CatalogVariantForm';
@@ -29,13 +30,14 @@ export function CatalogApprovalScreen() {
     setLoading(true);
     setError(null);
     try {
-      const offset = (f.page - 1) * PAGE_SIZE;
+      const size = adminCatalogPageSize();
+      const offset = (f.page - 1) * size;
       const { data, error: rpcErr, count } = await supabase.rpc('catalog_admin_list_models', {
         p_search: f.search || null,
         p_brand: f.brand || null,
         p_approval: f.approval || null,
         p_has_variants: f.has_variants,
-        p_limit: PAGE_SIZE,
+        p_limit: size,
         p_offset: offset,
         p_order_by: 'brand_id',
         p_order_asc: true,

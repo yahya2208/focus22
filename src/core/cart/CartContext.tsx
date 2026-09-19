@@ -10,6 +10,7 @@
  */
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { track } from '../telemetry';
+import { clampQuantity, minQuantity, quantityStep } from './quantity';
 
 export type CartDomain = 'phone' | 'car' | 'property' | 'produce';
 export type CartPricePeriod = 'sale' | 'monthly';
@@ -63,15 +64,12 @@ interface CartContextValue {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-const clampQty = (q: number, stock: number): number =>
-  Math.max(1, Math.min(Math.floor(q), Math.max(1, stock)));
-
 export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<readonly CartLine[]>([]);
 
   const addLine = useCallback((input: CartLineInput) => {
-    const stock = Math.max(1, input.stock ?? 1);
-    const quantity = clampQty(input.quantity ?? 1, stock);
+    const stock = Math.max(minQuantity(input.unit), input.stock ?? 1);
+    const quantity = clampQuantity(input.quantity ?? 1, stock, input.unit);
     const line: CartLine = {
       key: input.catalogRef,
       catalogRef: input.catalogRef,
@@ -92,7 +90,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (existing) {
         return prev.map((l) =>
           l.key === line.key
-            ? { ...l, quantity: clampQty(l.quantity + 1, stock), stock }
+            ? { ...l, quantity: clampQuantity(l.quantity + quantityStep(l.unit), stock, l.unit), stock }
             : l,
         );
       }
@@ -104,7 +102,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setLines((prev) => {
       const line = prev.find((l) => l.catalogRef === catalogRef);
       if (!line) return prev;
-      const nextQty = clampQty(quantity, line.stock);
+      const nextQty = clampQuantity(quantity, line.stock, line.unit);
       // T3.2 telemetry — `cart_quantity_change` with qty only; no product content.
       void track({ event: 'cart_quantity_change', entityType: 'product', entityId: catalogRef, properties: { qty: nextQty } });
       return prev.map((l) =>

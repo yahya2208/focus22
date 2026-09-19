@@ -24,6 +24,7 @@ import {
   createPilotOrderRealtime,
   type PilotRealtimeFeedStatus,
 } from '../../services/pilot-realtime-service';
+import { fetchMyAccount, type PilotAccount } from '../../services/pilot-account-service';
 import type { TranslationKey } from '../../i18n';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -48,8 +49,22 @@ export const PilotMyOrdersScreen = memo(function PilotMyOrdersScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [account, setAccount] = useState<PilotAccount | null>(null);
 
   const feedRef = useRef<ReturnType<typeof createPilotOrderRealtime> | null>(null);
+
+  // Family account summary (Gate A) — balance is server-computed
+  // (SUM(ledger.amount)); debts are display-only tracking. Never summed here.
+  useEffect(() => {
+    if (authState.status !== 'authenticated') return;
+    let alive = true;
+    void fetchMyAccount()
+      .then((a) => alive && setAccount(a))
+      .catch(() => alive && setAccount(null));
+    return () => {
+      alive = false;
+    };
+  }, [authState.status]);
 
   const loadOrders = useCallback(async () => {
     const list = await fetchMyOrders();
@@ -130,6 +145,10 @@ export const PilotMyOrdersScreen = memo(function PilotMyOrdersScreen() {
     catch { return s; }
   };
 
+  const formatMoney = (v: number) => v.toLocaleString();
+
+  const openDebts = account?.debts.filter((d) => d.status === 'open') ?? [];
+
   if (authState.status !== 'authenticated' && authState.status !== 'anonymous') {
     return (
       <Screen>
@@ -144,6 +163,39 @@ export const PilotMyOrdersScreen = memo(function PilotMyOrdersScreen() {
     <Screen>
       <Stack gap="md" style={{ padding: 16 }}>
         <h2>{t('pilot.myOrdersTitle' as TranslationKey)}</h2>
+
+        {account?.linked ? (
+          <div style={{ border: `1px solid ${colors.border}`, borderRadius: 8, padding: 12, marginBottom: 12 }}>
+            <div style={{ fontWeight: 700, color: colors.text }}>{t('pilot.accountTitle' as TranslationKey)}</div>
+            <Flex justify="space-between" align="center" style={{ marginTop: 4 }}>
+              <span>{t('pilot.balanceLabel' as TranslationKey)}</span>
+              <strong>
+                {formatMoney(account.balance)} {t('pilot.currency' as TranslationKey)}
+              </strong>
+            </Flex>
+            {openDebts.length === 0 ? (
+              <span style={{ fontSize: '0.85em', color: colors.textSecondary }}>
+                {t('pilot.noDebts' as TranslationKey)}
+              </span>
+            ) : (
+              <div style={{ marginTop: 6 }}>
+                <span style={{ fontWeight: 600, fontSize: '0.9em' }}>{t('pilot.outstandingDebts' as TranslationKey)}</span>
+                {openDebts.map((d) => (
+                  <Flex key={d.order_id} justify="space-between" align="center" style={{ marginTop: 2 }}>
+                    <span style={{ fontSize: '0.85em', color: colors.textSecondary }}>{d.order_number}</span>
+                    <span style={{ fontSize: '0.9em', color: colors.warning }}>
+                      {formatMoney(d.remaining)} {t('pilot.currency' as TranslationKey)}
+                    </span>
+                  </Flex>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : account && authState.status === 'authenticated' ? (
+          <p style={{ fontSize: '0.9em', color: colors.textSecondary }}>
+            {t('pilot.notLinkedToFamily' as TranslationKey)}
+          </p>
+        ) : null}
 
         {stale && (
           <div style={{ color: colors.warning, fontSize: '0.85em' }}>

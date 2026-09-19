@@ -119,4 +119,32 @@ describe('runtime settings — DB is source of truth, fallback is safe', () => {
     const refreshed = await refreshRuntimeSettings();
     expect(refreshed['game.rounds']).toBe(9); // recovers once DB is back
   });
+
+  it('Pass-2: a mid-session refresh failure KEEPS the previous customized snapshot', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: okSettings(), error: null }); // load: rounds customized to 9
+    await loadRuntimeSettings();
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'offline' } }); // refresh transport failure
+    const refreshed = await refreshRuntimeSettings();
+    expect(refreshed['game.rounds']).toBe(9); // old snapshot preserved
+    expect(getRuntimeSetting('game.rounds')).toBe(9); // consumers still read the customization
+    expect(getRuntimeSetting('cache.max_entries')).toBe(500);
+  });
+
+  it('Pass-2: a refresh denial also keeps the previous snapshot (never degrades to defaults)', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: okSettings(), error: null });
+    await loadRuntimeSettings();
+    mocks.rpc.mockResolvedValueOnce({ data: { error: 'UNAUTHORIZED' }, error: null }); // denied read
+    const refreshed = await refreshRuntimeSettings();
+    expect(refreshed['game.rounds']).toBe(9);
+  });
+
+  it('Pass-2: a successful refresh propagates the new DB value to consumers', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: okSettings(), error: null }); // load: rounds 9
+    await loadRuntimeSettings();
+    mocks.rpc.mockResolvedValueOnce({ data: okSettings({ 'game.rounds': 12 }), error: null }); // post-save refresh: rounds 12
+    const refreshed = await refreshRuntimeSettings();
+    expect(refreshed['game.rounds']).toBe(12);
+    expect(getRuntimeSetting('game.rounds')).toBe(12); // consumers immediately see the new value
+    expect(getRuntimeSetting('cache.max_entries')).toBe(500);
+  });
 });

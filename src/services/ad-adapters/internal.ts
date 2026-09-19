@@ -30,7 +30,7 @@
  */
 
 import type { AdImage, AdPlacement } from '../ads-service';
-import { buildAdPhoneLink } from '../ads-service';
+import { buildAdPhoneLink, internalAdAllowlist } from '../ads-service';
 import { resolveAdDevice } from '../ad-device-resolver';
 import { recordIntent } from '../intent-tracking';
 import { track } from '../../core/telemetry';
@@ -90,7 +90,7 @@ function isPlainStringParams(value: unknown): value is Record<string, string> {
 
 export function createInternalDestinationAdapter(deps: InternalDestinationAdapterDeps): InternalDestinationAdapter {
   const rawScreen = deps.screen.trim();
-  const screen = (INTERNAL_AD_ALLOWLIST as readonly string[]).includes(rawScreen) ? (rawScreen as InternalScreen) : null;
+  const screen = internalAdAllowlist().includes(rawScreen) ? (rawScreen as InternalScreen) : null;
 
   const params = deps.params === undefined ? {} : isPlainStringParams(deps.params) ? deps.params : null;
   const paramsValid = params !== null;

@@ -46,7 +46,9 @@ export interface SettingMeta {
     | 'general'
     | 'marketplace'
     | 'ads'
-    | 'experience';
+    | 'experience'
+    | 'catalog'
+    | 'gamification';
   readonly type: SettingType;
   readonly label: string;
   readonly description: string;
@@ -112,6 +114,23 @@ export const SETTING_REGISTRY: readonly SettingMeta[] = [
   // Experience
   { key: 'experience.results_auto_advance_ms', category: 'experience', type: 'integer', label: 'Results auto-advance (ms)', description: 'Results→showroom auto-advance', defaultValue: 3000, min: 500, max: 60000 },
   { key: 'experience.gallery_autoplay_ms', category: 'experience', type: 'integer', label: 'Gallery autoplay (ms)', description: 'Product gallery autoplay interval', defaultValue: 3000, min: 500, max: 60000 },
+
+  // ── Admin Control Center Pass 2 (00064) — client mirror of the DB registry ──
+  // Defaults/bounds/allow-lists mirror the migration exactly, so when no DB
+  // override exists the runtime keeps the exact pre-integration hardcoded values.
+  { key: 'catalog.admin_page_size', category: 'catalog', type: 'integer', label: 'Admin catalog page size', description: 'Catalog admin list page size', defaultValue: 50, min: 1, max: 200 },
+  { key: 'catalog.search_result_limit', category: 'catalog', type: 'integer', label: 'Search result limit', description: 'Max catalog search results', defaultValue: 20, min: 1, max: 100 },
+  { key: 'inventory.max_images', category: 'inventory', type: 'integer', label: 'Max product images', description: 'Max images per inventory item', defaultValue: 6, min: 1, max: 20 },
+  {
+    key: 'ads.placements', category: 'ads', type: 'enum', label: 'Ad placements',
+    description: 'Allowed ad placement surfaces', defaultValue: ['home', 'phones', 'repair', 'results', 'exchange', 'phone-details', 'showroom'] as unknown as string,
+    options: ['home', 'phones', 'repair', 'results', 'exchange', 'phone-details', 'showroom'],
+  },
+  {
+    key: 'ads.internal_allowlist', category: 'ads', type: 'enum', label: 'Internal ad allowlist',
+    description: 'Internal screens an ad may navigate to', defaultValue: ['phone-details', 'showroom', 'phone-services', 'repair-home'] as unknown as string,
+    options: ['phone-details', 'showroom', 'phone-services', 'repair-home'],
+  },
 ];
 
 export const SETTING_DEFAULTS: Readonly<Record<string, number | string>> = Object.freeze(
@@ -254,4 +273,89 @@ export function resolveSettingList(settings: Readonly<Record<string, SettingEntr
 /** Convenience: server-side range bounds for the admin UI validation hint. */
 export function settingMeta(key: string): SettingMeta | undefined {
   return SETTING_REGISTRY.find((s) => s.key === key);
+}
+
+/**
+ * Pass-2 (00064): keys whose mutation must be explicitly CONFIRMED before the
+ * write RPC is issued. These are the operational/financial/timing/volume knobs —
+ * changing them affects live behavior (game pacing, offer economics, WhatsApp
+ * line, pagination, telemetry volume). The confirmation is a defensive UX layer
+ * ONLY: the real gate stays the server authorizer (admin/super_admin).
+ */
+export const SENSITIVE_SETTING_KEYS: readonly string[] = [
+  'game.rounds',
+  'game.min_delay_ms',
+  'game.max_delay_ms',
+  'game.min_position_distance_pct',
+  'offers.default_discount_percent',
+  'offers.default_max_usage',
+  'offers.return_discount_percent',
+  'offers.whatsapp_discount_percent',
+  'offers.whatsapp_max_usage',
+  'comm.whatsapp_phone',
+  'marketplace.listing_page_limit',
+  'telemetry.max_batch',
+  'telemetry.flush_ms',
+  'telemetry.max_buffer',
+];
+
+const SENSITIVE = new Set<string>(SENSITIVE_SETTING_KEYS);
+
+/** True when mutating this key requires the explicit Pass-2 confirmation. */
+export function isSensitiveSetting(key: string): boolean {
+  return SENSITIVE.has(key);
+}
+
+/**
+ * True when the current value differs from the registered default — i.e. the
+ * setting is "Customized" (a live DB override) rather than "Default".
+ *
+ * Normalized comparison: Number() for integer/percent, trimmed string for text,
+ * sorted-element equality for enum. Never throws.
+ */
+export function isCustomizedSetting(current: number | string | string[] | undefined, meta: SettingMeta): boolean {
+  if (current === undefined) return false;
+  if (meta.type === 'enum') {
+    const def = (Array.isArray(meta.defaultValue) ? [...meta.defaultValue] : []).sort();
+    const cur = (Array.isArray(current) ? [...current] : []).sort();
+    return cur.length !== def.length || cur.some((x, i) => x !== def[i]);
+  }
+  if (meta.type === 'integer' || meta.type === 'percent') {
+    return Number(current) !== Number(meta.defaultValue);
+  }
+  return String(current).trim() !== String(meta.defaultValue).trim();
+}
+
+/** One row of the append-only change history returned by get_settings_audit. */
+export interface SettingAuditEntry {
+  readonly setting_key: string;
+  readonly old_value: unknown;
+  readonly new_value: unknown;
+  readonly updated_by: string | null;
+  readonly updated_at: string;
+}
+
+export interface SettingsAuditResult {
+  readonly error: SettingsErrorExtended | null;
+  readonly changes: readonly SettingAuditEntry[] | null;
+}
+
+/**
+ * Read the append-only change history for one setting. Admin/super_admin only
+ * (server-side). Returns `null` on transport/RPC failure (distinct from a
+ * permission denial surfacing as `{error:...}`). READ-only — audit rows are
+ * created exclusively inside `set_setting`.
+ */
+export async function getSettingsAudit(key: string, limit = 20): Promise<SettingsAuditResult | null> {
+  const client = getSupabaseClient();
+  const { data, error } = await client.rpc('get_settings_audit', { p_key: key, p_limit: limit });
+  if (error) {
+    devError('[settings] get_settings_audit RPC failed', error);
+    return null;
+  }
+  if (data && typeof data === 'object') {
+    return data as SettingsAuditResult;
+  }
+  devError('[settings] unexpected get_settings_audit response');
+  return null;
 }

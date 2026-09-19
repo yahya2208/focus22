@@ -85,9 +85,8 @@ async function invokeWithTimeout<T>(
   try {
     const value = await Promise.race([fn(), timeoutP]);
     if (timer) clearTimeout(timer);
-    return value as AuthAttempt;
-  } catch (e) {
-    if (timer) clearTimeout(timer);
+    return { kind: "ok", value } as AuthAttempt;
+  } catch (e) {    if (timer) clearTimeout(timer);
     const err = e as { status?: number; message?: string };
     return { kind: "error", error: { status: err?.status, message: err?.message } };
   }

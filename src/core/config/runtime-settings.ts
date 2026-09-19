@@ -70,10 +70,30 @@ export function loadRuntimeSettings(): Promise<Readonly<Record<string, RuntimeSe
   return loadPromise;
 }
 
-/** Force a refresh from the DB (resets the cache). Used by admin after save. */
+/**
+ * Force a refresh from the DB (admin after a successful save/reset).
+ *
+ * Failure semantics (Pass-2): on a failed/denied refresh the PREVIOUS snapshot
+ * is KEPT — a mid-session refresh must never degrade a customized runtime state
+ * into bare defaults. Only the very first load (no snapshot yet) may fall back
+ * to safe defaults when the DB is unreachable.
+ */
 export async function refreshRuntimeSettings(): Promise<Readonly<Record<string, RuntimeSettingValue>>> {
-  cached = null;
-  return loadRuntimeSettings();
+  const prev = cached;
+  try {
+    const result = await getSettings();
+    if (result === null || result.error) {
+      if (prev) return prev;
+      cached = toFlat(null);
+      return cached!;
+    }
+    cached = toFlat(result);
+    return cached;
+  } catch {
+    if (prev) return prev;
+    cached = toFlat(null);
+    return cached!;
+  }
 }
 
 /** Clear the in-memory cache without fetching (test/introspection only). */
@@ -120,4 +140,24 @@ export function getRuntimeSettingList(key: string, fallback?: readonly string[])
   const v = cached[key];
   if (v === undefined || !Array.isArray(v)) return base;
   return [...v];
+}
+
+// ── 00064 integration accessors ───────────────────────────────────────────────
+// Thin typed reads for the five Pass-2 settings. Fallbacks equal the exact
+// pre-integration hardcoded values, so with no DB override behavior is
+// byte-identical to before centralization.
+
+/** Admin catalog list page size (fallback: 50, the old PAGE_SIZE constant). */
+export function adminCatalogPageSize(): number {
+  return getRuntimeSetting('catalog.admin_page_size', 50);
+}
+
+/** Catalog search result limit (fallback: 20, the old searchCatalog default). */
+export function catalogSearchResultLimit(): number {
+  return getRuntimeSetting('catalog.search_result_limit', 20);
+}
+
+/** Max images per inventory item (fallback: 6, the old uploader limit). */
+export function inventoryMaxImages(): number {
+  return getRuntimeSetting('inventory.max_images', 6);
 }

@@ -5,6 +5,8 @@
  * and the frontend transition helpers.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const mocks = {
   rpc: vi.fn(),
@@ -100,8 +102,8 @@ describe('courier-service — streams & actions', () => {
 });
 
 describe('courier-service — transition matrix helpers', () => {
-  it('exposes pickup only from confirmed/preparing', () => {
-    expect(courierActionsFor('confirmed')).toEqual([{ status: 'out_for_delivery', labelKey: 'pilot.pickup' }]);
+  it('exposes pickup only from preparing (not confirmed)', () => {
+    expect(courierActionsFor('confirmed')).toEqual([]);
     expect(courierActionsFor('preparing')).toEqual([{ status: 'out_for_delivery', labelKey: 'pilot.pickup' }]);
     expect(courierActionsFor('pending')).toEqual([]);
     expect(courierActionsFor('cancelled')).toEqual([]);
@@ -164,5 +166,88 @@ describe('courier-service — RPC error surfacing', () => {
   it('propagates TRANSITION_NOT_ALLOWED', async () => {
     mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'TRANSITION_NOT_ALLOWED' } });
     await expect(courierSetStatus('o1', 'delivered')).rejects.toThrow('TRANSITION_NOT_ALLOWED');
+  });
+});
+
+/**
+ * Pure mirror of the 00090 matrix decision for `pilot_assert_transition`
+ * (store_operator branch now requires v_assigned IS NOT NULL for the handoff;
+ * courier branch is unchanged and never allows confirmed -> out_for_delivery).
+ */
+function matrixAllows(
+  role: 'admin' | 'store_operator' | 'courier',
+  from: string,
+  to: string,
+  assignedCourier: boolean,
+  isSelf: boolean,
+): boolean {
+  const storeTransitions = (courierAssigned: boolean): boolean => {
+    if (from === 'confirmed') return to === 'preparing' || to === 'cancelled';
+    if (from === 'preparing') return to === 'cancelled' || (to === 'out_for_delivery' && courierAssigned);
+    if (from === 'out_for_delivery') return to === 'delivered';
+    if (from === 'pending') return to === 'confirmed' || to === 'cancelled';
+    return false;
+  };
+  if (role === 'admin') return storeTransitions(true);
+  if (role === 'store_operator') return storeTransitions(assignedCourier);
+  if (role === 'courier') {
+    if (!assignedCourier || !isSelf) return false;
+    if (from === 'preparing') return to === 'out_for_delivery';
+    if (from === 'out_for_delivery') return to === 'delivered';
+    return false;
+  }
+  return false;
+}
+
+describe('00090 migration — courier-handoff invariant (pure matrix mirror)', () => {
+  it('store operator cannot reach out_for_delivery without an assigned courier', () => {
+    expect(matrixAllows('store_operator', 'preparing', 'out_for_delivery', false, false)).toBe(false);
+    expect(matrixAllows('store_operator', 'preparing', 'out_for_delivery', true, false)).toBe(true);
+    expect(matrixAllows('store_operator', 'confirmed', 'preparing', false, false)).toBe(true);
+    expect(matrixAllows('store_operator', 'out_for_delivery', 'delivered', false, false)).toBe(true);
+  });
+
+  it('courier can pickup only from preparing and deliver from out_for_delivery', () => {
+    expect(matrixAllows('courier', 'confirmed', 'out_for_delivery', true, true)).toBe(false);
+    expect(matrixAllows('courier', 'preparing', 'out_for_delivery', true, true)).toBe(true);
+    expect(matrixAllows('courier', 'out_for_delivery', 'delivered', true, true)).toBe(true);
+  });
+
+  it('courier actions require being the assigned courier', () => {
+    expect(matrixAllows('courier', 'preparing', 'out_for_delivery', true, false)).toBe(false);
+  });
+});
+
+describe('00090 migration — source guard in the committed migration', () => {
+  const MIG_PATH = path.resolve(__dirname, '../../../supabase/migrations/00090_pilot_courier_handoff_invariant.sql');
+  const migration = (): string => fs.readFileSync(MIG_PATH, 'utf-8');
+
+  it('guards the store_operator handoff with v_assigned IS NOT NULL', () => {
+    const m = migration();
+    expect(m).toMatch(/p_new_status = 'out_for_delivery' AND v_assigned IS NOT NULL/);
+  });
+
+  it('does NOT add courier confirmed -> out_for_delivery', () => {
+    const m = migration();
+    const start = m.indexOf("v_role = 'courier' AND v_assigned = v_uid AND (");
+    const end = m.indexOf('\n  ));', start);
+    const branch = m.slice(start, end > start ? end : m.length);
+    expect(branch).not.toContain("v_cur = 'confirmed' AND p_new_status = 'out_for_delivery'");
+  });
+
+  it('keeps the courier matrix to preparing/out_for_delivery/delivered only', () => {
+    const m = migration();
+    const start = m.indexOf("v_role = 'courier' AND v_assigned = v_uid AND (");
+    const end = m.indexOf('\n  ));', start);
+    const branch = m.slice(start, end > start ? end : m.length);
+    expect(branch).toContain("v_cur = 'preparing'         AND p_new_status = 'out_for_delivery'");
+    expect(branch).toContain("v_cur = 'out_for_delivery' AND p_new_status = 'delivered'");
+  });
+
+  it('preserves the internal-only ACL on pilot_assert_transition', () => {
+    const m = migration();
+    expect(m).toContain('REVOKE ALL ON FUNCTION public.pilot_assert_transition(uuid, text, boolean) FROM PUBLIC;');
+    expect(m).toContain('REVOKE EXECUTE ON FUNCTION public.pilot_assert_transition(uuid, text, boolean) FROM anon;');
+    expect(m).toContain('REVOKE EXECUTE ON FUNCTION public.pilot_assert_transition(uuid, text, boolean) FROM authenticated;');
   });
 });

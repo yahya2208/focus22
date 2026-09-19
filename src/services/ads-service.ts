@@ -9,6 +9,7 @@
  */
 
 import { getSupabaseClient } from '../core/supabase/client';
+import { getRuntimeSettingList } from '../core/config/runtime-settings';
 import { isSafeExternalUrl } from './ad-adapters/external';
 import { isValidWhatsAppNumber, WHATSAPP_MESSAGE_MAX_LENGTH } from './ad-adapters/whatsapp';
 import { INTERNAL_AD_ALLOWLIST } from './ad-adapters/internal';
@@ -30,6 +31,24 @@ export const AD_PLACEMENTS: readonly AdPlacement[] = [
   'phone-details',
   'showroom',
 ];
+
+/**
+ * Active placement surfaces (00064 `ads.placements`). Fallback = the closed
+ * `AD_PLACEMENTS` constant, so with no DB override the surface set is
+ * byte-identical to the pre-integration behavior. A placement removed in the
+ * Admin Control Center stops rendering (emptyMap excludes it → getAd -> null).
+ */
+export function activeAdPlacements(): readonly string[] {
+  return getRuntimeSettingList('ads.placements', AD_PLACEMENTS);
+}
+
+/**
+ * Internal destination allowlist (00064 `ads.internal_allowlist`). Fallback =
+ * the fixed `INTERNAL_AD_ALLOWLIST`, preserving the pre-integration screens.
+ */
+export function internalAdAllowlist(): readonly string[] {
+  return getRuntimeSettingList('ads.internal_allowlist', INTERNAL_AD_ALLOWLIST);
+}
 
 export interface AdImage {
   id: string;
@@ -237,7 +256,7 @@ function validateStructuredAdInput(input: AdRowInput, destinationType: AdDestina
     // internal
     const internal = destination.internal as { screen?: unknown; params?: unknown } | undefined;
     const screen = typeof internal?.screen === 'string' ? internal.screen : '';
-    if (!(INTERNAL_AD_ALLOWLIST as readonly string[]).includes(screen)) {
+    if (!internalAdAllowlist().includes(screen)) {
       throw new Error('الوجهة الداخلية تتطلب شاشة ضمن القائمة المسموحة (destination.internal.screen)');
     }
     const params = internal?.params;
@@ -269,7 +288,7 @@ let realtimeStarted = false;
 
 function emptyMap(): Record<AdPlacement, AdConfig> {
   const result = {} as Record<AdPlacement, AdConfig>;
-  for (const p of AD_PLACEMENTS)
+  for (const p of activeAdPlacements() as readonly AdPlacement[])
     result[p] = { enabled: false, image: '', link: '', alt: '', deviceId: '', destinationType: 'phone', destination: {}, title: '', images: [] };
   return result;
 }

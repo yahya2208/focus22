@@ -43,6 +43,14 @@ export interface PilotOrder {
   readonly store_id: string | null;
   readonly neighborhood_id: string | null;
   readonly user_id: string | null;
+  /** Present at runtime (pilot_orders_for_store returns SETOF orders); used read-only by admin triage. */
+  readonly courier_user_id?: string | null;
+  /**
+   * Server-authored family binding (00102). Present at runtime (SETOF orders);
+   * used read-only to decide whether an order settles through the family path.
+   * Never sent from the client as a trust value.
+   */
+  readonly family_id?: string | null;
 }
 
 export interface PilotSubmitInput {
@@ -62,8 +70,17 @@ export interface PilotSubmitInput {
   /** Store for telemetry only — not a security control (server resolves the real store). */
   readonly storeId?: string;
   readonly neighborhoodId?: string;
-  /** Pilot family persona (display + telemetry only — families are not security actors). */
+  /**
+   * Intent marker (Gate A): the server derives the family from auth.uid();
+   * familyId is display/telemetry metadata only and is never a security actor.
+   */
   readonly familyId?: string;
+  /**
+   * TRUE only after the customer explicitly chose "create a new order" in the
+   * duplicate-order dialog. It is NOT an idempotency key or a privilege — the
+   * server still validates everything and only skips the 60s retry window.
+   */
+  readonly intentional?: boolean;
 }
 
 export type SubmissionErrorCode =
@@ -73,6 +90,8 @@ export type SubmissionErrorCode =
   | 'ITEMS_NOT_ORDERABLE'
   | 'MULTI_STORE_ORDER'
   | 'ZONE_NOT_ACTIVE'
+  | 'FAMILY_ACCOUNT_REQUIRED'
+  | 'DUPLICATE_ORDER'
   | 'INVALID_ARGUMENTS'
   | 'SERVER_ERROR';
 
@@ -84,6 +103,9 @@ const ERROR_CODE_MAP: Record<string, SubmissionErrorCode> = {
   ITEM_NOT_ORDERABLE: 'ITEMS_NOT_ORDERABLE',
   MULTI_STORE_ORDER: 'MULTI_STORE_ORDER',
   ZONE_NOT_ACTIVE: 'ZONE_NOT_ACTIVE',
+  FAMILY_ACCOUNT_REQUIRED: 'FAMILY_ACCOUNT_REQUIRED',
+  DUPLICATE_ORDER: 'DUPLICATE_ORDER',
+  QUANTITY_INVALID: 'INVALID_ARGUMENTS',
   PERMISSION_DENIED: 'INVALID_ARGUMENTS',
   ARGUMENTS_INVALID: 'INVALID_ARGUMENTS',
 };
@@ -107,7 +129,20 @@ export async function ensureOrderSession(): Promise<{
 }
 
 /** Phase 6 submit — real DB order through the canonical authoritative RPC. */
-export async function submitPilotOrder(input: PilotSubmitInput): Promise<DeliveryOrderResult> {
+export function submitPilotOrder(input: PilotSubmitInput): Promise<DeliveryOrderResult> {
+  // OQ4=B client half: single-flight — a double tap must not fire a second
+  // request while one is already in flight (the server retry-window is the
+  // second line of defence).
+  if (orderInFlight) return orderInFlight;
+  orderInFlight = runOrderSubmission(input).finally(() => {
+    orderInFlight = null;
+  });
+  return orderInFlight;
+}
+
+let orderInFlight: Promise<DeliveryOrderResult> | null = null;
+
+async function runOrderSubmission(input: PilotSubmitInput): Promise<DeliveryOrderResult> {
   const items: DeliveryOrderItem[] = input.items
     .filter((i) => i.catalogRef.trim() !== '' && i.quantity > 0)
     .map((i) => ({
@@ -137,6 +172,7 @@ export async function submitPilotOrder(input: PilotSubmitInput): Promise<Deliver
         notes: input.notes?.trim() || '',
       },
       items,
+      input.intentional === true,
     );
     void track({
       event: 'order_created',
@@ -186,6 +222,62 @@ export async function updateStoreOrderStatus(orderId: string, status: PilotOrder
     entityId: orderId,
     properties: status === 'delivered' ? {} : { status },
   });
+}
+
+/* ————————————————— family settlement (Gate B) ————————————————— */
+
+/**
+ * One delivered line: the order_item id + the ACTUAL quantity fulfilled.
+ * Weight produce may be fractional (e.g. 5.3 kg); unit items are whole numbers.
+ * The client never derives money from these — the server computes the value.
+ */
+export interface DeliveredActual {
+  readonly id: string;
+  readonly delivered_quantity: number;
+}
+
+/** Result of the canonical settlement RPC (00102). Every figure is server-computed. */
+export interface SettlementResult {
+  readonly order_id: string;
+  readonly status: string;
+  readonly final_subtotal: number;
+  readonly delivery_fee: number;
+  readonly final_total: number;
+  /** NULL for legacy/guest orders that carry no family money model. */
+  readonly balance_after: number | null;
+  readonly debt_remaining: number | null;
+}
+
+/** Record delivered actuals only (order must be preparing/out_for_delivery). */
+export async function setDeliveredActuals(
+  orderId: string,
+  items: ReadonlyArray<DeliveredActual>,
+): Promise<number> {
+  const { data, error } = await getSupabaseClient().rpc('pilot_set_delivered_actuals', {
+    p_order_id: orderId,
+    p_items: items,
+  });
+  if (error) throw new Error(error.message ?? 'RPC_ERROR');
+  return Number((data as { updated_items?: number } | null)?.updated_items ?? 0);
+}
+
+/**
+ * The ONE canonical financial settlement: records actuals, transitions the
+ * order to delivered, posts the single PURCHASE movement and tracks the
+ * uncovered remainder. There is NO client-side balance or ledger math here.
+ */
+export async function settleFamilyOrder(
+  orderId: string,
+  items: ReadonlyArray<DeliveredActual>,
+  reason = '',
+): Promise<SettlementResult> {
+  const { data, error } = await getSupabaseClient().rpc('pilot_family_settle_and_deliver', {
+    p_order_id: orderId,
+    p_items: items,
+    p_reason: reason,
+  });
+  if (error) throw new Error(error.message ?? 'RPC_ERROR');
+  return data as SettlementResult;
 }
 
 export async function resetPilot(): Promise<void> {

@@ -19,6 +19,7 @@ const mock = vi.hoisted(() => ({
   adminSetCourierStatus: vi.fn(),
   fetchStoreOrders: vi.fn(),
   fetchPilotHealth: vi.fn(),
+  adminListInvitations: vi.fn(),
 }));
 
 vi.mock('../../hooks/useTranslation', () => ({
@@ -71,6 +72,16 @@ vi.mock('../../services/order-service', async () => {
     ...actual,
     fetchStoreOrders: mock.fetchStoreOrders,
     fetchPilotHealth: mock.fetchPilotHealth,
+  };
+});
+
+vi.mock('../../services/pilot-invite-service', async () => {
+  const actual = await vi.importActual<typeof import('../../services/pilot-invite-service')>(
+    '../../services/pilot-invite-service',
+  );
+  return {
+    ...actual,
+    adminListInvitations: mock.adminListInvitations,
   };
 });
 
@@ -129,6 +140,7 @@ describe('PilotOpsAdminScreen — provisioning (00081)', () => {
     mock.adminFindUsers.mockResolvedValue([lookup]);
     mock.adminSetOperatorStatus.mockResolvedValue({ status: 'pending' });
     mock.adminSetCourierStatus.mockResolvedValue({ status: 'pending' });
+    mock.adminListInvitations.mockResolvedValue([]);
   });
 
   it('finds a user by email and adds them as a pending operator', async () => {

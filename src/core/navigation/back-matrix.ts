@@ -43,6 +43,7 @@ export const BACK_MATRIX: Record<ScreenName, BackMatrixRow> = {
   'business-intelligence': { screen: 'business-intelligence', backTarget: 'previous', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'protected' },
   coach: { screen: 'coach', backTarget: 'results', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true },
   login: { screen: 'login', backTarget: 'previous', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false, note: 'post-auth success REPLACEs to intendedScreen/previous' },
+  'invite-setup': { screen: 'invite-setup', backTarget: 'login', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'invited account password setup; no session required to view guidance' },
   'admin-setup': { screen: 'admin-setup', backTarget: 'login', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true },
   'access-denied': { screen: 'access-denied', backTarget: 'previous', exitAllowed: false, browserBack: 'replace', androidBack: 'replace', hasInContentBackButton: true },
   'phone-services': { screen: 'phone-services', backTarget: 'home', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: false },
@@ -82,6 +83,7 @@ export const BACK_MATRIX: Record<ScreenName, BackMatrixRow> = {
   'pilot-store-ops': { screen: 'pilot-store-ops', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'store-operator orders + items + canonical status (server-authorized RPCs)' },
   'pilot-courier': { screen: 'pilot-courier', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'courier: available → accept → pickup → delivered (least privilege)' },
   'pilot-my-orders': { screen: 'pilot-my-orders', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'customer My Orders + timeline (GATE 6); back → settings (in-content)' },
+  'pilot-family-purchases': { screen: 'pilot-family-purchases', backTarget: 'pilot-storefront', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'family saved basket + family order history (GATE C4); back → storefront (in-content)' },
 };
 
 export function getBackMatrixRow(screen: ScreenName): BackMatrixRow | undefined {

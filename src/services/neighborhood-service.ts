@@ -60,6 +60,10 @@ export interface PilotProduct {
   readonly city: string | null;
   readonly description: string | null;
   readonly source_key: string | null;
+  /** inventory_items.category — 'produce' | 'phone' | 'car' | 'property'. */
+  readonly category: string;
+  /** Canonical selling unit ('kg' enables decimal quantities); null for phones. */
+  readonly unit: string | null;
 }
 
 type PilotRow = Record<string, unknown>;
@@ -216,6 +220,7 @@ export interface OperatorMembership {
   readonly store_id: string;
   readonly user_id: string;
   readonly status: OperatorStatus;
+  readonly operational_ready?: boolean;
   readonly approved_by: string | null;
   readonly approved_at: string | null;
   readonly created_at: string;

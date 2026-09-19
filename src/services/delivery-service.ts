@@ -163,10 +163,18 @@ export async function estimateDelivery(zoneId: string, subtotal: number): Promis
   }
 }
 
-/** Creates a pending order (RPC `delivery_create_order`, authenticated only). */
+/**
+ * Creates a confirmed order (RPC `delivery_create_order`, authenticated only).
+ *
+ * `intentional` is an INTENT MARKER (Gate A): it is sent ONLY after the
+ * customer explicitly confirms a NEW order in the duplicate-order dialog. It
+ * is not an idempotency key, not a security control, and grants no privilege —
+ * the server still runs every validation and derives the family itself.
+ */
 export async function createDeliveryOrder(
   customer: DeliveryCustomer,
   items: DeliveryOrderItem[],
+  intentional = false,
 ): Promise<DeliveryOrderResult> {
   const { data, error } = await getSupabaseClient().rpc('delivery_create_order', {
     p_customer: {
@@ -184,8 +192,9 @@ export async function createDeliveryOrder(
       unit_price: item.unitPrice,
       quantity: item.quantity,
     })),
+    p_intentional: intentional,
   });
-  if (error) throw new Error(`فشل إنشاء الطلب: ${error.message}`);
+  if (error) throw new Error(error.message);
   const payload = (typeof data === 'string' ? safeParse(data) : data ?? {}) as Record<string, unknown>;
   return {
     orderId: String(payload.order_id ?? payload.orderId ?? ''),

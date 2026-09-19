@@ -28,6 +28,28 @@ const car: CartLineInput = {
   stock: 1,
 };
 
+const potatoesKg: CartLineInput = {
+  catalogRef: 'p-kg',
+  domain: 'produce',
+  category: 'produce',
+  brand: 'بطاطا',
+  model: 'بيضاء',
+  displayUnitPrice: 80,
+  stock: 100,
+  unit: 'kg',
+};
+
+const tomatoPiece: CartLineInput = {
+  catalogRef: 'p-pc',
+  domain: 'produce',
+  category: 'produce',
+  brand: 'طماطم',
+  model: 'حبة',
+  displayUnitPrice: 20,
+  stock: 50,
+  unit: 'piece',
+};
+
 describe('CartContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -112,5 +134,56 @@ describe('CartContext', () => {
     expect(line?.catalogRef).toBe('d1');
     expect(line?.key).toBe('d1');
     expect(line?.categoryId).toBe('m1');
+  });
+
+  describe('GATE C1 — unit-aware quantities', () => {
+    it('kg line keeps a decimal quantity (1.5)', () => {
+      const { result } = renderHook(() => useCart(), { wrapper });
+      act(() => result.current.addLine({ ...potatoesKg, quantity: 1.5 }));
+      expect(result.current.getLine('p-kg')?.quantity).toBe(1.5);
+    });
+
+    it('kg rounds extra precision to 3 places (5.3337 -> 5.334)', () => {
+      const { result } = renderHook(() => useCart(), { wrapper });
+      act(() => result.current.addLine({ ...potatoesKg, quantity: 5.3337 }));
+      expect(result.current.getLine('p-kg')?.quantity).toBe(5.334);
+    });
+
+    it('kg setQuantity accepts 2.25 and clamps to stock', () => {
+      const { result } = renderHook(() => useCart(), { wrapper });
+      act(() => result.current.addLine(potatoesKg));
+      act(() => result.current.setQuantity('p-kg', 2.25));
+      expect(result.current.getLine('p-kg')?.quantity).toBe(2.25);
+      act(() => result.current.setQuantity('p-kg', 999));
+      expect(result.current.getLine('p-kg')?.quantity).toBe(100);
+      act(() => result.current.setQuantity('p-kg', 0.1));
+      expect(result.current.getLine('p-kg')?.quantity).toBe(0.5);
+    });
+
+    it('merging a kg line steps by 0.5', () => {
+      const { result } = renderHook(() => useCart(), { wrapper });
+      act(() => result.current.addLine({ ...potatoesKg, quantity: 1 }));
+      act(() => result.current.addLine(potatoesKg));
+      expect(result.current.getLine('p-kg')?.quantity).toBe(1.5);
+    });
+
+    it('piece line stays whole: 1.5 floors to 1', () => {
+      const { result } = renderHook(() => useCart(), { wrapper });
+      act(() => result.current.addLine({ ...tomatoPiece, quantity: 1.5 }));
+      expect(result.current.getLine('p-pc')?.quantity).toBe(1);
+    });
+
+    it('kg subtotal uses the decimal quantity (display-only estimate)', () => {
+      const { result } = renderHook(() => useCart(), { wrapper });
+      act(() => result.current.addLine({ ...potatoesKg, quantity: 2.5 }));
+      expect(result.current.subtotal).toBe(200);
+    });
+
+    it('kg stock below 1 is not inflated (0.6 stays 0.6)', () => {
+      const { result } = renderHook(() => useCart(), { wrapper });
+      act(() => result.current.addLine({ ...potatoesKg, stock: 0.6, quantity: 5 }));
+      expect(result.current.getLine('p-kg')?.stock).toBe(0.6);
+      expect(result.current.getLine('p-kg')?.quantity).toBe(0.6);
+    });
   });
 });
