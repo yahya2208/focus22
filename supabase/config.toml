@@ -1,0 +1,16 @@
+# Supabase configuration (GATE 8B Step 1).
+# Minimal config enabling ONLY the function infrastructure required by the
+# secure new-auth-account provisioning step. Project id matches the live
+# project (fmggysdqigtejxbfpgtg). The service-role credential is NOT defined
+# here — it is injected as a deployment/edge-runtime secret, never committed.
+
+project_id = "fmggysdqigtejxbfpgtg"
+
+[functions.create-pilot-account]
+verify_jwt = true
+
+# GATE 1B — pilot invitation lifecycle (send/resend). JWT-gated like the
+# provisioning function; the caller's admin role is verified inside the Edge
+# Function against public.users.role.
+[functions.pilot-invite]
+verify_jwt = true
