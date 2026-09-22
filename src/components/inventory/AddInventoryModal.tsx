@@ -218,7 +218,7 @@ export const AddInventoryModal = memo(function AddInventoryModal({ colors, onDon
                 padding: '10px 16px', borderRadius: '8px', border: `1px solid ${colors.border}`,
                 background: colors.bgInput, color: colors.text, fontSize: '1.1rem', cursor: 'pointer',
               }}>−</button>
-              <input type="number" value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+              <input type="number" step="any" value={quantity} onChange={e => { const v = parseFloat(e.target.value); setQuantity(Number.isFinite(v) ? Math.max(1, v) : 1); }}
                 style={{
                   flex: 1, padding: '10px', borderRadius: '8px', border: `1px solid ${colors.border}`,
                   background: colors.bgInput, color: colors.text, fontSize: '1.2rem', textAlign: 'center', fontFamily: 'inherit',

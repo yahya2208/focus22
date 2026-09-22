@@ -88,7 +88,7 @@ export const EditInventoryModal = memo(function EditInventoryModal({ record, col
         <div style={{ color: colors.textMuted, fontSize: '0.75rem', marginBottom: '12px' }}>
           {record.variant} · {record.storage} · {record.condition}
         </div>
-        <input type="number" value={quantity} onChange={e => setQuantity(Math.max(0, parseInt(e.target.value) || 0))}
+        <input type="number" step="any" value={quantity} onChange={e => { const v = parseFloat(e.target.value); setQuantity(Number.isFinite(v) ? Math.max(0, v) : 0); }}
           style={{
             width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${colors.border}`,
             background: colors.bgInput, color: colors.text, fontSize: '1.2rem', textAlign: 'center', fontFamily: 'inherit',

@@ -39,7 +39,7 @@ export const PilotStorefrontScreen = memo(function PilotStorefrontScreen() {
   const { routeParams } = useAppState();
   const { t, locale } = useTranslation();
   const colors = useThemeColors();
-  const { addLine, itemCount } = useCart();
+  const { addLine, getLine, itemCount } = useCart();
   const { state: authState, service: { signInAsGuest } } = useAuth();
 
   const categoryFilter = routeParams.category === 'produce' ? 'produce' : null;
@@ -127,7 +127,10 @@ export const PilotStorefrontScreen = memo(function PilotStorefrontScreen() {
       }
       setSaving((cur) => ({ ...cur, [p.id]: true }));
       try {
-        await saveFamilyItem(p.id, 1);
+        // Habitual quantity = the customer's current cart line for this
+        // product (00105 stores the usual amount verbatim, never clamped to
+        // stock). Falls back to the first-add quantity when not in cart.
+        await saveFamilyItem(p.id, getLine(p.id)?.quantity ?? 1);
         setSavedRefs((cur) => new Set(cur).add(p.id));
       } catch {
         setError('SAVE_FAILED');
@@ -139,7 +142,7 @@ export const PilotStorefrontScreen = memo(function PilotStorefrontScreen() {
         });
       }
     },
-    [authState.status, signInAsGuest],
+    [authState.status, signInAsGuest, getLine],
   );
 
   const buyable = useMemo(
