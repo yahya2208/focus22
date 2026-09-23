@@ -1461,6 +1461,7 @@ const tr: Record<TranslationKey, string> = {
   'pilot.cart': 'Sepet',
   'pilot.checkoutTitle': 'Ödeme',
   'pilot.backToStore': 'Mağazaya dön',
+  'pilot.familyHome': 'Aile sayfası',
   'pilot.yourItems': 'Ürünleriniz',
   'pilot.subtotal': 'Ara toplam',
   'pilot.deliveryFee': 'Teslimat ücreti',

@@ -772,6 +772,7 @@ const fr: Record<string, string> = {
   'pilot.cart': 'Panier',
   'pilot.checkoutTitle': 'Paiement',
   'pilot.backToStore': 'Retour au magasin',
+  'pilot.familyHome': 'Page famille',
   'pilot.yourItems': 'Vos articles',
   'pilot.subtotal': 'Sous-total',
   'pilot.deliveryFee': 'Frais de livraison',

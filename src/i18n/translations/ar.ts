@@ -1461,6 +1461,7 @@ const ar: Record<TranslationKey, string> = {
   'pilot.cart': 'السلة',
   'pilot.checkoutTitle': 'إتمام الطلب',
   'pilot.backToStore': 'العودة للمتجر',
+  'pilot.familyHome': 'صفحة العائلة',
   'pilot.yourItems': 'أغراضك',
   'pilot.subtotal': 'المجموع الفرعي',
   'pilot.deliveryFee': 'رسوم التوصيل',

@@ -1481,6 +1481,7 @@ const en = {
   'pilot.cart': 'Cart',
   'pilot.checkoutTitle': 'Checkout',
   'pilot.backToStore': 'Back to store',
+  'pilot.familyHome': 'Family page',
   'pilot.yourItems': 'Your items',
   'pilot.subtotal': 'Subtotal',
   'pilot.deliveryFee': 'Delivery fee',
