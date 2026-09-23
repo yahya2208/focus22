@@ -8,7 +8,14 @@ import { Select } from '../../design-system/components/Select';
 import { Flex } from '../../design-system/components/Flex';
 import { useCart, type CartDomain } from '../../core/cart/CartContext';
 import { useAuth } from '../../core/auth/AuthProvider';
-import { normalizeQuantityUnit } from '../../core/cart/quantity';
+import { formatQuantity, normalizeQuantityUnit, quantityStep } from '../../core/cart/quantity';
+import {
+  PRODUCE_QTY_STEP,
+  isProduceLine,
+  produceStepDown,
+} from '../../core/cart/produce-quantity';
+import { useInventoryImages } from '../../hooks/useInventoryImages';
+import { ProduceArtwork, resolveProduceArtKey } from './ProduceArtwork';
 import { saveFamilyItem } from '../../services/pilot-family-service';
 import type { TranslationKey } from '../../i18n';
 import { produceUnitLabel, type ProduceUnit } from '../../domains/listings';
@@ -26,6 +33,243 @@ export function pilotDomain(category: string): CartDomain {
   return category === 'produce' || category === 'car' || category === 'property'
     ? category
     : 'phone';
+}
+
+const STEPPER_BTN: React.CSSProperties = {
+  width: '44px',
+  height: '44px',
+  borderRadius: '12px',
+  fontWeight: 800,
+  fontSize: '1.2rem',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+};
+
+/**
+ * Bucket-backed image for NON-produce cards only. Produce cards render
+ * <ProduceArtwork> and never consult `inventory_images` (phones keep their
+ * own gallery path untouched elsewhere).
+ */
+function StorefrontImage({
+  recordId,
+  fallbackEmoji,
+  alt,
+}: {
+  recordId: string;
+  fallbackEmoji: string;
+  alt: string;
+}) {
+  const images = useInventoryImages(recordId, []);
+  const primary = images[0];
+  if (!primary) {
+    return (
+      <span aria-hidden="true" style={{ fontSize: '2.6rem', lineHeight: 1 }}>
+        {fallbackEmoji}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={primary}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+    />
+  );
+}
+
+/**
+ * Family produce card (additive — non-produce modes keep every old capability):
+ * 4:3 art area (tap = add 1kg first, +0.5kg merge after), name, price/kg,
+ * live-quantity stepper once in cart. Produce renders <ProduceArtwork>
+ * (no images dependency); other domains use the bucket-backed image.
+ */
+function ProduceCard({
+  p,
+  produceMode,
+  onAdd,
+  onSave,
+  saved,
+  saving,
+}: {
+  p: PilotProduct;
+  produceMode: boolean;
+  onAdd: (p: PilotProduct) => void;
+  onSave: (p: PilotProduct) => void;
+  saved: boolean;
+  saving: boolean;
+}) {
+  const { t } = useTranslation();
+  const colors = useThemeColors();
+  const { getLine, setQuantity, removeLine } = useCart();
+  const [expanded, setExpanded] = useState(false);
+
+  const line = getLine(p.id);
+  const title = [p.brand, p.model].filter(Boolean).join(' ');
+  const isProduce = pilotDomain(p.category) === 'produce';
+  // Deterministic placeholder per domain (never a broken-image icon).
+  const placeholderEmoji =
+    pilotDomain(p.category) === 'produce'
+      ? '🥬'
+      : pilotDomain(p.category) === 'car'
+        ? '🚗'
+        : pilotDomain(p.category) === 'property'
+          ? '🏠'
+          : '📱';
+  // Scoped produce rule: kg-produce lines step 0.5 and minus-at-0.5 removes.
+  // Every other domain/unit keeps the generic clamp behavior.
+  const kgProduce = line != null && isProduceLine(line) && line.unit === 'kg';
+
+  const stepDown = () => {
+    if (line == null) return;
+    if (kgProduce) {
+      const next = produceStepDown(line.quantity);
+      if (next.action === 'remove') removeLine(line.catalogRef);
+      else setQuantity(line.catalogRef, next.quantity);
+      return;
+    }
+    setQuantity(line.catalogRef, line.quantity - quantityStep(line.unit));
+  };
+
+  const stepUp = () => {
+    if (line == null) return;
+    if (kgProduce) setQuantity(line.catalogRef, line.quantity + PRODUCE_QTY_STEP);
+    else setQuantity(line.catalogRef, line.quantity + quantityStep(line.unit));
+  };
+
+  const labelStyle = { color: colors.textMuted, fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.3rem', display: 'block' } as const;
+  const mutedStyle = { color: colors.textMuted, fontSize: '0.7rem', fontWeight: 600, marginBottom: '0.25rem', display: 'block' } as const;
+
+  return (
+    <div
+      style={{
+        border: `1px solid ${colors.border}`,
+        borderRadius: 20,
+        padding: 12,
+        background: colors.bgCard,
+        cursor: 'pointer',
+        minWidth: 0,
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+      }}
+      onClick={() => setExpanded((cur) => !cur)}
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onAdd(p);
+        }}
+        aria-label={t('pilot.addToCart')}
+        style={{
+          display: 'block',
+          width: '100%',
+          padding: 0,
+          border: 'none',
+          background: 'transparent',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+        }}
+      >
+        <div
+          style={{
+            aspectRatio: '4 / 3',
+            borderRadius: 12,
+            overflow: 'hidden',
+            background: `linear-gradient(150deg, ${colors.success}14 0%, ${colors.bg} 100%)`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {isProduce ? (
+            <ProduceArtwork artKey={resolveProduceArtKey(p.source_key, p.model_id)} />
+          ) : (
+            <StorefrontImage recordId={p.id} fallbackEmoji={placeholderEmoji} alt={title} />
+          )}
+        </div>
+      </button>
+      <div style={{ fontWeight: 700, color: colors.text, fontSize: '0.95rem', marginTop: '0.6rem' }}>
+        {title}
+      </div>
+      {/* Price + stock stay on unbreakable lines (never split into characters). */}
+      <div style={{ color: colors.text, fontWeight: 700, margin: '0.4rem 0', whiteSpace: 'nowrap', wordBreak: 'keep-all' }}>
+        {p.sell_price != null
+          ? `${p.sell_price.toFixed(2)} ${t('pilot.currency')}${p.unit ? ` / ${produceUnitLabel(p.unit as ProduceUnit)}` : ''}`
+          : '—'}
+      </div>
+      <span style={{ ...labelStyle, whiteSpace: 'nowrap', wordBreak: 'keep-all' }}>
+        {t('pilot.stockLabel')}: {String(p.quantity)}
+        {p.unit ? ` ${produceUnitLabel(p.unit as ProduceUnit)}` : ''}
+      </span>
+      {line != null ? (
+        <Flex align="center" justify="center" gap="sm" style={{ marginTop: '0.6rem' }}>
+          <button
+            type="button"
+            aria-label="decrease"
+            onClick={(e) => {
+              e.stopPropagation();
+              stepDown();
+            }}
+            style={{ ...STEPPER_BTN, border: `1px solid ${colors.border}`, background: colors.bgInput, color: colors.text }}
+          >
+            −
+          </button>
+          <span style={{ minWidth: '4.5rem', textAlign: 'center', fontWeight: 800, color: colors.text, fontVariantNumeric: 'tabular-nums' }}>
+            {formatQuantity(line.quantity, line.unit)}
+            {line.unit ? ` ${produceUnitLabel(line.unit as ProduceUnit)}` : ''}
+          </span>
+          <button
+            type="button"
+            aria-label="increase"
+            onClick={(e) => {
+              e.stopPropagation();
+              stepUp();
+            }}
+            style={{ ...STEPPER_BTN, border: `1px solid ${colors.border}`, background: colors.bgInput, color: colors.text }}
+          >
+            +
+          </button>
+        </Flex>
+      ) : (
+        <Button
+          variant="primary"
+          disabled={p.quantity <= 0}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAdd(p);
+          }}
+          style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', marginTop: 8 }}
+        >
+          {t('pilot.addToCart')}
+        </Button>
+      )}
+      {expanded && (
+        <div style={{ padding: '6px 0 10px' }}>
+          {p.condition ? <span style={labelStyle}>{p.condition}</span> : null}
+          {p.description ? <span style={labelStyle}>{p.description}</span> : null}
+          {p.city ? <span style={mutedStyle}>{t('pilot.city')}: {p.city}</span> : null}
+          {p.source_key ? <span style={mutedStyle}>{t('pilot.source')}: {p.source_key}</span> : null}
+          <span style={mutedStyle}>{t('pilot.detailsHint')}</span>
+        </div>
+      )}
+      {produceMode && (
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={saving}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSave(p);
+          }}
+          style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', marginTop: 8 }}
+        >
+          {saved ? t('pilot.savedForFamily') : t('pilot.saveForFamily')}
+        </Button>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -50,7 +294,6 @@ export const PilotStorefrontScreen = memo(function PilotStorefrontScreen() {
   const [stores, setStores] = useState<Store[]>([]);
   const [storeId, setStoreId] = useState('');
   const [products, setProducts] = useState<PilotProduct[]>([]);
-  const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savedRefs, setSavedRefs] = useState<ReadonlySet<string>>(() => new Set());
@@ -157,8 +400,6 @@ export const PilotStorefrontScreen = memo(function PilotStorefrontScreen() {
   );
 
   const labelStyle = { color: colors.textMuted, fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.3rem', display: 'block' } as const;
-  const mutedStyle = { color: colors.textMuted, fontSize: '0.7rem', fontWeight: 600, marginBottom: '0.25rem', display: 'block' } as const;
-  const cardStyle = { color: colors.text, fontWeight: 700, margin: '0.4rem 0' } as const;
   const name = (en: string, ar: string) => (locale === 'ar' && ar ? ar : en);
 
   return (
@@ -207,101 +448,77 @@ export const PilotStorefrontScreen = memo(function PilotStorefrontScreen() {
           <span style={labelStyle}>{t('pilot.loading')}</span>
         ) : (
           <>
-            <label style={labelStyle}>{t('pilot.neighborhood')}</label>
+            {/* Family mode: auto-selected first neighborhood/store, so the
+                operational selectors (and their divider) stay hidden. */}
             {neighborhoods.length === 0 ? (
               <span style={labelStyle}>{t('pilot.emptyNeighborhoods')}</span>
-            ) : (
-              <Select
-                options={neighborhoods.map((n) => ({ value: n.id, label: name(n.name, n.name_ar) }))}
-                value={neighborhoodId}
-                onChange={(e) => setNeighborhoodId(e.target.value)}
-                aria-label={t('pilot.neighborhood')}
-              />
-            )}
-
-            {stores.length > 0 && (
+            ) : !produceMode ? (
               <>
-                <label style={labelStyle}>{t('pilot.store')}</label>
+                <label style={labelStyle}>{t('pilot.neighborhood')}</label>
                 <Select
-                  options={stores.map((s) => ({ value: s.id, label: name(s.name, s.name_ar) }))}
-                  value={storeId}
-                  onChange={(e) => setStoreId(e.target.value)}
-                  aria-label={t('pilot.store')}
+                  options={neighborhoods.map((n) => ({ value: n.id, label: name(n.name, n.name_ar) }))}
+                  value={neighborhoodId}
+                  onChange={(e) => setNeighborhoodId(e.target.value)}
+                  aria-label={t('pilot.neighborhood')}
                 />
+                {stores.length > 0 && (
+                  <>
+                    <label style={labelStyle}>{t('pilot.store')}</label>
+                    <Select
+                      options={stores.map((s) => ({ value: s.id, label: name(s.name, s.name_ar) }))}
+                      value={storeId}
+                      onChange={(e) => setStoreId(e.target.value)}
+                      aria-label={t('pilot.store')}
+                    />
+                  </>
+                )}
+                <Divider />
               </>
-            )}
-
-            <Divider />
+            ) : null}
 
             {buyable.length === 0 ? (
               <span style={labelStyle}>{t('pilot.emptyProducts')}</span>
             ) : (
-              <Flex gap="md">
-                {buyable.map((p) => (
-                  <div
-                    key={p.id}
-                    style={{
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: 12,
-                      padding: 12,
-                      background: colors.bgCard,
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => setExpandedProduct((cur) => (cur === p.id ? null : p.id))}
-                  >
-                    <div style={{ fontWeight: 700, color: colors.text, fontSize: '0.95rem' }}>
-                      {[p.brand, p.model].filter(Boolean).join(' ')}
-                    </div>
-                    {p.condition ? <span style={labelStyle}>{p.condition}</span> : null}
-                    <div style={cardStyle}>
-                      {p.sell_price != null
-                        ? `${p.sell_price.toFixed(2)} ${t('pilot.currency')}${p.unit ? ` / ${produceUnitLabel(p.unit as ProduceUnit)}` : ''}`
-                        : '—'}
-                    </div>
-                    <span style={labelStyle}>
-                      {t('pilot.stockLabel')}: {String(p.quantity)}
-                      {p.unit ? ` ${produceUnitLabel(p.unit as ProduceUnit)}` : ''}
-                    </span>
-                    {expandedProduct === p.id && (
-                      <div style={{ padding: '6px 0 10px' }}>
-                        {p.description ? (
-                          <span style={labelStyle}>{p.description}</span>
-                        ) : null}
-                        {p.city ? <span style={mutedStyle}>{t('pilot.city')}: {p.city}</span> : null}
-                        {p.source_key ? <span style={mutedStyle}>{t('pilot.source')}: {p.source_key}</span> : null}
-                        <span style={mutedStyle}>{t('pilot.detailsHint')}</span>
-                      </div>
-                    )}
-                    <Button
-                      variant="primary"
-                      disabled={p.quantity <= 0}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addToCart(p);
-                      }}
-                      style={{ width: '100%', marginTop: 8 }}
-                    >
-                      {t('pilot.addToCart')}
-                    </Button>
-                    {produceMode && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={saving[p.id] === true}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleSaveForFamily(p);
-                        }}
-                        style={{ width: '100%', marginTop: 8 }}
-                      >
-                        {savedRefs.has(p.id)
-                          ? t('pilot.savedForFamily')
-                          : t('pilot.saveForFamily')}
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </Flex>
+              <>
+                {/* Wrapping grid: every card keeps its own column width, so no
+                    card content can squeeze into or overlap its neighbor. */}
+                <div
+                  data-testid="produce-grid"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                    gap: '16px',
+                    width: '100%',
+                  }}
+                >
+                  {buyable.map((p) => (
+                    <ProduceCard
+                      key={p.id}
+                      p={p}
+                      produceMode={produceMode}
+                      onAdd={addToCart}
+                      onSave={(item) => void handleSaveForFamily(item)}
+                      saved={savedRefs.has(p.id)}
+                      saving={saving[p.id] === true}
+                    />
+                  ))}
+                </div>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  disabled={itemCount === 0}
+                  onClick={() =>
+                    dispatch({
+                      type: 'NAVIGATE',
+                      screen: 'pilot-checkout',
+                      params: { storeId: storeId ?? '' },
+                    })
+                  }
+                  style={{ width: '100%', minHeight: '52px', marginTop: '1rem' }}
+                >
+                  {`${t('pilot.cart')}${itemCount > 0 ? ` (${String(itemCount)})` : ''}`}
+                </Button>
+              </>
             )}
           </>
         )}
