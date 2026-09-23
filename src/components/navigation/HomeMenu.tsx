@@ -28,7 +28,7 @@ export const HomeMenu = memo(function HomeMenu({ open, onClose }: HomeMenuProps)
   const isGuest = !isAuthenticated && !isLoading;
   const canManage = permissionGuard.can(researchRole, 'scientific', 'read');
 
-  const navigate = (screen: 'login' | 'settings' | 'research' | 'about' | 'showroom') => {
+  const navigate = (screen: 'login' | 'settings' | 'research' | 'about' | 'showroom' | 'pilot-family-home') => {
     onClose();
     dispatch({ type: 'NAVIGATE', screen });
   };
@@ -112,6 +112,12 @@ export const HomeMenu = memo(function HomeMenu({ open, onClose }: HomeMenuProps)
       <button onClick={() => navigate('showroom')} style={btn()} onMouseEnter={hover} onMouseLeave={leave}>
         {t('home.showroom')}
       </button>
+
+      {isAuthenticated && (
+        <button onClick={() => navigate('pilot-family-home')} style={btn()} onMouseEnter={hover} onMouseLeave={leave}>
+          {t('pilot.familyHome')}
+        </button>
+      )}
 
 
       <button onClick={cycleLanguage} style={btn({ display: 'flex', justifyContent: 'space-between' })} onMouseEnter={hover} onMouseLeave={leave}>
