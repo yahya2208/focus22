@@ -96,11 +96,10 @@ BEGIN
     END IF;
   END IF;
 
-  -- Clamp to current stock (server-authoritative).
-  v_qty := LEAST(p_quantity, GREATEST(v_row_qty, 0));
-  IF v_qty <= 0 THEN
-    RAISE EXCEPTION 'ITEM_NOT_FOUND' USING ERRCODE = 'P0002';
-  END IF;
+  -- Saved quantity is the family's usual amount, not reserved stock: keep it
+  -- verbatim. Availability was already verified above; live stock is reported
+  -- separately (see pilot_family_saved_list) and enforced at reorder time.
+  v_qty := p_quantity;
 
   INSERT INTO public.family_saved_items (family_id, catalog_ref, quantity, added_by)
   VALUES (v_family, btrim(p_catalog_ref), v_qty, v_uid)
@@ -172,6 +171,7 @@ BEGIN
 
   RETURN v_out;
 END;
+$$;
 
 REVOKE ALL ON FUNCTION public.pilot_family_saved_list() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.pilot_family_saved_list() FROM anon;
@@ -227,8 +227,8 @@ BEGIN
     IF p_quantity <> trunc(p_quantity) THEN RAISE EXCEPTION 'QUANTITY_INVALID' USING ERRCODE = '22023'; END IF;
   END IF;
 
-  v_qty := LEAST(p_quantity, GREATEST(v_row_qty, 0));
-  IF v_qty <= 0 THEN RAISE EXCEPTION 'ITEM_NOT_FOUND' USING ERRCODE = 'P0002'; END IF;
+  -- Usual amount kept verbatim (see note in pilot_family_saved_add).
+  v_qty := p_quantity;
 
   UPDATE public.family_saved_items
      SET quantity = v_qty, updated_at = now()
