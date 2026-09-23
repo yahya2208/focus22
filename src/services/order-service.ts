@@ -43,7 +43,6 @@ export interface PilotOrder {
   readonly store_id: string | null;
   readonly neighborhood_id: string | null;
   readonly user_id: string | null;
-  /** Present at runtime (pilot_orders_for_store returns SETOF orders); used read-only by admin triage. */
   readonly courier_user_id?: string | null;
   /**
    * Server-authored family binding (00102). Present at runtime (SETOF orders);
@@ -222,6 +221,42 @@ export async function updateStoreOrderStatus(orderId: string, status: PilotOrder
     entityId: orderId,
     properties: status === 'delivered' ? {} : { status },
   });
+}
+
+/* ————————————————— admin-owned fulfillment (Gate V1.4, Vegetables Pilot) ————————————————— */
+
+/**
+ * Advance a pilot order along the admin-owned whitelist via
+ * `pilot_admin_advance_order` (00107): pending→confirmed→preparing→delivered,
+ * pending/confirmed→cancelled. Admin-only server-side; never binds a courier,
+ * never touches pricing/inventory/ledger. The generic `updateStoreOrderStatus`
+ * (courier-era setter) is intentionally NOT used here.
+ */
+export type AdminAdvanceStatus = 'confirmed' | 'preparing' | 'delivered' | 'cancelled';
+
+export interface AdvanceOrderResult {
+  readonly order_id: string;
+  readonly order_number: string;
+  readonly previous_status: string;
+  readonly status: string;
+}
+
+export async function advanceStoreOrder(
+  orderId: string,
+  toStatus: AdminAdvanceStatus,
+): Promise<AdvanceOrderResult> {
+  const { data, error } = await getSupabaseClient().rpc('pilot_admin_advance_order', {
+    p_order_id: orderId,
+    p_to_status: toStatus,
+  });
+  if (error) throw new Error(error.message ?? 'RPC_ERROR');
+  void track({
+    event: toStatus === 'delivered' ? 'order_completed' : 'order_status_changed',
+    entityType: 'order',
+    entityId: orderId,
+    properties: toStatus === 'delivered' ? {} : { status: toStatus },
+  });
+  return data as AdvanceOrderResult;
 }
 
 /* ————————————————— family settlement (Gate B) ————————————————— */

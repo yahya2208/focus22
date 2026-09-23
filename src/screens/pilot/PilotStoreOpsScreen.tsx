@@ -10,20 +10,33 @@ import { useAuth } from '../../core/auth/AuthProvider';
 import { fetchMyStores, fetchStoreProducts, type Store, type PilotProduct } from '../../services/neighborhood-service';
 import {
   fetchStoreOrders,
-  updateStoreOrderStatus,
-  storeActionsFor,
+  advanceStoreOrder,
   settleFamilyOrder,
+  type AdminAdvanceStatus,
   type DeliveredActual,
   type PilotOrder,
-  type PilotOrderStatus,
   type SettlementResult,
 } from '../../services/order-service';
 import { fetchOrderDetail, type OrderDetailPayload } from '../../services/courier-service';
+import { adminListFamilies } from '../../services/neighborhood-service';
 import {
   createPilotOrderRealtime,
   type PilotRealtimeFeedStatus,
 } from '../../services/pilot-realtime-service';
 import type { TranslationKey } from '../../i18n';
+
+/**
+ * Admin-visible status labels (local copy of the family-screen mapping —
+ * kept local to minimize diff). Raw DB statuses must never reach the user.
+ */
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'pilot.status.pending',
+  confirmed: 'pilot.status.confirmed',
+  preparing: 'pilot.status.preparing',
+  out_for_delivery: 'pilot.status.outForDelivery',
+  delivered: 'pilot.status.delivered',
+  cancelled: 'pilot.status.cancelled',
+};
 
 /**
  * PilotStoreOpsScreen — store-operator experience (Phases 2, 6; Gate C Store).
@@ -45,6 +58,8 @@ export const PilotStoreOpsScreen = memo(function PilotStoreOpsScreen() {
   const [delivered, setDelivered] = useState<Record<string, string>>({});
   const [settleResult, setSettleResult] = useState<SettlementResult | null>(null);
   const [settling, setSettling] = useState<string | null>(null);
+  // Family names for the order rows (admin lists; display-only, no RPC change).
+  const [familyNames, setFamilyNames] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,7 +70,16 @@ export const PilotStoreOpsScreen = memo(function PilotStoreOpsScreen() {
     const ss = await fetchMyStores();
     setStores(ss);
     setStoreId((prev) => prev || ss[0]?.id || '');
-  }, []);
+    try {
+      const map: Record<string, string> = {};
+      for (const f of await adminListFamilies()) {
+        map[f.id] = locale === 'ar' && f.name_ar ? f.name_ar : f.name;
+      }
+      setFamilyNames(map);
+    } catch {
+      setFamilyNames({});
+    }
+  }, [locale]);
 
   useEffect(() => {
     let alive = true;
@@ -147,10 +171,12 @@ export const PilotStoreOpsScreen = memo(function PilotStoreOpsScreen() {
     }
   }, [expanded, detail]);
 
-  const act = useCallback(
-    async (orderId: string, status: PilotOrderStatus) => {
+  // Admin-owned fulfillment (Gate V1.4, Vegetables Pilot): explicit whitelist
+  // advance via pilot_admin_advance_order — never binds a courier.
+  const advance = useCallback(
+    async (orderId: string, toStatus: AdminAdvanceStatus) => {
       try {
-        await updateStoreOrderStatus(orderId, status);
+        await advanceStoreOrder(orderId, toStatus);
         setMessage('STATUS_UPDATED');
         setError(null);
         setExpanded(null);
@@ -161,6 +187,29 @@ export const PilotStoreOpsScreen = memo(function PilotStoreOpsScreen() {
     },
     [storeId],
   );
+
+  // Admin queue actions per status. `preparing` is displayed as ready-for-handoff
+  // (DB value stays preparing — no enum change); delivered is an explicit
+  // admin marking AFTER the external handoff (and after settlement, which the
+  // settle action below performs while still preparing).
+  const adminQueueActions = (status: string): Array<{ to: AdminAdvanceStatus; labelKey: string }> => {
+    switch (status) {
+      case 'pending':
+        return [
+          { to: 'confirmed', labelKey: 'pilot.confirmOrder' },
+          { to: 'cancelled', labelKey: 'pilot.cancelOrder' },
+        ];
+      case 'confirmed':
+        return [
+          { to: 'preparing', labelKey: 'pilot.startPreparing' },
+          { to: 'cancelled', labelKey: 'pilot.cancelOrder' },
+        ];
+      case 'preparing':
+        return [{ to: 'delivered', labelKey: 'pilot.markDelivered' }];
+      default:
+        return [];
+    }
+  };
 
   const unitOf = useCallback(
     (catalogRef: string | null): 'unit' | 'kg' => (catalogRef && sellUnits[catalogRef] === 'kg' ? 'kg' : 'unit'),
@@ -315,9 +364,12 @@ export const PilotStoreOpsScreen = memo(function PilotStoreOpsScreen() {
                       <div style={{ color: colors.text, fontWeight: 700, fontSize: '0.9rem' }}>{o.order_number}</div>
                       <span style={mutedStyle}>
                         {o.customer_name} · {o.total.toFixed(2)} {t('pilot.currency')}
+                        {o.family_id != null && familyNames[o.family_id] != null
+                          ? ` · ${familyNames[o.family_id]}`
+                          : ''}
                       </span>
                       <span style={mutedStyle}>
-                        {t('pilot.status')}: {o.status}
+                        {t('pilot.status')}: {t((STATUS_LABELS[o.status] ?? 'pilot.status.' + o.status) as TranslationKey)}
                       </span>
                     </div>
                     <Button variant="secondary" size="sm" onClick={() => void toggleDetail(o.id)}>
@@ -335,7 +387,10 @@ export const PilotStoreOpsScreen = memo(function PilotStoreOpsScreen() {
                       {oDetail.order.address && <span style={mutedStyle}>{t('pilot.address')}: {oDetail.order.address}</span>}
                       {oDetail.items.map((it) => {
                         const unit = unitOf(it.catalog_ref);
-                        const canSettle = o.status === 'out_for_delivery';
+                        // Settlement is money-only (actuals + PURCHASE) and runs
+                        // while preparing — before the explicit delivered marking.
+                        // OFD retained for the legacy courier path.
+                        const canSettle = o.status === 'out_for_delivery' || o.status === 'preparing' || o.status === 'delivered';
                         return (
                           <div key={it.id}>
                             <Flex justify="space-between" align="center">
@@ -377,13 +432,18 @@ export const PilotStoreOpsScreen = memo(function PilotStoreOpsScreen() {
                         <span style={{ color: colors.text, fontWeight: 700 }}>{Number(oDetail.order.total).toFixed(2)} {t('pilot.currency')}</span>
                       </Flex>
                       <Flex gap="sm" style={{ marginTop: 8, flexWrap: 'wrap' }}>
-                        {o.status === 'out_for_delivery' && (
+                        {(o.status === 'out_for_delivery' || o.status === 'preparing' || o.status === 'delivered') && (
                           <Button variant="primary" size="sm" disabled={settling === o.id} onClick={() => void settle(o.id)}>
                             {settling === o.id ? t('pilot.settling' as TranslationKey) : t('pilot.settleAndDeliver' as TranslationKey)}
                           </Button>
                         )}
-                        {storeActionsFor(o.status).map((a) => (
-                          <Button key={a.status} variant="primary" size="sm" onClick={() => void act(o.id, a.status)}>
+                        {o.status === 'preparing' && (
+                          <span style={{ ...labelStyle, color: colors.successText }}>
+                            {t('pilot.readyForHandoff')}
+                          </span>
+                        )}
+                        {adminQueueActions(o.status).map((a) => (
+                          <Button key={a.to} variant="primary" size="sm" onClick={() => void advance(o.id, a.to)}>
                             {t(a.labelKey as TranslationKey)}
                           </Button>
                         ))}
