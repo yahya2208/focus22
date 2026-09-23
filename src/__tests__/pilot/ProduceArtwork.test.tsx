@@ -3,14 +3,16 @@ import { render } from '@testing-library/react';
 import { ProduceArtwork, resolveProduceArtKey } from '../../screens/pilot/ProduceArtwork';
 
 const EXPECTED: Array<[string, string]> = [
-  ['veg-tomato', 'veg-tomato'],
   ['veg-potato', 'veg-potato'],
+  ['veg-tomato', 'veg-tomato'],
   ['veg-onion', 'veg-onion'],
   ['veg-carrot', 'veg-carrot'],
-  ['veg-cucumber', 'veg-cucumber'],
-  ['veg-pepper', 'veg-pepper'],
   ['veg-zucchini', 'veg-zucchini'],
-  ['veg-eggplant', 'veg-eggplant'],
+  ['veg-bell-pepper', 'veg-bell-pepper'],
+  ['veg-hot-pepper', 'veg-hot-pepper'],
+  ['veg-lettuce', 'veg-lettuce'],
+  ['veg-beans', 'veg-beans'],
+  ['veg-garlic', 'veg-garlic'],
 ];
 
 describe('ProduceArtwork — deterministic mapping', () => {
@@ -27,7 +29,12 @@ describe('ProduceArtwork — deterministic mapping', () => {
 
   it('strips the staging pilot: source_key prefix', () => {
     expect(resolveProduceArtKey('pilot:veg-onion', 'veg-onion')).toBe('veg-onion');
-    expect(resolveProduceArtKey('pilot:veg-pepper', 'other')).toBe('veg-pepper');
+    expect(resolveProduceArtKey('pilot:veg-garlic', 'other')).toBe('veg-garlic');
+  });
+
+  it('aliases legacy staging keys to their pilot equivalent', () => {
+    expect(resolveProduceArtKey('veg-pepper', null)).toBe('veg-bell-pepper');
+    expect(resolveProduceArtKey('pilot:veg-pepper', null)).toBe('veg-bell-pepper');
   });
 
   it('unknown keys resolve to the placeholder (never emoji, never network)', () => {

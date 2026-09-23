@@ -36,13 +36,17 @@ export function pilotDomain(category: string): CartDomain {
 }
 
 const STEPPER_BTN: React.CSSProperties = {
-  width: '44px',
-  height: '44px',
-  borderRadius: '12px',
+  width: '40px',
+  height: '40px',
+  borderRadius: '50%',
   fontWeight: 800,
-  fontSize: '1.2rem',
+  fontSize: '1.15rem',
   cursor: 'pointer',
   fontFamily: 'inherit',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
 };
 
 /**
@@ -144,10 +148,11 @@ function ProduceCard({
   return (
     <div
       style={{
-        border: `1px solid ${colors.border}`,
-        borderRadius: 20,
+        border: `1px solid ${colors.glassBorder}`,
+        borderRadius: 22,
         padding: 12,
-        background: colors.bgCard,
+        background: `linear-gradient(180deg, ${colors.bgCard} 0%, ${colors.bg} 100%)`,
+        boxShadow: '0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)',
         cursor: 'pointer',
         minWidth: 0,
         boxSizing: 'border-box',
@@ -175,9 +180,11 @@ function ProduceCard({
         <div
           style={{
             aspectRatio: '4 / 3',
-            borderRadius: 12,
+            borderRadius: 16,
             overflow: 'hidden',
-            background: `linear-gradient(150deg, ${colors.success}14 0%, ${colors.bg} 100%)`,
+            background: `radial-gradient(circle at 50% 36%, ${colors.success}16 0%, transparent 68%), linear-gradient(180deg, ${colors.bgInput} 0%, ${colors.bg} 100%)`,
+            border: `1px solid ${colors.glassBorder}`,
+            boxShadow: 'inset 0 2px 14px rgba(0,0,0,0.35)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -194,7 +201,7 @@ function ProduceCard({
         {title}
       </div>
       {/* Price + stock stay on unbreakable lines (never split into characters). */}
-      <div style={{ color: colors.text, fontWeight: 700, margin: '0.4rem 0', whiteSpace: 'nowrap', wordBreak: 'keep-all' }}>
+      <div style={{ color: colors.text, fontWeight: 800, margin: '0.45rem 0 0.1rem', whiteSpace: 'nowrap', wordBreak: 'keep-all', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.01em' }}>
         {p.sell_price != null
           ? `${p.sell_price.toFixed(2)} ${t('pilot.currency')}${p.unit ? ` / ${produceUnitLabel(p.unit as ProduceUnit)}` : ''}`
           : '—'}
@@ -204,7 +211,7 @@ function ProduceCard({
         {p.unit ? ` ${produceUnitLabel(p.unit as ProduceUnit)}` : ''}
       </span>
       {line != null ? (
-        <Flex align="center" justify="center" gap="sm" style={{ marginTop: '0.6rem' }}>
+        <Flex align="center" justify="center" gap="sm" style={{ marginTop: '0.6rem', border: `1px solid ${colors.glassBorder}`, borderRadius: 999, padding: '4px 6px', background: 'rgba(0,0,0,0.18)' }}>
           <button
             type="button"
             aria-label="decrease"
@@ -212,7 +219,7 @@ function ProduceCard({
               e.stopPropagation();
               stepDown();
             }}
-            style={{ ...STEPPER_BTN, border: `1px solid ${colors.border}`, background: colors.bgInput, color: colors.text }}
+            style={{ ...STEPPER_BTN, border: `1px solid ${colors.glassBorder}`, background: 'transparent', color: colors.text }}
           >
             −
           </button>
@@ -227,7 +234,7 @@ function ProduceCard({
               e.stopPropagation();
               stepUp();
             }}
-            style={{ ...STEPPER_BTN, border: `1px solid ${colors.border}`, background: colors.bgInput, color: colors.text }}
+            style={{ ...STEPPER_BTN, border: `1px solid ${colors.glassBorder}`, background: 'transparent', color: colors.text }}
           >
             +
           </button>
