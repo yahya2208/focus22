@@ -15,6 +15,10 @@ describe('App', () => {
   // REPLACE into Showroom instead of Home. Always boot from a clean URL.
   beforeEach(() => {
     window.history.replaceState({}, '', '/');
+    // Single-fork jsdom reuse persists localStorage across files. Listings
+    // tests leave `focus_settings.language = 'ar'` behind; without this reset
+    // App boots Arabic here and the 'Phones'/'Vegetables' probes never match.
+    localStorage.removeItem('focus_settings');
   });
 
   it('should render the home screen by default', async () => {
