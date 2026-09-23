@@ -18,8 +18,17 @@ import {
   type DeliveryZone,
   type DeliveryEstimate,
 } from '../../services/delivery-service';
-import { submitPilotOrder, fetchEstimate, classifySubmissionError, fetchTrackedOrderStatus } from '../../services/order-service';
-import { fetchMyAccount, type PilotAccount } from '../../services/pilot-account-service';
+import { submitPilotOrder, fetchEstimate, classifySubmissionError } from '../../services/order-service';
+import { fetchMyAccount, fetchMyFamilyContact, saveMyFamilyContact, type PilotAccount } from '../../services/pilot-account-service';
+import {
+  buildCartRequestMessage,
+  getWhatsAppPhone,
+  openWhatsApp,
+  type CartRequestCustomer,
+  type CartRequestLine,
+} from '../../services/whatsapp-service';
+import { FamilyOrderTimeline } from './family/FamilyOrderTimeline';
+import { OrderReceiptCard, type ReceiptLine } from './family/OrderReceiptCard';
 import type { TranslationKey } from '../../i18n';
 
 /**
@@ -93,6 +102,23 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
   const [estimate, setEstimate] = useState<DeliveryEstimate | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // V1.3 contact profile: prefill once from the family's saved contact;
+  // save-after-success only (never gates the financial result).
+  const [contactNotice, setContactNotice] = useState<string | null>(null);
+  const [showMissing, setShowMissing] = useState(false);
+  const contactAppliedRef = useRef(false);
+  // V1.5 WhatsApp summary: snapshot of the OFFICIAL placed order (order
+  // number + submitted lines + customer). Built BEFORE clear(), so the CTA
+  // notifies from the recorded order — never from live cart state, and it
+  // never creates, edits, or settles anything financial.
+  const [placedOrder, setPlacedOrder] = useState<{
+    orderNumber: string;
+    total: number;
+    lines: CartRequestLine[];
+    customer: CartRequestCustomer;
+    receipt: ReceiptLine[];
+    subtotal: number;
+  } | null>(null);
   const [success, setSuccess] = useState<{
     orderId: string;
     orderNumber: string;
@@ -100,8 +126,6 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
     etaMin: number;
     etaMax: number;
   } | null>(null);
-  const [trackedStatus, setTrackedStatus] = useState<{ status: string; updated_at: string } | null>(null);
-  const [tracking, setTracking] = useState(false);
   const [gateVisible, setGateVisible] = useState(false);
   const [duplicateVisible, setDuplicateVisible] = useState(false);
   const [account, setAccount] = useState<PilotAccount | null>(null);
@@ -162,6 +186,26 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
     };
   }, [authState.status]);
 
+  // V1.3 contact prefill: fill EMPTY fields once from the saved family
+  // profile. Never overwrites user typing (guarded by the applied flag).
+  useEffect(() => {
+    if (authState.status !== 'authenticated' || contactAppliedRef.current) return;
+    let alive = true;
+    void fetchMyFamilyContact()
+      .then((c) => {
+        if (!alive || c == null) return;
+        contactAppliedRef.current = true;
+        setName((cur) => (cur === '' && c.contact_name != null ? c.contact_name : cur));
+        setPhone((cur) => (cur === '' && c.contact_phone != null ? c.contact_phone : cur));
+        setAddress((cur) => (cur === '' && c.contact_address != null ? c.contact_address : cur));
+        setNotes((cur) => (cur === '' && c.contact_notes != null ? c.contact_notes : cur));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [authState.status]);
+
   const openDebtTotal = useMemo(
     () => account?.debts.filter((d) => d.status === 'open').reduce((sum, d) => sum + d.remaining, 0) ?? 0,
     [account],
@@ -192,8 +236,10 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
       }
       if (!name.trim() || !phone.trim() || !zoneId) {
         setError('INVALID_ARGUMENTS');
+        setShowMissing(true);
         return;
       }
+      setShowMissing(false);
       setSubmitting(true);
       try {
         const result = await submitPilotOrder({
@@ -206,6 +252,30 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
           storeId,
           intentional,
         });
+        const zone = zones.find((z) => z.id === zoneId);
+        setPlacedOrder({
+          orderNumber: result.orderNumber,
+          total: result.total,
+          lines: lines.map((l) => ({
+            name: [l.brand, l.model].filter(Boolean).join(' '),
+            quantity: l.quantity,
+            unit: l.unit !== undefined ? produceUnitLabel(l.unit) : undefined,
+            priceText:
+              l.displayUnitPrice != null ? `${l.displayUnitPrice.toLocaleString('en-US')} د.ج` : undefined,
+          })),
+          receipt: lines.map((l) => ({
+            name: [l.brand, l.model].filter(Boolean).join(' '),
+            quantityText: l.unit !== undefined ? `${formatQuantity(l.quantity, l.unit)} ${produceUnitLabel(l.unit)}` : String(l.quantity),
+            lineTotal: l.displayUnitPrice != null ? l.displayUnitPrice * l.quantity : null,
+          })),
+          subtotal,
+          customer: {
+            phone: phone.trim(),
+            zone: zone != null ? (locale === 'ar' && zone.name_ar ? zone.name_ar : zone.name) : undefined,
+            address: address.trim() || undefined,
+            notes: notes.trim() || undefined,
+          },
+        });
         clear();
         setSuccess({
           orderId: result.orderId,
@@ -213,6 +283,12 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
           total: result.total,
           etaMin: result.etaMinutesMin,
           etaMax: result.etaMinutesMax,
+        });
+        // V1.3: persist the used contact to the family profile AFTER the
+        // official order succeeded. Fire-and-forget: a save failure surfaces
+        // as a separate non-financial notice and never fails the order.
+        void saveMyFamilyContact({ name, phone, address, notes }).catch(() => {
+          setContactNotice('CONTACT_SAVE_FAILED');
         });
       } catch (err) {
         const code = classifySubmissionError(err);
@@ -229,21 +305,23 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
         setSubmitting(false);
       }
     },
-    [isEmpty, items, name, phone, zoneId, address, notes, storeId, clear],
+    [isEmpty, items, lines, locale, name, phone, zoneId, zones, address, notes, storeId, clear],
   );
 
-  const refreshStatus = useCallback(async () => {
-    if (!success) return;
-    setTracking(true);
-    try {
-      const s = await fetchTrackedOrderStatus(success.orderId);
-      setTrackedStatus({ status: s.status, updated_at: s.updated_at });
-    } catch {
-      setTrackedStatus({ status: 'unknown', updated_at: '' });
-    } finally {
-      setTracking(false);
-    }
-  }, [success]);
+  const sendPlacedOrderWhatsApp = useCallback(() => {
+    if (placedOrder == null) return;
+    // Notify-only: official order number + totals head the message; the line
+    // formatter is the shared cart-request builder. No order/ledger writes here.
+    const message = [
+      `FOCUS — ${t('pilot.orderNumber')}: ${placedOrder.orderNumber}`,
+      '',
+      buildCartRequestMessage(placedOrder.lines, placedOrder.customer),
+      '',
+      `${t('pilot.orderTotal')}: ${placedOrder.total.toFixed(2)} ${t('pilot.currency')}`,
+    ].join('\n');
+    void track({ event: 'whatsapp_open', properties: { method: 'wa.me', context: 'pilot_order' } });
+    openWhatsApp(getWhatsAppPhone(), message);
+  }, [placedOrder, t]);
 
   const handleSubmitClick = useCallback(() => {
     if (authState.status === 'authenticated' || authState.status === 'anonymous') {
@@ -271,32 +349,90 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
 
   if (success) {
     return (
-      <Screen>
+      <Screen maxWidth="560px" bottomPad="6rem">
         <Stack gap="lg">
-          <h1 style={{ margin: 0, color: colors.text, fontSize: '1.15rem' }}>{t('pilot.orderSuccess')}</h1>
-          <div style={{ color: colors.text, fontSize: '0.9rem' }}>
-            <div>
-              {t('pilot.orderNumber')}: <strong>{success.orderNumber}</strong>
+          {/* Success hero */}
+          <div style={{ textAlign: 'center', paddingTop: '1rem' }}>
+            <div
+              aria-hidden="true"
+              style={{
+                width: '84px', height: '84px', borderRadius: '50%', margin: '0 auto',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '2.4rem', fontWeight: 800, color: '#0a0a12',
+                background: `linear-gradient(135deg, ${colors.success} 0%, ${colors.successText} 100%)`,
+                boxShadow: `0 8px 32px ${colors.successText}66, 0 0 64px ${colors.successText}44`,
+              }}
+            >
+              ✓
             </div>
-            <div style={{ marginTop: 4 }}>
-              {t('pilot.orderTotal')}: <strong>{money(success.total)}</strong>
+            <h1 style={{ margin: '0.9rem 0 0', color: colors.text, fontSize: '1.4rem', fontWeight: 800 }}>
+              {t('pilot.orderReceived')}
+            </h1>
+            <p style={{ margin: '0.4rem 0 0', color: colors.textSecondary, fontSize: '0.9rem' }}>
+              {t('pilot.orderPreparingNow')}
+            </p>
+            <p style={{ margin: '0.6rem 0 0', color: colors.accent, fontSize: '1.15rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+              #{success.orderNumber}
+            </p>
+          </div>
+
+          {/* Total + ETA mini cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div style={{ border: `1px solid ${colors.border}`, borderRadius: 20, padding: '0.85rem 1rem', background: colors.bgCard, textAlign: 'center' }}>
+              <div aria-hidden="true" style={{ fontSize: '1.4rem' }}>💰</div>
+              <div style={{ color: colors.textSecondary, fontSize: '0.72rem', fontWeight: 700, marginTop: '0.2rem' }}>
+                {t('pilot.orderTotal')}
+              </div>
+              <div style={{ color: colors.text, fontSize: '1.15rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+                {money(success.total)} {t('pilot.currency')}
+              </div>
             </div>
-            <div style={{ marginTop: 4 }}>
-              {t('pilot.eta')}: {String(success.etaMin)}–{String(success.etaMax)} {t('pilot.minutes')}
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <Button variant="secondary" size="sm" onClick={() => void refreshStatus()} disabled={tracking}>
-                {tracking ? t('pilot.tracking') : t('pilot.trackOrder')}
-              </Button>
-              {trackedStatus && (
-                <span style={labelStyle}>
-                  {t('pilot.status')}: {trackedStatus.status}
-                </span>
-              )}
+            <div style={{ border: `1px solid ${colors.border}`, borderRadius: 20, padding: '0.85rem 1rem', background: colors.bgCard, textAlign: 'center' }}>
+              <div aria-hidden="true" style={{ fontSize: '1.4rem' }}>🚚</div>
+              <div style={{ color: colors.textSecondary, fontSize: '0.72rem', fontWeight: 700, marginTop: '0.2rem' }}>
+                {t('pilot.deliveryEta')}
+              </div>
+              <div style={{ color: colors.text, fontSize: '1.15rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+                {String(success.etaMin)}–{String(success.etaMax)} {t('pilot.minutes')}
+              </div>
             </div>
           </div>
+
+          {/* Receipt */}
+          {placedOrder != null && (
+            <OrderReceiptCard
+              lines={placedOrder.receipt}
+              subtotal={placedOrder.subtotal}
+              deliveryFee={null}
+              total={placedOrder.total}
+              currency={t('pilot.currency')}
+            />
+          )}
+
+          {/* Timeline */}
+          <div
+            style={{
+              border: `1px solid ${colors.border}`,
+              borderRadius: 22,
+              padding: '1rem 1.1rem',
+              background: colors.bgCard,
+            }}
+          >
+            {/* A freshly placed order is confirmed; live progress continues in My Orders. */}
+            <FamilyOrderTimeline status="confirmed" />
+          </div>
+
           <Divider />
-          <Button variant="primary" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })} style={{ width: '100%' }}>
+          {contactNotice && <span style={{ color: colors.warning, fontSize: '0.8rem' }}>{t('pilot.contactSaveFailed')}</span>}
+          <Button variant="primary" size="lg" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'pilot-my-orders' })} style={{ width: '100%', minHeight: '52px' }}>
+            {t('pilot.trackMyOrder')}
+          </Button>
+          {placedOrder != null && (
+            <Button variant="secondary" onClick={sendPlacedOrderWhatsApp} style={{ width: '100%' }}>
+              {t('pilot.sendOrderWhatsApp')}
+            </Button>
+          )}
+          <Button variant="ghost" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'home' })} style={{ width: '100%' }}>
             {t('pilot.backHome')}
           </Button>
         </Stack>
@@ -353,6 +489,7 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
         )}
 
         {error && <span style={{ color: colors.danger, fontSize: '0.85rem' }}>{tError(error)}</span>}
+        {contactNotice && <span style={{ color: colors.warning, fontSize: '0.8rem' }}>{t('pilot.contactSaveFailed')}</span>}
 
         {isEmpty ? (
           <span style={labelStyle}>{t('pilot.emptyCart')}</span>
@@ -419,14 +556,14 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
         {zoneOptions.length === 0 ? (
           <span style={labelStyle}>{t('pilot.noZones')}</span>
         ) : (
-          <Select options={zoneOptions} value={zoneId} onChange={(e) => setZoneId(e.target.value)} aria-label={t('pilot.zone')} />
+          <Select options={zoneOptions} value={zoneId} onChange={(e) => setZoneId(e.target.value)} aria-label={t('pilot.zone')} error={showMissing && zoneId === ''} placeholder={t('pilot.selectZone')} />
         )}
 
         <label style={labelStyle}>{t('pilot.name')}</label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('pilot.name')} />
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('pilot.name')} error={showMissing && name.trim() === ''} />
 
         <label style={labelStyle}>{t('pilot.phone')}</label>
-        <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('pilot.phone')} inputMode="tel" />
+        <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('pilot.phone')} inputMode="tel" error={showMissing && phone.trim() === ''} />
 
         <label style={labelStyle}>{t('pilot.address')}</label>
         <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t('pilot.address')} />
@@ -436,6 +573,14 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
 
         <Button variant="primary" disabled={isEmpty || submitting} onClick={() => void handleSubmitClick()} style={{ width: '100%' }}>
           {submitting ? t('pilot.submitting') : t('pilot.placeOrder')}
+        </Button>
+        {/* Same-cart return: back to the produce list without touching the cart. */}
+        <Button
+          variant="secondary"
+          onClick={() => dispatch({ type: 'NAVIGATE', screen: 'pilot-storefront' })}
+          style={{ width: '100%' }}
+        >
+          {t('pilot.forgotSomething')}
         </Button>
       </Stack>
     </Screen>

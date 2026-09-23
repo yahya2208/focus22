@@ -1,10 +1,8 @@
 /**
- * PilotMyOrdersScreen — customer-facing My Orders list + timeline drill-down.
- * Server-authoritative: the list comes from pilot_my_orders (00082), timeline
- * from pilot_order_timeline (00079), detail from pilot_order_detail (00082).
- * Realtime is NOTIFICATION: orders feed via scoped postgres_changes (user_id
- * filter); stale indicator tracks the last successful sync; bounded fallback
- * polling keeps the list fresh when the channel is degraded.
+ * PilotMyOrdersScreen — family order history as product cards (V1.6).
+ * Data logic unchanged: list from pilot_my_orders, live status via
+ * FamilyOrderTimeline, balance from pilot_my_account (server-computed).
+ * No raw statuses, no actor roles, no UUIDs, no technical timestamps.
  */
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -13,40 +11,54 @@ import { Screen, Stack } from '../../design-system/layout';
 import { Button } from '../../design-system/components/Button';
 import { Flex } from '../../design-system/components/Flex';
 import { useAuth } from '../../core/auth/AuthProvider';
+import { useAppDispatch } from '../../store/navigation';
 import {
   fetchMyOrders,
-  fetchOrderTimeline,
+  fetchFamilyOrderItems,
   mergeRealtimeOrderPayload,
   type CustomerOrderSummary,
-  type OrderTimelineEvent,
 } from '../../services/order-tracking-service';
 import {
   createPilotOrderRealtime,
   type PilotRealtimeFeedStatus,
 } from '../../services/pilot-realtime-service';
 import { fetchMyAccount, type PilotAccount } from '../../services/pilot-account-service';
+import { useCart } from '../../core/cart/CartContext';
+import { normalizeQuantityUnit, clampQuantity } from '../../core/cart/quantity';
+import { InventoryService } from '../../services/inventory-service';
 import type { TranslationKey } from '../../i18n';
+import { FamilyOrderTimeline, stepIndexForStatus } from './family/FamilyOrderTimeline';
+import { FamilyBalanceCard } from './family/FamilyBalanceCard';
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'pilot.status.pending',
-  confirmed: 'pilot.status.confirmed',
-  preparing: 'pilot.status.preparing',
-  out_for_delivery: 'pilot.status.outForDelivery',
-  delivered: 'pilot.status.delivered',
-  cancelled: 'pilot.status.cancelled',
+const STATUS_PILL: Record<string, string> = {
+  pending: 'pilot.stepReceived',
+  confirmed: 'pilot.stepConfirmed',
+  preparing: 'pilot.stepPreparing',
+  out_for_delivery: 'pilot.readyForHandoff',
+  delivered: 'pilot.stepDelivered',
+  cancelled: 'pilot.orderCancelled',
+};
+
+const PILL_DOT: Record<string, string> = {
+  pending: 'info',
+  confirmed: 'info',
+  preparing: 'warning',
+  out_for_delivery: 'accent',
+  delivered: 'success',
+  cancelled: 'danger',
 };
 
 export const PilotMyOrdersScreen = memo(function PilotMyOrdersScreen() {
+  const dispatch = useAppDispatch();
   const { t, locale } = useTranslation();
   const colors = useThemeColors();
   const { state: authState } = useAuth();
+  const { addLine } = useCart();
 
   const [orders, setOrders] = useState<CustomerOrderSummary[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [timeline, setTimeline] = useState<Record<string, OrderTimelineEvent[]>>({});
   const [feedStatus, setFeedStatus] = useState<PilotRealtimeFeedStatus>('idle');
   const [stale, setStale] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<PilotAccount | null>(null);
@@ -123,20 +135,63 @@ export const PilotMyOrdersScreen = memo(function PilotMyOrdersScreen() {
     return () => clearInterval(id);
   }, [feedStatus]);
 
-  const toggleTimeline = useCallback(async (orderId: string) => {
-    if (expandedId === orderId) {
-      setExpandedId(null);
-      return;
-    }
-    setExpandedId(orderId);
-    if (timeline[orderId]) return; // already loaded
-    try {
-      const result = await fetchOrderTimeline(orderId);
-      setTimeline((prev) => ({ ...prev, [orderId]: [...result.events] }));
-    } catch {
-      setMessage(t('pilot.error.TIMELINE_FAILED' as TranslationKey));
-    }
-  }, [expandedId, timeline, t]);
+  const toggleDetails = useCallback((orderId: string) => {
+    setExpandedId((cur) => (cur === orderId ? null : orderId));
+  }, []);
+
+  const [repeatNote, setRepeatNote] = useState<string | null>(null);
+  const [repeatingId, setRepeatingId] = useState<string | null>(null);
+
+  // Repeat-to-cart: copy PRODUCTS + QUANTITIES ONLY into the cart. Prices are
+  // display snapshots — submit re-resolves authoritatively from the catalog.
+  // Unavailable lines are skipped with a notice, never blocking the rest.
+  // Cancelled orders are never repeatable (server rejects them too).
+  const repeatOrder = useCallback(
+    async (order: CustomerOrderSummary) => {
+      if (order.status === 'cancelled' || repeatingId != null) return;
+      setRepeatingId(order.order_id);
+      setRepeatNote(null);
+      try {
+        const lines = await fetchFamilyOrderItems(order.order_id);
+        const catalog = InventoryService.getExchangeableDevices();
+        const skipped: string[] = [];
+        for (const line of lines) {
+          const ref = (line.catalog_ref ?? '').trim();
+          const live = ref !== '' ? catalog.find((r) => r.id === ref) : undefined;
+          if (live == null) {
+            skipped.push(line.name || ref);
+            continue;
+          }
+          const unit = normalizeQuantityUnit(line.unit);
+          const qty = clampQuantity(line.quantity, live.quantity, unit);
+          if (qty <= 0) {
+            skipped.push(line.name || ref);
+            continue;
+          }
+          addLine({
+            catalogRef: live.id,
+            domain: 'produce',
+            category: 'produce',
+            brand: live.brand,
+            model: live.model,
+            displayUnitPrice: live.sellPrice ?? line.unit_price,
+            stock: live.quantity,
+            unit,
+            quantity: qty,
+          });
+        }
+        if (skipped.length > 0) {
+          setRepeatNote(`${t('pilot.repeatSkipped')}: ${skipped.join('، ')}`);
+        }
+        dispatch({ type: 'NAVIGATE', screen: 'pilot-checkout' });
+      } catch {
+        setRepeatNote(t('pilot.repeatFailed'));
+      } finally {
+        setRepeatingId(null);
+      }
+    },
+    [addLine, dispatch, t, repeatingId],
+  );
 
   const isRtl = locale === 'ar';
 
@@ -145,9 +200,20 @@ export const PilotMyOrdersScreen = memo(function PilotMyOrdersScreen() {
     catch { return s; }
   };
 
-  const formatMoney = (v: number) => v.toLocaleString();
-
-  const openDebts = account?.debts.filter((d) => d.status === 'open') ?? [];
+  const dotColor = (tone: string) => {
+    switch (tone) {
+      case 'success':
+        return colors.success;
+      case 'warning':
+        return colors.warning;
+      case 'danger':
+        return colors.danger;
+      case 'accent':
+        return colors.accent;
+      default:
+        return colors.info;
+    }
+  };
 
   if (authState.status !== 'authenticated' && authState.status !== 'anonymous') {
     return (
@@ -160,38 +226,23 @@ export const PilotMyOrdersScreen = memo(function PilotMyOrdersScreen() {
   }
 
   return (
-    <Screen>
-      <Stack gap="md" style={{ padding: 16 }}>
-        <h2>{t('pilot.myOrdersTitle' as TranslationKey)}</h2>
+    <Screen maxWidth="560px" bottomPad="6rem">
+      <Stack gap="lg">
+        <h2 style={{ margin: 0, color: colors.text, fontSize: '1.3rem', fontWeight: 800 }}>
+          {t('pilot.myOrdersTitle' as TranslationKey)}
+        </h2>
 
-        {account?.linked ? (
-          <div style={{ border: `1px solid ${colors.border}`, borderRadius: 8, padding: 12, marginBottom: 12 }}>
-            <div style={{ fontWeight: 700, color: colors.text }}>{t('pilot.accountTitle' as TranslationKey)}</div>
-            <Flex justify="space-between" align="center" style={{ marginTop: 4 }}>
-              <span>{t('pilot.balanceLabel' as TranslationKey)}</span>
-              <strong>
-                {formatMoney(account.balance)} {t('pilot.currency' as TranslationKey)}
-              </strong>
-            </Flex>
-            {openDebts.length === 0 ? (
-              <span style={{ fontSize: '0.85em', color: colors.textSecondary }}>
-                {t('pilot.noDebts' as TranslationKey)}
-              </span>
-            ) : (
-              <div style={{ marginTop: 6 }}>
-                <span style={{ fontWeight: 600, fontSize: '0.9em' }}>{t('pilot.outstandingDebts' as TranslationKey)}</span>
-                {openDebts.map((d) => (
-                  <Flex key={d.order_id} justify="space-between" align="center" style={{ marginTop: 2 }}>
-                    <span style={{ fontSize: '0.85em', color: colors.textSecondary }}>{d.order_number}</span>
-                    <span style={{ fontSize: '0.9em', color: colors.warning }}>
-                      {formatMoney(d.remaining)} {t('pilot.currency' as TranslationKey)}
-                    </span>
-                  </Flex>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : account && authState.status === 'authenticated' ? (
+        {account?.linked === true && (
+          <FamilyBalanceCard
+            account={account}
+            recentOps={orders.slice(0, 2).map((o) => ({
+              id: o.order_id,
+              label: `${t('pilot.vegOrder')} #${o.order_number}`,
+              total: o.total,
+            }))}
+          />
+        )}
+        {!account?.linked && account && authState.status === 'authenticated' ? (
           <p style={{ fontSize: '0.9em', color: colors.textSecondary }}>
             {t('pilot.notLinkedToFamily' as TranslationKey)}
           </p>
@@ -204,7 +255,6 @@ export const PilotMyOrdersScreen = memo(function PilotMyOrdersScreen() {
         )}
 
         {error && <p style={{ color: colors.danger }}>{t(error as TranslationKey)}</p>}
-        {message && <p style={{ color: colors.info }}>{message}</p>}
 
         {loading && <p>{t('pilot.loading' as TranslationKey)}</p>}
 
@@ -212,63 +262,91 @@ export const PilotMyOrdersScreen = memo(function PilotMyOrdersScreen() {
           <p>{t('pilot.myOrdersEmpty' as TranslationKey)}</p>
         )}
 
-        {orders.map((order) => (
-          <div key={order.order_id} style={{ border: `1px solid ${colors.border}`, borderRadius: 8, padding: 12, marginBottom: 8 }}>
-            <Flex justify="space-between" align="center">
-              <div>
-                <strong>{order.order_number}</strong>
-                <span style={{ marginInlineStart: 8, color: colors.textSecondary, fontSize: '0.85em' }}>
-                  {formatDate(order.created_at)}
-                </span>
-              </div>
-              <span style={{ color: colors.accent, fontWeight: 600, fontSize: '0.9em' }}>
-                {t((STATUS_LABELS[order.status] ?? 'pilot.status.' + order.status) as TranslationKey)}
-              </span>
-            </Flex>
-            <Flex justify="space-between" align="center" style={{ marginTop: 4 }}>
-              <span>{order.store_name ?? '—'}</span>
-              <span>{order.total.toLocaleString()} {t('pilot.currency' as TranslationKey)}</span>
-            </Flex>
-            {order.item_count > 0 && (
-              <span style={{ fontSize: '0.8em', color: colors.textSecondary }}>
-                {order.item_count} {t('pilot.itemsLabel' as TranslationKey)}
-              </span>
-            )}
+        {repeatNote != null && (
+          <p style={{ color: colors.warning, fontSize: '0.78rem', margin: '0.4rem 0 0' }}>
+            {repeatNote}
+          </p>
+        )}
 
-            <Button
-              variant="ghost"
-              size="sm"
-              style={{ marginTop: 6 }}
-              onClick={() => void toggleTimeline(order.order_id)}
+        {orders.map((order) => {
+          const pillKey = STATUS_PILL[order.status] ?? 'pilot.stepReceived';
+          const tone = PILL_DOT[order.status] ?? 'info';
+          const expanded = expandedId === order.order_id;
+          return (
+            <div
+              key={order.order_id}
+              style={{
+                border: `1px solid ${colors.border}`,
+                borderRadius: 22,
+                padding: '1rem 1.1rem',
+                background: colors.bgCard,
+              }}
             >
-              {expandedId === order.order_id
-                ? t('pilot.hideDetails' as TranslationKey)
-                : t('pilot.showDetails' as TranslationKey)}
-            </Button>
+              <Flex justify="space-between" align="center" gap="md">
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: colors.text, fontWeight: 800, fontSize: '1rem' }}>
+                    {`${t('pilot.vegOrder')} #${order.order_number}`}
+                  </div>
+                  <div style={{ color: colors.textSecondary, fontSize: '0.78rem', marginTop: '0.15rem' }}>
+                    📅 {formatDate(order.created_at)}
+                    {order.item_count > 0 ? ` · ${order.item_count} ${t('pilot.itemsLabel' as TranslationKey)}` : ''}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'end', flexShrink: 0 }}>
+                  <div style={{ color: colors.text, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+                    {order.total.toLocaleString()} {t('pilot.currency' as TranslationKey)}
+                  </div>
+                  <div style={{ marginTop: '0.3rem' }}>
+                    <span
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                        fontSize: '0.75rem', fontWeight: 800, color: colors.text,
+                        background: colors.bgInput, border: `1px solid ${colors.border}`,
+                        borderRadius: '9999px', padding: '0.25rem 0.7rem',
+                      }}
+                    >
+                      <span aria-hidden="true" style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor(tone) }} />
+                      {t(pillKey as TranslationKey)}
+                    </span>
+                  </div>
+                </div>
+              </Flex>
 
-            {expandedId === order.order_id && (
-              <div style={{ marginTop: 8, padding: 8, background: colors.bgCard, borderRadius: 6 }}>
-                {timeline[order.order_id] ? (
-                  timeline[order.order_id]!.length === 0
-                    ? <p>{t('pilot.noTimeline' as TranslationKey)}</p>
-                    : (
-                      <ol style={{ margin: 0, paddingInlineStart: 16 }}>
-                        {timeline[order.order_id]!.map((ev) => (
-                          <li key={ev.id} style={{ marginBottom: 4 }}>
-                            <strong>{t((STATUS_LABELS[ev.new_status] ?? ev.new_status) as TranslationKey)}</strong>
-                            {ev.actor_role ? <span style={{ marginInlineStart: 4, fontSize: '0.8em', color: colors.textSecondary }}>({ev.actor_role})</span> : null}
-                            <span style={{ marginInlineStart: 4, fontSize: '0.8em' }}>{formatDate(ev.created_at)}</span>
-                          </li>
-                        ))}
-                      </ol>
-                    )
-                ) : (
-                  <p>{t('pilot.tracking' as TranslationKey)}</p>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
+              <Button
+                variant="ghost"
+                size="sm"
+                style={{ marginTop: '0.6rem' }}
+                onClick={() => toggleDetails(order.order_id)}
+              >
+                {expanded
+                  ? t('pilot.hideDetails' as TranslationKey)
+                  : t('pilot.orderDetails')}
+              </Button>
+              {order.status !== 'cancelled' && order.item_count > 0 && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  style={{ marginTop: '0.6rem', marginInlineStart: '0.5rem' }}
+                  disabled={repeatingId != null}
+                  onClick={() => void repeatOrder(order)}
+                >
+                  {t('pilot.reorder')}
+                </Button>
+              )}
+
+              {expanded && (
+                <div style={{ marginTop: '0.75rem', borderTop: `1px dashed ${colors.borderLight}`, paddingTop: '0.75rem' }}>
+                  <FamilyOrderTimeline status={order.status} />
+                  {stepIndexForStatus(order.status) < 0 && order.status !== 'cancelled' ? (
+                    <p style={{ color: colors.textMuted, fontSize: '0.8rem' }}>
+                      {t('pilot.tracking' as TranslationKey)}
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </Stack>
     </Screen>
   );

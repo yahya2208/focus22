@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AppProvider } from '../../store/navigation';
+import { CartProvider } from '../../core/cart/CartContext';
 
 const mock = vi.hoisted(() => ({
   fetchMyOrders: vi.fn(),
@@ -94,7 +95,9 @@ const timeline = {
 function renderScreen() {
   return render(
     <AppProvider>
-      <PilotMyOrdersScreen />
+      <CartProvider>
+        <PilotMyOrdersScreen />
+      </CartProvider>
     </AppProvider>,
   );
 }
@@ -109,7 +112,7 @@ describe('PilotMyOrdersScreen — customer My Orders (GATE 6)', () => {
 
   it('lists the customer orders and subscribes a user-scoped realtime feed', async () => {
     renderScreen();
-    await waitFor(() => expect(screen.getByText('ORD-1001')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/ORD-1001/)).toBeTruthy());
 
     expect(mock.fetchMyOrders).toHaveBeenCalledOnce();
     expect(mock.createPilotOrderRealtime).toHaveBeenCalledTimes(1);
@@ -118,8 +121,9 @@ describe('PilotMyOrdersScreen — customer My Orders (GATE 6)', () => {
     expect(opts.filter).toBe('user_id=eq.u1');
     expect(feed.start).toHaveBeenCalled();
 
-    // Status label resolved through the translation mapping.
-    expect(screen.getByText('pilot.status.outForDelivery')).toBeTruthy();
+    // Status pill resolved through the human step mapping (no raw enums).
+    expect(screen.getByText('pilot.readyForHandoff')).toBeTruthy();
+    expect(screen.queryByText('out_for_delivery', { exact: true })).toBeNull();
   });
 
   it('shows the empty state when the customer has no orders', async () => {
@@ -128,22 +132,22 @@ describe('PilotMyOrdersScreen — customer My Orders (GATE 6)', () => {
     await waitFor(() => expect(screen.getByText('pilot.myOrdersEmpty')).toBeTruthy());
   });
 
-  it('expands the timeline through pilot_order_timeline on reveal', async () => {
+  it('expands a visual timeline with no actor roles or raw statuses', async () => {
     renderScreen();
-    await waitFor(() => expect(screen.getByText('ORD-1001')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/ORD-1001/)).toBeTruthy());
 
-    fireEvent.click(screen.getByText('pilot.showDetails'));
+    fireEvent.click(screen.getByText('pilot.orderDetails'));
 
-    await waitFor(() =>
-      expect(mock.fetchOrderTimeline).toHaveBeenCalledWith('o1'),
-    );
-    await waitFor(() => expect(screen.getByText('pilot.status.confirmed')).toBeTruthy());
-    await waitFor(() => expect(screen.getByText(/courier/)).toBeTruthy());
+    // Human steps render; no timeline RPC needed for the visual journey.
+    await waitFor(() => expect(screen.getByText('pilot.stepConfirmed')).toBeTruthy());
+    expect(screen.queryByText(/courier/)).toBeNull();
+    expect(screen.queryByText('admin)')).toBeNull();
+    expect(mock.fetchOrderTimeline).not.toHaveBeenCalled();
   });
 
   it('cleans up the feed on unmount', async () => {
     const { unmount } = renderScreen();
-    await waitFor(() => expect(screen.getByText('ORD-1001')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/ORD-1001/)).toBeTruthy());
     unmount();
     expect(feed.stop).toHaveBeenCalled();
   });

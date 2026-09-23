@@ -68,6 +68,34 @@ export async function fetchOrderTimeline(orderId: string): Promise<OrderTimeline
   return callRpc<OrderTimeline>('pilot_order_timeline', { p_order_id: orderId });
 }
 
+/* ————————————————— family repeat-to-cart reads (Gate V1.8) ————————————————— */
+
+/**
+ * One family order line for repeat-to-cart. Prices are DISPLAY snapshots
+ * only — submit re-resolves authoritatively from the catalog, so a copied
+ * line can never smuggle a price into an order.
+ */
+export interface FamilyOrderLine {
+  readonly catalog_ref: string;
+  readonly name: string;
+  readonly name_ar: string;
+  readonly quantity: number;
+  readonly unit: string | null;
+  readonly unit_price: number;
+}
+
+/**
+ * Lines of the caller's OWN family order (admins: any order) for
+ * repeat-to-cart. Server enforces ownership + rejects cancelled orders.
+ * Throws PERMISSION_DENIED / ORDER_CANCELLED / ORDER_NOT_FOUND otherwise.
+ */
+export async function fetchFamilyOrderItems(orderId: string): Promise<FamilyOrderLine[]> {
+  const data = await callRpc<{ items?: FamilyOrderLine[] }>('pilot_family_order_items', {
+    p_order_id: orderId,
+  });
+  return data?.items ?? [];
+}
+
 /* ————————————————— realtime merge helpers ————————————————— */
 
 /** Map a raw 'orders' realtime row into the CustomerOrderSummary shape. */

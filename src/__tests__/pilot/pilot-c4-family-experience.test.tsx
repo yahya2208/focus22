@@ -37,6 +37,8 @@ const cartMock = vi.hoisted(() => ({
   addLine: vi.fn(),
   itemCount: 0,
   setQuantity: vi.fn(),
+  removeLine: vi.fn(),
+  getLine: vi.fn(() => undefined),
 }));
 
 const storefrontMock = vi.hoisted(() => ({
