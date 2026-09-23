@@ -107,3 +107,37 @@ describe('CartScreen', () => {
     await waitFor(() => expect(screen.getByTestId('screen').textContent).toBe('request'));
   });
 });
+
+describe('CartScreen — produce minus-at-minimum removes (phones untouched)', () => {
+  const tomato: CartLineInput = {
+    catalogRef: 'v-tomato',
+    domain: 'produce',
+    category: 'produce',
+    brand: '',
+    model: 'Tomato',
+    displayUnitPrice: 120,
+    stock: 10,
+    unit: 'kg',
+  };
+
+  it('removes a produce line when minus is pressed at 0.5 kg', () => {
+    renderCart([{ ...tomato, quantity: 0.5 }]);
+    expect(screen.getByText('Tomato')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('decrease'));
+    expect(screen.queryByText('Tomato')).toBeNull();
+    expect(screen.getByText('cart.empty')).toBeTruthy();
+  });
+
+  it('steps a produce line 1 kg down to 0.5 kg without removing', () => {
+    renderCart([{ ...tomato, quantity: 1 }]);
+    fireEvent.click(screen.getByLabelText('decrease'));
+    expect(screen.getByText('Tomato')).toBeTruthy();
+    expect(screen.getByDisplayValue('0.5')).toBeTruthy();
+  });
+
+  it('never removes a phone line via minus (generic clamp holds)', () => {
+    renderCart([{ ...phone, quantity: 1 }]);
+    fireEvent.click(screen.getByLabelText('decrease'));
+    expect(screen.getByText('Samsung Galaxy S23')).toBeTruthy();
+  });
+});

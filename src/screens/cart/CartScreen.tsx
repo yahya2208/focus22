@@ -13,6 +13,7 @@ import {
   minQuantity,
   quantityStep,
 } from '../../core/cart/quantity';
+import { isProduceLine, produceStepDown } from '../../core/cart/produce-quantity';
 import { track } from '../../core/telemetry';
 import { produceUnitLabel } from '../../domains/listings';
 
@@ -179,8 +180,18 @@ export const CartScreen = memo(function CartScreen() {
                   <button
                     type="button"
                     aria-label="decrease"
-                    disabled={line.quantity <= minQuantity(line.unit)}
-                    onClick={() => setQuantity(line.catalogRef, line.quantity - quantityStep(line.unit))}
+                    disabled={isProduceLine(line) ? false : line.quantity <= minQuantity(line.unit)}
+                    onClick={() => {
+                      // Produce UX (scoped): minus at 0.5 kg removes the line.
+                      // Every other domain keeps the generic clamp behavior.
+                      if (isProduceLine(line)) {
+                        const next = produceStepDown(line.quantity);
+                        if (next.action === 'remove') removeLine(line.catalogRef);
+                        else setQuantity(line.catalogRef, next.quantity);
+                        return;
+                      }
+                      setQuantity(line.catalogRef, line.quantity - quantityStep(line.unit));
+                    }}
                     style={{ width: '30px', height: '30px', borderRadius: '9px', border: `1px solid ${colors.border}`, background: colors.bgInput, color: colors.text, cursor: 'pointer', fontWeight: 800, fontFamily: 'inherit' }}
                   >−</button>
                   {allowsDecimalQuantity(line.unit) ? (
