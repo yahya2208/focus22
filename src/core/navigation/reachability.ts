@@ -85,6 +85,7 @@ export const EDGES: Record<ScreenName, readonly EdgeSource[]> = {
   'pilot-store-ops': ['settings'],
   'pilot-courier': ['settings'],
   'pilot-my-orders': ['settings'],
+  'pilot-family-home': ['pilot-storefront', 'settings'],
   'pilot-family-purchases': ['pilot-storefront', 'settings'],
 };
 

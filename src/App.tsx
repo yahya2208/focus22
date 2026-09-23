@@ -88,6 +88,7 @@ const PilotOpsAdminScreen = lazy(() => import('./screens/pilot/PilotOpsAdminScre
 const PilotStoreOpsScreen = lazy(() => import('./screens/pilot/PilotStoreOpsScreen').then(m => ({ default: m.PilotStoreOpsScreen })));
 const PilotCourierScreen = lazy(() => import('./screens/pilot/PilotCourierScreen').then(m => ({ default: m.PilotCourierScreen })));
 const PilotMyOrdersScreen = lazy(() => import('./screens/pilot/PilotMyOrdersScreen').then(m => ({ default: m.PilotMyOrdersScreen })));
+const PilotFamilyHomeScreen = lazy(() => import('./screens/pilot/PilotFamilyHomeScreen').then(m => ({ default: m.PilotFamilyHomeScreen })));
 const PilotFamilyPurchasesScreen = lazy(() => import('./screens/pilot/PilotFamilyPurchasesScreen').then(m => ({ default: m.PilotFamilyPurchasesScreen })));
 
 const screens: Record<ScreenName, React.ComponentType> = {
@@ -151,6 +152,7 @@ const screens: Record<ScreenName, React.ComponentType> = {
   'pilot-store-ops': PilotStoreOpsScreen,
   'pilot-courier': PilotCourierScreen,
   'pilot-my-orders': PilotMyOrdersScreen,
+  'pilot-family-home': PilotFamilyHomeScreen,
   'pilot-family-purchases': PilotFamilyPurchasesScreen,
 };
 

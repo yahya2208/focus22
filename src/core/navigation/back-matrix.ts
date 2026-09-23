@@ -83,6 +83,7 @@ export const BACK_MATRIX: Record<ScreenName, BackMatrixRow> = {
   'pilot-store-ops': { screen: 'pilot-store-ops', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'store-operator orders + items + canonical status (server-authorized RPCs)' },
   'pilot-courier': { screen: 'pilot-courier', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'courier: available → accept → pickup → delivered (least privilege)' },
   'pilot-my-orders': { screen: 'pilot-my-orders', backTarget: 'settings', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'customer My Orders + timeline (GATE 6); back → settings (in-content)' },
+  'pilot-family-home': { screen: 'pilot-family-home', backTarget: 'pilot-storefront', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'family hub (V1.6); explicit CTAs in content; back → storefront' },
   'pilot-family-purchases': { screen: 'pilot-family-purchases', backTarget: 'pilot-storefront', exitAllowed: false, browserBack: 'back', androidBack: 'back', hasInContentBackButton: true, note: 'family saved basket + family order history (GATE C4); back → storefront (in-content)' },
 };
 

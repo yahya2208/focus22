@@ -62,7 +62,82 @@ export async function fetchMyAccount(): Promise<PilotAccount> {
   return (data ?? { linked: false, balance: 0, debts: [] }) as PilotAccount;
 }
 
+/* ————————————————— family contact profile (Gate V1.3, display-only) ————————————————— */
+
+/**
+ * The caller's OWN family contact profile (checkout prefill). Server-scoped:
+ * the RPC resolves the family from auth.uid() and can never return another
+ * family's data. NULL when the caller has no linked family. This is profile
+ * text only — disjoint from ledger/balance/debts, which stay server-computed.
+ */
+export interface PilotFamilyContact {
+  readonly family_id: string;
+  readonly contact_name: string | null;
+  readonly contact_phone: string | null;
+  readonly contact_address: string | null;
+  readonly contact_notes: string | null;
+}
+
+export async function fetchMyFamilyContact(): Promise<PilotFamilyContact | null> {
+  const { data, error } = await getSupabaseClient().rpc('pilot_my_family_contact_get');
+  if (error) throw new Error(error.message ?? 'RPC_ERROR');
+  if (data == null) return null;
+  const row = (Array.isArray(data) ? data[0] : data) as PilotFamilyContact | null;
+  return row;
+}
+
+/**
+ * Persist the caller's OWN family contact profile. Fire-and-forget safe:
+ * call only AFTER the official order succeeds — a save failure must never
+ * fail or fake the financial result. Throws on transport/server errors so
+ * callers can surface a SEPARATE, non-financial notice.
+ */
+export async function saveMyFamilyContact(input: {
+  name: string;
+  phone: string;
+  address: string;
+  notes: string;
+}): Promise<PilotFamilyContact> {
+  const { data, error } = await getSupabaseClient().rpc('pilot_my_family_contact_set', {
+    p_name: input.name,
+    p_phone: input.phone,
+    p_address: input.address,
+    p_notes: input.notes,
+  });
+  if (error) throw new Error(error.message ?? 'RPC_ERROR');
+  return data as PilotFamilyContact;
+}
+
 /* ————————————————— admin family management (Gate B, ADMIN ONLY) ————————————————— */
+
+/**
+ * Admin: read-only ledger history for one family (Gate V1.8). Display-only:
+ * SUM(ledger.amount) stays the single balance source; nothing here mutates.
+ */
+export interface FamilyLedgerEntry {
+  readonly id: string;
+  readonly created_at: string;
+  readonly transaction_type: string;
+  readonly amount: number;
+  readonly related_order_id: string | null;
+  readonly order_number: string | null;
+  readonly reference: string;
+  readonly note: string;
+  readonly balance_after: number;
+}
+
+export async function adminFamilyLedger(
+  familyId: string,
+  limit = 100,
+): Promise<FamilyLedgerEntry[]> {
+  const { data, error } = await getSupabaseClient().rpc('pilot_admin_family_ledger', {
+    p_family_id: familyId,
+    p_limit: limit,
+  });
+  if (error) throw new Error(error.message ?? 'RPC_ERROR');
+  const payload = (data ?? {}) as { entries?: FamilyLedgerEntry[] };
+  return payload.entries ?? [];
+}
 
 /**
  * One family member row from `pilot_admin_list_family_members` (00100).
@@ -119,6 +194,32 @@ export async function adminDeposit(
   });
   if (error) throw new Error(error.message ?? 'RPC_ERROR');
   return data as DepositResult;
+}
+
+/** Result of `pilot_admin_upsert_family` (00065) — exactly what the RPC returns. */
+export interface UpsertFamilyResult {
+  readonly id: string;
+  readonly slug: string;
+}
+
+/**
+ * Admin: create (or update by slug) a family group. Thin wrapper over the
+ * existing RPC — the four fields pass through verbatim, no client logic.
+ */
+export async function adminUpsertFamily(input: {
+  name: string;
+  nameAr: string;
+  slug: string;
+  description: string;
+}): Promise<UpsertFamilyResult> {
+  const { data, error } = await getSupabaseClient().rpc('pilot_admin_upsert_family', {
+    p_name: input.name,
+    p_name_ar: input.nameAr,
+    p_slug: input.slug,
+    p_description: input.description,
+  });
+  if (error) throw new Error(error.message ?? 'RPC_ERROR');
+  return data as UpsertFamilyResult;
 }
 
 /**
