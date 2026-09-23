@@ -11,6 +11,22 @@ import type { ScreenName } from '../../store/navigation';
 const fullscreenScreens: ScreenName[] = ['calibration', 'countdown', 'game'];
 const isTicTacToe = (s: ScreenName) => s === 'tic-tac-toe-intro' || s === 'tic-tac-toe' || s === 'tic-tac-toe-results' || s === 'ttt-multiplayer' || s === 'ttt-invite-landing';
 
+/**
+ * Phone-promo callout visibility. The vegetables family store stays focused
+ * on produce (no promo); showroom never shows it (own surface); fullscreen
+ * flows (games) suppress all chrome. Everything else is unchanged.
+ */
+export function shouldShowSwapCallout(
+  currentScreen: ScreenName,
+  routeParams: Record<string, string> | undefined,
+  isFullscreen: boolean,
+): boolean {
+  if (isFullscreen) return false;
+  if (currentScreen === 'showroom') return false;
+  if (currentScreen === 'pilot-storefront' && routeParams?.category === 'produce') return false;
+  return true;
+}
+
 const transitionStyle = document.createElement('style');
 transitionStyle.textContent = `
   *, *::before, *::after {
@@ -20,14 +36,16 @@ transitionStyle.textContent = `
 document.head.appendChild(transitionStyle);
 
 export const AppShell = memo(function AppShell({ children }: { children: ReactNode }) {
-  const { currentScreen, navStack } = useAppState();
+  const { currentScreen, navStack, routeParams } = useAppState();
   const dispatch = useAppDispatch();
   const colors = useThemeColors();
   const { t } = useTranslation();
   const isFullscreen = fullscreenScreens.includes(currentScreen) || isTicTacToe(currentScreen);
   const showBackAffordance = !isFullscreen && shouldShowBackAffordance(currentScreen, navStack);
 
-  const showSwapCallout = !isFullscreen && currentScreen !== 'showroom';
+  // The vegetables family store stays focused on produce: no phone promo here.
+  // Every other screen keeps the existing callout untouched.
+  const showSwapCallout = shouldShowSwapCallout(currentScreen, routeParams, isFullscreen);
 
   if (isFullscreen) {
     return <>{children}</>;

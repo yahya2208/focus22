@@ -55,7 +55,11 @@ export const ProduceListingForm = memo(function ProduceListingForm({ colors, bus
       return;
     }
     const qty = quantity.trim() === '' ? 1 : Number(quantity);
-    if (Number.isNaN(qty) || qty < 1 || !Number.isInteger(qty)) {
+    // kg mirrors the shared cart/server contract (numeric scale ≤ 3, e.g. 2.5,
+    // stock as low as a single 0.5 step); every other unit stays whole-units-only.
+    const badKg = unit === 'kg' && (Number.isNaN(qty) || qty <= 0);
+    const badWhole = unit !== 'kg' && (Number.isNaN(qty) || qty < 1 || !Number.isInteger(qty));
+    if (badKg || badWhole) {
       setError('الكمية يجب أن تكون عدداً صحيحاً موجباً (وحدات كاملة).');
       return;
     }

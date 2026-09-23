@@ -173,12 +173,13 @@ describe('Category-scoped Add Product (generic, domain-driven)', () => {
     expect(await screen.findByText('categoryProducts.newProduct')).toBeTruthy();
   });
 
-  it('rejects whole-unit quantity violations without creating a listing', async () => {
+  it('rejects fractional quantity for whole-unit produce listings without creating', async () => {
     renderPanel(category({ domain: 'produce' }));
     await screen.findAllByText(/categoryProducts\.createHere/);
     fireEvent.click(screen.getAllByText(/categoryProducts\.createHere/)[0]!);
 
     fireEvent.change(screen.getByLabelText(/اسم المنتج/), { target: { value: 'تفاح' } });
+    fireEvent.change(screen.getByLabelText(/الوحدة/), { target: { value: 'piece' } });
     fireEvent.change(screen.getByLabelText(/الكمية/), { target: { value: '1.5' } });
     fireEvent.click(screen.getByText('حفظ المنتج'));
 
@@ -186,6 +187,19 @@ describe('Category-scoped Add Product (generic, domain-driven)', () => {
     expect(MOCK.createListing).not.toHaveBeenCalled();
     expect(MOCK.createListingForCategory).not.toHaveBeenCalled();
     expect(MOCK.assign).not.toHaveBeenCalled();
+  });
+
+  it('accepts kg decimals (2.5) for produce listings', async () => {
+    renderPanel(category({ domain: 'produce' }));
+    await screen.findAllByText(/categoryProducts\.createHere/);
+    fireEvent.click(screen.getAllByText(/categoryProducts\.createHere/)[0]!);
+
+    fireEvent.change(screen.getByLabelText(/اسم المنتج/), { target: { value: 'طماطم' } });
+    fireEvent.change(screen.getByLabelText(/الكمية/), { target: { value: '2.5' } });
+    fireEvent.click(screen.getByText('حفظ المنتج'));
+
+    await waitFor(() => expect(MOCK.createListingForCategory).toHaveBeenCalled());
+    expect(screen.queryByText(/الكمية يجب أن تكون/)).toBeNull();
   });
 });
 
