@@ -22,13 +22,13 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('main', { name: 'Main navigation' })).toBeTruthy();
     }, { timeout: 5000 });
-    const buttons = await screen.findAllByRole('button', { name: '▶ Start Test' });
-    expect(buttons.length).toBeGreaterThanOrEqual(1);
+      const buttons = await screen.findAllByRole('button', { name: 'Phones' });
+      expect(buttons.length).toBeGreaterThanOrEqual(1);
   }, TEST_TIMEOUT);
 
   it('should render all home screen buttons', async () => {
     renderApp();
-    const buttons = await screen.findAllByRole('button', { name: '▶ Start Test' });
+    const buttons = await screen.findAllByRole('button', { name: 'Vegetables' });
     expect(buttons.length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByRole('button').length).toBeGreaterThanOrEqual(3);
     const menuButtons = await screen.findAllByRole('button', { name: 'Menu' });
@@ -54,8 +54,9 @@ describe('App', () => {
       await new Promise((resolve) => setTimeout(resolve, 1200));
       expect(screen.queryByText('Start Assessment')).toBeNull();
       expect(screen.queryByText('Test Your Focus')).toBeNull();
-      const buttons = await screen.findAllByRole('button', { name: '▶ Start Test' });
-      expect(buttons.length).toBeGreaterThanOrEqual(1);
+    const buttons = await screen.findAllByRole('button', { name: 'Vegetables' });
+    expect(buttons.length).toBeGreaterThanOrEqual(1);
+    expect(await screen.findAllByRole('button', { name: 'Phones' })).toHaveLength(1);
     }, 20000);
 
     it('hash-based initial route still works (P3 يبقي توجيه #/hash دون حملات)', async () => {

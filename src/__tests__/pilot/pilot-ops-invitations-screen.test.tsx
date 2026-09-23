@@ -235,11 +235,14 @@ describe('PilotOpsAdminScreen — invitation lifecycle (Gate 1B)', () => {
     renderScreen();
     await waitFor(() => expect(mock.adminListCouriers).toHaveBeenCalled());
 
-    fireEvent.change(screen.getByPlaceholderText('invite.emailPlaceholder'), {
+    const staffInput = screen.getByPlaceholderText('invite.emailPlaceholder');
+    fireEvent.change(staffInput, {
       target: { value: 'new@focus.local' },
     });
-    const sendButtons = screen.getAllByText('invite.send');
-    fireEvent.click(sendButtons[sendButtons.length - 1]!);
+    // The staff standalone form (not member-row or family-lane buttons sharing
+    // the same send label): the send button co-located with the staff input.
+    const staffForm = staffInput.closest('div')!;
+    fireEvent.click(within(staffForm).getByText('invite.send'));
     await waitFor(() =>
       expect(mock.sendInvitation).toHaveBeenCalledWith({
         storeId: 's1',
