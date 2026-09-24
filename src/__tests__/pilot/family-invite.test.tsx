@@ -147,3 +147,29 @@ describe('InviteSetupScreen — family panel', () => {
     fireEvent.click(screen.getByText('inviteSetup.familyOpenHome'));
   });
 });
+
+describe('family invitation failure containment', () => {
+  beforeEach(() => invokeMock.mockReset());
+
+  it('propagates Edge dispatch failure without fabricating SENT', async () => {
+    invokeMock.mockResolvedValueOnce({ data: null, error: { message: ' FunctionsFetchError ' } });
+    await expect(sendFamilyInvitation({ storeId: 's1', email: 'fam@example.com' })).rejects.toThrow();
+  });
+
+  it('propagates reservation failure codes without marking sent', async () => {
+    invokeMock.mockResolvedValueOnce({ data: { ok: false, code: 'INVITATION_COMPLETED' }, error: null });
+    const res = await resendFamilyInvitation({ storeId: 's1', email: 'fam@example.com' }).catch(() => null);
+    expect(res === null || (res as { ok: boolean }).ok === false).toBe(true);
+  });
+
+  it('never sends service-role material from the browser lane', async () => {
+    invokeMock.mockResolvedValueOnce({ data: { ok: true, code: 'INVITATION_SENT' }, error: null });
+    await sendFamilyInvitation({ storeId: 's1', email: 'fam@example.com' });
+    const body = invokeMock.mock.calls[0]![1].body as Record<string, unknown>;
+    for (const v of Object.values(body)) {
+      expect(typeof v === 'string' && v.startsWith('eyJ')).toBe(false);
+    }
+    expect(body).not.toHaveProperty('service_role');
+    expect(body).not.toHaveProperty('serviceRole');
+  });
+});
