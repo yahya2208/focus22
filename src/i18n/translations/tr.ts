@@ -1699,6 +1699,8 @@ const tr: Record<TranslationKey, string> = {
   'pilot.newOrderAlertTitle': 'Yeni sipariş',
   'pilot.openOrder': 'Siparişi aç',
   'pilot.dismissAlert': 'Bildirimi kapat',
+  'pilot.notifyPermissionHint': 'Yeni siparişler için bildirimleri açın.',
+  'pilot.notifyEnable': 'Bildirimleri aç',
   'pilot.myOrdersEmpty': 'Henüz sipariş yok.',
   'pilot.noTimeline': 'Olay kaydı yok.',
   'pilot.staleIndicator': 'Yenileniyor\u2026',

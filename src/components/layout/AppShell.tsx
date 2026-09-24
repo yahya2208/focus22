@@ -6,7 +6,9 @@ import { AppHeader } from './AppHeader';
 import { BackButton } from '../navigation/BackButton';
 import { InstallPrompt } from '../pwa/InstallPrompt';
 import { OrderAlertBanner } from '../order/OrderAlertBanner';
+import { NotificationPermissionCta } from '../order/NotificationPermissionCta';
 import { useOrderAlerts } from '../../hooks/useOrderAlerts';
+import { useBackgroundNotify } from '../../services/browser-notify';
 import { shouldShowBackAffordance } from '../../core/navigation/back-matrix';
 import type { ScreenName } from '../../store/navigation';
 
@@ -52,6 +54,10 @@ export const AppShell = memo(function AppShell({ children }: { children: ReactNo
   // Global NEW_ORDER alerts (G-N1): mounted once here so every screen is
   // covered; per-screen realtime feeds are untouched and independent.
   const { alerts, dismiss } = useOrderAlerts();
+  useBackgroundNotify(alerts, (a) => ({
+    title: t('pilot.newOrderAlertTitle'),
+    body: `#${a.orderId.slice(0, 8)}${a.total != null ? ` · ${a.total} ${t('pilot.currency')}` : ''}`,
+  }));
 
   if (isFullscreen) {
     return <>{children}</>;
@@ -60,6 +66,7 @@ export const AppShell = memo(function AppShell({ children }: { children: ReactNo
   return (
     <>
       <AppHeader />
+      <NotificationPermissionCta />
       <OrderAlertBanner alerts={alerts} onDismiss={dismiss} />
       {showBackAffordance && (
         <div style={{ display: 'flex', justifyContent: 'flex-start', padding: '10px 16px 0' }}>

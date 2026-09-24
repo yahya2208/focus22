@@ -1002,6 +1002,8 @@ const fr: Record<string, string> = {
   'pilot.newOrderAlertTitle': 'Nouvelle commande',
   'pilot.openOrder': 'Ouvrir la commande',
   'pilot.dismissAlert': 'Ignorer l’alerte',
+  'pilot.notifyPermissionHint': 'Activez les notifications pour les nouvelles commandes.',
+  'pilot.notifyEnable': 'Activer les notifications',
   'pilot.myOrdersEmpty': 'Pas encore de commande.',
   'pilot.noTimeline': 'Aucun événement dans le journal.',
   'pilot.staleIndicator': 'Mise à jour en cours\u2026',

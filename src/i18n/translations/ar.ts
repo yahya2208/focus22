@@ -1699,6 +1699,8 @@ const ar: Record<TranslationKey, string> = {
   'pilot.newOrderAlertTitle': 'طلب جديد',
   'pilot.openOrder': 'فتح الطلب',
   'pilot.dismissAlert': 'إغلاق التنبيه',
+  'pilot.notifyPermissionHint': 'فعّل التنبيهات لتصلك الطلبات الجديدة فورًا.',
+  'pilot.notifyEnable': 'تفعيل التنبيهات',
   'pilot.myOrdersEmpty': 'لا توجد طلبات بعد.',
   'pilot.noTimeline': 'لا توجد أحداث في السجل.',
   'pilot.staleIndicator': 'جارٍ تحديث القائمة…',

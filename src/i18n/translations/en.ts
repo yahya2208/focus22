@@ -1719,6 +1719,8 @@ const en = {
   'pilot.newOrderAlertTitle': 'New order',
   'pilot.openOrder': 'Open order',
   'pilot.dismissAlert': 'Dismiss alert',
+  'pilot.notifyPermissionHint': 'Enable notifications to hear about new orders instantly.',
+  'pilot.notifyEnable': 'Enable notifications',
   'pilot.myOrdersEmpty': 'No orders yet.',
   'pilot.noTimeline': 'No timeline events.',
   'pilot.staleIndicator': 'Feed is refreshing…',
