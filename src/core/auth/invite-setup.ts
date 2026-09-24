@@ -53,6 +53,7 @@ export function mapInviteSetupError(message: string): InviteFailureKind {
 export type InviteDestination =
   | { readonly route: 'pilot-courier'; readonly mode: 'workspace' }
   | { readonly route: 'pilot-store-ops'; readonly mode: 'workspace' }
+  | { readonly route: 'pilot-family-home'; readonly mode: 'family' }
   | { readonly route: 'home'; readonly mode: 'pending' | 'orientation' | 'none' };
 
 /**
@@ -64,7 +65,13 @@ export function resolveInviteDestination(args: {
   readonly courierEntry: PilotEntryState;
   readonly operatorEntry: PilotEntryState;
   readonly isAdmin: boolean;
+  readonly memberKind?: string | null;
 }): InviteDestination {
+  // Family lane first: a family invitation resolves to the family hub
+  // regardless of (absent) staff entries. Staff logic below is untouched.
+  if (args.memberKind === 'family') {
+    return { route: 'pilot-family-home', mode: 'family' };
+  }
   if (args.courierEntry === 'operational') {
     return { route: 'pilot-courier', mode: 'workspace' };
   }

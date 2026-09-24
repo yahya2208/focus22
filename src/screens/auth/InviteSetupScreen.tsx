@@ -134,6 +134,7 @@ export const InviteSetupScreen = memo(function InviteSetupScreen() {
     courierEntry: pilotAccess.courierEntry,
     operatorEntry: pilotAccess.operatorEntry,
     isAdmin: pilotAccess.isAdmin,
+    memberKind: invitation?.member_kind ?? null,
   });
 
   const goDestination = useCallback(() => {
@@ -144,6 +145,18 @@ export const InviteSetupScreen = memo(function InviteSetupScreen() {
     if (pilotAccess.status === 'loading') {
       return (
         <p style={{ color: colors.textMuted, textAlign: 'center' }}>{t('pilot.loading')}</p>
+      );
+    }
+    if (destination.mode === 'family') {
+      return (
+        <>
+          <p style={{ color: colors.textMuted, textAlign: 'center', marginBottom: '1rem' }}>
+            {t('inviteSetup.familyWelcome')}
+          </p>
+          <Button onClick={goDestination} style={{ width: '100%' }}>
+            {t('inviteSetup.familyOpenHome')}
+          </Button>
+        </>
       );
     }
     if (destination.mode === 'workspace') {
@@ -270,11 +283,13 @@ function normalizeInvitation(row: {
   readonly user_id: string;
   readonly status: string;
   readonly password_set_at: string | null;
+  readonly member_kind?: string | null;
 }) {
   return {
     id: row.id,
     user_id: row.user_id,
     status: row.status,
     password_set_at: row.password_set_at,
+    member_kind: row.member_kind ?? null,
   };
 }

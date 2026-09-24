@@ -96,6 +96,157 @@ type Optionals = Record<string, unknown>;
 const firstStr = (v: unknown): string =>
   typeof v === "string" ? (v as string).trim() : "";
 
+interface FamilyInviteInput {
+  action: "send" | "resend";
+  email: string;
+  storeId: string;
+  displayName: string;
+}
+
+// deno-lint-ignore no-explicit-any
+type ServiceClient = any;
+
+/**
+ * Family-lane invitation handler (Vegetables single-merchant flow).
+ * Mirrors staff lifecycle semantics scoped to member_kind='family':
+ * reuse-or-reserve a PENDING/SENT/ACCEPTED row (COMPLETED never resends),
+ * skip already family-bound identities, dispatch via Auth, bind + mark_sent.
+ * Staff operator/courier membership provisioning is intentionally SKIPPED —
+ * family binding stays on the existing provision RPC + Admin UI.
+ * Returns Edge-Function shaped { ok, code } responses like the staff lane.
+ */
+async function handleFamilyInvite(
+  service: ServiceClient,
+  input: FamilyInviteInput,
+): Promise<Response> {
+  const { action, email, storeId, displayName } = input;
+
+  if (action === "resend") {
+    const { data: existingRow } = await service
+      .from("pilot_invitations")
+      .select("id, status")
+      .eq("invite_email", email)
+      .eq("store_id", storeId)
+      .eq("member_kind", "family")
+      .maybeSingle();
+    if (!existingRow) {
+      return json(400, { ok: false, code: "INVITATION_NOT_FOUND" });
+    }
+    if (existingRow.status === "COMPLETED") {
+      return json(409, { ok: false, code: "INVITATION_COMPLETED" });
+    }
+  }
+
+  // Already an active family principal for this email? No invitation needed.
+  const { data: mirrorUsers } = await service
+    .from("users")
+    .select("id")
+    .eq("email", email)
+    .limit(1);
+  const mirrorUid =
+    mirrorUsers?.[0] && typeof mirrorUsers[0].id === "string" ? mirrorUsers[0].id : null;
+  if (mirrorUid) {
+    const { data: membership } = await service
+      .from("family_members")
+      .select("id")
+      .eq("user_id", mirrorUid)
+      .eq("status", "active")
+      .limit(1);
+    if (membership?.[0]) {
+      return json(200, { ok: true, code: "INVITATION_NOT_REQUIRED" });
+    }
+  }
+
+  // Reserve through the family-lane RPC (same lifecycle rules as staff:
+  // reuse-or-create, MAX_SENDS, COMPLETED, cooldowns, lifecycle events).
+  const reserveResult = await service.rpc("pilot_invitation_reserve_family", {
+    p_email: email,
+    p_store_id: storeId,
+  });
+  if (reserveResult.error) {
+    return json(500, { ok: false, code: "RESERVATION_FAILED" });
+  }
+  const reservation = reserveResult.data as {
+    ok?: boolean;
+    code?: string;
+    invitation_id?: string;
+  } | null;
+  if (!reservation?.ok) {
+    const code = reservation?.code ?? "RESERVATION_FAILED";
+    const status = code === "COOLDOWN_ACTIVE" ? 429 : 409;
+    return json(status, { ok: false, code });
+  }
+  const invitationId = reservation.invitation_id ?? null;
+  if (!invitationId) {
+    return json(500, { ok: false, code: "RESERVATION_INCONSISTENT" });
+  }
+
+  // Dispatch via Auth. redirectTo targets the family app surface when the
+  // APP_REDIRECT_URL secret is set; otherwise Supabase Site URL behavior
+  // (identical to the staff lane) is preserved.
+  const userMeta: Record<string, string> = { pilot_role: "family" };
+  if (displayName) userMeta.display_name = displayName;
+  const redirectEnv = (Deno.env.get("APP_REDIRECT_URL") ?? "").trim();
+  const attempt = await dispatchInviteEmail(
+    service,
+    "invite",
+    email,
+    userMeta,
+    redirectEnv || undefined,
+  );
+  if (attempt.kind === "timeout") {
+    await service.rpc("pilot_invitation_abort", {
+      p_invitation_id: invitationId,
+      p_outcome: "indeterminate",
+      p_reason: "auth outcome unknown",
+    });
+    return json(502, { ok: false, code: "INVITE_DISPATCH_AMBIGUOUS" });
+  }
+  if (attempt.kind === "error") {
+    const status = attempt.error.status ?? 0;
+    const outcome = status >= 500 || status === 0 ? "indeterminate" : "determinate";
+    await service.rpc("pilot_invitation_abort", {
+      p_invitation_id: invitationId,
+      p_outcome: outcome,
+      p_reason: outcome === "indeterminate" ? "auth outcome unknown" : "auth rejected dispatch",
+    });
+    return json(status >= 500 || status === 0 ? 502 : 409, {
+      ok: false,
+      code: status >= 500 || status === 0 ? "INVITE_DISPATCH_AMBIGUOUS" : "INVITE_DISPATCH_FAILED",
+    });
+  }
+
+  // Resolve + bind the identity (same recovery semantics as the staff lane).
+  const attemptValue = attempt.value as { data?: Optionals };
+  const invitedUser = attemptValue.data?.user as { id?: string } | undefined;
+  let boundUserId: string | null =
+    typeof invitedUser?.id === "string" ? invitedUser.id : null;
+  if (!boundUserId) {
+    const { data: again } = await service.from("users").select("id").eq("email", email).limit(1);
+    const row = again?.[0];
+    boundUserId = row && typeof row.id === "string" ? row.id : null;
+  }
+  if (!boundUserId) {
+    return json(502, { ok: false, code: "INVITE_DISPATCH_AMBIGUOUS" });
+  }
+  const { error: bindErr } = await service.rpc("pilot_invitation_bind", {
+    p_invitation_id: invitationId,
+    p_user_id: boundUserId,
+    p_email: email,
+  });
+  if (bindErr) {
+    console.log(`[pilot-invite] family bind-failed code=${(bindErr as { code?: string }).code}`);
+    return json(502, { ok: false, code: "IDENTITY_LINK_FAILED" });
+  }
+
+  const finalized = await finalizeMarkSent(service, invitationId);
+  if (!finalized.ok) {
+    console.log(`[pilot-invite] family mark_sent-failed`);
+    return json(502, { ok: false, code: "INVITATION_FINALIZE_FAILED" });
+  }
+  return json(200, { ok: true, code: finalized.isResent ? "INVITATION_RESENT" : "INVITATION_SENT" });
+}
+
 Deno.serve(async (req: Request) => {
   // 0) CORS preflight — the Supabase gateway forwards OPTIONS to the function.
   if (req.method === "OPTIONS") {
@@ -155,7 +306,7 @@ Deno.serve(async (req: Request) => {
   const displayName = firstStr(body.display_name);
   const reason = firstStr(body.reason).slice(0, 200);
 
-  if (!ALLOWED_ROLES.includes(role)) {
+  if (!ALLOWED_ROLES.includes(role) && role !== "family") {
     return json(400, { error: "ARGUMENTS_INVALID" });
   }
   if (!isPlausibleEmail(emailRaw)) {
@@ -182,6 +333,19 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
   if (storeErr || !storeRow) {
     return json(409, { error: "STORE_NOT_FOUND" });
+  }
+
+  // 5b) FAMILY LANE — single-merchant family invitations (Vegetables).
+  // Staff classify / reserve / provision RPCs accept only operator/courier
+  // by contract, so the family lane performs the equivalent kind-scoped steps
+  // directly with service_role. Everything below stays staff-only.
+  if (role === "family") {
+    return await handleFamilyInvite(service, {
+      action,
+      email,
+      storeId,
+      displayName,
+    });
   }
 
   // 6) CLASSIFY — server-side A..E (the DB is the only source of truth).
@@ -299,13 +463,8 @@ Deno.serve(async (req: Request) => {
   }
 
   // 10) THE AUTH OP — the ONLY step that can dispatch an email (10s bound).
-  const attempt = await invokeWithTimeout(
-    () =>
-      channel === "magic_link"
-        ? service.auth.signInWithOtp({ email, options: { data: userMeta } })
-        : service.auth.admin.inviteUserByEmail(email, { data: userMeta }),
-    AUTH_TIMEOUT_MS,
-  );
+  // Shared helper with the family lane (single dispatch occurrence in file).
+  const attempt = await dispatchInviteEmail(service, channel, email, userMeta);
 
   let gotError: "determinate" | "indeterminate" | null = null;
   if (attempt.kind === "timeout") {
@@ -398,16 +557,14 @@ Deno.serve(async (req: Request) => {
   }
 
   // 11c) mark_sent — finalize THIS confirmed dispatch on the SAME invitation.
-  const sent = await service.rpc("pilot_invitation_mark_sent", {
-    p_invitation_id: invitationId,
-  });
-  if (sent.error) {
+  // Shared helper with the family lane (single mark_sent occurrence in file).
+  const finalized = await finalizeMarkSent(service, invitationId);
+  if (!finalized.ok) {
     // Auth dispatched, but the DB finalization failed: identity kept, row kept
     // (still PENDING); manual diagnosis + retry. Never a delete.
-    console.log(`[pilot-invite] mark_sent-failed code=${(sent.error as { code?: string }).code}`);
     return json(502, { ok: false, code: "INVITATION_FINALIZE_FAILED" });
   }
-  const sentData = sent.data as { event_type?: string } | null;
+  const sentData = { event_type: finalized.isResent ? "RESENT" : "SENT" };
   const isResent = sentData?.event_type === "RESENT";
 
   // 12) Membership: provision ONLY when missing (idempotent, re-runnable).
@@ -435,3 +592,45 @@ Deno.serve(async (req: Request) => {
     code: isResent ? "INVITATION_RESENT" : "INVITATION_SENT",
   });
 });
+
+/**
+ * Shared Auth dispatch (single Auth-op call sites in file — both lanes use
+ * it). Staff behavior unchanged (no redirectTo); family lane passes
+ * redirectTo when APP_REDIRECT_URL is set.
+ */
+async function dispatchInviteEmail(
+  service: ServiceClient,
+  channel: string,
+  email: string,
+  userMeta: Record<string, string>,
+  redirectTo?: string,
+): Promise<AuthAttempt> {
+  return await invokeWithTimeout(
+    () =>
+      channel === "magic_link"
+        ? service.auth.signInWithOtp({ email, options: { data: userMeta } })
+        : service.auth.admin.inviteUserByEmail(email, {
+          data: userMeta,
+          ...(redirectTo ? { emailRedirectTo: redirectTo } : {}),
+        }),
+    AUTH_TIMEOUT_MS,
+  );
+}
+
+/**
+ * Shared mark_sent finalizer (single mark_sent RPC occurrence in file).
+ */
+async function finalizeMarkSent(
+  service: ServiceClient,
+  invitationId: string,
+): Promise<{ ok: true; isResent: boolean } | { ok: false }> {
+  const sent = await service.rpc("pilot_invitation_mark_sent", {
+    p_invitation_id: invitationId,
+  });
+  if (sent.error) {
+    console.log(`[pilot-invite] mark_sent-failed code=${(sent.error as { code?: string }).code}`);
+    return { ok: false };
+  }
+  const sentData = sent.data as { event_type?: string } | null;
+  return { ok: true, isResent: sentData?.event_type === "RESENT" };
+}

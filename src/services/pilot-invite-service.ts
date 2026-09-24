@@ -362,6 +362,39 @@ export async function resendInvitation(args: SendInvitationArgs): Promise<Invite
   });
 }
 
+/* —————————————————— Family invitations (Vegetables lane) —————————————————— */
+
+/**
+ * Family-only invitation input. There is deliberately NO role field: this
+ * entry point can only ever send `member_kind: 'family'`, so a family invite
+ * can never be mis-sent as operator/courier by construction.
+ */
+export interface SendFamilyInvitationArgs {
+  readonly storeId: string;
+  readonly email: string;
+  readonly displayName?: string;
+  readonly reason?: string;
+}
+
+function familyInviteBody(action: 'send' | 'resend', args: SendFamilyInvitationArgs): Record<string, unknown> {
+  return {
+    action,
+    role: 'family',
+    email: args.email,
+    store_id: args.storeId,
+    display_name: args.displayName ?? '',
+    reason: args.reason ?? '',
+  };
+}
+
+export async function sendFamilyInvitation(args: SendFamilyInvitationArgs): Promise<InviteResult> {
+  return invokePilotInvite(familyInviteBody('send', args));
+}
+
+export async function resendFamilyInvitation(args: SendFamilyInvitationArgs): Promise<InviteResult> {
+  return invokePilotInvite(familyInviteBody('resend', args));
+}
+
 /**
  * Maps a machine code to the screen's existing `pilot.error.*` i18n namespace.
  * These codes are stored in the same `error` state as every other admin error,
