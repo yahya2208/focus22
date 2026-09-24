@@ -232,6 +232,8 @@ const fr: Record<string, string> = {
   'inviteSetup.successTitle': 'Compte prêt',
   'inviteSetup.successSubtitle': 'Votre mot de passe est défini. Voici la prochaine étape.',
   'inviteSetup.successMessage': 'Votre compte est prêt à être utilisé.',
+  'inviteSetup.familyWelcome': 'Bienvenue dans votre famille ! Votre compte est prêt — ouvrez votre page familiale.',
+  'inviteSetup.familyOpenHome': 'Ouvrir la page familiale',
   'inviteSetup.pendingMessage': 'Votre adhésion est en attente de validation. Un administrateur va l\u2019examiner.',
   'inviteSetup.orientationMessage': 'Votre compte est prêt. Contactez votre administrateur si besoin.',
   'inviteSetup.needsSessionMessage': 'Ouvrez d\u2019abord votre lien d\u2019invitation, puis revenez ici.',

@@ -252,6 +252,8 @@ const ar: Record<TranslationKey, string> = {
   'inviteSetup.successTitle': 'الحساب جاهز',
   'inviteSetup.successSubtitle': 'تم تعيين كلمة المرور. هذه هي خطوتك التالية.',
   'inviteSetup.successMessage': 'حسابك جاهز للاستخدام.',
+  'inviteSetup.familyWelcome': 'أهلًا بك في عائلتك! حسابك جاهز — افتح صفحة العائلة للبدء.',
+  'inviteSetup.familyOpenHome': 'فتح صفحة العائلة',
   'inviteSetup.pendingMessage': 'عضويتك بانتظار الموافقة. سيراجعها المشرف قريبًا.',
   'inviteSetup.orientationMessage': 'حسابك جاهز. تواصل مع المشرف إذا احتجت إلى صلاحية.',
   'inviteSetup.needsSessionMessage': 'افتح رابط الدعوة أولًا، ثم عد إلى هنا لتعيين كلمة المرور.',

@@ -252,6 +252,8 @@ const tr: Record<TranslationKey, string> = {
   'inviteSetup.successTitle': 'Hesap hazır',
   'inviteSetup.successSubtitle': 'Şifreniz belirlendi. Sıradaki adımınız:',
   'inviteSetup.successMessage': 'Hesabınız kullanıma hazır.',
+  'inviteSetup.familyWelcome': 'Ailenize hoş geldiniz! Hesabınız hazır — başlamak için aile sayfanızı açın.',
+  'inviteSetup.familyOpenHome': 'Aile sayfasını aç',
   'inviteSetup.pendingMessage': 'Üyeliğiniz onay bekliyor. Bir yönetici yakında inceleyecek.',
   'inviteSetup.orientationMessage': 'Hesabınız hazır. Erişime ihtiyacınız varsa yöneticinize başvurun.',
   'inviteSetup.needsSessionMessage': 'Önce davet bağlantınızı açın, sonra şifrenizi belirlemek için buraya dönün.',

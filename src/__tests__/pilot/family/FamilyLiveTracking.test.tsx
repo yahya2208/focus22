@@ -24,6 +24,8 @@ vi.mock('../../../services/pilot-account-service', () => ({
   fetchMyAccount: vi.fn(async () => ({ linked: false, balance: 0, debts: [] })),
   fetchMyFamilyContact: vi.fn(async () => null),
   saveMyFamilyContact: vi.fn(async (i: unknown) => i),
+  fetchMyFamilyPreferences: vi.fn(async () => null),
+  saveMyFamilyPreferences: vi.fn(async (i: unknown) => i),
 }));
 vi.mock('../../../services/order-tracking-service', () => ({
   fetchMyOrders: vi.fn(async () => {

@@ -269,6 +269,8 @@ const en = {
   'inviteSetup.successTitle': 'Account ready',
   'inviteSetup.successSubtitle': 'Your password is set. Here is your next step.',
   'inviteSetup.successMessage': 'Your account is ready to use.',
+  'inviteSetup.familyWelcome': 'Welcome to your family! Your account is ready — open your family page to begin.',
+  'inviteSetup.familyOpenHome': 'Open family page',
   'inviteSetup.pendingMessage': 'Your membership is pending approval. An admin will review it soon.',
   'inviteSetup.orientationMessage': 'Your account is ready. Contact your admin if you need access.',
   'inviteSetup.needsSessionMessage': 'Open your invitation link first, then return here to set your password.',
