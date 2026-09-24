@@ -173,6 +173,27 @@ export async function adminFamilyLedger(
 }
 
 /**
+ * Admin: read one family's vegetable preferences (+ updated_at) for the Ops
+ * surface. Display-only; the family itself owns the values via the member RPCs.
+ */
+export interface AdminFamilyPreferences {
+  readonly family_id: string;
+  readonly preferred_delivery_time: string | null;
+  readonly veg_notes: string | null;
+  readonly updated_at: string | null;
+}
+
+export async function adminFamilyPreferences(familyId: string): Promise<AdminFamilyPreferences | null> {
+  const { data, error } = await getSupabaseClient().rpc('pilot_admin_family_preferences_get', {
+    p_family_id: familyId,
+  });
+  if (error) throw new Error(error.message ?? 'RPC_ERROR');
+  if (data == null) return null;
+  return data as AdminFamilyPreferences;
+}
+
+/**
+/**
  * One family member row from `pilot_admin_list_family_members` (00100).
  * `balance` is the server-computed SUM(ledger.amount) for that family — the
  * client never recomputes it.

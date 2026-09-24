@@ -52,7 +52,9 @@ import {
   adminListFamilyMembers,
   adminDeposit,
   adminProvisionFamilyMember,
+  adminFamilyPreferences,
   type PilotFamilyMember,
+  type AdminFamilyPreferences,
 } from '../../services/pilot-account-service';
 import { Gate8bE2eProvisionHarness } from './Gate8bE2eProvisionHarness';
 import {
@@ -117,6 +119,8 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
   // 00100 admin RPCs which re-check fn_admin_uid() server-side.
   const [selectedFamilyId, setSelectedFamilyId] = useState('');
   const [familyMembers, setFamilyMembers] = useState<PilotFamilyMember[]>([]);
+  const [familyPrefs, setFamilyPrefs] = useState<AdminFamilyPreferences | null>(null);
+  const [prefsLoading, setPrefsLoading] = useState(false);
   const [familyLoading, setFamilyLoading] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [depositNote, setDepositNote] = useState('');
@@ -283,6 +287,31 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
       })
       .finally(() => {
         if (!cancelled) setFamilyLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedFamilyId]);
+
+  // Family vegetable preferences (read-only display; values owned by the
+  // family via member RPCs; null-safe, never blocks the admin surface).
+  useEffect(() => {
+    if (!selectedFamilyId) {
+      setFamilyPrefs(null);
+      setPrefsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setPrefsLoading(true);
+    void adminFamilyPreferences(selectedFamilyId)
+      .then((prefs) => {
+        if (!cancelled) setFamilyPrefs(prefs);
+      })
+      .catch(() => {
+        if (!cancelled) setFamilyPrefs(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPrefsLoading(false);
       });
     return () => {
       cancelled = true;
@@ -785,6 +814,38 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
                           </span>
                         </Flex>
                       ))
+                    )}
+                  </div>
+                )}
+
+                {selectedFamilyId && (
+                  <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: 10, background: colors.bgCard }}>
+                    <span style={labelStyle}>{t('pilot.preferencesTitle')}</span>
+                    {prefsLoading ? (
+                      <span style={mutedStyle}>{t('pilot.loading')}</span>
+                    ) : (familyPrefs?.preferred_delivery_time ?? '') === '' &&
+                    (familyPrefs?.veg_notes ?? '') === '' ? (
+                      <span style={mutedStyle}>{t('pilot.preferencesEmpty')}</span>
+                    ) : (
+                      <>
+                        <Flex justify="space-between" align="center" style={{ padding: '0.2rem 0' }}>
+                          <span style={{ color: colors.textSecondary, fontSize: '0.8rem' }}>{t('pilot.preferencesTimePlaceholder')}</span>
+                          <span style={{ color: colors.text, fontSize: '0.82rem', fontWeight: 700 }}>
+                            {familyPrefs?.preferred_delivery_time || '—'}
+                          </span>
+                        </Flex>
+                        <Flex justify="space-between" align="center" style={{ padding: '0.2rem 0' }}>
+                          <span style={{ color: colors.textSecondary, fontSize: '0.8rem' }}>{t('pilot.preferencesNotesPlaceholder')}</span>
+                          <span style={{ color: colors.text, fontSize: '0.82rem', fontWeight: 700 }}>
+                            {familyPrefs?.veg_notes || '—'}
+                          </span>
+                        </Flex>
+                        {familyPrefs?.updated_at ? (
+                          <span style={mutedStyle}>
+                            {t('pilot.preferencesUpdated')}: {familyPrefs.updated_at}
+                          </span>
+                        ) : null}
+                      </>
                     )}
                   </div>
                 )}
