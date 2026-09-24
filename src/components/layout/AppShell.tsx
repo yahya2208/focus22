@@ -5,6 +5,8 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { AppHeader } from './AppHeader';
 import { BackButton } from '../navigation/BackButton';
 import { InstallPrompt } from '../pwa/InstallPrompt';
+import { OrderAlertBanner } from '../order/OrderAlertBanner';
+import { useOrderAlerts } from '../../hooks/useOrderAlerts';
 import { shouldShowBackAffordance } from '../../core/navigation/back-matrix';
 import type { ScreenName } from '../../store/navigation';
 
@@ -47,6 +49,10 @@ export const AppShell = memo(function AppShell({ children }: { children: ReactNo
   // Every other screen keeps the existing callout untouched.
   const showSwapCallout = shouldShowSwapCallout(currentScreen, routeParams, isFullscreen);
 
+  // Global NEW_ORDER alerts (G-N1): mounted once here so every screen is
+  // covered; per-screen realtime feeds are untouched and independent.
+  const { alerts, dismiss } = useOrderAlerts();
+
   if (isFullscreen) {
     return <>{children}</>;
   }
@@ -54,6 +60,7 @@ export const AppShell = memo(function AppShell({ children }: { children: ReactNo
   return (
     <>
       <AppHeader />
+      <OrderAlertBanner alerts={alerts} onDismiss={dismiss} />
       {showBackAffordance && (
         <div style={{ display: 'flex', justifyContent: 'flex-start', padding: '10px 16px 0' }}>
           <BackButton />
