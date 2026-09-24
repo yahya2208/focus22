@@ -955,7 +955,7 @@ const fr: Record<string, string> = {
   'pilot.courierMember': 'coursier',
   'pilot.provisionStoreHint': 'Sélectionnez une boutique ci-dessus pour ajouter des membres.',
   'pilot.memberStatus': 'Statut',
-  'pilot.msg.PROVISION_OK': 'Adhésion créée (en attente d’approbation).',
+  'pilot.msg.PROVISION_OK': 'Membre lié avec succès et actif.',
   'pilot.msg.SEARCH_DONE': 'Utilisateurs trouvés.',
   'pilot.error.SEARCH_FAILED': 'La recherche a échoué (admin uniquement).',
   'pilot.error.PROVISION_FAILED': 'Impossible de créer l\u2019adhésion.',

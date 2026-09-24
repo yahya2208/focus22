@@ -1682,7 +1682,7 @@ const tr: Record<TranslationKey, string> = {
   'pilot.courierMember': 'kurye',
   'pilot.provisionStoreHint': 'Üye eklemek için yukarıdan bir mağaza seçin.',
   'pilot.memberStatus': 'Durum',
-  'pilot.msg.PROVISION_OK': 'Üyelik oluşturuldu (onay bekliyor).',
+  'pilot.msg.PROVISION_OK': 'Üye başarıyla bağlandı ve aktif.',
   'pilot.msg.SEARCH_DONE': 'Kullanıcılar bulundu.',
   'pilot.error.SEARCH_FAILED': 'Kullanıcı araması başarısız (yalnızca admin).',
   'pilot.error.PROVISION_FAILED': 'Üyelik oluşturulamadı.',

@@ -1615,7 +1615,7 @@ const ar: Record<TranslationKey, string> = {
   'pilot.courierMember': 'مندوب',
   'pilot.provisionStoreHint': 'اختر متجرًا أعلاه لإضافة أعضاء.',
   'pilot.memberStatus': 'الحالة',
-  'pilot.msg.PROVISION_OK': 'تم إنشاء العضوية (بانتظار الموافقة).',
+  'pilot.msg.PROVISION_OK': 'تم ربط العضو بالعائلة بنجاح وهو نشط.',
   'pilot.msg.SEARCH_DONE': 'تم العثور على المستخدمين.',
   'pilot.error.SEARCH_FAILED': 'فشل البحث عن المستخدمين (للمدير فقط).',
   'pilot.error.PROVISION_FAILED': 'تعذّر إنشاء العضوية.',

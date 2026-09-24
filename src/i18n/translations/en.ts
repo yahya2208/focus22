@@ -1635,7 +1635,7 @@ const en = {
   'pilot.courierMember': 'courier',
   'pilot.provisionStoreHint': 'Select a store above to add members.',
   'pilot.memberStatus': 'Status',
-  'pilot.msg.PROVISION_OK': 'Membership created (pending approval).',
+  'pilot.msg.PROVISION_OK': 'Member linked successfully and active.',
   'pilot.msg.SEARCH_DONE': 'Users found.',
   'pilot.error.SEARCH_FAILED': 'User search failed (admin only).',
   'pilot.error.PROVISION_FAILED': 'Could not create the membership.',
