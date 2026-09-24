@@ -189,6 +189,20 @@ export async function adminSetStoreInventory(storeId: string, inventoryIds: stri
   await callRpc('pilot_admin_set_store_inventory', { p_store_id: storeId, p_inventory_ids: inventoryIds });
 }
 
+/**
+ * Link inventory rows to a store WITHOUT touching existing links (00115).
+ * Unlike the delete-first `pilot_admin_set_store_inventory`, this path only
+ * INSERTs missing (store_id, inventory_id) pairs and reports how many were
+ * newly linked. Safe to call for a single new product.
+ */
+export async function adminLinkStoreInventory(storeId: string, inventoryIds: string[]): Promise<number> {
+  const data = await callRpc<{ linked?: number }>('pilot_admin_link_store_inventory', {
+    p_store_id: storeId,
+    p_inventory_ids: inventoryIds,
+  });
+  return data?.linked ?? 0;
+}
+
 export async function adminUpsertFamily(input: {
   name: string;
   name_ar?: string;
