@@ -113,15 +113,16 @@ function Tomato() {
 function DryOnion() {
   return (
     <g>
-      <Backdrop hue="#b98a5e" />
-      <path d="M60 12 C59 20 58 24 58 28 C42 32 34 44 36 58 C38 72 48 80 60 80 C72 80 82 72 84 58 C86 44 78 32 62 28 C62 24 61 20 60 12 Z" fill="url(#pa-onion)" />
-      <path d="M46 36 C42 46 42 58 48 68" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.28" />
-      <path d="M56 34 C50 44 50 58 54 70 M64 34 C70 44 70 58 66 70" stroke="#6e4530" strokeWidth="1.6" fill="none" opacity="0.55" />
-      <path d="M58 28 C54 24 52 20 52 16 M62 28 C66 24 68 20 68 16" stroke="#8a6a45" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.8" />
+      <Backdrop hue="#d8a848" />
+      <path d="M60 10 C59 19 57 23 56 27 C40 31 31 44 33 59 C35 73 46 81 60 81 C74 81 85 73 87 59 C89 44 80 31 64 27 C63 23 61 19 60 10 Z" fill="url(#pa-onion)" />
+      <path d="M50 30 C56 28 64 28 70 30" stroke="#f5d78e" strokeWidth="2" fill="none" opacity="0.7" />
+      <path d="M44 40 C40 50 40 60 46 70" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.3" />
+      <path d="M54 34 C48 44 48 58 52 70 M62 32 C68 42 70 56 67 70 M70 36 C75 46 75 58 72 68" stroke="#8a5a20" strokeWidth="1.5" fill="none" opacity="0.55" />
+      <path d="M56 27 C52 22 50 17 50 12 M60 27 C60 21 60 17 60 12 M64 27 C68 22 70 17 70 12" stroke="#a8803c" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.85" />
       <defs>
         <linearGradient id="pa-onion" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#c49a6c" />
-          <stop offset="100%" stopColor="#7a4a34" />
+          <stop offset="0%" stopColor="#e8bd6a" />
+          <stop offset="100%" stopColor="#9a6a24" />
         </linearGradient>
       </defs>
     </g>
@@ -168,10 +169,11 @@ function BellPepper() {
   return (
     <g>
       <Backdrop hue="#b03030" />
-      <path d="M60 28 C46 28 38 40 40 54 C42 68 49 78 60 78 C71 78 78 68 80 54 C82 40 74 28 60 28 Z" fill="url(#pa-bell)" />
-      <path d="M60 28 C57 42 57 60 60 76 M49 32 C46 44 46 60 49 72 M71 32 C74 44 74 60 71 72" stroke="#5e1414" strokeWidth="1.8" fill="none" opacity="0.55" />
-      <path d="M48 40 C51 34 57 32 63 33" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.3" />
-      <path d="M60 28 C60 22 61 18 63 14" stroke="#2f6b2f" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+      <path d="M46 30 C38 32 34 42 35 54 C36 68 44 78 52 78 L56 78 C58 80 62 80 64 78 L68 78 C76 78 84 68 85 54 C86 42 82 32 74 30 C70 29 68 30 66 30 L64 28 L56 28 L54 30 C52 30 50 29 46 30 Z" fill="url(#pa-bell)" />
+      <path d="M52 34 C49 46 49 60 52 72 M60 32 C60 46 60 62 60 74 M68 34 C71 46 71 60 68 72" stroke="#5e1414" strokeWidth="2" fill="none" opacity="0.6" />
+      <path d="M44 42 C46 36 51 33 57 33" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.3" />
+      <path d="M54 28 L56 18 L60 22 L64 18 L66 28 Z" fill="#2f6b2f" />
+      <path d="M60 22 C60 17 60 14 60 11" stroke="#2f6b2f" strokeWidth="4.5" strokeLinecap="round" fill="none" />
       <defs>
         <linearGradient id="pa-bell" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#b84040" />
@@ -186,10 +188,11 @@ function HotPepper() {
   return (
     <g>
       <Backdrop hue="#c23b2a" />
-      <path d="M44 30 C58 30 74 40 78 58 C80 68 76 78 68 80 C60 82 50 74 46 60 C43 48 40 36 44 30 Z" fill="url(#pa-hot)" />
-      <path d="M50 36 C60 38 70 46 73 58" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.3" />
-      <path d="M44 30 L36 24 L42 22 L50 28 Z" fill="#2f6b2f" />
-      <path d="M42 24 C40 20 40 17 41 14" stroke="#2f6b2f" strokeWidth="3" strokeLinecap="round" fill="none" />
+      <path d="M40 26 C56 24 74 34 80 52 C84 66 80 78 70 82 C62 85 52 78 47 64 C42 50 36 34 40 26 Z" fill="url(#pa-hot)" />
+      <path d="M48 32 C60 33 71 41 75 54" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.3" />
+      <path d="M72 78 C70 80 68 81 66 81" stroke="#5e0e04" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+      <path d="M40 26 L30 20 L36 17 L48 24 Z" fill="#2f6b2f" />
+      <path d="M36 20 C33 16 32 13 33 10" stroke="#2f6b2f" strokeWidth="3.5" strokeLinecap="round" fill="none" />
       <defs>
         <linearGradient id="pa-hot" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#c74832" />
@@ -204,10 +207,10 @@ function Lettuce() {
   return (
     <g>
       <Backdrop hue="#7cb85a" />
-      <path d="M60 22 C76 26 84 40 80 56 C77 68 68 76 60 76 C52 76 43 68 40 56 C36 40 44 26 60 22 Z" fill="url(#pa-lettuce)" />
-      <path d="M60 28 C70 32 76 42 74 54 M60 28 C50 32 44 42 46 54" stroke="#2f6b2f" strokeWidth="1.8" fill="none" opacity="0.55" />
-      <path d="M60 30 L60 72" stroke="#e8f5d8" strokeWidth="2" strokeLinecap="round" opacity="0.5" />
-      <path d="M48 34 C52 30 58 28 64 29" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.3" />
+      <path d="M60 78 C50 78 41 70 38 58 L40 52 C36 44 38 34 46 28 L52 22 L58 28 L64 20 L70 28 L78 26 C86 32 88 44 84 54 L86 60 C83 70 70 78 60 78 Z" fill="url(#pa-lettuce)" />
+      <path d="M52 30 C58 34 62 42 62 52 M68 30 C62 36 60 44 61 54" stroke="#2f6b2f" strokeWidth="1.8" fill="none" opacity="0.55" />
+      <path d="M44 48 C48 44 54 42 60 43" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.28" />
+      <path d="M60 76 L60 60" stroke="#e8f5d8" strokeWidth="2.5" strokeLinecap="round" opacity="0.6" />
       <defs>
         <linearGradient id="pa-lettuce" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#82bd60" />
@@ -222,9 +225,10 @@ function GreenBeans() {
   return (
     <g>
       <Backdrop hue="#5da24a" />
-      <path d="M44 20 C46 38 46 58 42 76" stroke="#3f7a30" strokeWidth="7" strokeLinecap="round" fill="none" />
-      <path d="M62 16 C64 36 64 58 60 78" stroke="#4c8a3a" strokeWidth="7" strokeLinecap="round" fill="none" />
-      <path d="M80 22 C80 40 78 60 74 76" stroke="#3f7a30" strokeWidth="7" strokeLinecap="round" fill="none" />
+      <path d="M44 20 C47 38 47 58 42 76" stroke="#3f7a30" strokeWidth="7" strokeLinecap="round" fill="none" />
+      <path d="M62 16 C65 36 65 58 60 78" stroke="#4c8a3a" strokeWidth="7" strokeLinecap="round" fill="none" />
+      <path d="M80 22 C81 40 79 60 74 76" stroke="#3f7a30" strokeWidth="7" strokeLinecap="round" fill="none" />
+      <path d="M44 38 M62 34 M80 40" stroke="#2c5a24" strokeWidth="8" strokeLinecap="round" fill="none" opacity="0.35" />
       <path d="M44 26 C45 40 45 56 43 70" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.3" />
       <circle cx="42" cy="78" r="2" fill="#2f6b2f" />
       <circle cx="60" cy="80" r="2" fill="#2f6b2f" />
@@ -243,14 +247,15 @@ function DryGarlic() {
   return (
     <g>
       <Backdrop hue="#b8a894" />
-      <path d="M60 14 C59 22 57 26 55 30 C42 34 34 46 36 60 C38 73 48 81 60 81 C72 81 82 73 84 60 C86 46 78 34 65 30 C63 26 61 22 60 14 Z" fill="url(#pa-garlic)" />
-      <path d="M52 34 C48 44 48 58 52 70 M60 32 C60 44 60 58 60 72 M68 34 C72 44 72 58 68 70" stroke="#7a6a58" strokeWidth="1.5" fill="none" opacity="0.6" />
-      <path d="M46 38 C49 32 55 30 61 31" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.35" />
-      <path d="M57 30 C55 24 55 20 56 16 M63 30 C65 24 65 20 64 16" stroke="#8a7a64" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.8" />
+      <path d="M60 10 C59 18 57 23 55 27 C42 31 34 44 36 59 C38 73 48 81 60 81 C72 81 82 73 84 59 C86 44 78 31 65 27 C63 23 61 18 60 10 Z" fill="url(#pa-garlic)" />
+      <path d="M52 32 C48 42 48 56 52 68 M60 30 C60 42 60 56 60 70 M68 32 C72 42 72 56 68 68" stroke="#7a6a58" strokeWidth="1.5" fill="none" opacity="0.6" />
+      <path d="M46 36 C49 30 55 28 61 29" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.4" />
+      <path d="M57 27 C55 20 55 15 56 10 M63 27 C65 20 65 15 64 10" stroke="#9a8a72" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.85" />
+      <path d="M54 81 L53 84 M60 81 L60 84 M66 81 L67 84" stroke="#8a7a64" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
       <defs>
         <linearGradient id="pa-garlic" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#ddd2c4" />
-          <stop offset="100%" stopColor="#8f8578" />
+          <stop offset="0%" stopColor="#e2d7c6" />
+          <stop offset="100%" stopColor="#968a76" />
         </linearGradient>
       </defs>
     </g>

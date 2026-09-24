@@ -52,4 +52,23 @@ describe('ProduceArtwork — deterministic mapping', () => {
     expect(container.querySelector('svg')).toBeTruthy();
     expect(container.querySelector('svg ellipse, svg path')).toBeTruthy();
   });
+
+  it('gives every pilot vegetable a distinct silhouette', () => {
+    const keys = [
+      'veg-potato', 'veg-tomato', 'veg-onion', 'veg-carrot', 'veg-zucchini',
+      'veg-bell-pepper', 'veg-hot-pepper', 'veg-lettuce', 'veg-beans', 'veg-garlic',
+    ] as const;
+    const bodies = keys.map((artKey) => {
+      const { container, unmount } = render(<ProduceArtwork artKey={artKey} />);
+      const svg = container.querySelector('svg');
+      const shapes = svg
+        ? Array.from(svg.querySelectorAll('path, ellipse, rect, circle'))
+            .map((el) => el.getAttribute('d') ?? `${el.tagName}:${el.getAttribute('cx')},${el.getAttribute('cy')}`)
+            .join('|')
+        : '';
+      unmount();
+      return shapes;
+    });
+    expect(new Set(bodies).size).toBe(keys.length);
+  });
 });
