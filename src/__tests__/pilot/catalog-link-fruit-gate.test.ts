@@ -7,8 +7,7 @@ const mig = (name: string) =>
 
 describe('00115 — additive per-row store link (no delete-first)', () => {
   const sql = mig('00115_admin_store_link.sql');
-  const code = sql
-    .split('Post-checks')[0]
+  const code = (sql.split('Post-checks')[0] ?? '')
     .split('\n')
     .filter((l) => !l.trimStart().startsWith('--'))
     .join('\n');
