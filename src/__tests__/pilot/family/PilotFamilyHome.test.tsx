@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AppProvider, useAppState } from '../../../store/navigation';
 import { PilotFamilyHomeScreen } from '../../../screens/pilot/PilotFamilyHomeScreen';
 
@@ -17,6 +17,8 @@ vi.mock('../../../services/pilot-account-service', () => ({
   fetchMyAccount: vi.fn(async () => ({ linked: true, balance: 10000, debts: [] })),
   fetchMyFamilyContact: vi.fn(async () => null),
   saveMyFamilyContact: vi.fn(async (i: unknown) => i),
+  fetchMyFamilyPreferences: vi.fn(async () => null),
+  saveMyFamilyPreferences: vi.fn(async (i: unknown) => i),
 }));
 vi.mock('../../../services/order-tracking-service', () => ({
   fetchMyOrders: vi.fn(async () => [
@@ -78,5 +80,30 @@ describe('PilotFamilyHomeScreen', () => {
     await screen.findByText('pilot.familyWelcome');
     fireEvent.click(screen.getByText('pilot.myOrdersTitle'));
     expect(screen.getByTestId('screen').textContent).toBe('pilot-my-orders');
+  });
+
+  it('offers the optional vegetable preferences CTA without blocking order', async () => {
+    renderHome();
+    await screen.findByText('pilot.familyWelcome');
+    expect(screen.getByText('pilot.preferencesTitle')).toBeTruthy();
+    expect(screen.getByText('pilot.preferencesHint')).toBeTruthy();
+    fireEvent.click(screen.getByText('pilot.preferencesCta'));
+    expect(screen.getByLabelText('pilot.preferencesTimePlaceholder')).toBeTruthy();
+    expect(screen.getByLabelText('pilot.preferencesNotesPlaceholder')).toBeTruthy();
+  });
+
+  it('saves preferences without touching balance or orders', async () => {
+    const { saveMyFamilyPreferences } = await import('../../../services/pilot-account-service');
+    renderHome();
+    await screen.findByText('pilot.familyWelcome');
+    fireEvent.click(screen.getByText('pilot.preferencesCta'));
+    fireEvent.change(screen.getByLabelText('pilot.preferencesTimePlaceholder'), { target: { value: 'morning' } });
+    fireEvent.click(screen.getByText('pilot.saveInfo'));
+    await waitFor(() =>
+      expect(vi.mocked(saveMyFamilyPreferences)).toHaveBeenCalledWith({
+        preferredDeliveryTime: 'morning',
+        vegNotes: '',
+      }),
+    );
   });
 });

@@ -12,15 +12,19 @@ import {
   fetchMyAccount,
   fetchMyFamilyContact,
   saveMyFamilyContact,
+  fetchMyFamilyPreferences,
+  saveMyFamilyPreferences,
   type PilotAccount,
   type PilotFamily,
   type PilotFamilyContact,
+  type PilotFamilyPreferences,
 } from '../../services/pilot-account-service';
 import { fetchMyOrders, type CustomerOrderSummary } from '../../services/order-tracking-service';
 import { FamilyOrderTimeline } from './family/FamilyOrderTimeline';
 import { FamilyBalanceCard } from './family/FamilyBalanceCard';
 import { useFamilyOrderPolling } from './family/useFamilyOrderPolling';
 import { DeliveryProfileCard, type ContactInput } from './family/DeliveryProfileCard';
+import { FamilyPreferencesCard, type PreferencesInput } from './family/FamilyPreferencesCard';
 
 // ============================================================================
 // PilotFamilyHomeScreen — the family hub. Greeting + hero order CTA +
@@ -41,6 +45,8 @@ export const PilotFamilyHomeScreen = memo(function PilotFamilyHomeScreen() {
   const [orders, setOrders] = useState<CustomerOrderSummary[]>([]);
   const [contact, setContact] = useState<PilotFamilyContact | null>(null);
   const [savingContact, setSavingContact] = useState(false);
+  const [prefs, setPrefs] = useState<PilotFamilyPreferences | null>(null);
+  const [savingPrefs, setSavingPrefs] = useState(false);
   const [loading, setLoading] = useState(true);
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -49,17 +55,19 @@ export const PilotFamilyHomeScreen = memo(function PilotFamilyHomeScreen() {
     let alive = true;
     void (async () => {
       try {
-        const [fam, acc, list, cont] = await Promise.all([
+        const [fam, acc, list, cont, pref] = await Promise.all([
           fetchMyFamily().catch(() => null),
           fetchMyAccount().catch(() => null),
           fetchMyOrders().catch(() => [] as CustomerOrderSummary[]),
           fetchMyFamilyContact().catch(() => null),
+          fetchMyFamilyPreferences().catch(() => null),
         ]);
         if (!alive) return;
         setFamily(fam);
         setAccount(acc);
         setOrders(list);
         setContact(cont);
+        setPrefs(pref);
       } finally {
         if (alive) setLoading(false);
       }
@@ -76,6 +84,19 @@ export const PilotFamilyHomeScreen = memo(function PilotFamilyHomeScreen() {
       setContact(updated);
     } finally {
       setSavingContact(false);
+    }
+  }, []);
+
+  const savePrefs = useCallback(async (input: PreferencesInput) => {
+    setSavingPrefs(true);
+    try {
+      const updated = await saveMyFamilyPreferences({
+        preferredDeliveryTime: input.preferredDeliveryTime,
+        vegNotes: input.vegNotes,
+      });
+      setPrefs(updated);
+    } finally {
+      setSavingPrefs(false);
     }
   }, []);
 
@@ -229,6 +250,9 @@ export const PilotFamilyHomeScreen = memo(function PilotFamilyHomeScreen() {
         <div ref={profileRef}>
           <DeliveryProfileCard contact={contact} saving={savingContact} onSave={saveContact} />
         </div>
+
+        {/* Vegetable preferences (optional; never blocks ordering) */}
+        <FamilyPreferencesCard prefs={prefs} saving={savingPrefs} onSave={savePrefs} />
       </Stack>
     </Screen>
   );

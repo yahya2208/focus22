@@ -108,6 +108,39 @@ export async function saveMyFamilyContact(input: {
   return data as PilotFamilyContact;
 }
 
+/* ———————————— family vegetable preferences (optional, display-only) ———————————— */
+
+/**
+ * The caller's OWN family vegetable preferences (delivery time hint + notes).
+ * Server-scoped like contact: never another family's data. NULL fields mean
+ * "no preference set" — nothing requires them. Disjoint from ledger/balance.
+ */
+export interface PilotFamilyPreferences {
+  readonly family_id: string;
+  readonly preferred_delivery_time: string | null;
+  readonly veg_notes: string | null;
+}
+
+export async function fetchMyFamilyPreferences(): Promise<PilotFamilyPreferences | null> {
+  const { data, error } = await getSupabaseClient().rpc('pilot_my_family_preferences_get');
+  if (error) throw new Error(error.message ?? 'RPC_ERROR');
+  if (data == null) return null;
+  const row = (Array.isArray(data) ? data[0] : data) as PilotFamilyPreferences | null;
+  return row;
+}
+
+export async function saveMyFamilyPreferences(input: {
+  preferredDeliveryTime: string;
+  vegNotes: string;
+}): Promise<PilotFamilyPreferences> {
+  const { data, error } = await getSupabaseClient().rpc('pilot_my_family_preferences_set', {
+    p_preferred_delivery_time: input.preferredDeliveryTime,
+    p_veg_notes: input.vegNotes,
+  });
+  if (error) throw new Error(error.message ?? 'RPC_ERROR');
+  return data as PilotFamilyPreferences;
+}
+
 /* ————————————————— admin family management (Gate B, ADMIN ONLY) ————————————————— */
 
 /**
