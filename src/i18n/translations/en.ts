@@ -1716,6 +1716,8 @@ const en = {
   'pilot.validReason.COURIER_NOT_ACTIVE': 'Courier is no longer active.',
   'pilot.validReason.COURIER_NOT_READY': 'Courier readiness was cleared.',
   'pilot.myOrdersTitle': 'My Orders',
+  'pilot.notifyPushHint': 'Get push alerts even with the page closed.',
+  'pilot.notifyEnablePush': 'Enable push alerts',
   'pilot.newOrderAlertTitle': 'New order',
   'pilot.openOrder': 'Open order',
   'pilot.dismissAlert': 'Dismiss alert',

@@ -1696,6 +1696,8 @@ const tr: Record<TranslationKey, string> = {
   'pilot.error.SEARCH_FAILED': 'Kullanıcı araması başarısız (yalnızca admin).',
   'pilot.error.PROVISION_FAILED': 'Üyelik oluşturulamadı.',
   'pilot.myOrdersTitle': 'Siparişlerim',
+  'pilot.notifyPushHint': 'Sayfa kapalıyken bile uyarı alın.',
+  'pilot.notifyEnablePush': 'Push uyarılarını aç',
   'pilot.newOrderAlertTitle': 'Yeni sipariş',
   'pilot.openOrder': 'Siparişi aç',
   'pilot.dismissAlert': 'Bildirimi kapat',

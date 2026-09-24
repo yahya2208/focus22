@@ -999,6 +999,8 @@ const fr: Record<string, string> = {
   'pilot.validReason.COURIER_NOT_ACTIVE': 'Le coursier n’est plus actif.',
   'pilot.validReason.COURIER_NOT_READY': 'La préparation du coursier a été annulée.',
   'pilot.myOrdersTitle': 'Mes commandes',
+  'pilot.notifyPushHint': 'Recevez des alertes même page fermée.',
+  'pilot.notifyEnablePush': 'Activer les alertes push',
   'pilot.newOrderAlertTitle': 'Nouvelle commande',
   'pilot.openOrder': 'Ouvrir la commande',
   'pilot.dismissAlert': 'Ignorer l’alerte',

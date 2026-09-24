@@ -1696,6 +1696,8 @@ const ar: Record<TranslationKey, string> = {
   'pilot.validReason.COURIER_NOT_ACTIVE': 'المندوب لم يعد نشطًا.',
   'pilot.validReason.COURIER_NOT_READY': 'تم إلغاء جاهزية المندوب.',
   'pilot.myOrdersTitle': 'طلباتي',
+  'pilot.notifyPushHint': 'فعّل الإشعارات الفورية حتى مع إغلاق الصفحة.',
+  'pilot.notifyEnablePush': 'تفعيل الإشعارات الفورية',
   'pilot.newOrderAlertTitle': 'طلب جديد',
   'pilot.openOrder': 'فتح الطلب',
   'pilot.dismissAlert': 'إغلاق التنبيه',

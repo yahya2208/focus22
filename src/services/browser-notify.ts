@@ -45,6 +45,46 @@ export async function requestNotifyPermission(): Promise<NotifyPermission> {
 }
 
 /**
+ * Web Push subscription (G-N3). VAPID public key is injected by the caller
+ * (deployment config — never hardcoded secrets here). The subscription is
+ * POSTed to the sender backend; rows are owner-scoped server-side.
+ * Returns null when push is unavailable (no SW / no PushManager / denied).
+ */
+export async function subscribePush(vapidPublicKey: string): Promise<boolean> {
+  try {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !vapidPublicKey) return false;
+    if (window.Notification?.permission !== 'granted') return false;
+    const reg = await window.navigator.serviceWorker.ready;
+    const pushManager = (reg as ServiceWorkerRegistration & { pushManager?: PushManager }).pushManager;
+    if (!pushManager) return false;
+    const existing = await pushManager.getSubscription();
+    if (existing) return true;
+    const sub = await pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidPublicKey });
+    const keys = sub.toJSON().keys ?? {};
+    // Owner-scoped direct insert: RLS permits ONLY auth.uid()=user_id rows,
+    // so no RPC and no privilege beyond the caller's own subscription.
+    const { getSupabaseClient } = await import('../core/supabase/client');
+    const { data: session } = await getSupabaseClient().auth.getSession();
+    const uid = session?.session?.user?.id;
+    if (!uid) {
+      await sub.unsubscribe().catch(() => undefined);
+      return false;
+    }
+    const { error } = await getSupabaseClient().from('push_subscriptions').upsert(
+      { user_id: uid, endpoint: sub.endpoint, p256dh: keys.p256dh ?? '', auth: keys.auth ?? '', last_seen: new Date().toISOString() },
+      { onConflict: 'endpoint' },
+    );
+    if (error) {
+      await sub.unsubscribe().catch(() => undefined);
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Mirror new-order alerts to system notifications while hidden. Tracks shown
  * ids so reconnect redelivery never double-notifies. Silent no-op unless
  * permission is granted and the document is hidden.

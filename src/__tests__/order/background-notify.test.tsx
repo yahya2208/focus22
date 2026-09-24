@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { useBackgroundNotify, getNotifyPermission } from '../../services/browser-notify';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { useBackgroundNotify, getNotifyPermission, subscribePush } from '../../services/browser-notify';
 import { NotificationPermissionCta } from '../../components/order/NotificationPermissionCta';
 
 vi.mock('../../hooks/useTranslation', () => ({
@@ -46,5 +46,9 @@ describe('background notify layer (G-N2)', () => {
     unmount();
     render(<NotificationPermissionCta />);
     expect(screen.queryByText('pilot.notifyPermissionHint')).toBeNull();
+  });
+
+  it('subscribePush declines without service worker support', async () => {
+    await expect(subscribePush('test-key')).resolves.toBe(false);
   });
 });
