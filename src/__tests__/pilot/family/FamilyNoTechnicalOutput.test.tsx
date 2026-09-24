@@ -26,6 +26,8 @@ vi.mock('../../../services/pilot-account-service', () => ({
     family_id: 'f1', contact_name: 'أحمد', contact_phone: '0555', contact_address: 'شارع 12', contact_notes: '',
   })),
   saveMyFamilyContact: vi.fn(async (i: unknown) => i),
+  fetchMyFamilyPreferences: vi.fn(async () => null),
+  saveMyFamilyPreferences: vi.fn(async (i: unknown) => i),
 }));
 vi.mock('../../../services/order-tracking-service', () => ({
   fetchMyOrders: vi.fn(async () => [
