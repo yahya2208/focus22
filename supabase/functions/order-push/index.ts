@@ -7,7 +7,9 @@
 //
 // Flow: verify webhook secret → load order row → resolve recipients
 // (users.role admin/super_admin + operators of order.store_id) → load their
-// live push_subscriptions → send minimal payload per endpoint → record
+// live push_subscriptions → claim-first per endpoint (PK race absorbs
+// concurrent retries) → send minimal payload → release claim on transient
+// failure, keep it on 410 revocation →
 // push_log (UNIQUE(order_id, endpoint) absorbs retries/fan-out dupes) →
 // mark 410/expired endpoints revoked.
 //
@@ -94,7 +96,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
 
   let sent = 0;
+  let skipped = 0;
   for (const s of subs as { user_id: string; endpoint: string; p256dh: string; auth: string }[]) {
+    // Claim-first idempotency: atomically claim (order_id, endpoint) BEFORE
+    // sending. Concurrent webhook deliveries race on the PRIMARY KEY — exactly
+    // one wins the claim and sends; losers skip. Sequential retries find the
+    // prior claim and skip without resending.
+    const { data: claimed, error: claimErr } = await service
+      .from("push_log")
+      .insert({ order_id: orderId, endpoint: s.endpoint }, { onConflict: "order_id,endpoint", ignoreDuplicates: true })
+      .select("order_id");
+    if (claimErr || !claimed || (claimed as unknown[]).length === 0) {
+      skipped += 1;
+      continue;
+    }
     try {
       await webpush.sendNotification(
         { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
@@ -105,15 +120,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     } catch (err) {
       const statusCode = (err as { statusCode?: number })?.statusCode;
       if (statusCode === 404 || statusCode === 410) {
+        // Dead endpoint: keep the claim (prevents retry storms to a dead
+        // address) and revoke the subscription. A future re-subscribe with
+        // the same endpoint reuses the row only after manual review.
         await service.from("push_subscriptions").update({ revoked_at: new Date().toISOString() }).eq("endpoint", s.endpoint);
+      } else {
+        // Transient failure: release the claim so a later retry may re-attempt.
+        await service.from("push_log").delete().eq("order_id", orderId).eq("endpoint", s.endpoint);
       }
     }
-    // Idempotency record: retries and multi-device fan-out collapse here.
-    await service.from("push_log").upsert(
-      { order_id: orderId, endpoint: s.endpoint },
-      { onConflict: "order_id,endpoint", ignoreDuplicates: true },
-    );
   }
 
-  return json(200, { ok: true, code: "PUSH_FANOUT", order_id: orderId, sent });
+  return json(200, { ok: true, code: "PUSH_FANOUT", order_id: orderId, sent, skipped });
 });
