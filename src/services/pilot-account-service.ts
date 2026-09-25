@@ -193,7 +193,6 @@ export async function adminFamilyPreferences(familyId: string): Promise<AdminFam
 }
 
 /**
-/**
  * One family member row from `pilot_admin_list_family_members` (00100).
  * `balance` is the server-computed SUM(ledger.amount) for that family — the
  * client never recomputes it.

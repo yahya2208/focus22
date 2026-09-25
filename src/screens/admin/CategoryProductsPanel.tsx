@@ -20,6 +20,7 @@ import {
 } from '../../services/category-products-service';
 import { loadAdminListingsBoard } from '../../domains/listings/adminBoard';
 import type { ListingRecord } from '../../domains/listings/types';
+import { produceUnitLabel } from '../../domains/listings';
 import type { CategoryMemberAdmin, CategoryProductDomain } from '../../core/categories/membership';
 import { canCreateProducts } from '../../core/categories/membership';
 import type { Category } from '../../core/categories/types';
@@ -28,6 +29,7 @@ import { CarListingForm } from '../../components/inventory/listings/CarListingFo
 import { PropertyListingForm } from '../../components/inventory/listings/PropertyListingForm';
 import { ProduceListingForm } from '../../components/inventory/listings/ProduceListingForm';
 import { AddInventoryModal } from '../../components/inventory/AddInventoryModal';
+import { centralUpdatePrices } from '../../services/inventory-central-service';
 
 type DomainFilter = CategoryProductDomain | 'all';
 
@@ -68,6 +70,9 @@ export const CategoryProductsPanel = memo(function CategoryProductsPanel({
   const [candidateDomain, setCandidateDomain] = useState<DomainFilter>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [createOpen, setCreateOpen] = useState(false);
+  const [priceEditing, setPriceEditing] = useState<string | null>(null);
+  const [priceDraft, setPriceDraft] = useState('');
+  const [priceSaving, setPriceSaving] = useState<string | null>(null);
 
   const canCreate = canCreateProducts(category.domain);
 
@@ -199,6 +204,38 @@ export const CategoryProductsPanel = memo(function CategoryProductsPanel({
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setActing(null);
+    }
+  }
+
+  function startPriceEdit(m: CategoryMemberAdmin) {
+    if (typeof m.price !== 'number') return;
+    setError('');
+    setPriceDraft(String(m.price));
+    setPriceEditing(m.productId);
+  }
+
+  function cancelPriceEdit() {
+    setPriceEditing(null);
+    setPriceDraft('');
+  }
+
+  async function savePrice(m: CategoryMemberAdmin) {
+    const value = Number(String(priceDraft).replace(',', '.'));
+    if (!Number.isFinite(value) || value <= 0) {
+      setError(t('categoryProducts.invalidPrice'));
+      return;
+    }
+    setPriceSaving(m.productId);
+    setError('');
+    try {
+      const row = await centralUpdatePrices(m.productId, undefined, value);
+      if (!row || typeof row.sellPrice !== 'number') throw new Error('PRICE_SAVE_FAILED');
+      setMembers((prev) => prev.map((x) => (x.productId === m.productId ? { ...x, price: row.sellPrice as number } : x)));
+      cancelPriceEdit();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPriceSaving(null);
     }
   }
 
@@ -345,6 +382,58 @@ export const CategoryProductsPanel = memo(function CategoryProductsPanel({
                     )}
                   </Flex>
                   <Flex gap="xs" align="center" wrap>
+                    {category.domain === 'produce' && (
+                      priceEditing === m.productId ? (
+                        <Flex gap="xs" align="center">
+                          <Input
+                            value={priceDraft}
+                            onChange={(e) => setPriceDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') void savePrice(m);
+                              else if (e.key === 'Escape') cancelPriceEdit();
+                            }}
+                            disabled={priceSaving !== null}
+                            autoFocus
+                            aria-label={t('categoryProducts.price')}
+                            style={{ width: 90 }}
+                          />
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => void savePrice(m)}
+                            disabled={priceSaving !== null}
+                            aria-label={t('categoryProducts.savePrice')}
+                          >
+                            {priceSaving === m.productId ? '…' : '✓'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={cancelPriceEdit}
+                            disabled={priceSaving !== null}
+                            aria-label={t('adminCategories.cancel')}
+                          >
+                            ✕
+                          </Button>
+                        </Flex>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startPriceEdit(m)}
+                          disabled={acting !== null || priceSaving !== null || typeof m.price !== 'number'}
+                          aria-label={t('categoryProducts.editPrice')}
+                          title={t('categoryProducts.editPrice')}
+                          style={{
+                            background: 'none', border: 'none', padding: '4px 6px', cursor: 'pointer',
+                            color: colors.text, fontWeight: 800, fontSize: '0.85rem', fontFamily: 'inherit',
+                          }}
+                        >
+                          {typeof m.price === 'number'
+                            ? `${m.price} ${t('pilot.currency')}/${produceUnitLabel('kg')}`
+                            : '—'}
+                        </button>
+                      )
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"

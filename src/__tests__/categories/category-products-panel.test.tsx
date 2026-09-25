@@ -28,7 +28,8 @@ const MOCK = vi.hoisted(() => {
   const reorder = vi.fn(async (_categoryId: string, _items: unknown[]): Promise<void> => {});
   const loadBoard = vi.fn(async (): Promise<AdminListingsBoard> => ({ phones: [], cars: [], properties: [], produce: [] }));
   const getLabel = () => 'Phones';
-  return { list, assign, remove, setActive, setFeatured, reorder, loadBoard, getLabel };
+  const updatePrices = vi.fn(async (_id: string, _buy: number | undefined, sell?: number) => ({ id: _id, sellPrice: sell ?? null }));
+  return { list, assign, remove, setActive, setFeatured, reorder, loadBoard, getLabel, updatePrices };
 });
 
 vi.mock('../../services/category-products-service', () => ({
@@ -44,6 +45,10 @@ vi.mock('../../domains/listings/adminBoard', () => ({
 }));
 vi.mock('../../services/categories-service', () => ({
   getCategoryLabel: () => 'Phones',
+}));
+vi.mock('../../services/inventory-central-service', () => ({
+  centralUpdatePrices: (id: string, buy: number | undefined, sell?: number) =>
+    MOCK.updatePrices(id, buy, sell),
 }));
 
 const CATEGORY: Category = {
@@ -102,6 +107,73 @@ describe('CategoryProductsPanel', () => {
     await screen.findByText(/Apple/);
     fireEvent.click(screen.getByText('categoryProducts.featured'));
     await waitFor(() => expect(MOCK.setFeatured).toHaveBeenCalledWith('c-phones', 'p1', true));
+  });
+
+  it('saves an inline produce price edit via centralUpdatePrices', async () => {
+    const produceCategory: Category = { ...CATEGORY, id: 'c-veg', slug: 'veg', domain: 'produce' };
+    const produceMember: CategoryMemberAdmin = {
+      ...MEMBER, categoryId: 'c-veg', productId: 'veg-potato', domain: 'produce', brand: '', model: 'بطاطا', price: 120,
+    };
+    MOCK.list.mockResolvedValue([produceMember]);
+    MOCK.updatePrices.mockResolvedValue({ id: 'veg-potato', sellPrice: 130 });
+    render(<CategoryProductsPanel category={produceCategory} onClose={() => {}} />);
+    const priceButton = await screen.findByLabelText('categoryProducts.editPrice');
+    expect(priceButton.textContent).toContain('120');
+    fireEvent.click(priceButton);
+    const input = await screen.findByLabelText('categoryProducts.price');
+    expect((input as HTMLInputElement).value).toBe('120');
+    fireEvent.change(input, { target: { value: '130' } });
+    fireEvent.click(screen.getByLabelText('categoryProducts.savePrice'));
+    await waitFor(() => expect(MOCK.updatePrices).toHaveBeenCalledWith('veg-potato', undefined, 130));
+    await waitFor(() => expect(screen.getByLabelText('categoryProducts.editPrice').textContent).toContain('130'));
+  });
+
+  it('rejects non-positive produce prices without calling the RPC', async () => {
+    const produceCategory: Category = { ...CATEGORY, id: 'c-veg', slug: 'veg', domain: 'produce' };
+    const produceMember: CategoryMemberAdmin = {
+      ...MEMBER, categoryId: 'c-veg', productId: 'veg-potato', domain: 'produce', brand: '', model: 'بطاطا', price: 120,
+    };
+    MOCK.list.mockResolvedValue([produceMember]);
+    render(<CategoryProductsPanel category={produceCategory} onClose={() => {}} />);
+    fireEvent.click(await screen.findByLabelText('categoryProducts.editPrice'));
+    const input = await screen.findByLabelText('categoryProducts.price');
+    fireEvent.change(input, { target: { value: '0' } });
+    fireEvent.click(screen.getByLabelText('categoryProducts.savePrice'));
+    await waitFor(() => expect(screen.getByText('categoryProducts.invalidPrice')).toBeTruthy());
+    expect(MOCK.updatePrices).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('categoryProducts.price')).toBeTruthy();
+  });
+
+  it('cancels a produce price edit on Escape without saving', async () => {
+    const produceCategory: Category = { ...CATEGORY, id: 'c-veg', slug: 'veg', domain: 'produce' };
+    const produceMember: CategoryMemberAdmin = {
+      ...MEMBER, categoryId: 'c-veg', productId: 'veg-potato', domain: 'produce', brand: '', model: 'بطاطا', price: 120,
+    };
+    MOCK.list.mockResolvedValue([produceMember]);
+    render(<CategoryProductsPanel category={produceCategory} onClose={() => {}} />);
+    fireEvent.click(await screen.findByLabelText('categoryProducts.editPrice'));
+    const input = await screen.findByLabelText('categoryProducts.price');
+    fireEvent.change(input, { target: { value: '999' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    await waitFor(() => expect(screen.getByLabelText('categoryProducts.editPrice')).toBeTruthy());
+    expect(MOCK.updatePrices).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('categoryProducts.editPrice').textContent).toContain('120');
+  });
+
+  it('rolls back a failed produce price save and keeps the old price', async () => {
+    const produceCategory: Category = { ...CATEGORY, id: 'c-veg', slug: 'veg', domain: 'produce' };
+    const produceMember: CategoryMemberAdmin = {
+      ...MEMBER, categoryId: 'c-veg', productId: 'veg-potato', domain: 'produce', brand: '', model: 'بطاطا', price: 120,
+    };
+    MOCK.list.mockResolvedValue([produceMember]);
+    MOCK.updatePrices.mockRejectedValueOnce(new Error('RPC_ERROR'));
+    render(<CategoryProductsPanel category={produceCategory} onClose={() => {}} />);
+    fireEvent.click(await screen.findByLabelText('categoryProducts.editPrice'));
+    const input = await screen.findByLabelText('categoryProducts.price');
+    fireEvent.change(input, { target: { value: '130' } });
+    fireEvent.click(screen.getByLabelText('categoryProducts.savePrice'));
+    await waitFor(() => expect(MOCK.updatePrices).toHaveBeenCalled());
+    expect((screen.getByLabelText('categoryProducts.price') as HTMLInputElement).value).toBe('130');
   });
 
   it('assigns a selected candidate via adminAssignProducts', async () => {
