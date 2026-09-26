@@ -5,6 +5,7 @@ import { SettingsProvider } from './hooks/useSettings';
 import { TranslationProvider, useTranslation } from './hooks/useTranslation';
 import { AuthProvider, useAuth } from './core/auth/AuthProvider';
 import { consumePendingInviteIntent, readPendingInviteIntentFromLocation } from './core/auth';
+import { getAuthCallbackFailure, restoreAuthCallbackHash } from './core/supabase/client';
 import { useThemeSync } from './hooks/useThemeSync';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { ProtectedRoute } from './components/shared/ProtectedRoute';
@@ -215,6 +216,8 @@ export function InitialRoute() {
   const dispatch = useAppDispatch();
   const { currentScreen, navStack } = useAppState();
   const { state: authState, service } = useAuth();
+  const { t } = useTranslation();
+  const colors = useThemeColors();
   const initialRoutingHandledRef = useRef(false);
   const detectedChallengeIdRef = useRef<string | null>(null);
   const [challengeAuthPending, setChallengeAuthPending] = useState(false);
@@ -486,6 +489,43 @@ export function InitialRoute() {
     });
   }, [currentScreen, dispatch]);
 
+  // Auth-callback silent-failure capture: when this load carried a Supabase
+  // redirect token but no session resulted, surface a recoverable error
+  // instead of failing silently into guest. Runs only for settled
+  // unauthenticated state — authenticated/guest-without-callback loads are
+  // untouched (getAuthCallbackFailure returns null for both).
+  const [authCallbackFailed, setAuthCallbackFailed] = useState(false);
+  const [authCallbackRetrying, setAuthCallbackRetrying] = useState(false);
+  useEffect(() => {
+    if (authState.status !== 'unauthenticated') return;
+    let cancelled = false;
+    void getAuthCallbackFailure().then((failure) => {
+      if (!cancelled && failure) setAuthCallbackFailed(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [authState.status]);
+
+  const retryAuthCallback = () => {
+    setAuthCallbackRetrying(true);
+    try {
+      if (restoreAuthCallbackHash() && typeof window !== 'undefined') {
+        // Fresh boot re-runs the full initialization (client construction,
+        // token validation, invite routing) with the preserved fragment.
+        // No invitation/DB contact happens here — pure Auth re-attempt.
+        window.location.reload();
+        return;
+      }
+    } finally {
+      setAuthCallbackRetrying(false);
+    }
+  };
+
+  const dismissAuthCallbackError = () => {
+    setAuthCallbackFailed(false);
+  };
+
   // Invite callback routing: a Supabase invitation fragment
   // (#access_token=...&type=invite) carries NO usable screen path — consume the
   // intent captured synchronously at module load (before supabase-js clears the
@@ -537,6 +577,50 @@ export function InitialRoute() {
   }
 
   if (challengeAuthPending) return null;
+
+  // Auth-callback failure surface (silent-failure fix): when this load
+  // carried a redirect token but no session resulted, show a recoverable
+  // error with Retry instead of failing silently into guest. Renders ONLY in
+  // this state — every other load (guest, login, authenticated) is untouched.
+  if (authCallbackFailed) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: colors.bg, padding: '2rem' }}>
+        <div style={{ maxWidth: 480, width: '100%', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: colors.text }}>
+            {t('inviteSetup.authCallbackFailedTitle')}
+          </h1>
+          <p style={{ color: colors.textSecondary, fontSize: '0.9rem' }}>
+            {t('inviteSetup.authCallbackFailedMessage')}
+          </p>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={authCallbackRetrying}
+            onClick={retryAuthCallback}
+            aria-label={t('inviteSetup.authCallbackRetry')}
+          >
+            {authCallbackRetrying ? t('invite.sending') : t('inviteSetup.authCallbackRetry')}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => dispatch({ type: 'NAVIGATE', screen: 'login' })}
+            aria-label={t('inviteSetup.goToLogin')}
+          >
+            {t('inviteSetup.goToLogin')}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={dismissAuthCallbackError}
+            aria-label={t('inviteSetup.authCallbackContinueGuest')}
+          >
+            {t('inviteSetup.authCallbackContinueGuest')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return null;
 }
