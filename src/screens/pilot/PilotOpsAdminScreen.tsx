@@ -77,6 +77,7 @@ import {
   isOperationalMember,
   messageKeyFor,
   successMessageKeyFor,
+  toInviteOutcome,
   type InvitationRow,
 } from '../../services/pilot-invite-service';
 
@@ -394,9 +395,16 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
           ? await resendInvitation({ storeId, role, email: normalized })
           : await sendInvitation({ storeId, role, email: normalized });
         if (result.ok) {
-          setMessage(successMessageKeyFor(result.code === 'INVITATION_RESENT'));
+          const outcome = toInviteOutcome(result);
+          if (outcome.kind === 'noop') {
+            // P3: no email was dispatched (address already active) — report
+            // honestly instead of "sent", and keep the form populated.
+            setMessage('INVITE_NOT_NEEDED');
+          } else {
+            setMessage(successMessageKeyFor(result.code === 'INVITATION_RESENT'));
+            setInviteEmail('');
+          }
           setInvitations(await adminListInvitations(storeId));
-          setInviteEmail('');
         } else {
           setError(messageKeyFor(result.code));
         }
@@ -424,9 +432,16 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
           ? await resendFamilyInvitation({ storeId, email: normalized })
           : await sendFamilyInvitation({ storeId, email: normalized });
         if (result.ok) {
-          setMessage(successMessageKeyFor(result.code === 'INVITATION_RESENT'));
+          const outcome = toInviteOutcome(result);
+          if (outcome.kind === 'noop') {
+            // P3: no email was dispatched (address already active) — report
+            // honestly instead of "sent", and keep the form populated.
+            setMessage('INVITE_NOT_NEEDED');
+          } else {
+            setMessage(successMessageKeyFor(result.code === 'INVITATION_RESENT'));
+            setFamilyInviteEmail('');
+          }
           setInvitations(await adminListInvitations(storeId));
-          setFamilyInviteEmail('');
         } else {
           setError(messageKeyFor(result.code));
         }

@@ -428,3 +428,20 @@ export function messageKeyFor(code: string): string {
 export function successMessageKeyFor(isResend: boolean): string {
   return isResend ? 'INVITE_RESENT_OK' : 'INVITE_SENT_OK';
 }
+
+/**
+ * P3: honest outcome classification. `ok:true` from the Edge means the
+ * request was accepted — NOT that an email was dispatched. INVITATION_NOT_REQUIRED
+ * is a no-op (address already active/provisioned): it must never render as
+ * "sent". Pure function; all lanes (staff + family) share it.
+ */
+export type InviteOutcome =
+  | { readonly kind: 'sent'; readonly resent: boolean }
+  | { readonly kind: 'noop' }
+  | { readonly kind: 'error'; readonly code: string };
+
+export function toInviteOutcome(result: InviteResult): InviteOutcome {
+  if (!result.ok) return { kind: 'error', code: result.code };
+  if (result.code === 'INVITATION_NOT_REQUIRED') return { kind: 'noop' };
+  return { kind: 'sent', resent: result.code === 'INVITATION_RESENT' };
+}

@@ -1818,6 +1818,7 @@ const tr: Record<TranslationKey, string> = {
   'invite.emptyRows': 'Henüz davet satırı yok.',
   'pilot.msg.INVITE_SENT_OK': 'Davet gönderildi.',
   'pilot.msg.INVITE_RESENT_OK': 'Davet yeniden gönderildi.',
+  'pilot.msg.INVITE_NOT_NEEDED': 'Davete gerek yok — bu adres zaten etkin. Hiçbir şey gönderilmedi.',
   'pilot.error.INVITE_LOAD_FAILED': 'Davetler yüklenemedi (yalnızca yönetici).',
   'pilot.error.INVITE_SEND_FAILED': 'Davet gönderilemedi. Tekrar deneyin.',
   'pilot.error.INVITE_ALREADY_OPERATIONAL': 'Bu üye zaten çalışmaya hazır — gönderilecek bir şey yok.',

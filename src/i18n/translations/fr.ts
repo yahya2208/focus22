@@ -1122,6 +1122,7 @@ const fr: Record<string, string> = {
   'invite.emptyRows': 'Aucune invitation pour le moment.',
   'pilot.msg.INVITE_SENT_OK': 'Invitation envoyée.',
   'pilot.msg.INVITE_RESENT_OK': 'Invitation renvoyée.',
+  'pilot.msg.INVITE_NOT_NEEDED': 'Aucune invitation nécessaire — cette adresse est déjà active. Rien n’a été envoyé.',
   'pilot.error.INVITE_LOAD_FAILED': 'Impossible de charger les invitations (admin uniquement).',
   'pilot.error.INVITE_SEND_FAILED': 'Impossible d’envoyer l’invitation. Réessayez.',
   'pilot.error.INVITE_ALREADY_OPERATIONAL': 'Ce membre est déjà opérationnel — rien à envoyer.',

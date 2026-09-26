@@ -1838,6 +1838,7 @@ const en = {
   'invite.emptyRows': 'No invitation rows yet.',
   'pilot.msg.INVITE_SENT_OK': 'Invitation sent.',
   'pilot.msg.INVITE_RESENT_OK': 'Invitation re-sent.',
+  'pilot.msg.INVITE_NOT_NEEDED': 'No invitation needed — this address is already active. Nothing was sent.',
   'pilot.error.INVITE_LOAD_FAILED': 'Could not load invitations (admin only).',
   'pilot.error.INVITE_SEND_FAILED': 'Invitation could not be dispatched. Try again.',
   'pilot.error.INVITE_ALREADY_OPERATIONAL': 'This member is already operational — nothing to send.',

@@ -1818,6 +1818,7 @@ const ar: Record<TranslationKey, string> = {
   'invite.emptyRows': 'لا توجد دعوات بعد.',
   'pilot.msg.INVITE_SENT_OK': 'تم إرسال الدعوة.',
   'pilot.msg.INVITE_RESENT_OK': 'تمت إعادة إرسال الدعوة.',
+  'pilot.msg.INVITE_NOT_NEEDED': 'لا حاجة لدعوة — هذا العنوان نشط بالفعل. لم يتم إرسال شيء.',
   'pilot.error.INVITE_LOAD_FAILED': 'تعذّر تحميل الدعوات (لمشرف فقط).',
   'pilot.error.INVITE_SEND_FAILED': 'تعذّر إرسال الدعوة. حاول مرة أخرى.',
   'pilot.error.INVITE_ALREADY_OPERATIONAL': 'هذا العضو جاهز للعمل بالفعل — لا شيء للإرسال.',
