@@ -263,6 +263,7 @@ const tr: Record<TranslationKey, string> = {
   'inviteSetup.authCallbackFailedMessage': 'Davet bağlantınız uygulamaya ulaştı ancak giriş tamamlanamadı. Tekrar deneyebilirsiniz — davetiniz etkilenmedi.',
   'inviteSetup.authCallbackRetry': 'Girişi tekrar dene',
   'inviteSetup.authCallbackContinueGuest': 'Misafir olarak devam et',
+  'inviteSetup.retryProof': 'Doğrulamayı tekrar dene',
   'inviteSetup.backToHome': 'Ana sayfaya dön',
   'inviteSetup.passwordRequired': 'Lütfen şifrenizi girip onaylayın',
   'inviteSetup.passwordTooShort': 'Şifre en az 8 karakter olmalı',

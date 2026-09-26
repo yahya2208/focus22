@@ -280,6 +280,7 @@ const en = {
   'inviteSetup.authCallbackFailedMessage': 'Your invitation link reached the app but the sign-in could not be finished. You can retry — your invitation is untouched.',
   'inviteSetup.authCallbackRetry': 'Retry sign-in',
   'inviteSetup.authCallbackContinueGuest': 'Continue as guest',
+  'inviteSetup.retryProof': 'Retry verification',
   'inviteSetup.backToHome': 'Back to home',
   'inviteSetup.passwordRequired': 'Please enter and confirm your password',
   'inviteSetup.passwordTooShort': 'Password must be at least 8 characters',

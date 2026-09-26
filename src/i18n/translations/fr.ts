@@ -243,6 +243,7 @@ const fr: Record<string, string> = {
   'inviteSetup.authCallbackFailedMessage': 'Votre lien d’invitation est bien arrivé, mais la connexion n’a pas pu aboutir. Réessayez — votre invitation est intacte.',
   'inviteSetup.authCallbackRetry': 'Réessayer la connexion',
   'inviteSetup.authCallbackContinueGuest': 'Continuer en invité',
+  'inviteSetup.retryProof': 'Réessayer la vérification',
   'inviteSetup.backToHome': 'Retour à l\u2019accueil',
   'inviteSetup.passwordRequired': 'Veuillez saisir et confirmer votre mot de passe',
   'inviteSetup.passwordTooShort': 'Le mot de passe doit comporter au moins 8 caractères',

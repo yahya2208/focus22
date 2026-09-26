@@ -263,6 +263,7 @@ const ar: Record<TranslationKey, string> = {
   'inviteSetup.authCallbackFailedMessage': 'وصل رابط الدعوة إلى التطبيق لكن تعذّر إتمام تسجيل الدخول. يمكنك إعادة المحاولة — دعوتك لم تتأثر.',
   'inviteSetup.authCallbackRetry': 'إعادة محاولة الدخول',
   'inviteSetup.authCallbackContinueGuest': 'المتابعة كضيف',
+  'inviteSetup.retryProof': 'إعادة محاولة التحقق',
   'inviteSetup.backToHome': 'العودة للرئيسية',
   'inviteSetup.passwordRequired': 'يرجى إدخال كلمة المرور وتأكيدها',
   'inviteSetup.passwordTooShort': 'يجب أن تكون كلمة المرور 8 أحرف على الأقل',

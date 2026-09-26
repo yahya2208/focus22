@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useAuth } from '../../core/auth/AuthProvider';
 import { usePilotMembership } from '../../hooks/usePilotMembership';
@@ -45,7 +45,14 @@ export const InviteSetupScreen = memo(function InviteSetupScreen() {
   const [errorKey, setErrorKey] = useState<TranslationKey | null>(null);
   const [phase, setPhase] = useState<'form' | 'working' | 'success'>('form');
   const [invitation, setInvitation] = useState<ReturnType<typeof normalizeInvitation> | null>(null);
-  const [proofStatus, setProofStatus] = useState<'loading' | 'done'>('loading');
+  // D1/D2 proof gate: proof lifecycle is explicit and NEVER conflated with
+  // invitation validity. loading → spinner only; transient errors retry
+  // silently (bounded); exhaustion → fatal panel (never linkExpired).
+  // Only the 'ready' phase feeds resolveInviteGate().
+  const [proofPhase, setProofPhase] = useState<'loading' | 'ready' | 'fatal'>('loading');
+  const [retryNonce, setRetryNonce] = useState(0);
+  const attemptRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sessionStatus = authState.status;
   const sessionUserId = authState.user?.id ?? null;
@@ -54,30 +61,56 @@ export const InviteSetupScreen = memo(function InviteSetupScreen() {
     let cancelled = false;
     if (sessionStatus !== 'authenticated' || !sessionUserId) {
       setInvitation(null);
-      setProofStatus('done');
+      attemptRef.current = 0;
+      setProofPhase('loading');
       return;
     }
-    setProofStatus('loading');
-    fetchMyLiveInvitation()
-      .then((row) => {
-        if (cancelled) return;
-        setInvitation(row ? normalizeInvitation(row) : null);
-        setProofStatus('done');
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setInvitation(null);
-        setProofStatus('done');
-      });
+    setProofPhase('loading');
+    const runAttempt = () => {
+      fetchMyLiveInvitation()
+        .then((row) => {
+          if (cancelled) return;
+          // Definitive answer (row or null) — never retried.
+          attemptRef.current = 0;
+          setInvitation(row ? normalizeInvitation(row) : null);
+          setProofPhase('ready');
+        })
+        .catch(() => {
+          if (cancelled) return;
+          // Bounded silent retry: initial + max 2 (delays 800ms, 2000ms).
+          if (attemptRef.current < 2) {
+            const delay = attemptRef.current === 0 ? 800 : 2000;
+            attemptRef.current += 1;
+            retryTimerRef.current = setTimeout(() => {
+              if (!cancelled) runAttempt();
+            }, delay);
+            return;
+          }
+          attemptRef.current = 0;
+          setInvitation(null);
+          setProofPhase('fatal');
+        });
+    };
+    runAttempt();
     return () => {
       cancelled = true;
+      if (retryTimerRef.current !== null) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
     };
-  }, [sessionStatus, sessionUserId]);
+  }, [sessionStatus, sessionUserId, retryNonce]);
 
+  const retryProof = useCallback(() => {
+    attemptRef.current = 0;
+    setRetryNonce((n) => n + 1);
+  }, []);
+
+  // resolveInviteGate semantics unchanged: invoked ONLY with settled proof.
   const gate = resolveInviteGate({
     sessionStatus,
     sessionUserId,
-    invitation: proofStatus === 'done' ? invitation : null,
+    invitation: proofPhase === 'ready' ? invitation : null,
   });
 
   const handleSubmit = useCallback(async () => {
@@ -265,8 +298,20 @@ export const InviteSetupScreen = memo(function InviteSetupScreen() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {phase === 'success' ? (
             renderDestinationPanel()
-          ) : gate === 'loading' ? (
+          ) : gate === 'loading' || proofPhase === 'loading' ? (
             <p style={{ color: colors.textMuted, textAlign: 'center' }}>{t('pilot.loading')}</p>
+          ) : proofPhase === 'fatal' ? (
+            <>
+              <p style={{ color: colors.textSecondary, fontSize: '0.9rem', textAlign: 'center' }}>
+                {t('inviteSetup.setupFailed')}
+              </p>
+              <Button onClick={retryProof} style={{ width: '100%' }}>
+                {t('inviteSetup.retryProof')}
+              </Button>
+              <Button onClick={goLogin} style={{ width: '100%' }}>
+                {t('inviteSetup.goToLogin')}
+              </Button>
+            </>
           ) : gate !== 'ready' ? (
             renderGateBlocked()
           ) : (
