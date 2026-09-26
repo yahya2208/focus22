@@ -22,6 +22,7 @@
  */
 
 import { getSupabaseClient } from '../core/supabase/client';
+import { hasClientSession } from '../core/config/runtime-settings';
 import type { PhoneVariant } from '../data/phone-variants';
 import type {
   InventoryMovement,
@@ -286,8 +287,51 @@ async function fetchMovements(): Promise<void> {
 }
 
 async function refetchCentralInventory(): Promise<void> {
-  await Promise.all([fetchPublic(), fetchAdmin(), fetchMovements()]);
+  // Gate B home auth-gating: the public projection is safe logged-out, but
+  // the admin list + movements are authenticated-only — never request them
+  // without a session (they 401 as anon). Authenticated behavior unchanged.
+  const authed = await hasClientSession();
+  if (authed) {
+    await Promise.all([fetchPublic(), fetchAdmin(), fetchMovements()]);
+  } else {
+    await fetchPublic();
+  }
   notify();
+}
+
+let authRefreshAttached = false;
+
+/**
+ * Auth-transition refresh (Gate B): after boot-time session restoration
+ * turns into `authenticated`, hydrate the protected lanes (no manual refresh
+ * needed); on sign-out, drop protected caches so logged-out state never
+ * exposes admin/staff rows. The public cache is always preserved.
+ */
+function attachInventoryAuthRefresh(): void {
+  if (authRefreshAttached) return;
+  authRefreshAttached = true;
+  try {
+    const client = getSupabaseClient() as unknown as {
+      auth?: { onAuthStateChange?: (cb: (event: string, session: { user?: unknown } | null) => void) => void };
+    };
+    const subscribe = client.auth?.onAuthStateChange;
+    if (typeof subscribe !== 'function') return;
+    subscribe.call(client.auth, (_event, session) => {
+      if (session?.user) {
+        void (async () => {
+          await Promise.all([fetchAdmin(), fetchMovements()]);
+          notify();
+        })();
+      } else {
+        adminCache = null;
+        movementsCache = [];
+        publishedIds.clear();
+        notify();
+      }
+    });
+  } catch {
+    // ignore — boot hydration below still applies
+  }
 }
 
 function delay(ms: number): Promise<void> {
@@ -307,10 +351,13 @@ function delay(ms: number): Promise<void> {
 const PUBLIC_BOOTSTRAP_RETRIES_MS = [500, 1500];
 
 async function bootstrapHydrate(): Promise<void> {
-  // Admin + movements are best-effort and start immediately (RLS errors are
-  // expected for public visitors); only the public projection is retried.
-  const adminPromise = fetchAdmin();
-  const movementsPromise = fetchMovements();
+  // Gate B: admin + movements are best-effort AND session-gated (RLS errors
+  // are expected for public visitors — so they are never requested logged-out);
+  // only the public projection is retried. Protected lanes hydrate on the
+  // post-boot auth transition via attachInventoryAuthRefresh.
+  const authed = await hasClientSession();
+  const adminPromise = authed ? fetchAdmin() : Promise.resolve();
+  const movementsPromise = authed ? fetchMovements() : Promise.resolve();
   let attempt = 0;
   for (;;) {
     const publicOk = await fetchPublic();
@@ -336,6 +383,7 @@ export function bootstrapCentralInventory(): Promise<void> {
       ready = true;
       notify();
       attachFocusRefresh();
+      attachInventoryAuthRefresh();
     }
   })();
   return bootstrapPromise;
@@ -354,6 +402,7 @@ export function resetCentralInventoryState(): void {
   bootstrapPromise = null;
   focusAttached = false;
   pendingRefetch = false;
+  authRefreshAttached = false;
   publishedIds.clear();
   listeners.clear();
 }

@@ -27,6 +27,7 @@ import {
   isTelemetryEventName,
 } from './events';
 import {
+  attachRuntimeSettingsAuthRefresh,
   getRuntimeSetting,
   loadRuntimeSettings,
 } from '../config/runtime-settings';
@@ -205,8 +206,10 @@ if (typeof window !== 'undefined') {
 }
 
 // Warm the centralized settings cache so `getRuntimeSetting` reflects any admin
-// override for the telemetry knobs. Idempotent, cached and never rejects; until
-// it resolves (or if the DB is unreachable) the fallback constants apply.
+// override for the telemetry knobs. Gate B: the warm itself is session-gated
+// inside loadRuntimeSettings (logged-out keeps fallback constants), and the
+// auth subscription re-warms after sign-in. Idempotent, cached, never rejects.
+attachRuntimeSettingsAuthRefresh();
 void loadRuntimeSettings();
 
 export type { TelemetryEventInput } from './types';

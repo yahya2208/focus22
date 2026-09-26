@@ -8,6 +8,7 @@ import {
   isNumericSetting,
   type SettingEntry,
 } from '../../business-intelligence/settings-api';
+import { getSupabaseClient } from '../supabase/client';
 
 /**
  * Runtime accessor for centralized business settings (Phase 7, extended in
@@ -49,6 +50,28 @@ function toFlat(result: Awaited<ReturnType<typeof getSettings>>): Readonly<Recor
 }
 
 /**
+ * Session gate for all `get_settings` traffic (Gate B home auth-gating).
+ * Returns true when an authenticated session exists. Defensive by design:
+ * clients without an auth surface (unit-test fakes) resolve legacy-true so
+ * existing offline tests keep their behavior; production clients always
+ * expose `auth.getSession`. A thrown error also resolves true — the gate is
+ * 401-hygiene, never authorization (the server still enforces).
+ */
+export async function hasClientSession(): Promise<boolean> {
+  try {
+    const client = getSupabaseClient() as unknown as {
+      auth?: { getSession?: () => Promise<{ data?: { session?: unknown } }> };
+    };
+    const getSession = client.auth?.getSession;
+    if (typeof getSession !== 'function') return true;
+    const { data } = await getSession.call(client.auth);
+    return !!data?.session;
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Load settings once (idempotent, cached). Returns a flat map of validated
  * values with safe fallbacks. Safe to call repeatedly; never rejects.
  */
@@ -57,6 +80,12 @@ export function loadRuntimeSettings(): Promise<Readonly<Record<string, RuntimeSe
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
     try {
+      // Gate B: never emit the authenticated-only `get_settings` RPC without
+      // a session. Logged-out callers get safe defaults WITHOUT caching, so a
+      // later authenticated load still fetches the real snapshot.
+      if (!(await hasClientSession())) {
+        return toFlat(null);
+      }
       const result = await getSettings();
       cached = toFlat(result ?? null);
     } catch {
@@ -160,4 +189,33 @@ export function catalogSearchResultLimit(): number {
 /** Max images per inventory item (fallback: 6, the old uploader limit). */
 export function inventoryMaxImages(): number {
   return getRuntimeSetting('inventory.max_images', 6);
+}
+
+let authRefreshAttached = false;
+
+/**
+ * Auth-transition refresh for the settings cache (Gate B). Warms the cache on
+ * sign-in (clearing any logged-out defaults first) and drops back to
+ * uncached defaults on sign-out. Attaches once; safe to call repeatedly.
+ */
+export function attachRuntimeSettingsAuthRefresh(): void {
+  if (authRefreshAttached) return;
+  authRefreshAttached = true;
+  try {
+    const client = getSupabaseClient() as unknown as {
+      auth?: { onAuthStateChange?: (cb: (event: string, session: unknown) => void) => void };
+    };
+    const subscribe = client.auth?.onAuthStateChange;
+    if (typeof subscribe !== 'function') return;
+    subscribe.call(client.auth, (_event, session) => {
+      if (session) {
+        clearRuntimeSettingsCache();
+        void loadRuntimeSettings();
+      } else {
+        clearRuntimeSettingsCache();
+      }
+    });
+  } catch {
+    // ignore — warm path below still applies
+  }
 }

@@ -69,6 +69,11 @@ describe('Inventory price management (launch blocker: no price input)', () => {
     expect(updated!.buyPrice).toBe(80000);
     expect(updated!.sellPrice).toBe(95000);
 
+    // Timeline hydrates via the scheduled post-mutation refetch (async by
+    // design); flush it before asserting instead of relying on microtask
+    // ordering between the mutation return and the refetch completion.
+    await new Promise((r) => setTimeout(r, 0));
+    await Promise.resolve();
     const timeline = InventoryService.getTimeline(rec.id);
     expect(timeline.some(e => e.type === 'price_updated' && e.priceAfter === 95000 && e.priceBefore === undefined)).toBe(true);
   });
