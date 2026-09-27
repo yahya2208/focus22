@@ -195,21 +195,16 @@ async function handleFamilyInvite(
     redirectEnv || undefined,
   );
   if (attempt.kind === "timeout") {
-    await service.rpc("pilot_invitation_abort", {
-      p_invitation_id: invitationId,
-      p_outcome: "indeterminate",
-      p_reason: "auth outcome unknown",
-    });
+    // P5 hardening: the abort record itself must never convert a handled
+    // dispatch failure into a raw EDGE_FUNCTION_ERROR (uncaught transport
+    // throw swallows the FAILED event and the structured response).
+    await safeAbort(service, invitationId, "indeterminate", "auth outcome unknown");
     return json(502, { ok: false, code: "INVITE_DISPATCH_AMBIGUOUS" });
   }
   if (attempt.kind === "error") {
     const status = attempt.error.status ?? 0;
     const outcome = status >= 500 || status === 0 ? "indeterminate" : "determinate";
-    await service.rpc("pilot_invitation_abort", {
-      p_invitation_id: invitationId,
-      p_outcome: outcome,
-      p_reason: outcome === "indeterminate" ? "auth outcome unknown" : "auth rejected dispatch",
-    });
+    await safeAbort(service, invitationId, outcome, outcome === "indeterminate" ? "auth outcome unknown" : "auth rejected dispatch");
     return json(status >= 500 || status === 0 ? 502 : 409, {
       ok: false,
       code: status >= 500 || status === 0 ? "INVITE_DISPATCH_AMBIGUOUS" : "INVITE_DISPATCH_FAILED",
@@ -611,10 +606,37 @@ async function dispatchInviteEmail(
         ? service.auth.signInWithOtp({ email, options: { data: userMeta } })
         : service.auth.admin.inviteUserByEmail(email, {
           data: userMeta,
-          ...(redirectTo ? { emailRedirectTo: redirectTo } : {}),
+          // Admin API honors `redirectTo` (NOT `emailRedirectTo`, which is a
+          // client-API key silently dropped here — P4 forensic finding).
+          ...(redirectTo ? { redirectTo } : {}),
         }),
     AUTH_TIMEOUT_MS,
   );
+}
+
+/**
+ * Failure-record finalizer (P5 hardening). pilot_invitation_abort is
+ * best-effort bookkeeping on an already-failed dispatch: if its own RPC
+ * throws at transport level, the throw must NOT escape (it would convert a
+ * handled dispatch failure into a raw EDGE_FUNCTION_ERROR and swallow both
+ * the FAILED event and the structured response). Logs and continues so the
+ * caller always returns its deterministic code. Success path untouched.
+ */
+async function safeAbort(
+  service: ServiceClient,
+  invitationId: string,
+  outcome: "determinate" | "indeterminate",
+  reason: string,
+): Promise<void> {
+  try {
+    await service.rpc("pilot_invitation_abort", {
+      p_invitation_id: invitationId,
+      p_outcome: outcome,
+      p_reason: reason,
+    });
+  } catch (e) {
+    console.log(`[pilot-invite] abort-record-failed outcome=${outcome} err=${e instanceof Error ? e.message : String(e).slice(0, 120)}`);
+  }
 }
 
 /**
