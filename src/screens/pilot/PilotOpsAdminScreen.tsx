@@ -139,6 +139,18 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
   const [familyUserResults, setFamilyUserResults] = useState<AdminUserLookup[]>([]);
   const [familySearching, setFamilySearching] = useState(false);
   const [bindingUserId, setBindingUserId] = useState<string | null>(null);
+  // Cross-family move guard: unfiltered membership snapshot (same responses
+  // already fetched for the filtered view — zero extra requests) plus the
+  // pending move awaiting explicit operator confirmation. Never sent to any
+  // RPC except through confirmPendingMove after re-validation.
+  const [allFamilyMembers, setAllFamilyMembers] = useState<PilotFamilyMember[]>([]);
+  const [pendingMove, setPendingMove] = useState<{
+    userId: string;
+    email: string;
+    fromFamilyId: string;
+    fromFamilyName: string;
+    toFamilyId: string;
+  } | null>(null);
   // Family creation (V1.6.7) — thin form over pilot_admin_upsert_family.
   const [newFamilyName, setNewFamilyName] = useState('');
   const [newFamilyNameAr, setNewFamilyNameAr] = useState('');
@@ -361,7 +373,9 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
     setFamilyLoading(true);
     void adminListFamilyMembers()
       .then((rows) => {
-        if (!cancelled) setFamilyMembers(rows.filter((m) => m.family_id === selectedFamilyId));
+        if (cancelled) return;
+        setAllFamilyMembers(rows);
+        setFamilyMembers(rows.filter((m) => m.family_id === selectedFamilyId));
       })
       .catch(() => {
         if (!cancelled) setError('FAMILY_MEMBERS_FAILED');
@@ -726,7 +740,9 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
       setMessage('DEPOSIT_OK');
       setDepositAmount('');
       setDepositNote('');
-      setFamilyMembers((await adminListFamilyMembers()).filter((m) => m.family_id === selectedFamilyId));
+      const refreshedMembers = await adminListFamilyMembers();
+      setAllFamilyMembers(refreshedMembers);
+      setFamilyMembers(refreshedMembers.filter((m) => m.family_id === selectedFamilyId));
     } catch {
       setError('DEPOSIT_FAILED');
     } finally {
@@ -735,6 +751,7 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
   }, [selectedFamilyId, depositAmount, depositNote]);
 
   const searchFamilyUsers = useCallback(async () => {
+    setPendingMove(null);
     setFamilySearching(true);
     try {
       setFamilyUserResults(await adminFindUsers(familyEmail, 20));
@@ -746,26 +763,93 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
     }
   }, [familyEmail]);
 
+  const familyNameOf = useCallback(
+    (familyId: string, fallback?: string | null): string => {
+      const known = families.find((f) => f.id === familyId);
+      if (known) return name(known.name, known.name_ar);
+      return fallback ?? `${familyId.slice(0, 8)}…`;
+    },
+    [families, locale],
+  );
+
   const bindToFamily = useCallback(
     async (userId: string) => {
-      if (!selectedFamilyId) return;
-      setBindingUserId(userId);
+      if (!selectedFamilyId || bindingUserId) return;
+      setPendingMove(null);
       setError(null);
       setMessage(null);
+      // Cross-family move guard: resolve current active membership from the
+      // snapshot already held by this screen — no new request, no RPC yet.
+      const current = allFamilyMembers.find((m) => m.user_id === userId && m.status === 'active') ?? null;
+      if (current && current.family_id === selectedFamilyId) {
+        setMessage('FAMILY_ALREADY_LINKED');
+        return;
+      }
+      if (current) {
+        const listed = familyUserResults.find((u) => u.user_id === userId) ?? null;
+        setPendingMove({
+          userId,
+          email: listed?.email ?? listed?.display_name ?? userId,
+          fromFamilyId: current.family_id,
+          fromFamilyName: familyNameOf(current.family_id, current.family_name),
+          toFamilyId: selectedFamilyId,
+        });
+        return;
+      }
+      setBindingUserId(userId);
       try {
         await adminProvisionFamilyMember(userId, selectedFamilyId, 'active');
         setMessage('PROVISION_OK');
         setFamilyEmail('');
         setFamilyUserResults([]);
-        setFamilyMembers((await adminListFamilyMembers()).filter((m) => m.family_id === selectedFamilyId));
+        const refreshed = await adminListFamilyMembers();
+        setAllFamilyMembers(refreshed);
+        setFamilyMembers(refreshed.filter((m) => m.family_id === selectedFamilyId));
       } catch {
         setError('FAMILY_PROVISION_FAILED');
       } finally {
         setBindingUserId(null);
       }
     },
-    [selectedFamilyId],
+    [selectedFamilyId, bindingUserId, allFamilyMembers, familyUserResults, familyNameOf],
   );
+
+  const confirmPendingMove = useCallback(async () => {
+    const pending = pendingMove;
+    // Re-validate against live selection: stale confirmations can never fire.
+    if (!pending || bindingUserId) return;
+    if (pending.toFamilyId !== selectedFamilyId) {
+      setPendingMove(null);
+      return;
+    }
+    setBindingUserId(pending.userId);
+    setError(null);
+    setMessage(null);
+    try {
+      const live = await adminListFamilyMembers();
+      setAllFamilyMembers(live);
+      const stillThere = live.find((m) => m.user_id === pending.userId && m.status === 'active') ?? null;
+      if (!stillThere || stillThere.family_id !== pending.fromFamilyId) {
+        // Membership changed under the panel (moved elsewhere, deactivated,
+        // or joined target already) — refuse the stale confirm explicitly.
+        setPendingMove(null);
+        setError('FAMILY_MOVE_STALE');
+        return;
+      }
+      await adminProvisionFamilyMember(pending.userId, pending.toFamilyId, 'active');
+      setMessage('PROVISION_OK');
+      setPendingMove(null);
+      setFamilyEmail('');
+      setFamilyUserResults([]);
+      const refreshed = await adminListFamilyMembers();
+      setAllFamilyMembers(refreshed);
+      setFamilyMembers(refreshed.filter((m) => m.family_id === selectedFamilyId));
+    } catch {
+      setError('FAMILY_PROVISION_FAILED');
+    } finally {
+      setBindingUserId(null);
+    }
+  }, [pendingMove, bindingUserId, selectedFamilyId]);
 
   const handleReset = useCallback(async () => {
     if (!window.confirm(t('pilot.resetConfirm'))) return;
@@ -930,7 +1014,7 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
                 <Select
                   options={families.map((f) => ({ value: f.id, label: name(f.name, f.name_ar) }))}
                   value={selectedFamilyId}
-                  onChange={(e) => setSelectedFamilyId(e.target.value)}
+                  onChange={(e) => { setPendingMove(null); setSelectedFamilyId(e.target.value); }}
                   placeholder={t('pilot.selectFamily' as TranslationKey)}
                   aria-label={t('pilot.selectFamily' as TranslationKey)}
                 />
@@ -1061,6 +1145,34 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
                         </Button>
                       </Flex>
                     ))}
+                    {pendingMove && (
+                      <div style={{ border: `1px solid ${colors.danger}`, borderRadius: 12, padding: 10, background: colors.bgCard, marginTop: 8 }}>
+                        <span style={labelStyle}>{t('pilot.familyMoveTitle')}</span>
+                        <span style={{ color: colors.text, fontSize: '0.85rem', display: 'block', margin: '0.35rem 0' }}>
+                          {pendingMove.email} · {pendingMove.fromFamilyName} → {familyNameOf(pendingMove.toFamilyId, null)}
+                        </span>
+                        <span style={mutedStyle}>{t('pilot.familyMoveNotice')}</span>
+                        <Flex gap="sm" style={{ marginTop: 8 }}>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            disabled={bindingUserId !== null}
+                            onClick={() => void confirmPendingMove()}
+                          >
+                            {t('pilot.confirmMove')}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={bindingUserId !== null}
+                            onClick={() => setPendingMove(null)}
+                            aria-label={t('adminCategories.cancel')}
+                          >
+                            ✕
+                          </Button>
+                        </Flex>
+                      </div>
+                    )}
                   </div>
                 )}
               </>
