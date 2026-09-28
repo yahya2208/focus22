@@ -16,7 +16,7 @@ export const AboutScreen = memo(function AboutScreen() {
   return (
     <nav aria-label="About FOCUS" style={{ padding: '2rem', maxWidth: '480px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-        <BrandLogo size={64} showSubtitle subtitle={t('app.subtitle')} align="center" />
+        <BrandLogo size={64} align="center" />
       </div>
       <p style={{
         color: colors.accent, fontSize: '0.8rem', fontWeight: 600,

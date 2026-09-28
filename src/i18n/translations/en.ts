@@ -1,8 +1,6 @@
 const en = {
   // App
   'app.title': 'FOCUS',
-  'app.subtitle': 'Cognitive Measurement Platform',
-  'app.subtitleAr': 'منصة قياس التركيز المعرفي',
 
   // Brand
   'brand.motto': 'Focus → Observe → Calibrate → Understand → Strengthen',

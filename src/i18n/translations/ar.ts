@@ -2,8 +2,6 @@ import type { TranslationKey } from '../types';
 
 const ar: Record<TranslationKey, string> = {
   'app.title': 'FOCUS',
-  'app.subtitle': 'منصة القياس المعرفي',
-  'app.subtitleAr': 'منصة قياس التركيز المعرفي',
 
   // Brand
   'brand.motto': 'ركّز ← راقب ← قِس ← افهم ← طوّر',

@@ -1,7 +1,5 @@
 const fr: Record<string, string> = {
   'app.title': 'FOCUS',
-  'app.subtitle': 'Plateforme de Mesure Cognitive',
-  'app.subtitleAr': 'منصة قياس التركيز المعرفي',
   'brand.motto': 'Concentrez-vous → Observez → Mesurez → Comprenez → Progressez',
   'brand.developedBy': 'Développé par Yahya Manouni',
   'brand.social.follow': 'Suivez FOCUS',
