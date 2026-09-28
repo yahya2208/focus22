@@ -249,13 +249,13 @@ const en = {
 
   // Auth
   'login.title': 'Sign In',
+  'login.promise': 'One account for everything in FOCUS.',
   'login.subtitle': 'Sign in to access your account',
   'login.email': 'Email',
   'login.emailPlaceholder': 'you@example.com',
   'login.password': 'Password',
   'login.passwordPlaceholder': 'Enter your password',
   'login.signIn': 'Sign In',
-  'login.magicLink': 'Magic Link',
   'login.magicLinkSent': 'Check your email for the magic link!',
   'login.continueGuest': 'Continue as Guest',
   'login.noAccount': "Don't have an account? Create one",
@@ -289,7 +289,7 @@ const en = {
   'inviteSetup.weakPassword': 'That password is too weak. Choose a longer, different password.',
   'inviteSetup.setupFailed': 'Account setup failed. Please try again.',
   'login.fieldsRequired': 'Email and password are required',
-  'login.emailRequiredMagic': 'Email is required for Magic Link',
+  'login.invalidCredentials': 'Incorrect email or password. Please try again.',
   'login.failed': 'Sign in failed. Please try again.',
 
   'register.passwordTooShort': 'Password must be at least 8 characters',

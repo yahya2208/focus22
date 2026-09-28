@@ -232,13 +232,13 @@ const ar: Record<TranslationKey, string> = {
   'research.noAccess': 'ليس لديك صلاحية الوصول إلى هذا المورد.',
 
   'login.title': 'تسجيل الدخول',
+  'login.promise': 'حساب واحد لكل شيء في FOCUS.',
   'login.subtitle': 'سجّل الدخول للوصول إلى حسابك',
   'login.email': 'البريد الإلكتروني',
   'login.emailPlaceholder': 'you@example.com',
   'login.password': 'كلمة المرور',
   'login.passwordPlaceholder': 'أدخل كلمة المرور',
   'login.signIn': 'تسجيل الدخول',
-  'login.magicLink': 'رابط سحري',
   'login.magicLinkSent': 'تحقق من بريدك الإلكتروني للرابط السحري!',
   'login.continueGuest': 'المتابعة كضيف',
   'login.noAccount': 'ليس لديك حساب؟ أنشئ حساباً',
@@ -272,7 +272,7 @@ const ar: Record<TranslationKey, string> = {
   'inviteSetup.weakPassword': 'كلمة المرور ضعيفة. اختر كلمة أطول ومختلفة.',
   'inviteSetup.setupFailed': 'تعذّر إعداد الحساب. حاول مرة أخرى.',
   'login.fieldsRequired': 'البريد الإلكتروني وكلمة المرور مطلوبان',
-  'login.emailRequiredMagic': 'البريد الإلكتروني مطلوب للرابط السحري',
+  'login.invalidCredentials': 'البريد أو كلمة المرور غير صحيحة. حاول مرة أخرى.',
   'login.failed': 'فشل تسجيل الدخول. حاول مرة أخرى.',
 
   'register.passwordTooShort': 'يجب أن تكون كلمة المرور 8 أحرف على الأقل',

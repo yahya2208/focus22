@@ -76,7 +76,10 @@ export const RegisterScreen = memo(function RegisterScreen() {
   }, [email, service, t]);
 
   return (
-    <nav aria-label="Registration" style={{ padding: '2rem', maxWidth: '480px', margin: '0 auto' }}>
+    // Same root treatment as LoginScreen: paint the active theme background so
+    // the glass card never floats on the browser-default white.
+    <nav aria-label="Registration" style={{ background: colors.bg, minHeight: '100dvh', boxSizing: 'border-box' }}>
+      <div style={{ padding: '2rem', maxWidth: '480px', margin: '0 auto', boxSizing: 'border-box' }}>
       <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: '0.5rem' }}>
         {t('register.title')}
       </h1>
@@ -179,6 +182,7 @@ export const RegisterScreen = memo(function RegisterScreen() {
         >
           {t('register.hasAccount')}
         </button>
+      </div>
       </div>
     </nav>
   );
