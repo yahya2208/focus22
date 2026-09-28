@@ -94,7 +94,6 @@ export const LoginScreen = memo(function LoginScreen() {
     <nav aria-label="Login" style={{ background: colors.bg, minHeight: '100dvh', boxSizing: 'border-box' }}>
       <div style={{ padding: '2rem 1.5rem 3rem', maxWidth: '480px', margin: '0 auto', boxSizing: 'border-box' }}>
       {/* Hero panel — one composed identity surface (portal-card language from
-      {/* Hero panel — one composed identity surface (portal-card language from
           Home: opaque dark base, single verdant glow, 22px radius). The card
           below shares the same base so hero and form read as one unit. */}
       <div style={{
@@ -107,6 +106,10 @@ export const LoginScreen = memo(function LoginScreen() {
         <BrandLogo size={64} showText align="center" style={{ justifyContent: 'center' }} />
         <p style={{ margin: '1rem 0 0', color: colors.text, fontSize: '1.22rem', fontWeight: 800, lineHeight: 1.35 }}>
           {t('login.promise')}
+        </p>
+        <p style={{ margin: '0.55rem 0 0', color: colors.textSecondary, fontSize: '0.92rem', fontWeight: 500, lineHeight: 1.5 }}>
+          {t('login.promiseDescription')}{' '}
+          <span aria-hidden="true" style={{ color: colors.dangerText, fontSize: '0.85em' }}>♥</span>
         </p>
       </div>
 

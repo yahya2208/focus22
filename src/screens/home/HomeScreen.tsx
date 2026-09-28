@@ -29,9 +29,11 @@ import {
 
 export const HomeScreen = memo(function HomeScreen() {
   const dispatch = useAppDispatch();
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const colors = useThemeColors();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Card navigation arrow follows reading direction (forward cue).
+  const forwardArrow = dir === 'rtl' ? '←' : '→';
 
   const openVegetables = () => {
     dispatch({
@@ -110,7 +112,7 @@ export const HomeScreen = memo(function HomeScreen() {
       <Stack gap="lg">
         {/* Top bar — brand + menu */}
         <Flex justify="space-between" align="center">
-          <BrandLogo size={40} showSubtitle subtitle={t('app.subtitle')} />
+          <BrandLogo size={40} />
           <Button
             variant="ghost"
             size="sm"
@@ -124,30 +126,35 @@ export const HomeScreen = memo(function HomeScreen() {
 
         <HomeMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
 
-        {/* Hero — brand + one short line of intent */}
-        <div style={{ textAlign: 'center', padding: '1.75rem 0 0.5rem' }}>
+        {/* Hero — brand tagline first (no FOCUS duplication: the header
+            brand mark above is sufficient), then the lighter description.
+            whatToday/joinFamily intentionally absent here. */}
+        <div style={{ textAlign: 'center', padding: '1.25rem 0 0.5rem' }}>
           <p
             style={{
               margin: 0,
               color: colors.text,
-              fontSize: '2.5rem',
+              fontSize: '1.5rem',
               fontWeight: 800,
-              letterSpacing: '0.14em',
-              lineHeight: 1,
+              lineHeight: 1.4,
               textShadow: `0 0 42px ${colors.accentGlow}`,
             }}
           >
-            FOCUS
+            {t('home.brandTagline')}
           </p>
+          {/* Brand identity — tagline + description + family invitation line.
+              Presentational only; portal cards below are untouched. */}
           <p
             style={{
-              margin: '0.85rem 0 0',
+              margin: '0.6rem 0 0',
               color: colors.textSecondary,
-              fontSize: '1rem',
-              fontWeight: 600,
+              fontSize: '0.9rem',
+              fontWeight: 500,
+              lineHeight: 1.5,
             }}
           >
-            {t('home.whatToday')}
+            {t('home.brandDescription')}{' '}
+            <span aria-hidden="true" style={{ color: colors.dangerText, fontSize: '0.85em' }}>♥</span>
           </p>
         </div>
 
@@ -188,7 +195,7 @@ export const HomeScreen = memo(function HomeScreen() {
               aria-hidden="true"
               style={{ ...arrowBadge(colors.success), margin: '1.1rem auto 0' }}
             >
-              ←
+              {forwardArrow}
             </span>
           </button>
 
@@ -220,7 +227,7 @@ export const HomeScreen = memo(function HomeScreen() {
               aria-hidden="true"
               style={{ ...arrowBadge(colors.info), margin: '1.1rem auto 0' }}
             >
-              ←
+              {forwardArrow}
             </span>
           </button>
         </div>

@@ -249,7 +249,8 @@ const en = {
 
   // Auth
   'login.title': 'Sign In',
-  'login.promise': 'One account for everything in FOCUS.',
+  'login.promise': 'You live your life, we handle the comfort.',
+  'login.promiseDescription': 'What feels exhausting to you feels effortless to us',
   'login.subtitle': 'Sign in to access your account',
   'login.email': 'Email',
   'login.emailPlaceholder': 'you@example.com',
@@ -1585,6 +1586,9 @@ const en = {
   'home.vegetables': 'Vegetables',
   'home.vegetablesSubtitle': 'Farm-fresh vegetables from the neighborhood store',
   'home.whatToday': 'What would you like today?',
+  'home.brandTagline': 'You live your life, we handle the comfort.',
+  'home.brandDescription': 'What feels exhausting to you feels effortless to us',
+  'home.joinFamily': 'Join our family',
   'home.phones': 'Phones',
   'home.phonesSubtitle': 'Buy, sell, trade, or repair your phone — everything in one place',
   'home.callUs': 'Call us',

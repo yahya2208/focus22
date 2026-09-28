@@ -80,6 +80,20 @@ export const RegisterScreen = memo(function RegisterScreen() {
     // the glass card never floats on the browser-default white.
     <nav aria-label="Registration" style={{ background: colors.bg, minHeight: '100dvh', boxSizing: 'border-box' }}>
       <div style={{ padding: '2rem', maxWidth: '480px', margin: '0 auto', boxSizing: 'border-box' }}>
+      {/* Mini hero — brand identity caption above the form (no new CTA, no
+          logic change; reuses the home identity strings for consistency). */}
+      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        <p style={{ margin: 0, color: colors.text, fontSize: '1.3rem', fontWeight: 800, lineHeight: 1.4 }}>
+          {t('home.brandTagline')}
+        </p>
+        <p style={{ margin: '0.45rem 0 0', color: colors.textSecondary, fontSize: '0.9rem', fontWeight: 500, lineHeight: 1.5 }}>
+          {t('home.brandDescription')}{' '}
+          <span aria-hidden="true" style={{ color: colors.dangerText, fontSize: '0.85em' }}>♥</span>
+        </p>
+        <p style={{ margin: '0.6rem 0 0', color: colors.accentLight, fontSize: '0.92rem', fontWeight: 700 }}>
+          {t('home.joinFamily')}
+        </p>
+      </div>
       <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: '0.5rem' }}>
         {t('register.title')}
       </h1>

@@ -35,20 +35,23 @@ const isBefore = (a: Element, b: Element) =>
   (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 
 describe('HomeScreen — H1 landing order (menu → hero → two cards → contact)', () => {
-  it('presents exactly the FOCUS hero, two portal cards, then contact actions', () => {
+  it('presents exactly the brand hero, two portal cards, then contact actions', () => {
     renderHome();
 
     const menuButton = screen.getByLabelText('home.menu');
-    const hero = screen.getByText('home.whatToday');
+    const tagline = screen.getByText('home.brandTagline');
+    const description = screen.getByText('home.brandDescription');
     const vegCard = screen.getByText('home.vegetables');
     const phonesCard = screen.getByText('home.phones');
     const callButton = screen.getByLabelText('home.callUs');
     const whatsappButton = screen.getByLabelText('home.whatsapp');
 
-    expect(screen.getByText('FOCUS')).toBeTruthy();
-    expect(isBefore(menuButton, hero)).toBe(true);
-    expect(isBefore(hero, vegCard)).toBe(true);
-    expect(isBefore(hero, phonesCard)).toBe(true);
+    expect(screen.queryByText('home.whatToday')).toBeNull();
+    expect(screen.queryByText('home.joinFamily')).toBeNull();
+    expect(isBefore(menuButton, tagline)).toBe(true);
+    expect(isBefore(tagline, description)).toBe(true);
+    expect(isBefore(description, vegCard)).toBe(true);
+    expect(isBefore(description, phonesCard)).toBe(true);
     expect(isBefore(vegCard, callButton)).toBe(true);
     expect(isBefore(phonesCard, whatsappButton)).toBe(true);
   });

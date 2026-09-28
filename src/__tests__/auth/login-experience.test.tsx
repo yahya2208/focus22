@@ -54,7 +54,7 @@ beforeEach(() => {
 describe('Phase 2 login experience', () => {
   it('renders the hero promise and a single primary sign-in CTA', () => {
     renderLogin();
-    expect(screen.getByText('One account for everything in FOCUS.')).toBeTruthy();
+    expect(screen.getByText('You live your life, we handle the comfort.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Sign In' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Continue as Guest' })).toBeTruthy();
   });
