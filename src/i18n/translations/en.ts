@@ -260,7 +260,7 @@ const en = {
   'login.continueGuest': 'Continue as Guest',
   'login.noAccount': "Don't have an account? Create one",
   'login.backToHome': 'Back to Home',
-  'login.invitedSetup': 'Invited as a courier? Finish account setup',
+  'login.invitedSetup': 'Got an invitation? Finish account setup',
   'inviteSetup.title': 'Finish account setup',
   'inviteSetup.subtitle': 'You were invited to join FOCUS. Create your password to continue.',
   'inviteSetup.confirmPassword': 'Confirm password',

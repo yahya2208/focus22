@@ -243,7 +243,7 @@ const tr: Record<TranslationKey, string> = {
   'login.continueGuest': 'Misafir Olarak Devam Et',
   'login.noAccount': 'Hesabınız yok mu? Oluşturun',
   'login.backToHome': 'Ana Sayfaya Dön',
-  'login.invitedSetup': 'Kurye olarak mı davet edildiniz? Hesap kurulumunu tamamlayın',
+  'login.invitedSetup': 'Davetiye mi aldınız? Hesap kurulumunu tamamlayın',
   'inviteSetup.title': 'Hesap kurulumunu tamamla',
   'inviteSetup.subtitle': 'FOCUS\u2019a davet edildiniz. Devam etmek için şifrenizi oluşturun.',
   'inviteSetup.confirmPassword': 'Şifreyi onayla',

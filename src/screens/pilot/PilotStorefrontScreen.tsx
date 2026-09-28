@@ -254,10 +254,10 @@ function ProduceCard({
       )}
       {expanded && (
         <div style={{ padding: '6px 0 10px' }}>
-          {p.condition ? <span style={labelStyle}>{p.condition}</span> : null}
-          {p.description ? <span style={labelStyle}>{p.description}</span> : null}
+          {/* Customer-facing details only. Internal record fields (condition
+              enums, seed descriptions, source keys) are intentionally never
+              rendered — availability is expressed by orderability itself. */}
           {p.city ? <span style={mutedStyle}>{t('pilot.city')}: {p.city}</span> : null}
-          {p.source_key ? <span style={mutedStyle}>{t('pilot.source')}: {p.source_key}</span> : null}
           <span style={mutedStyle}>{t('pilot.detailsHint')}</span>
         </div>
       )}

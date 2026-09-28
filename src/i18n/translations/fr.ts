@@ -223,7 +223,7 @@ const fr: Record<string, string> = {
   'login.continueGuest': 'Continuer en tant qu\'invité',
   'login.noAccount': 'Pas de compte ? Créez-en un',
   'login.backToHome': 'Retour à l\'accueil',
-  'login.invitedSetup': 'Invité comme coursier ? Terminez la création du compte',
+  'login.invitedSetup': 'Une invitation reçue ? Terminez la création du compte',
   'inviteSetup.title': 'Terminer la création du compte',
   'inviteSetup.subtitle': 'Vous êtes invité à rejoindre FOCUS. Créez votre mot de passe pour continuer.',
   'inviteSetup.confirmPassword': 'Confirmer le mot de passe',

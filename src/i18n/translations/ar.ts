@@ -243,7 +243,7 @@ const ar: Record<TranslationKey, string> = {
   'login.continueGuest': 'المتابعة كضيف',
   'login.noAccount': 'ليس لديك حساب؟ أنشئ حساباً',
   'login.backToHome': 'العودة للرئيسية',
-  'login.invitedSetup': 'تمت دعوتك كمندوب؟ أكمل إعداد حسابك',
+  'login.invitedSetup': 'لديك دعوة؟ أكمل إعداد حسابك',
   'inviteSetup.title': 'إكمال إعداد الحساب',
   'inviteSetup.subtitle': 'تمت دعوتك للانضمام إلى FOCUS. أنشئ كلمة المرور للمتابعة.',
   'inviteSetup.confirmPassword': 'تأكيد كلمة المرور',
