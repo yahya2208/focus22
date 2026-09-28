@@ -232,13 +232,13 @@ const tr: Record<TranslationKey, string> = {
   'research.noAccess': 'Bu kaynağa erişim yetkiniz yok.',
 
   'login.title': 'Giriş Yap',
+  'login.promise': "FOCUS'ta her şey için tek hesap.",
   'login.subtitle': 'Hesabınıza erişmek için giriş yapın',
   'login.email': 'E-posta',
   'login.emailPlaceholder': 'ornek@email.com',
   'login.password': 'Şifre',
   'login.passwordPlaceholder': 'Şifrenizi girin',
   'login.signIn': 'Giriş Yap',
-  'login.magicLink': 'Sihirli Bağlantı',
   'login.magicLinkSent': 'E-postanızı sihirli bağlantı için kontrol edin!',
   'login.continueGuest': 'Misafir Olarak Devam Et',
   'login.noAccount': 'Hesabınız yok mu? Oluşturun',
@@ -272,7 +272,7 @@ const tr: Record<TranslationKey, string> = {
   'inviteSetup.weakPassword': 'Şifre çok zayıf. Daha uzun ve farklı bir şifre seçin.',
   'inviteSetup.setupFailed': 'Hesap kurulumu başarısız oldu. Lütfen tekrar deneyin.',
   'login.fieldsRequired': 'E-posta ve şifre gerekli',
-  'login.emailRequiredMagic': 'Sihirli Bağlantı için e-posta gerekli',
+  'login.invalidCredentials': 'E-posta veya şifre hatalı. Lütfen tekrar deneyin.',
   'login.failed': 'Giriş başarısız. Lütfen tekrar deneyin.',
 
   'register.passwordTooShort': 'Şifre en az 8 karakter olmalıdır',
