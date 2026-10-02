@@ -263,7 +263,13 @@ describe('PilotOpsAdminScreen — invitation lifecycle (Gate 1B)', () => {
     await waitFor(() => expect(screen.getAllByText('invite.resend').length).toBeGreaterThan(0));
 
     fireEvent.click(screen.getAllByText('invite.resend')[0]!);
-    await waitFor(() => expect(screen.getByText('pilot.error.INVITE_COOLDOWN')).toBeTruthy());
+    // CI-load patience only: the asserted key and behavior are unchanged.
+    // Chain: COOLDOWN_ACTIVE → messageKeyFor → 'INVITE_COOLDOWN' →
+    // tError prefix → 'pilot.error.INVITE_COOLDOWN'.
+    await waitFor(
+      () => expect(screen.getByText('pilot.error.INVITE_COOLDOWN')).toBeTruthy(),
+      { timeout: 5000 },
+    );
   });
 
   it('hides every invitation affordance for non-admin roles', async () => {
