@@ -63,8 +63,6 @@ export interface PilotSubmitInput {
     quantity: number;
     /** Display label only — the server ignores it for catalog items. */
     name?: string;
-    /** Display price only — never used to compute totals (server-authoritative). */
-    unitPrice?: number;
   }>;
   /** Store for telemetry only — not a security control (server resolves the real store). */
   readonly storeId?: string;
@@ -148,7 +146,6 @@ async function runOrderSubmission(input: PilotSubmitInput): Promise<DeliveryOrde
       catalogRef: i.catalogRef,
       quantity: i.quantity,
       name: i.name ?? '',
-      unitPrice: i.unitPrice ?? 0,
     }));
 
   if (items.length === 0) throw new Error('ITEMS_REQUIRED');

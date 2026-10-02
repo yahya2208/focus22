@@ -141,13 +141,13 @@ describe('order-service — submission path (Phase 6)', () => {
     mocks.createDeliveryOrder.mockResolvedValueOnce({ orderId: 'o1', orderNumber: 'ORD-1', total: 45 });
     const out = await submitPilotOrder({
       name: 'A', phone: '5', zoneId: 'z', address: 'a',
-      items: [{ catalogRef: 'pilot:item-1', quantity: 2, name: 'Item', unitPrice: 999 }],
+      items: [{ catalogRef: 'pilot:item-1', quantity: 2, name: 'Item' }],
       storeId: 's1', neighborhoodId: 'n1',
     });
     expect(out.orderId).toBe('o1');
     expect(mocks.createDeliveryOrder).toHaveBeenCalledWith(
       { name: 'A', phone: '5', zoneId: 'z', address: 'a', notes: '' },
-      [{ catalogRef: 'pilot:item-1', quantity: 2, name: 'Item', unitPrice: 999 }],
+      [{ catalogRef: 'pilot:item-1', quantity: 2, name: 'Item' }],
       false, // intent marker is OFF unless the customer explicitly confirmed a new order
     );
     expect(mocks.track).toHaveBeenCalledWith(expect.objectContaining({ event: 'checkout_submit' }));

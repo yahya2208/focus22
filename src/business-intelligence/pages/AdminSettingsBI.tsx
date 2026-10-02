@@ -295,7 +295,16 @@ function HistoryPanel({ meta, state: hist }: {
   );
 }
 
-export function AdminSettingsBI() {
+export function AdminSettingsBI({
+  categories,
+}: {
+  /**
+   * Optional category scope. When omitted, every registry category renders
+   * (existing behavior). A scoped embed reuses the same rows, RPCs, and audit
+   * trail — never a second settings system.
+   */
+  categories?: readonly SettingMeta['category'][];
+} = {}) {
   const colors = useThemeColors();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
@@ -448,7 +457,9 @@ export function AdminSettingsBI() {
       {saveState.kind === 'saved' && <div style={{ ...cardStyle(colors), borderColor: colors.success, color: colors.successText }}>Setting saved successfully.</div>}
       {saveState.kind === 'error' && <div style={{ ...cardStyle(colors), borderColor: colors.danger, color: colors.dangerText }}>{saveState.message}</div>}
 
-      {(Object.keys(CATEGORY_ORDER) as SettingsMeta['category'][]).map((cat) => {
+      {(Object.keys(CATEGORY_ORDER) as SettingsMeta['category'][])
+        .filter((cat) => !categories || categories.includes(cat))
+        .map((cat) => {
         const rows = byCategory(cat);
         if (rows.length === 0) return null;
         return (

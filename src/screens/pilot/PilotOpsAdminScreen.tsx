@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAppDispatch } from '../../store/navigation';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -11,14 +11,11 @@ import { Flex } from '../../design-system/components/Flex';
 import {
   adminListNeighborhoods,
   adminListStores,
-  adminListFamilies,
   adminListOperators,
   adminSetOperatorStatus,
   adminFindUsers,
-  fetchStoreProducts,
   type Neighborhood,
   type Store,
-  type FamilyGroup,
   type OperatorMembership,
   type OperatorStatus,
   type AdminUserLookup,
@@ -39,27 +36,23 @@ import {
   type PilotStartStatus,
 } from '../../services/pilot-start-service';
 import {
-  fetchStoreOrders,
-  updateStoreOrderStatus,
   resetPilot,
   fetchPilotHealth,
-  PILOT_ORDER_STATUSES,
-  type PilotOrder,
   type PilotHealth,
 } from '../../services/order-service';
-import { createPilotOrderRealtime, type PilotRealtimeFeedStatus } from '../../services/pilot-realtime-service';
-import {
-  adminListFamilyMembers,
-  adminDeposit,
-  adminProvisionFamilyMember,
-  adminUpsertFamily,
-  adminFamilyLedger,
-  adminFamilyPreferences,
-  type PilotFamilyMember,
-  type FamilyLedgerEntry,
-  type AdminFamilyPreferences,
-} from '../../services/pilot-account-service';
-import { Gate8bE2eProvisionHarness } from './Gate8bE2eProvisionHarness';
+import { AdminShell } from '../admin/command-center/AdminShell';
+import { AdminHome } from '../admin/command-center/AdminHome';
+import { AdminFamilies } from '../admin/command-center/AdminFamilies';
+import { AdminFinance } from '../admin/command-center/AdminFinance';
+import { AdminOrders } from '../admin/command-center/AdminOrders';
+import { AdminStore } from '../admin/command-center/AdminStore';
+import { AdminResearch } from '../admin/command-center/AdminResearch';
+import { AdminTelemetry } from '../admin/command-center/AdminTelemetry';
+import { useFamilyWorkspace } from '../admin/command-center/hooks/useFamilyWorkspace';
+import { useOrdersWorkspace } from '../admin/command-center/hooks/useOrdersWorkspace';
+import { useOrderDetail } from '../admin/command-center/hooks/useOrderDetail';
+import { useStoreWorkspace } from '../admin/command-center/hooks/useStoreWorkspace';
+import type { QuickActionId } from '../admin/command-center/QuickActions';
 import {
   composeAdminTriage,
   type TriageItem,
@@ -67,12 +60,15 @@ import {
 import { fetchOrderTimeline } from '../../services/order-tracking-service';
 import { Badge, type BadgeVariant } from '../../design-system/components/Badge';
 import type { TranslationKey } from '../../i18n';
+
+/**
+ * The only legacy anchor still reachable by navigation: the sidebar 'team'
+ * item. Every other anchor id was removed in G0-A as provably untargeted.
+ */
+type LegacySectionAnchor = 'team';
 import {
-  adminListInvitations,
   sendInvitation,
   resendInvitation,
-  sendFamilyInvitation,
-  resendFamilyInvitation,
   invitationChip,
   isOperationalMember,
   messageKeyFor,
@@ -95,111 +91,125 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
 
   const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
-  const [families, setFamilies] = useState<FamilyGroup[]>([]);
   const [operators, setOperators] = useState<OperatorMembership[]>([]);
   const [couriers, setCouriers] = useState<CourierMembership[]>([]);
   const [storeId, setStoreId] = useState('');
-  const [orders, setOrders] = useState<PilotOrder[]>([]);
+  // Command Center views (G1/G2): home + independent sections render inside
+  // AdminShell; 'legacy' preserves the remaining long-form screen below.
+  // The family domain lives in useFamilyWorkspace (single instance shared by
+  // the staff UI reads and the AdminFamilies section) — never duplicated.
+  const [commandView, setCommandView] = useState<'home' | 'families' | 'finance' | 'orders' | 'store' | 'research' | 'telemetry' | 'legacy'>('home');
+  const fw = useFamilyWorkspace({ storeId });
+  const { refreshInvitations } = fw;
+  const ow = useOrdersWorkspace({ storeId, authStatus: authState.status });
+  const od = useOrderDetail();
+  const sw = useStoreWorkspace({ storeId, stores, neighborhoods });
+
+  /** Switch to the legacy view and scroll to a section anchor (G1 nav). */
+  const openLegacySection = useCallback((anchor: LegacySectionAnchor) => {
+    setCommandView('legacy');
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // Guarded: scrollIntoView is absent in some runtimes (and all of it
+        // is progressive enhancement — navigation itself already happened).
+        const el = document.getElementById(`cc-section-${anchor}`);
+        if (el && typeof el.scrollIntoView === 'function') {
+          el.scrollIntoView({ block: 'start' });
+        }
+      });
+    });
+  }, []);
+
+  /**
+   * Sidebar section mapping (consolidation): finance, orders, store, research
+   * and telemetry are independent pages; families, deposits and family
+   * invitations stay on the Families page. Team stays on the staff surface.
+   */
+  const handleCommandNavigate = useCallback(
+    (id: string) => {
+      if (id === 'home') {
+        setCommandView('home');
+        return;
+      }
+      if (id === 'finance') {
+        setCommandView('finance');
+        return;
+      }
+      if (id === 'families' || id === 'deposit' || id === 'invite') {
+        setCommandView('families');
+        return;
+      }
+      if (id === 'orders') {
+        setCommandView('orders');
+        return;
+      }
+      if (id === 'store') {
+        setCommandView('store');
+        return;
+      }
+      if (id === 'research') {
+        setCommandView('research');
+        return;
+      }
+      if (id === 'telemetry') {
+        setCommandView('telemetry');
+        return;
+      }
+      openLegacySection('team');
+    },
+    [openLegacySection],
+  );
+
+  const handleCommandQuickAction = useCallback(
+    (id: QuickActionId) => {
+      if (id === 'deposit') {
+        setCommandView('finance');
+        return;
+      }
+      if (id === 'invite') {
+        setCommandView('families');
+        return;
+      }
+      if (id === 'orders') {
+        setCommandView('orders');
+        return;
+      }
+    },
+    [],
+  );
   const [health, setHealth] = useState<PilotHealth | null>(null);
   // Admin triage inputs (Gate 1, read-only composition): buyable counts for
   // the selected store + timeline event counts for its non-terminal orders.
   // Best-effort only — missing data yields no triage item, never an alarm.
-  const [triageBuyable, setTriageBuyable] = useState<Record<string, number>>({});
+  // The buyable count derives from the Store workspace's single product read,
+  // so the host no longer fetches the catalog itself.
   const [triageTimelines, setTriageTimelines] = useState<Record<string, number>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [searchResults, setSearchResults] = useState<AdminUserLookup[]>([]);
   const [searching, setSearching] = useState(false);
-  const [feedStatus, setFeedStatus] = useState<PilotRealtimeFeedStatus>('idle');
-  const feedRef = useRef<ReturnType<typeof createPilotOrderRealtime> | null>(null);
   const [pilotStart, setPilotStart] = useState<PilotStartStatus | null>(null);
+  /**
+   * Distinguishes "still loading" from "the read failed" (G0-A). Without it a
+   * failed pilot_admin_pilot_start_status leaves `pilotStart === null` and the
+   * panel renders the loading label forever.
+   */
+  const [pilotStartFailed, setPilotStartFailed] = useState(false);
   const [starting, setStarting] = useState(false);
   // Invitations (Gate 1B) — server-authoritative lifecycle rows for this store.
-  const [invitations, setInvitations] = useState<InvitationRow[]>([]);
+  // (family domain state lives in useFamilyWorkspace; staff UI reads it.)
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'operator' | 'courier'>('courier');
   const [inviting, setInviting] = useState(false);
-  // Family invitations (Vegetables lane) — email only, role fixed to family.
-  const [familyInviteEmail, setFamilyInviteEmail] = useState('');
-  const [familyInviting, setFamilyInviting] = useState(false);
-  // Family account management (Gate B, ADMIN ONLY): members + server balance,
-  // cash deposits, and binding a user to a family. All writes go through the
-  // 00100 admin RPCs which re-check fn_admin_uid() server-side.
-  const [selectedFamilyId, setSelectedFamilyId] = useState('');
-  const [familyMembers, setFamilyMembers] = useState<PilotFamilyMember[]>([]);
-  const [familyLedger, setFamilyLedger] = useState<FamilyLedgerEntry[]>([]);
-  const [familyPrefs, setFamilyPrefs] = useState<AdminFamilyPreferences | null>(null);
-  const [ledgerLoading, setLedgerLoading] = useState(false);
-  const [familyLoading, setFamilyLoading] = useState(false);
-  const [depositAmount, setDepositAmount] = useState('');
-  const [depositNote, setDepositNote] = useState('');
-  const [depositing, setDepositing] = useState(false);
-  const [familyEmail, setFamilyEmail] = useState('');
-  const [familyUserResults, setFamilyUserResults] = useState<AdminUserLookup[]>([]);
-  const [familySearching, setFamilySearching] = useState(false);
-  const [bindingUserId, setBindingUserId] = useState<string | null>(null);
-  // Cross-family move guard: unfiltered membership snapshot (same responses
-  // already fetched for the filtered view — zero extra requests) plus the
-  // pending move awaiting explicit operator confirmation. Never sent to any
-  // RPC except through confirmPendingMove after re-validation.
-  const [allFamilyMembers, setAllFamilyMembers] = useState<PilotFamilyMember[]>([]);
-  const [pendingMove, setPendingMove] = useState<{
-    userId: string;
-    email: string;
-    fromFamilyId: string;
-    fromFamilyName: string;
-    toFamilyId: string;
-  } | null>(null);
-  // Family creation (V1.6.7) — thin form over pilot_admin_upsert_family.
-  const [newFamilyName, setNewFamilyName] = useState('');
-  const [newFamilyNameAr, setNewFamilyNameAr] = useState('');
-  const [newFamilySlug, setNewFamilySlug] = useState('');
-  const [newFamilyDescription, setNewFamilyDescription] = useState('');
-  const [creatingFamily, setCreatingFamily] = useState(false);
-
-  const handleCreateFamily = useCallback(async () => {
-    if (creatingFamily) return;
-    const name = newFamilyName.trim();
-    const slug = newFamilySlug.trim().toLowerCase();
-    if (!name || !slug) {
-      setError('FAMILY_FIELDS_REQUIRED');
-      return;
-    }
-    setCreatingFamily(true);
-    setError(null);
-    setMessage(null);
-    try {
-      const created = await adminUpsertFamily({
-        name,
-        nameAr: newFamilyNameAr.trim(),
-        slug,
-        description: newFamilyDescription.trim(),
-      });
-      const refreshed = await adminListFamilies();
-      setFamilies(refreshed);
-      setSelectedFamilyId(created.id);
-      setNewFamilyName('');
-      setNewFamilyNameAr('');
-      setNewFamilySlug('');
-      setNewFamilyDescription('');
-      setMessage('FAMILY_CREATED');
-    } catch {
-      setError('FAMILY_CREATE_FAILED');
-    } finally {
-      setCreatingFamily(false);
-    }
-  }, [creatingFamily, newFamilyName, newFamilyNameAr, newFamilySlug, newFamilyDescription]);
 
   const load = useCallback(async () => {
     try {
-      const [ns, fs, h] = await Promise.all([
+      const [ns, h] = await Promise.all([
         adminListNeighborhoods(),
-        adminListFamilies(),
         fetchPilotHealth(),
       ]);
       setNeighborhoods(ns);
-      setFamilies(fs);
       setHealth(h);
       const myStores: Store[] = [];
       for (const n of ns) {
@@ -218,35 +228,25 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    if (!storeId) {
-      setOrders([]);
-      return;
-    }
-    void fetchStoreOrders(storeId)
-      .then((os) => {
-        setOrders(os);
-        setError(null);
-      })
-      .catch(() => setError('ORDER_LOAD_FAILED'));
-  }, [storeId]);
+  // The admin order list and its realtime feed are owned by
+  // useOrdersWorkspace. Triage below reads that shared list.
+  // The store product read is owned by useStoreWorkspace; the buyable count
+  // derives from it so the catalog is fetched once per store, never twice.
+  const triageBuyable = useMemo<Record<string, number>>(
+    () => (storeId && !sw.productsLoading && !sw.productsError ? { [storeId]: sw.products.length } : {}),
+    [storeId, sw.products, sw.productsLoading, sw.productsError],
+  );
 
+  // Best-effort timeline counts still follow the shared order list, as before.
   useEffect(() => {
     let cancelled = false;
     if (!storeId) {
-      setTriageBuyable({});
       setTriageTimelines({});
       return;
     }
     void (async () => {
       try {
-        const products = await fetchStoreProducts(storeId);
-        if (!cancelled) setTriageBuyable({ [storeId]: products.length });
-      } catch {
-        if (!cancelled) setTriageBuyable({});
-      }
-      try {
-        const open = orders.filter(
+        const open = ow.orders.filter(
           (o) => o.status !== 'delivered' && o.status !== 'cancelled',
         );
         const entries = await Promise.all(
@@ -272,31 +272,7 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
     return () => {
       cancelled = true;
     };
-  }, [storeId, orders]);
-
-  // Realtime subscription — the admin live view rides on the narrow
-  // "Realtime read all orders (admin)" RLS policy (00082); admins need no
-  // client filter, RLS + fn_admin_uid() authorizes the stream server-side.
-  useEffect(() => {
-    if (authState.status === 'unauthenticated') return;
-    const feed = createPilotOrderRealtime({
-      table: 'orders',
-      channelPrefix: 'pilot-admin-ops',
-      onPayload: () => {
-        if (!storeId) return;
-        void fetchStoreOrders(storeId).then(setOrders).catch(() => {});
-      },
-      onStatus: setFeedStatus,
-      onPollFetch: async () => {
-        if (!storeId) return;
-        const os = await fetchStoreOrders(storeId);
-        setOrders(os);
-      },
-    });
-    feedRef.current = feed;
-    feed.start();
-    return () => { feed.stop(); feedRef.current = null; };
-  }, [authState.status, storeId]);
+  }, [storeId, ow.orders]);
 
   const refreshMembers = useCallback(async (sid: string) => {
     const [ops, cos] = await Promise.all([adminListOperators(sid), adminListCouriers(sid)]);
@@ -315,85 +291,13 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
     });
   }, [storeId, refreshMembers]);
 
-  // Invitation lifecycle rows (Gate 1B). Best-effort admin read; the EF + RPCs
-  // remain the server-authoritative path for every send/resend.
-  useEffect(() => {
-    if (!storeId) {
-      setInvitations([]);
-      return;
-    }
-    void adminListInvitations(storeId)
-      .then((rows) => {
-        setInvitations(rows);
-        setError(null);
-      })
-      .catch(() => setError('INVITE_LOAD_FAILED'));
-  }, [storeId]);
-
-  // Family ledger history (V1.8, read-only): refreshed with the members list.
-  // Family vegetable preferences (read-only display alongside).
-  useEffect(() => {
-    if (!selectedFamilyId) {
-      setFamilyLedger([]);
-      setFamilyPrefs(null);
-      return;
-    }
-    let cancelled = false;
-    setLedgerLoading(true);
-    void adminFamilyLedger(selectedFamilyId, 50)
-      .then((rows) => {
-        if (!cancelled) setFamilyLedger(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setFamilyLedger([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLedgerLoading(false);
-      });
-    void adminFamilyPreferences(selectedFamilyId)
-      .then((prefs) => {
-        if (!cancelled) setFamilyPrefs(prefs);
-      })
-      .catch(() => {
-        if (!cancelled) setFamilyPrefs(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedFamilyId, familyMembers]);
-
-  // Family account management (Gate B, ADMIN ONLY). Members + balance load on
-  // family selection; every write is re-authorized by the 00100 RPCs.
-  useEffect(() => {
-    if (!selectedFamilyId) {
-      setFamilyMembers([]);
-      return;
-    }
-    let cancelled = false;
-    setFamilyLoading(true);
-    void adminListFamilyMembers()
-      .then((rows) => {
-        if (cancelled) return;
-        setAllFamilyMembers(rows);
-        setFamilyMembers(rows.filter((m) => m.family_id === selectedFamilyId));
-      })
-      .catch(() => {
-        if (!cancelled) setError('FAMILY_MEMBERS_FAILED');
-      })
-      .finally(() => {
-        if (!cancelled) setFamilyLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedFamilyId]);
-
   const invitationFor = useCallback(
     (email: string | null | undefined, kind: 'operator' | 'courier'): InvitationRow | null => {
       if (!email) return null;
-      return invitations.find((i) => i.invite_email === email && i.member_kind === kind) ?? null;
+      return fw.invitations.find((i) => i.invite_email === email && i.member_kind === kind) ?? null;
     },
-    [invitations],
+    // Family domain state lives in useFamilyWorkspace; staff UI reads it.
+    [fw.invitations],
   );
 
   const handleInvite = useCallback(
@@ -418,7 +322,7 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
             setMessage(successMessageKeyFor(result.code === 'INVITATION_RESENT'));
             setInviteEmail('');
           }
-          setInvitations(await adminListInvitations(storeId));
+          await refreshInvitations();
         } else {
           setError(messageKeyFor(result.code));
         }
@@ -428,45 +332,10 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
         setInviting(false);
       }
     },
-    [storeId, inviting],
+    [storeId, inviting, refreshInvitations],
   );
 
-  // Family invitations (Vegetables lane): email only — role is fixed to
-  // 'family' inside sendFamilyInvitation and can never be operator/courier.
-  const handleFamilyInvite = useCallback(
-    async (resend: boolean, presetEmail?: string) => {
-      if (!storeId || familyInviting) return;
-      const normalized = (presetEmail ?? familyInviteEmail).trim().toLowerCase();
-      if (!normalized) return;
-      setFamilyInviting(true);
-      setError(null);
-      setMessage(null);
-      try {
-        const result = resend
-          ? await resendFamilyInvitation({ storeId, email: normalized })
-          : await sendFamilyInvitation({ storeId, email: normalized });
-        if (result.ok) {
-          const outcome = toInviteOutcome(result);
-          if (outcome.kind === 'noop') {
-            // P3: no email was dispatched (address already active) — report
-            // honestly instead of "sent", and keep the form populated.
-            setMessage('INVITE_NOT_NEEDED');
-          } else {
-            setMessage(successMessageKeyFor(result.code === 'INVITATION_RESENT'));
-            setFamilyInviteEmail('');
-          }
-          setInvitations(await adminListInvitations(storeId));
-        } else {
-          setError(messageKeyFor(result.code));
-        }
-      } catch {
-        setError('INVITE_SEND_FAILED');
-      } finally {
-        setFamilyInviting(false);
-      }
-    },
-    [storeId, familyInviting, familyInviteEmail],
-  );
+  // Family invitations live in useFamilyWorkspace (AdminFamilies section).
 
   const renderInviteControls = (
     role: 'operator' | 'courier',
@@ -542,7 +411,7 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
         stores: stores
           .filter((s) => s.id === storeId)
           .map((s) => ({ id: s.id, name: s.name })),
-        orders: orders.map((o) => ({
+        orders: ow.orders.map((o) => ({
           id: o.id,
           orderNumber: o.order_number,
           storeId: o.store_id,
@@ -552,7 +421,7 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
         buyableCountByStore: triageBuyable,
         timelineCountByOrder: triageTimelines,
       }),
-    [operators, couriers, stores, orders, triageBuyable, triageTimelines, storeId],
+    [operators, couriers, stores, ow.orders, triageBuyable, triageTimelines, storeId],
   );
 
   const triageCounts = useMemo(() => {
@@ -587,6 +456,7 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
   useEffect(() => {
     if (!storeId) {
       setPilotStart(null);
+      setPilotStartFailed(false);
       return;
     }
     let cancelled = false;
@@ -594,10 +464,13 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
       .then((st) => {
         if (cancelled) return;
         setPilotStart(st);
+        setPilotStartFailed(false);
         setError(null);
       })
       .catch(() => {
-        if (!cancelled) setError('START_STATUS_FAILED');
+        if (cancelled) return;
+        setPilotStartFailed(true);
+        setError('START_STATUS_FAILED');
       });
     return () => {
       cancelled = true;
@@ -659,6 +532,44 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
     [storeId, isAdmin, t],
   );
 
+  /**
+   * G0-A: member triage items carry `destination: 'pilot-admin'` — the screen
+   * already mounted — so dispatching NAVIGATE to it was a no-op. Route those
+   * to the EXISTING member handlers instead. Order/store items keep their
+   * `pilot-store-ops` navigation, which is where the write lives.
+   */
+  const handleTriageAction = useCallback(
+    (item: TriageItem) => {
+      if (item.entityType === 'operator') {
+        if (item.action.kind === 'approve-member') {
+          void setOperator(item.entityId, 'active');
+          return;
+        }
+        if (item.action.kind === 'set-ready') {
+          void setReady('operator', item.entityId, true);
+          return;
+        }
+      }
+      if (item.entityType === 'courier') {
+        if (item.action.kind === 'approve-member') {
+          void setCourier(item.entityId, 'active');
+          return;
+        }
+        if (item.action.kind === 'set-ready') {
+          void setReady('courier', item.entityId, true);
+          return;
+        }
+      }
+      if (item.entityType === 'operator' || item.entityType === 'courier') {
+        // view-detail for a member: the team roster IS the detail surface.
+        openLegacySection('team');
+        return;
+      }
+      dispatch({ type: 'NAVIGATE', screen: item.destination });
+    },
+    [dispatch, setOperator, setCourier, setReady, openLegacySection],
+  );
+
   const handleStartPilot = useCallback(async () => {
     if (!storeId || !designatedCourierId || !isAdmin) return;
     if (!window.confirm(t('pilot.startPilotConfirm'))) return;
@@ -668,6 +579,7 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
       await startPilot({ storeId, courierUserId: designatedCourierId });
       setMessage('START_OK');
       setPilotStart(await fetchPilotStartStatus(storeId, designatedCourierId));
+      setPilotStartFailed(false);
     } catch (e) {
       const code = (e as Error).message;
       setError(code === 'ALREADY_STARTED' ? 'ALREADY_STARTED' : 'START_FAILED');
@@ -675,22 +587,6 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
       setStarting(false);
     }
   }, [storeId, designatedCourierId, isAdmin, t]);
-
-  const setStatus = useCallback(
-    async (orderId: string, status: string) => {
-      if (!(PILOT_ORDER_STATUSES as readonly string[]).includes(status)) return;
-      try {
-        await updateStoreOrderStatus(orderId, status as (typeof PILOT_ORDER_STATUSES)[number]);
-        setMessage('STATUS_UPDATED');
-        if (storeId) {
-          setOrders(await fetchStoreOrders(storeId));
-        }
-      } catch {
-        setError('STATUS_FAILED');
-      }
-    },
-    [storeId],
-  );
 
   const searchUsers = useCallback(async () => {
     if (!storeId) return;
@@ -725,139 +621,12 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
     [storeId, refreshMembers],
   );
 
-  const submitDeposit = useCallback(async () => {
-    if (!selectedFamilyId) return;
-    const amount = Number(depositAmount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setError('DEPOSIT_INVALID');
-      return;
-    }
-    setDepositing(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await adminDeposit(selectedFamilyId, amount, depositNote.trim());
-      setMessage('DEPOSIT_OK');
-      setDepositAmount('');
-      setDepositNote('');
-      const refreshedMembers = await adminListFamilyMembers();
-      setAllFamilyMembers(refreshedMembers);
-      setFamilyMembers(refreshedMembers.filter((m) => m.family_id === selectedFamilyId));
-    } catch {
-      setError('DEPOSIT_FAILED');
-    } finally {
-      setDepositing(false);
-    }
-  }, [selectedFamilyId, depositAmount, depositNote]);
-
-  const searchFamilyUsers = useCallback(async () => {
-    setPendingMove(null);
-    setFamilySearching(true);
-    try {
-      setFamilyUserResults(await adminFindUsers(familyEmail, 20));
-      setError(null);
-    } catch {
-      setError('SEARCH_FAILED');
-    } finally {
-      setFamilySearching(false);
-    }
-  }, [familyEmail]);
-
-  const familyNameOf = useCallback(
-    (familyId: string, fallback?: string | null): string => {
-      const known = families.find((f) => f.id === familyId);
-      if (known) return name(known.name, known.name_ar);
-      return fallback ?? `${familyId.slice(0, 8)}…`;
-    },
-    [families, locale],
-  );
-
-  const bindToFamily = useCallback(
-    async (userId: string) => {
-      if (!selectedFamilyId || bindingUserId) return;
-      setPendingMove(null);
-      setError(null);
-      setMessage(null);
-      // Cross-family move guard: resolve current active membership from the
-      // snapshot already held by this screen — no new request, no RPC yet.
-      const current = allFamilyMembers.find((m) => m.user_id === userId && m.status === 'active') ?? null;
-      if (current && current.family_id === selectedFamilyId) {
-        setMessage('FAMILY_ALREADY_LINKED');
-        return;
-      }
-      if (current) {
-        const listed = familyUserResults.find((u) => u.user_id === userId) ?? null;
-        setPendingMove({
-          userId,
-          email: listed?.email ?? listed?.display_name ?? userId,
-          fromFamilyId: current.family_id,
-          fromFamilyName: familyNameOf(current.family_id, current.family_name),
-          toFamilyId: selectedFamilyId,
-        });
-        return;
-      }
-      setBindingUserId(userId);
-      try {
-        await adminProvisionFamilyMember(userId, selectedFamilyId, 'active');
-        setMessage('PROVISION_OK');
-        setFamilyEmail('');
-        setFamilyUserResults([]);
-        const refreshed = await adminListFamilyMembers();
-        setAllFamilyMembers(refreshed);
-        setFamilyMembers(refreshed.filter((m) => m.family_id === selectedFamilyId));
-      } catch {
-        setError('FAMILY_PROVISION_FAILED');
-      } finally {
-        setBindingUserId(null);
-      }
-    },
-    [selectedFamilyId, bindingUserId, allFamilyMembers, familyUserResults, familyNameOf],
-  );
-
-  const confirmPendingMove = useCallback(async () => {
-    const pending = pendingMove;
-    // Re-validate against live selection: stale confirmations can never fire.
-    if (!pending || bindingUserId) return;
-    if (pending.toFamilyId !== selectedFamilyId) {
-      setPendingMove(null);
-      return;
-    }
-    setBindingUserId(pending.userId);
-    setError(null);
-    setMessage(null);
-    try {
-      const live = await adminListFamilyMembers();
-      setAllFamilyMembers(live);
-      const stillThere = live.find((m) => m.user_id === pending.userId && m.status === 'active') ?? null;
-      if (!stillThere || stillThere.family_id !== pending.fromFamilyId) {
-        // Membership changed under the panel (moved elsewhere, deactivated,
-        // or joined target already) — refuse the stale confirm explicitly.
-        setPendingMove(null);
-        setError('FAMILY_MOVE_STALE');
-        return;
-      }
-      await adminProvisionFamilyMember(pending.userId, pending.toFamilyId, 'active');
-      setMessage('PROVISION_OK');
-      setPendingMove(null);
-      setFamilyEmail('');
-      setFamilyUserResults([]);
-      const refreshed = await adminListFamilyMembers();
-      setAllFamilyMembers(refreshed);
-      setFamilyMembers(refreshed.filter((m) => m.family_id === selectedFamilyId));
-    } catch {
-      setError('FAMILY_PROVISION_FAILED');
-    } finally {
-      setBindingUserId(null);
-    }
-  }, [pendingMove, bindingUserId, selectedFamilyId]);
-
   const handleReset = useCallback(async () => {
     if (!window.confirm(t('pilot.resetConfirm'))) return;
     try {
       await resetPilot();
       setMessage('RESET_OK');
       setError(null);
-      setOrders([]);
       setStores([]);
       setStoreId('');
       await load();
@@ -868,25 +637,111 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
 
   const labelStyle = { color: colors.text, fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.3rem', display: 'block' } as const;
   const mutedStyle = { color: colors.textMuted, fontSize: '0.7rem', fontWeight: 600, marginBottom: '0.25rem', display: 'block' } as const;
+  const tErrorStyle = { color: colors.danger, fontSize: '0.7rem', fontWeight: 600, marginBottom: '0.25rem', display: 'block' } as const;
   const name = (en: string, ar: string) => (locale === 'ar' && ar ? ar : en);
   const tError = (code: string) => t(`pilot.error.${code}` as TranslationKey);
   const tMsg = (code: string) => t(`pilot.msg.${code}` as TranslationKey);
+
+  // Command Center views (G2.1): home + independent families section render
+  // inside AdminShell; legacy below keeps every other section byte-preserved.
+  if (commandView === 'families') {
+    return (
+      <AdminShell active="families" onNavigate={handleCommandNavigate}>
+        <AdminFamilies workspace={fw} />
+      </AdminShell>
+    );
+  }
+
+  if (commandView === 'finance') {
+    return (
+      <AdminShell active="finance" onNavigate={handleCommandNavigate}>
+        <AdminFinance workspace={fw} isAdmin={isAdmin} />
+      </AdminShell>
+    );
+  }
+
+  if (commandView === 'orders') {
+    return (
+      <AdminShell active="orders" onNavigate={handleCommandNavigate}>
+        <AdminOrders
+          orders={ow}
+          detail={od}
+          stores={stores}
+          storeId={storeId}
+          onStoreChange={setStoreId}
+          families={fw.families}
+        />
+      </AdminShell>
+    );
+  }
+
+  if (commandView === 'store') {
+    return (
+      <AdminShell active="store" onNavigate={handleCommandNavigate}>
+        <AdminStore
+          workspace={sw}
+          stores={stores}
+          storeId={storeId}
+          onStoreChange={setStoreId}
+        />
+      </AdminShell>
+    );
+  }
+
+  if (commandView === 'research') {
+    return (
+      <AdminShell active="research" onNavigate={handleCommandNavigate}>
+        <AdminResearch />
+      </AdminShell>
+    );
+  }
+
+  if (commandView === 'telemetry') {
+    return (
+      <AdminShell active="telemetry" onNavigate={handleCommandNavigate}>
+        <AdminTelemetry health={health} />
+      </AdminShell>
+    );
+  }
+
+  if (commandView === 'home') {
+    const activeStore = stores.find((s) => s.id === storeId) ?? null;
+    return (
+      <AdminShell active="home" onNavigate={handleCommandNavigate}>
+        <AdminHome
+          data={{
+            members: fw.allMembers,
+            orders: ow.orders,
+            ordersScopeLabel: activeStore ? name(activeStore.name, activeStore.name_ar) : t('cc.navStore'),
+            invitations: fw.invitations,
+          }}
+          onQuickAction={handleCommandQuickAction}
+          onOpenSettings={() => dispatch({ type: 'NAVIGATE', screen: 'settings' })}
+        />
+      </AdminShell>
+    );
+  }
 
   return (
     <Screen>
       <Stack gap="lg">
         <Flex justify="space-between" align="center">
           <h1 style={{ margin: 0, color: colors.text, fontSize: '1.15rem' }}>{t('pilot.opsTitle')}</h1>
-          <Button variant="secondary" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'settings' })}>
-            {t('pilot.backSettings')}
-          </Button>
+          <Flex gap="sm" align="center">
+            <Button variant="ghost" size="sm" onClick={() => setCommandView('home')}>
+              {t('cc.navHome')}
+            </Button>
+            <Button variant="secondary" onClick={() => dispatch({ type: 'NAVIGATE', screen: 'settings' })}>
+              {t('pilot.backSettings')}
+            </Button>
+          </Flex>
         </Flex>
         <Divider />
 
         {message && <span style={{ color: colors.successText, fontSize: '0.85rem' }}>{tMsg(message)}</span>}
         {error && <span style={{ color: colors.danger, fontSize: '0.85rem' }}>{tError(error)}</span>}
 
-        {feedStatus === 'fallback' && (
+        {ow.feedStatus === 'fallback' && (
           <span style={{ color: colors.warning, fontSize: '0.8rem' }}>
             {t('pilot.staleIndicator' as TranslationKey)}
           </span>
@@ -912,7 +767,7 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => dispatch({ type: 'NAVIGATE', screen: item.destination })}
+                  onClick={() => handleTriageAction(item)}
                 >
                   {t(item.action.labelKey as TranslationKey)}
                 </Button>
@@ -953,11 +808,11 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
         <Divider />
 
         <span style={labelStyle}>{t('pilot.families')}</span>
-        {families.length === 0 ? (
+        {fw.families.length === 0 ? (
           <span style={mutedStyle}>{t('pilot.noFamilies')}</span>
         ) : (
           <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: 10, background: colors.bgCard }}>
-            {families.map((f) => (
+            {fw.families.map((f) => (
               <span key={f.id} style={mutedStyle}>
                 {name(f.name, f.name_ar)} · {f.status}
               </span>
@@ -965,224 +820,10 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
           </div>
         )}
 
-        {isAdmin && (
-          <>
-            <Divider />
-
-            <span style={labelStyle}>{t('pilot.createFamily')}</span>
-            <Flex gap="sm" style={{ flexWrap: 'wrap' }}>
-              <Input
-                value={newFamilyName}
-                onChange={(e) => setNewFamilyName(e.target.value)}
-                placeholder={t('pilot.familyName')}
-                aria-label={t('pilot.familyName')}
-              />
-              <Input
-                value={newFamilyNameAr}
-                onChange={(e) => setNewFamilyNameAr(e.target.value)}
-                placeholder={t('pilot.familyNameAr')}
-                aria-label={t('pilot.familyNameAr')}
-              />
-              <Input
-                value={newFamilySlug}
-                onChange={(e) => setNewFamilySlug(e.target.value)}
-                placeholder={t('pilot.familySlug')}
-                aria-label={t('pilot.familySlug')}
-              />
-              <Input
-                value={newFamilyDescription}
-                onChange={(e) => setNewFamilyDescription(e.target.value)}
-                placeholder={t('pilot.familyDescription')}
-                aria-label={t('pilot.familyDescription')}
-              />
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={creatingFamily}
-                onClick={() => void handleCreateFamily()}
-              >
-                {t('pilot.saveFamily')}
-              </Button>
-            </Flex>
-
-            <span style={labelStyle}>{t('pilot.familyAccountTitle' as TranslationKey)}</span>
-            <span style={mutedStyle}>{t('pilot.familyAccountHint' as TranslationKey)}</span>
-            {families.length === 0 ? (
-              <span style={mutedStyle}>{t('pilot.noFamilies')}</span>
-            ) : (
-              <>
-                <Select
-                  options={families.map((f) => ({ value: f.id, label: name(f.name, f.name_ar) }))}
-                  value={selectedFamilyId}
-                  onChange={(e) => { setPendingMove(null); setSelectedFamilyId(e.target.value); }}
-                  placeholder={t('pilot.selectFamily' as TranslationKey)}
-                  aria-label={t('pilot.selectFamily' as TranslationKey)}
-                />
-
-                {selectedFamilyId && (
-                  <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: 10, background: colors.bgCard }}>
-                    {familyLoading ? (
-                      <span style={mutedStyle}>{t('pilot.loading')}</span>
-                    ) : familyMembers.length === 0 ? (
-                      <span style={mutedStyle}>{t('pilot.familyNoMembers' as TranslationKey)}</span>
-                    ) : (
-                      familyMembers.map((m) => (
-                        <Flex key={m.member_id} justify="space-between" align="center">
-                          <span style={{ color: colors.text, fontSize: '0.85rem' }}>{m.user_email}</span>
-                          <span style={mutedStyle}>
-                            {t('pilot.balanceLabel' as TranslationKey)}: {Number(m.balance).toFixed(2)} {t('pilot.currency')}
-                          </span>
-                        </Flex>
-                      ))
-                    )}
-                  </div>
-                )}
-
-                {selectedFamilyId && (
-                  <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: 10, background: colors.bgCard }}>
-                    <span style={labelStyle}>{t('pilot.preferencesTitle')}</span>
-                    {(familyPrefs?.preferred_delivery_time ?? '') === '' &&
-                    (familyPrefs?.veg_notes ?? '') === '' ? (
-                      <span style={mutedStyle}>{t('pilot.preferencesEmpty')}</span>
-                    ) : (
-                      <>
-                        <Flex justify="space-between" align="center" style={{ padding: '0.2rem 0' }}>
-                          <span style={{ color: colors.textSecondary, fontSize: '0.8rem' }}>{t('pilot.preferencesTimePlaceholder')}</span>
-                          <span style={{ color: colors.text, fontSize: '0.82rem', fontWeight: 700 }}>
-                            {familyPrefs?.preferred_delivery_time || '—'}
-                          </span>
-                        </Flex>
-                        <Flex justify="space-between" align="center" style={{ padding: '0.2rem 0' }}>
-                          <span style={{ color: colors.textSecondary, fontSize: '0.8rem' }}>{t('pilot.preferencesNotesPlaceholder')}</span>
-                          <span style={{ color: colors.text, fontSize: '0.82rem', fontWeight: 700 }}>
-                            {familyPrefs?.veg_notes || '—'}
-                          </span>
-                        </Flex>
-                        {familyPrefs?.updated_at ? (
-                          <span style={mutedStyle}>
-                            {t('pilot.preferencesUpdated')}: {familyPrefs.updated_at}
-                          </span>
-                        ) : null}
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {selectedFamilyId && (
-                  <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: 10, background: colors.bgCard }}>
-                    <span style={labelStyle}>{t('pilot.ledgerHistory')}</span>
-                    {ledgerLoading ? (
-                      <span style={mutedStyle}>{t('pilot.loading')}</span>
-                    ) : familyLedger.length === 0 ? (
-                      <span style={mutedStyle}>{t('pilot.ledgerEmpty')}</span>
-                    ) : (
-                      familyLedger.map((e) => (
-                        <Flex key={e.id} justify="space-between" align="center" style={{ padding: '0.2rem 0' }}>
-                          <span style={{ color: colors.textSecondary, fontSize: '0.8rem' }}>
-                            {e.transaction_type}
-                            {e.order_number ? ` · #${e.order_number}` : ''}
-                            {e.note ? ` · ${e.note}` : ''}
-                          </span>
-                          <span style={{ color: e.amount < 0 ? colors.danger : colors.successText, fontSize: '0.82rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                            {Number(e.amount).toFixed(2)} {t('pilot.currency')}
-                          </span>
-                        </Flex>
-                      ))
-                    )}
-                  </div>
-                )}
-
-                {selectedFamilyId && (
-                  <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: 10, background: colors.bgCard }}>
-                    <span style={labelStyle}>{t('pilot.depositTitle' as TranslationKey)}</span>
-                    <Flex gap="sm" align="center">
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={depositAmount}
-                        onChange={(e) => setDepositAmount(e.target.value)}
-                        placeholder={t('pilot.depositAmountPlaceholder' as TranslationKey)}
-                        aria-label={t('pilot.depositAmountPlaceholder' as TranslationKey)}
-                      />
-                      <Input
-                        value={depositNote}
-                        onChange={(e) => setDepositNote(e.target.value)}
-                        placeholder={t('pilot.depositNotePlaceholder' as TranslationKey)}
-                        aria-label={t('pilot.depositNotePlaceholder' as TranslationKey)}
-                      />
-                      <Button variant="primary" size="sm" disabled={depositing} onClick={() => void submitDeposit()}>
-                        {depositing ? t('pilot.depositing' as TranslationKey) : t('pilot.depositAction' as TranslationKey)}
-                      </Button>
-                    </Flex>
-                  </div>
-                )}
-
-                {selectedFamilyId && (
-                  <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: 10, background: colors.bgCard }}>
-                    <span style={labelStyle}>{t('pilot.familyProvisionTitle' as TranslationKey)}</span>
-                    <Flex gap="sm" align="center">
-                      <Input
-                        value={familyEmail}
-                        onChange={(e) => setFamilyEmail(e.target.value)}
-                        placeholder={t('pilot.emailPlaceholder')}
-                        aria-label={t('pilot.emailPlaceholder')}
-                      />
-                      <Button variant="secondary" size="sm" disabled={familySearching} onClick={() => void searchFamilyUsers()}>
-                        {t('pilot.findUser')}
-                      </Button>
-                    </Flex>
-                    {familyUserResults.map((u) => (
-                      <Flex key={u.user_id} justify="space-between" align="center" style={{ marginTop: 6 }}>
-                        <span style={{ color: colors.text, fontSize: '0.85rem' }}>{u.display_name ?? u.email ?? u.user_id}</span>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          disabled={bindingUserId === u.user_id}
-                          onClick={() => void bindToFamily(u.user_id)}
-                        >
-                          {t('pilot.bindToFamily' as TranslationKey)}
-                        </Button>
-                      </Flex>
-                    ))}
-                    {pendingMove && (
-                      <div style={{ border: `1px solid ${colors.danger}`, borderRadius: 12, padding: 10, background: colors.bgCard, marginTop: 8 }}>
-                        <span style={labelStyle}>{t('pilot.familyMoveTitle')}</span>
-                        <span style={{ color: colors.text, fontSize: '0.85rem', display: 'block', margin: '0.35rem 0' }}>
-                          {pendingMove.email} · {pendingMove.fromFamilyName} → {familyNameOf(pendingMove.toFamilyId, null)}
-                        </span>
-                        <span style={mutedStyle}>{t('pilot.familyMoveNotice')}</span>
-                        <Flex gap="sm" style={{ marginTop: 8 }}>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            disabled={bindingUserId !== null}
-                            onClick={() => void confirmPendingMove()}
-                          >
-                            {t('pilot.confirmMove')}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={bindingUserId !== null}
-                            onClick={() => setPendingMove(null)}
-                            aria-label={t('adminCategories.cancel')}
-                          >
-                            ✕
-                          </Button>
-                        </Flex>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </>
-        )}
 
         <Divider />
 
-        <span style={labelStyle}>{t('pilot.operatorsTitle')}</span>
+        <span id="cc-section-team" style={labelStyle}>{t('pilot.operatorsTitle')}</span>
         <span style={mutedStyle}>{t('pilot.operatorsHint')}</span>
         {operators.length === 0 ? (
           <span style={mutedStyle}>{t('pilot.noOperators')}</span>
@@ -1297,10 +938,10 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
                 {inviting ? t('invite.sending') : t('invite.send')}
               </Button>
             </Flex>
-            {invitations.length === 0 ? (
+            {fw.staffInvitations.length === 0 ? (
               <span style={mutedStyle}>{t('invite.emptyRows')}</span>
             ) : (
-              invitations.map((row) => (
+              fw.staffInvitations.map((row) => (
                 <div
                   key={`${row.invite_email}:${row.member_kind}`}
                   style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: 10, background: colors.bgCard }}
@@ -1320,60 +961,12 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
 
         <Divider />
 
-        {/* Family invitations (Vegetables lane) — email only, no role choice.
-            Staff block above is untouched. */}
-        <span style={labelStyle}>{t('invite.familyTitle')}</span>
-        <span style={mutedStyle}>{t('invite.familyHint')}</span>
-        {isAdmin && storeId ? (
-          <>
-            <Flex gap="sm" align="center">
-              <Input
-                value={familyInviteEmail}
-                onChange={(e) => setFamilyInviteEmail(e.target.value)}
-                placeholder={t('invite.familyEmailPlaceholder')}
-                aria-label={t('invite.familyEmailPlaceholder')}
-              />
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={familyInviting || !familyInviteEmail.trim()}
-                onClick={() => void handleFamilyInvite(false)}
-              >
-                {familyInviting ? t('invite.sending') : t('invite.send')}
-              </Button>
-            </Flex>
-            {invitations.filter((row) => row.member_kind === 'family').map((row) => (
-              <div
-                key={`${row.invite_email}:${row.member_kind}`}
-                style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: 10, background: colors.bgCard, marginTop: 8 }}
-              >
-                <Flex justify="space-between" align="center">
-                  <span style={{ color: colors.text, fontWeight: 700 }}>{row.invite_email}</span>
-                  <span style={mutedStyle}>{row.status}</span>
-                </Flex>
-                <Flex gap="sm" style={{ marginTop: 8 }}>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={familyInviting}
-                    onClick={() => void handleFamilyInvite(true, row.invite_email)}
-                  >
-                    {t('invite.resend')}
-                  </Button>
-                </Flex>
-              </div>
-            ))}
-          </>
-        ) : (
-          <span style={mutedStyle}>{t('pilot.startPilotStoreHint')}</span>
-        )}
-
-        <Divider />
-
         <span style={labelStyle}>{t('pilot.startPilotTitle')}</span>
         {isAdmin && storeId ? (
           <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: 10, background: colors.bgCard }}>
-            {pilotStart === null ? (
+            {pilotStartFailed ? (
+              <span style={tErrorStyle}>{tError('START_STATUS_FAILED')}</span>
+            ) : pilotStart === null ? (
               <span style={mutedStyle}>{t('pilot.loading')}</span>
             ) : pilotStart.started ? (
               <>
@@ -1485,54 +1078,11 @@ export const PilotOpsAdminScreen = memo(function PilotOpsAdminScreen() {
 
         <Divider />
 
-        <span style={labelStyle}>{t('pilot.storeOrders')}</span>
-        {stores.length > 0 ? (
-          <>
-            <Select
-              options={stores.map((s) => ({ value: s.id, label: name(s.name, s.name_ar) }))}
-              value={storeId}
-              onChange={(e) => setStoreId(e.target.value)}
-              aria-label={t('pilot.store')}
-            />
-            {orders.length === 0 ? (
-              <span style={mutedStyle}>{t('pilot.noStoreOrders')}</span>
-            ) : (
-              orders.map((o) => (
-                <div
-                  key={o.id}
-                  style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: 10, background: colors.bgCard }}
-                >
-                  <Flex justify="space-between" align="center">
-                    <span style={{ color: colors.text, fontWeight: 700 }}>{o.order_number}</span>
-                    <Select
-                      options={PILOT_ORDER_STATUSES.filter(
-                        (s) => !(s === 'delivered' && o.family_id),
-                      ).map((s) => ({ value: s, label: s }))}
-                      value={o.status}
-                      onChange={(e) => void setStatus(o.id, e.target.value)}
-                      aria-label="order status"
-                    />
-                  </Flex>
-                  <span style={mutedStyle}>
-                    {o.customer_name} · {o.total.toFixed(2)} · {o.created_at}
-                  </span>
-                </div>
-              ))
-            )}
-          </>
-        ) : (
-          <span style={mutedStyle}>{t('pilot.noStores')}</span>
+        {isAdmin && (
+          <Button variant="danger" onClick={() => void handleReset()} style={{ width: '100%' }}>
+            {t('pilot.resetPilot')}
+          </Button>
         )}
-
-        <Divider />
-
-        <Gate8bE2eProvisionHarness />
-
-        <Divider />
-
-        <Button variant="danger" onClick={() => void handleReset()} style={{ width: '100%' }}>
-          {t('pilot.resetPilot')}
-        </Button>
       </Stack>
     </Screen>
   );

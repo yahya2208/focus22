@@ -222,7 +222,6 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
         catalogRef: l.catalogRef,
         quantity: l.quantity,
         name: [l.brand, l.model].filter(Boolean).join(' '),
-        unitPrice: l.displayUnitPrice ?? 0,
       })),
     [lines],
   );

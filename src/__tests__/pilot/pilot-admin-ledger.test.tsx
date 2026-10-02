@@ -100,9 +100,10 @@ describe('PilotOpsAdminScreen — family ledger history (V1.8-B)', () => {
       </AppProvider>,
     );
 
-    const familySelect = await screen.findByLabelText('pilot.selectFamily');
+    // G2.1: the family domain is its own independent section (no legacy anchor).
+    fireEvent.click(await screen.findByText('cc.navFamilies'));
     await screen.findByText('Monouni');
-    fireEvent.change(familySelect, { target: { value: 'f1' } });
+    fireEvent.click(screen.getByText('Monouni'));
 
     await waitFor(() => expect(mock.adminFamilyLedger).toHaveBeenCalledWith('f1', 50));
     expect(await screen.findByText('pilot.ledgerHistory')).toBeTruthy();

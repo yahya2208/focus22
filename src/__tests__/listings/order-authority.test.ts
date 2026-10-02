@@ -152,7 +152,7 @@ describe('00052 — client wiring hands the server the canonical inventory id', 
   it('sends the canonical inventory_items.id as catalog_ref for every item', async () => {
     await createDeliveryOrder(
       { name: 'A', phone: '1', zoneId: 'z1' },
-      [{ catalogRef: 'inv-abc-123', name: 'Apple iPhone', unitPrice: 1200, quantity: 2 }],
+      [{ catalogRef: 'inv-abc-123', name: 'Apple iPhone', quantity: 2 }],
     );
     const call = mockRpc.mock.calls[0]!;
     expect(call[0]).toBe('delivery_create_order');
@@ -160,14 +160,15 @@ describe('00052 — client wiring hands the server the canonical inventory id', 
     expect(items[0]!.catalog_ref).toBe('inv-abc-123');
   });
 
-  it('omits client price/quantity authority — the server overrides them on the DB side', async () => {
+  it('sends no client price — the server resolves every payable line from the catalog (B4)', async () => {
     await createDeliveryOrder(
       { name: 'A', phone: '1', zoneId: 'z1' },
-      [{ catalogRef: 'inv-abc-123', name: 'Apple iPhone', unitPrice: 0, quantity: 99 }],
+      [{ catalogRef: 'inv-abc-123', name: 'Apple iPhone', quantity: 99 }],
     );
     const items = (mockRpc.mock.calls[0]![1] as { p_items: Array<Record<string, unknown>> }).p_items;
-    // The client may SEND a unit_price, but 00052 ignores it for catalog items
-    // (asserted above); this guarantees the overridden server value wins.
+    // B4: unit_price no longer crosses the RPC boundary at all; the server
+    // resolves the price from v_public_listings for every catalog-backed line.
     expect(items[0]!.catalog_ref).toBe('inv-abc-123');
+    expect(items[0]).not.toHaveProperty('unit_price');
   });
 });

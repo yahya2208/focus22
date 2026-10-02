@@ -22,6 +22,8 @@ vi.mock('../../core/telemetry', () => ({ track: vi.fn() }));
 
 const shared = vi.hoisted(() => ({
   orders: [] as Array<Record<string, unknown>>,
+  families: [] as Array<Record<string, unknown>>,
+  fetchFamilies: vi.fn(),
   advance: vi.fn(async () => ({})),
   settle: vi.fn(async () => ({})),
 }));
@@ -29,6 +31,7 @@ const shared = vi.hoisted(() => ({
 vi.mock('../../services/neighborhood-service', () => ({
   fetchMyStores: vi.fn(async () => [{ id: 's1', name: 'S', name_ar: 'م' }]),
   fetchStoreProducts: vi.fn(async () => []),
+  fetchStoreOrderFamilies: shared.fetchFamilies,
 }));
 vi.mock('../../services/order-service', () => ({
   fetchStoreOrders: vi.fn(async () => shared.orders),
@@ -54,7 +57,7 @@ vi.mock('../../services/pilot-realtime-service', () => ({
   createPilotOrderRealtime: () => ({ start: vi.fn(), stop: vi.fn() }),
 }));
 
-function order(id: string, status: string) {
+function order(id: string, status: string, familyId: string | null = null) {
   return {
     id,
     order_number: `FC-${id}`,
@@ -67,6 +70,7 @@ function order(id: string, status: string) {
     store_id: 's1',
     neighborhood_id: null,
     user_id: null,
+    family_id: familyId,
   };
 }
 
@@ -86,9 +90,14 @@ async function expandFirstOrder() {
 
 beforeEach(() => {
   shared.orders = [];
+  shared.families = [];
   shared.advance = vi.fn(async () => ({}));
   shared.settle = vi.fn(async () => ({}));
   vi.clearAllMocks();
+  shared.fetchFamilies.mockImplementation(async (storeId: string) => {
+    if (storeId !== 's1') throw new Error(`unexpected store scope: ${storeId}`);
+    return shared.families;
+  });
 });
 
 describe('PilotStoreOpsScreen — admin-owned queue (V1.4)', () => {
@@ -153,5 +162,55 @@ describe('PilotStoreOpsScreen — translated status labels (V1.4 i18n)', () => {
 
     await screen.findByText(labelPattern);
     expect(screen.queryByText(status, { exact: true })).toBeNull();
+  });
+});
+
+describe('PilotStoreOpsScreen — family labels (B3 store-scoped RPC)', () => {
+  it('renders the family name for an order that carries a family_id', async () => {
+    shared.orders = [order('f1', 'pending', 'fam-1')];
+    shared.families = [{ id: 'fam-1', name: 'Al-Rayan', name_ar: 'الريان' }];
+    renderOps();
+
+    await screen.findByText(/Al-Rayan/);
+    expect(screen.getByText(/FC-f1/)).toBeTruthy();
+  });
+
+  it('asks the server for the selected store only — never passes family ids', async () => {
+    shared.orders = [
+      order('a', 'pending', 'fam-1'),
+      order('b', 'pending', 'fam-1'),
+      order('c', 'pending', 'fam-2'),
+    ];
+    shared.families = [
+      { id: 'fam-1', name: 'Al-Rayan', name_ar: 'الريان' },
+      { id: 'fam-2', name: 'Al-Noor', name_ar: 'النور' },
+    ];
+    renderOps();
+
+    await waitFor(() => expect(shared.fetchFamilies).toHaveBeenCalled());
+    for (const call of shared.fetchFamilies.mock.calls) {
+      expect(call).toEqual(['s1']);
+    }
+    // Both fam-1 rows and the fam-2 row resolve from the one store scope.
+    expect(await screen.findAllByText(/Al-Rayan/)).toHaveLength(2);
+    expect(await screen.findAllByText(/Al-Noor/)).toHaveLength(1);
+  });
+
+  it('omits the family suffix when the store RPC returns no families', async () => {
+    shared.orders = [order('n1', 'pending')];
+    shared.families = [];
+    renderOps();
+
+    const row = await screen.findByText(/FC-n1/);
+    expect(row.textContent).not.toContain('·');
+    expect(shared.fetchFamilies).toHaveBeenCalledWith('s1');
+  });
+
+  it('still renders the row when the family lookup fails', async () => {
+    shared.orders = [order('e', 'pending', 'fam-1')];
+    shared.fetchFamilies.mockRejectedValueOnce(new Error('FAMILY_LOOKUP_ERROR'));
+    renderOps();
+
+    expect(await screen.findByText(/FC-e/)).toBeTruthy();
   });
 });

@@ -4,7 +4,8 @@
  * Wraps the canonical read/write RPCs created in 00065. Public reads are
  * anonymous-safe and cached; admin writes call the admin RPCs whose server
  * half re-authorizes with `fn_admin_uid()`. Store operators use the order
- * RPCs from `order-service` (Phase 7). No direct table access.
+ * RPCs from `order-service` (Phase 7) and the B3 family-label RPC below.
+ * There is no direct table read on `family_groups` anymore (B3, 00120).
  */
 import { getSupabaseClient } from '../core/supabase/client';
 
@@ -129,6 +130,23 @@ export async function fetchNeighborhoodFamilies(neighborhoodId: string): Promise
   return (await callRpc<unknown[]>('pilot_neighborhood_families', { p_neighborhood_id: neighborhoodId })).map(
     (row) => toFamily(row as PilotRow),
   );
+}
+
+/**
+ * Family labels for a store operator's own order queue (B3, 00120).
+ * Replaces the Gate A direct table read `fetchFamiliesByIds`: the server
+ * derives the family ids from the caller's OWN store orders, so the caller
+ * supplies no ids and cannot enumerate families. Returns only
+ * (family_id, name, name_ar) — contact/preference PII columns are
+ * structurally unreturnable by `pilot_store_order_families`.
+ */
+export async function fetchStoreOrderFamilies(storeId: string): Promise<FamilyGroup[]> {
+  if (!storeId) return [];
+  const rows = await callRpc<unknown[]>('pilot_store_order_families', { p_store_id: storeId });
+  return rows.map((row) => {
+    const r = row as PilotRow;
+    return toFamily({ id: r.family_id, name: r.name, name_ar: r.name_ar });
+  });
 }
 
 /* ————————————————————— admin (Phase 9) ————————————————————— */

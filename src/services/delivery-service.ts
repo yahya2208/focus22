@@ -36,7 +36,8 @@ export interface DeliveryOrderItem {
   catalogRef?: string;
   name: string;
   nameAr?: string;
-  unitPrice: number;
+  // B4: no price field — the server resolves every payable line from the
+  // catalog (v_public_listings). Display prices stay in cart UI state only.
   quantity: number;
 }
 
@@ -189,7 +190,6 @@ export async function createDeliveryOrder(
       catalog_ref: item.catalogRef ?? '',
       name: item.name,
       name_ar: item.nameAr ?? '',
-      unit_price: item.unitPrice,
       quantity: item.quantity,
     })),
     p_intentional: intentional,

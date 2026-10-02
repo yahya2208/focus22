@@ -7,7 +7,7 @@ import { Button } from '../../design-system/components/Button';
 import { Input } from '../../design-system/components/Input';
 import { Flex } from '../../design-system/components/Flex';
 import { useAuth } from '../../core/auth/AuthProvider';
-import { fetchMyStores, fetchStoreProducts, type Store, type PilotProduct } from '../../services/neighborhood-service';
+import { fetchMyStores, fetchStoreProducts, fetchStoreOrderFamilies, type Store, type PilotProduct } from '../../services/neighborhood-service';
 import {
   fetchStoreOrders,
   advanceStoreOrder,
@@ -18,7 +18,6 @@ import {
   type SettlementResult,
 } from '../../services/order-service';
 import { fetchOrderDetail, type OrderDetailPayload } from '../../services/courier-service';
-import { adminListFamilies } from '../../services/neighborhood-service';
 import {
   createPilotOrderRealtime,
   type PilotRealtimeFeedStatus,
@@ -70,16 +69,36 @@ export const PilotStoreOpsScreen = memo(function PilotStoreOpsScreen() {
     const ss = await fetchMyStores();
     setStores(ss);
     setStoreId((prev) => prev || ss[0]?.id || '');
-    try {
-      const map: Record<string, string> = {};
-      for (const f of await adminListFamilies()) {
-        map[f.id] = locale === 'ar' && f.name_ar ? f.name_ar : f.name;
-      }
-      setFamilyNames(map);
-    } catch {
+  }, []);
+
+  // Family names for the order rows. Served by the B3 least-privilege RPC
+  // `pilot_store_order_families`: the server derives the families from this
+  // store's own orders, so the screen passes no family ids. One request per
+  // order load, not per order.
+  useEffect(() => {
+    let alive = true;
+    if (!storeId) {
       setFamilyNames({});
+      return () => {
+        alive = false;
+      };
     }
-  }, [locale]);
+    fetchStoreOrderFamilies(storeId)
+      .then((families) => {
+        if (!alive) return;
+        const map: Record<string, string> = {};
+        for (const f of families) {
+          map[f.id] = locale === 'ar' && f.name_ar ? f.name_ar : f.name;
+        }
+        setFamilyNames(map);
+      })
+      .catch(() => {
+        if (alive) setFamilyNames({});
+      });
+    return () => {
+      alive = false;
+    };
+  }, [storeId, orders, locale]);
 
   useEffect(() => {
     let alive = true;
@@ -230,7 +249,7 @@ export const PilotStoreOpsScreen = memo(function PilotStoreOpsScreen() {
       const items: DeliveredActual[] = [];
       for (const it of d.items) {
         const qty = Number(delivered[it.id] ?? String(it.quantity));
-        if (!Number.isFinite(qty) || qty <= 0) {
+        if (!Number.isFinite(qty) || qty < 0) {
           setError('DELIVERED_INVALID');
           return;
         }

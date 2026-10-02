@@ -146,11 +146,15 @@ const readyCourier = {
 let started = false;
 
 function renderScreen() {
-  return render(
+  const r = render(
     <AppProvider>
       <PilotOpsAdminScreen />
     </AppProvider>,
   );
+  // Command home is the default view: step into the legacy surface under test.
+  // Legacy surface under test is reached through a real sidebar entry (G2.1).
+  fireEvent.click(screen.getByText("cc.navTeam"));
+  return r;
 }
 
 describe('PilotOpsAdminScreen — pilot START surface (00086)', () => {

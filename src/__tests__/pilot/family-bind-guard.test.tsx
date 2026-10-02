@@ -99,8 +99,9 @@ const SEARCH_U1 = { user_id: 'u1', email: 'u1@x.test', display_name: 'U One', ro
 
 async function openBindRow() {
   render(<PilotOpsAdminScreen />);
-  const select = await screen.findByLabelText('pilot.selectFamily');
-  fireEvent.change(select, { target: { value: 'fam-b' } });
+  // G2.1: family domain renders as its own independent section.
+  fireEvent.click(await screen.findByText('cc.navFamilies'));
+  fireEvent.click(await screen.findByText('Family B'));
   fireEvent.change(screen.getByLabelText('pilot.emailPlaceholder'), { target: { value: 'u1@x.test' } });
   fireEvent.click(screen.getByText('pilot.findUser'));
   await screen.findByText('U One');
@@ -153,8 +154,8 @@ describe('family bind guard', () => {
   it('5: cancel and family-switch never provision', async () => {
     mockBox.members = [MEMBER_A];
     render(<PilotOpsAdminScreen />);
-    const select = await screen.findByLabelText('pilot.selectFamily');
-    fireEvent.change(select, { target: { value: 'fam-b' } });
+    fireEvent.click(screen.getByText('cc.navFamilies'));
+    fireEvent.click(await screen.findByText('Family B'));
     fireEvent.change(screen.getByLabelText('pilot.emailPlaceholder'), { target: { value: 'u1@x.test' } });
     fireEvent.click(screen.getByText('pilot.findUser'));
     await screen.findByText('U One');
@@ -163,7 +164,8 @@ describe('family bind guard', () => {
     fireEvent.click(screen.getByText('✕'));
     expect(screen.queryByText('pilot.familyMoveTitle')).toBeNull();
     expect(mockBox.provision).not.toHaveBeenCalled();
-    fireEvent.change(select, { target: { value: 'fam-a' } });
+    // Switching family drops any pending move without ever calling the RPC.
+    fireEvent.click(screen.getByText('Family A'));
     await new Promise((r) => setTimeout(r, 50));
     expect(mockBox.provision).not.toHaveBeenCalled();
   });

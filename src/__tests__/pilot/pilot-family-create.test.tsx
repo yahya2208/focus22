@@ -100,6 +100,7 @@ describe('PilotOpsAdminScreen — family creation (V1.6.7)', () => {
         <PilotOpsAdminScreen />
       </AppProvider>,
     );
+    fireEvent.click(screen.getByText("cc.navFamilies"));
 
     fireEvent.change(screen.getByLabelText('pilot.familyName'), { target: { value: 'Monouni Family' } });
     fireEvent.change(screen.getByLabelText('pilot.familyNameAr'), { target: { value: 'عائلة منوني' } });
@@ -117,7 +118,8 @@ describe('PilotOpsAdminScreen — family creation (V1.6.7)', () => {
         description: 'عائلة تجريبية لحساب العائلة الجديد',
       }),
     );
-    await waitFor(() => expect(screen.getByText('Monouni Family')).toBeTruthy());
+    // Created family appears in the list and is auto-selected for the detail pane.
+    await waitFor(() => expect(screen.getAllByText('Monouni Family').length).toBeGreaterThan(0));
     expect(await screen.findByText('pilot.msg.FAMILY_CREATED')).toBeTruthy();
   });
 
@@ -127,6 +129,7 @@ describe('PilotOpsAdminScreen — family creation (V1.6.7)', () => {
         <PilotOpsAdminScreen />
       </AppProvider>,
     );
+    fireEvent.click(screen.getByText("cc.navFamilies"));
 
     fireEvent.click(screen.getByText('pilot.saveFamily'));
 
