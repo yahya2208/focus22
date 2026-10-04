@@ -24,6 +24,51 @@ export const FamilyBalanceCard = memo(function FamilyBalanceCard({
 }) {
   const { t } = useTranslation();
   const colors = useThemeColors();
+  // Outstanding open debt, summed client-side for display only. The balance
+  // above stays pure SUM(ledger.amount); the two figures are never netted.
+  const openDebt = account.debts
+    .filter((d) => d.status === 'open')
+    .reduce((sum, d) => sum + d.remaining, 0);
+  const hasBalance = account.balance > 0;
+  const debtFirst = !hasBalance && openDebt > 0;
+
+  const debtBlock = openDebt > 0 && (
+    <div style={{ borderTop: `1px dashed ${colors.borderLight}`, marginTop: '0.75rem', paddingTop: '0.6rem' }}>
+      <p style={{ margin: 0, color: colors.danger, fontSize: '0.8rem', fontWeight: 700 }}>
+        {t('pilot.outstandingDebts')}
+      </p>
+      <p style={{ margin: '0.3rem 0 0', color: colors.danger, fontSize: '1.25rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+        {openDebt.toLocaleString()} {t('pilot.currency')}
+      </p>
+      {!hasBalance && (
+        <p style={{ margin: '0.35rem 0 0', color: colors.textSecondary, fontSize: '0.78rem', fontWeight: 600 }}>
+          {t('pilot.accountDebtContact')}
+        </p>
+      )}
+    </div>
+  );
+
+  const balanceBlock = (
+    <>
+      <p style={{ margin: 0, color: colors.textSecondary, fontSize: '0.8rem', fontWeight: 700 }}>
+        {t('pilot.accountTitle')}
+      </p>
+      <p style={{ margin: '0.3rem 0 0', color: colors.text, fontSize: '1.7rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+        {account.balance.toLocaleString()} {t('pilot.currency')}
+      </p>
+      {hasBalance ? (
+        <p style={{ margin: '0.15rem 0 0', color: colors.successText, fontSize: '0.78rem', fontWeight: 700 }}>
+          {t('pilot.availableForOrders')}
+        </p>
+      ) : (
+        openDebt === 0 && (
+          <p style={{ margin: '0.15rem 0 0', color: colors.textSecondary, fontSize: '0.78rem', fontWeight: 700 }}>
+            {t('pilot.accountNoBalance')}
+          </p>
+        )
+      )}
+    </>
+  );
 
   return (
     <div
@@ -34,15 +79,17 @@ export const FamilyBalanceCard = memo(function FamilyBalanceCard({
         background: `linear-gradient(150deg, ${colors.accent}14 0%, ${colors.bgCard} 70%)`,
       }}
     >
-      <p style={{ margin: 0, color: colors.textSecondary, fontSize: '0.8rem', fontWeight: 700 }}>
-        {t('pilot.accountTitle')}
-      </p>
-      <p style={{ margin: '0.3rem 0 0', color: colors.text, fontSize: '1.7rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
-        {account.balance.toLocaleString()} {t('pilot.currency')}
-      </p>
-      <p style={{ margin: '0.15rem 0 0', color: colors.successText, fontSize: '0.78rem', fontWeight: 700 }}>
-        {t('pilot.availableForOrders')}
-      </p>
+      {debtFirst ? (
+        <>
+          {debtBlock}
+          <div style={{ marginTop: '0.75rem' }}>{balanceBlock}</div>
+        </>
+      ) : (
+        <>
+          {balanceBlock}
+          {debtBlock}
+        </>
+      )}
       {recentOps.length > 0 && (
         <div style={{ borderTop: `1px dashed ${colors.borderLight}`, marginTop: '0.75rem', paddingTop: '0.6rem' }}>
           <p style={{ margin: '0 0 0.4rem', color: colors.textMuted, fontSize: '0.72rem', fontWeight: 700 }}>

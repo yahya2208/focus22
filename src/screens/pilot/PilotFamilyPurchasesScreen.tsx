@@ -30,6 +30,8 @@ import {
   type FamilySavedItem,
   type FamilyOrder,
 } from '../../services/pilot-family-service';
+import { fetchMyAccount, type PilotAccount } from '../../services/pilot-account-service';
+import { FamilyBalanceCard } from './family/FamilyBalanceCard';
 import type { TranslationKey } from '../../i18n';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -89,6 +91,7 @@ export const PilotFamilyPurchasesScreen = memo(function PilotFamilyPurchasesScre
 
   const [saved, setSaved] = useState<FamilySavedItem[]>([]);
   const [orders, setOrders] = useState<FamilyOrder[]>([]);
+  const [account, setAccount] = useState<PilotAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +110,13 @@ export const PilotFamilyPurchasesScreen = memo(function PilotFamilyPurchasesScre
       setError('FAMILY_LOAD_FAILED');
     } finally {
       setLoading(false);
+    }
+    // Family money snapshot (display only; same single-source RPC as home).
+    // Fully isolated: a failed account read must never affect the basket.
+    try {
+      setAccount(await fetchMyAccount());
+    } catch {
+      // No account card; basket stays usable.
     }
   }, []);
 
@@ -226,6 +236,10 @@ export const PilotFamilyPurchasesScreen = memo(function PilotFamilyPurchasesScre
         </Flex>
 
         <Divider />
+
+        {account?.linked === true && (
+          <FamilyBalanceCard account={account} recentOps={[]} />
+        )}
 
         {error && <span style={{ color: colors.danger, fontSize: '0.85rem' }}>{t(`pilot.error.${error}` as TranslationKey)}</span>}
         {message && <span style={{ color: colors.info, fontSize: '0.85rem' }}>{t(`pilot.msg.${message}` as TranslationKey)}</span>}

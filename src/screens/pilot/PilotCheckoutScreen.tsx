@@ -129,6 +129,10 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
   const [gateVisible, setGateVisible] = useState(false);
   const [duplicateVisible, setDuplicateVisible] = useState(false);
   const [account, setAccount] = useState<PilotAccount | null>(null);
+  // Debt acknowledgment (UX-only): required while an open debt exists. This
+  // is informedness, NOT financial acceptance — no debt is created here and
+  // nothing is persisted. The audited ACCEPT_DEBT lives only in settlement.
+  const [debtAck, setDebtAck] = useState(false);
   const startTracked = useRef(false);
 
   const storeId = routeParams.storeId ?? undefined;
@@ -233,6 +237,13 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
         setError('ITEMS_REQUIRED');
         return;
       }
+      // Debt acknowledgment gate (UX-only): while an open debt exists the
+      // customer must confirm awareness before submitting. This creates no
+      // debt and records nothing — settlement stays the sole money path.
+      if (openDebtTotal > 0 && !debtAck) {
+        setError('DEBT_ACK_REQUIRED');
+        return;
+      }
       if (!name.trim() || !phone.trim() || !zoneId) {
         setError('INVALID_ARGUMENTS');
         setShowMissing(true);
@@ -304,7 +315,7 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
         setSubmitting(false);
       }
     },
-    [isEmpty, items, lines, locale, name, phone, zoneId, zones, address, notes, storeId, clear],
+    [isEmpty, items, lines, locale, name, phone, zoneId, zones, address, notes, storeId, clear, openDebtTotal, debtAck],
   );
 
   const sendPlacedOrderWhatsApp = useCallback(() => {
@@ -569,6 +580,18 @@ export const PilotCheckoutScreen = memo(function PilotCheckoutScreen() {
 
         <label style={labelStyle}>{t('pilot.notes')}</label>
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('pilot.notes')} />
+
+        {openDebtTotal > 0 && (
+          <label style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', color: colors.textSecondary, fontSize: '0.85rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={debtAck}
+              onChange={(e) => setDebtAck(e.target.checked)}
+              aria-label={t('pilot.debtAcknowledge')}
+            />
+            <span>{t('pilot.debtAcknowledge')}</span>
+          </label>
+        )}
 
         <Button variant="primary" disabled={isEmpty || submitting} onClick={() => void handleSubmitClick()} style={{ width: '100%' }}>
           {submitting ? t('pilot.submitting') : t('pilot.placeOrder')}
