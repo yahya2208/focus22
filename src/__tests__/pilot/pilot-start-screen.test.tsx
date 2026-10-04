@@ -251,7 +251,13 @@ describe('PilotOpsAdminScreen — pilot START surface (00086)', () => {
   it('surfaces ALREADY_STARTED from the RPC without re-mutating', async () => {
     mock.startPilot.mockRejectedValue(new Error('ALREADY_STARTED'));
     renderScreen();
-    await waitFor(() => expect(screen.getByText('pilot.readyToStart')).toBeTruthy());
+    // Quiescence before the click: same shared-error race as the invitation
+    // lane — competing mount loaders must have settled so no late
+    // setError(null) can wipe this error after it is set.
+    await waitFor(() => {
+      expect(screen.getByText('pilot.readyToStart')).toBeTruthy();
+      expect(screen.queryByText('pilot.loading')).toBeNull();
+    });
     fireEvent.click(screen.getByText('pilot.startPilot'));
     await waitFor(() => expect(screen.getByText('pilot.error.ALREADY_STARTED')).toBeTruthy());
   });

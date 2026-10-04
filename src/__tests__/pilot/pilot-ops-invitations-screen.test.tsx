@@ -260,16 +260,18 @@ describe('PilotOpsAdminScreen — invitation lifecycle (Gate 1B)', () => {
     mock.resendInvitation.mockResolvedValue({ ok: false, code: 'COOLDOWN_ACTIVE' });
     mock.adminListInvitations.mockResolvedValue([sentRow]);
     renderScreen();
-    await waitFor(() => expect(screen.getAllByText('invite.resend').length).toBeGreaterThan(0));
+    // Quiescence before the click: the resend lane must be rendered AND every
+    // competing mount loader must have settled. In particular the pilot-start
+    // status fetch clears the shared error state on success — if it resolves
+    // after our click, it wipes this error and the assertion can never pass.
+    // Observable UI state only (no sleeps, no timeout bump, same assertion).
+    await waitFor(() => {
+      expect(screen.getAllByText('invite.resend').length).toBeGreaterThan(0);
+      expect(screen.queryByText('pilot.loading')).toBeNull();
+    });
 
     fireEvent.click(screen.getAllByText('invite.resend')[0]!);
-    // CI-load patience only: the asserted key and behavior are unchanged.
-    // Chain: COOLDOWN_ACTIVE → messageKeyFor → 'INVITE_COOLDOWN' →
-    // tError prefix → 'pilot.error.INVITE_COOLDOWN'.
-    await waitFor(
-      () => expect(screen.getByText('pilot.error.INVITE_COOLDOWN')).toBeTruthy(),
-      { timeout: 5000 },
-    );
+    await waitFor(() => expect(screen.getByText('pilot.error.INVITE_COOLDOWN')).toBeTruthy());
   });
 
   it('hides every invitation affordance for non-admin roles', async () => {
