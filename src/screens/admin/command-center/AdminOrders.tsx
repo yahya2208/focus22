@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useAppDispatch } from '../../../store/navigation';
 import type { TranslationKey } from '../../../i18n';
 import { Button } from '../../../design-system/components/Button';
 import { Input } from '../../../design-system/components/Input';
@@ -79,6 +80,7 @@ export const AdminOrders = memo(function AdminOrders({
 }) {
   const { t, locale } = useTranslation();
   const colors = useThemeColors();
+  const dispatch = useAppDispatch();
   const tk = (k: string) => t(k as TranslationKey);
 
   const familyNameById = useMemo(() => {
@@ -253,6 +255,24 @@ export const AdminOrders = memo(function AdminOrders({
               <Button variant="secondary" size="sm" onClick={() => d.closeDetail()}>
                 {tk('cc.ordCloseDetail')}
               </Button>
+              {(selected ?? detailedOrder) && storeId ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    dispatch({
+                      type: 'NAVIGATE',
+                      screen: 'pilot-store-ops',
+                      params: {
+                        storeId,
+                        orderId: (selected ?? detailedOrder)?.id ?? '',
+                      },
+                    })
+                  }
+                >
+                  {tk('cc.ordOpenInStoreOps')}
+                </Button>
+              ) : null}
             </Flex>
 
             <div style={{ color: colors.textSecondary, fontSize: '0.8rem', marginBottom: '0.25rem' }}>

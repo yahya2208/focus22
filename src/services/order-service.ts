@@ -268,7 +268,7 @@ export interface DeliveredActual {
   readonly delivered_quantity: number;
 }
 
-/** Result of the canonical settlement RPC (00102). Every figure is server-computed. */
+/** Result of the canonical settlement RPC (00102/00124). Every figure is server-computed. */
 export interface SettlementResult {
   readonly order_id: string;
   readonly status: string;
@@ -278,7 +278,16 @@ export interface SettlementResult {
   /** NULL for legacy/guest orders that carry no family money model. */
   readonly balance_after: number | null;
   readonly debt_remaining: number | null;
+  /** 00124 decision fields — present on decision-aware responses. */
+  readonly decision_applied?: string;
+  readonly available_balance?: number;
+  readonly shortfall?: number;
+  readonly requires_admin_decision?: boolean;
+  readonly order_total?: number;
 }
+
+/** Settlement decision (00124). NORMAL preserves legacy 3-arg behavior. */
+export type SettlementDecision = 'NORMAL' | 'ACCEPT_DEBT' | 'REJECT';
 
 /** Record delivered actuals only (order must be preparing/out_for_delivery). */
 export async function setDeliveredActuals(
@@ -297,19 +306,46 @@ export async function setDeliveredActuals(
  * The ONE canonical financial settlement: records actuals, transitions the
  * order to delivered, posts the single PURCHASE movement and tracks the
  * uncovered remainder. There is NO client-side balance or ledger math here.
+ *
+ * decision (00124): 'NORMAL' (default, legacy behavior), 'ACCEPT_DEBT' or
+ * 'REJECT' (admin/store_operator only — the server enforces the role).
+ * A shortfall under NORMAL returns { status: 'insufficient_balance', ... }
+ * with zero mutations instead of throwing.
  */
 export async function settleFamilyOrder(
   orderId: string,
   items: ReadonlyArray<DeliveredActual>,
   reason = '',
+  decision: SettlementDecision = 'NORMAL',
 ): Promise<SettlementResult> {
   const { data, error } = await getSupabaseClient().rpc('pilot_family_settle_and_deliver', {
     p_order_id: orderId,
     p_items: items,
     p_reason: reason,
+    p_decision: decision,
   });
   if (error) throw new Error(error.message ?? 'RPC_ERROR');
   return data as SettlementResult;
+}
+
+/**
+ * Best-effort settle-event push (00124 notifications). Invoked ONLY after a
+ * committed settle/cancel result, in a separate try/catch that can never
+ * affect settlement. Browser closure between settle success and this call
+ * means no push — accepted by design; order status + timeline remain the
+ * durable channels (My Orders / Command Center).
+ */
+export async function notifySettlePush(
+  orderId: string,
+  event: 'settle_accepted' | 'settle_rejected',
+): Promise<void> {
+  try {
+    await getSupabaseClient().functions.invoke('order-push', {
+      body: { order_id: orderId, event },
+    });
+  } catch {
+    // Push is courtesy-only. Swallow: settlement already committed.
+  }
 }
 
 export async function resetPilot(): Promise<void> {

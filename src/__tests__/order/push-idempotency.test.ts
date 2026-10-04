@@ -15,7 +15,7 @@ const src = fs.readFileSync(
 
 describe('order-push idempotency protocol', () => {
   it('claims the log row before sending (PK race absorbs concurrency)', () => {
-    const claimAt = src.indexOf('insert({ order_id: orderId, endpoint: s.endpoint }');
+    const claimAt = src.indexOf('insert(\n        { order_id: orderId, endpoint: s.endpoint, event }');
     const sendAt = src.indexOf('webpush.sendNotification(');
     expect(claimAt).toBeGreaterThan(-1);
     expect(sendAt).toBeGreaterThan(claimAt);
@@ -27,7 +27,7 @@ describe('order-push idempotency protocol', () => {
   });
 
   it('releases the claim on transient failure, keeps it on 410', () => {
-    expect(src).toContain('.from("push_log").delete().eq("order_id", orderId).eq("endpoint", s.endpoint)');
+    expect(src).toContain('.from("push_log").delete().eq("order_id", orderId).eq("endpoint", s.endpoint).eq("event", event)');
     expect(src).toContain('revoked_at');
   });
 
@@ -44,6 +44,13 @@ describe('order-push idempotency protocol', () => {
     const payloadBlock = src.slice(start, src.indexOf('});', start));
     expect(payloadBlock).toContain('order_id: orderId');
     expect(payloadBlock).toContain('target: "pilot-store-ops"');
+    expect(payloadBlock).toContain('event,');
     expect(payloadBlock).not.toMatch(/phone|address|family_name|invite_email/);
+  });
+
+  it('settle events carry server-computed figures, never client money', () => {
+    // Shortfall is derived from the service-role order + ledger reads.
+    expect(src).toContain('.from("ledger").select("amount")');
+    expect(src).not.toMatch(/shortfall.*body\.|body\..*shortfall/);
   });
 });

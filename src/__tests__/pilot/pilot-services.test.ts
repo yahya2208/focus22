@@ -305,6 +305,7 @@ describe('order-service — family settlement (Gate B)', () => {
       p_order_id: 'o1',
       p_items: items,
       p_reason: '',
+      p_decision: 'NORMAL',
     });
     expect(settled).toEqual(result);
   });

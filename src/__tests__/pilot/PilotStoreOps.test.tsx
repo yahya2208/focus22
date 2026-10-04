@@ -123,17 +123,27 @@ describe('PilotStoreOpsScreen — admin-owned queue (V1.4)', () => {
     await waitFor(() => expect(shared.advance).toHaveBeenCalledWith('c', 'preparing'));
   });
 
-  it('preparing shows the ready-for-handoff label, mark-delivered and settle — no handoff', async () => {
+  it('preparing shows the ready-for-handoff label and mark-delivered, but no settle action', async () => {
     shared.orders = [order('r', 'preparing')];
     renderOps();
     await expandFirstOrder();
 
     expect(screen.getByText('pilot.readyForHandoff')).toBeTruthy();
-    expect(screen.getByText('pilot.settleAndDeliver')).toBeTruthy();
+    // Settle executes only at out_for_delivery (transition-matrix scope):
+    // preparing rows advance first and never offer settle.
+    expect(screen.queryByText('pilot.settleAndDeliver')).toBeNull();
     expect(screen.queryByText('pilot.handoffToCourier')).toBeNull();
     expect(screen.queryByText('pilot.cancelOrder')).toBeNull();
     fireEvent.click(screen.getByText('pilot.markDelivered'));
     await waitFor(() => expect(shared.advance).toHaveBeenCalledWith('r', 'delivered'));
+  });
+
+  it('out_for_delivery offers settle in addition to advance actions', async () => {
+    shared.orders = [order('f', 'out_for_delivery')];
+    renderOps();
+    await expandFirstOrder();
+
+    expect(screen.getByText('pilot.settleAndDeliver')).toBeTruthy();
   });
 
   it('delivered/cancelled offer no advance actions', async () => {

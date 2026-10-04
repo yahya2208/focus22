@@ -1,21 +1,28 @@
-// order-push — NEW_ORDER Web Push sender (G-N3, closed-app coverage).
+// order-push — Web Push sender (G-N3 closed-app coverage + settlement events).
 //
-// Trigger: Supabase DB Webhook on public.orders INSERT (post-commit only).
+// Trigger A (unchanged): Supabase DB Webhook on public.orders INSERT
+// (post-commit only). Staff-only recipients, event 'order_created'.
 // The order/settlement/inventory transaction never depends on this function:
 // webhook delivery is fire-and-forget from the DB side, and every step below
 // is failure-isolated per endpoint.
 //
-// Flow: verify webhook secret → load order row → resolve recipients
-// (users.role admin/super_admin + operators of order.store_id) → load their
-// live push_subscriptions → claim-first per endpoint (PK race absorbs
-// concurrent retries) → send minimal payload → release claim on transient
-// failure, keep it on 410 revocation →
-// push_log (UNIQUE(order_id, endpoint) absorbs retries/fan-out dupes) →
-// mark 410/expired endpoints revoked.
+// Trigger B (settlement decisions): authenticated client call AFTER a
+// committed settle/cancel result. The client invokes ONLY after receiving
+// success; push is best-effort courtesy — the durable record is order
+// status + timeline (visible in My Orders / Command Center on next open).
+// Browser closure between settle success and this call means no push;
+// that loss is accepted by design (see reliability note below).
+//
+// Flow: verify caller (webhook secret OR user JWT) → load order row
+// (service role = authoritative figures, never client-supplied money) →
+// resolve recipients (staff always; + customer for settle events) → load
+// live push_subscriptions → claim-first per (order_id, endpoint, event)
+// (PK race absorbs concurrent retries) → send minimal payload → release
+// claim on transient failure, keep it on 410 revocation.
 //
 // Secrets (Edge secrets, NEVER in git/client): WEBHOOK_SECRET,
 // VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:).
-// Payload is minimal: order/store/total + navigation target. Details load
+// Payload is minimal: order/store/event + display figures. Details load
 // post-open under the viewer's own session.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -53,23 +60,75 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !WEBHOOK_SECRET || !VAPID_PUBLIC || !VAPID_PRIVATE) {
     return json(500, { ok: false, code: "PUSH_NOT_CONFIGURED" });
   }
-  if (req.headers.get("x-webhook-secret") !== WEBHOOK_SECRET) {
-    return json(401, { ok: false, code: "BAD_WEBHOOK_SECRET" });
-  }
 
-  let body: { record?: { id?: unknown; store_id?: unknown; total?: unknown; created_at?: unknown } };
+  let body: {
+    record?: { id?: unknown; store_id?: unknown; total?: unknown; created_at?: unknown };
+    order_id?: unknown;
+    event?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
     return json(400, { ok: false, code: "BAD_PAYLOAD" });
   }
-  const orderId = body?.record?.id;
-  const storeId = body?.record?.store_id ?? null;
-  if (!isUuid(orderId)) return json(200, { ok: true, code: "IGNORED_NON_ORDER" });
 
   const service = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-  // Recipients, server-side only: admins + operators of this store.
+  // --- Caller verification: webhook secret (Trigger A) or user JWT (Trigger B).
+  const isWebhook = req.headers.get("x-webhook-secret") === WEBHOOK_SECRET;
+  let callerUid: string | null = null;
+  let event: string = "order_created";
+  if (!isWebhook) {
+    const authHeader = req.headers.get("authorization") ?? "";
+    const match = /^Bearer\s+(.+)$/.exec(authHeader);
+    if (!match) return json(401, { ok: false, code: "BAD_CALLER" });
+    const { data: userData, error: userErr } = await service.auth.getUser(match[1]);
+    if (userErr || !userData?.user) return json(401, { ok: false, code: "BAD_CALLER" });
+    callerUid = userData.user.id;
+    const requested = body?.event;
+    if (requested !== "settle_accepted" && requested !== "settle_rejected") {
+      return json(400, { ok: false, code: "BAD_EVENT" });
+    }
+    event = requested;
+  }
+
+  const orderId = isWebhook ? body?.record?.id : body?.order_id;
+  if (!isUuid(orderId)) return json(200, { ok: true, code: "IGNORED_NON_ORDER" });
+
+  // --- Authoritative order figures (service role; never client-supplied money).
+  const { data: orderRow, error: orderErr } = await service
+    .from("orders")
+    .select("id, store_id, total, user_id, family_id, order_number, status")
+    .eq("id", orderId)
+    .single();
+  if (orderErr || !orderRow) return json(200, { ok: true, code: "ORDER_NOT_FOUND", order_id: orderId });
+  const order = orderRow as {
+    id: string; store_id: string | null; total: number; user_id: string | null;
+    family_id: string | null; order_number: string; status: string;
+  };
+  const storeId = order.store_id;
+
+  // --- Caller authorization for Trigger B: admin, operator of this store,
+  // --- or the ordering customer. Webhook path skips this (shared secret).
+  if (!isWebhook && callerUid) {
+    const { data: callerRow } = await service.from("users").select("id, role").eq("id", callerUid).single();
+    const callerRole = (callerRow as { role?: string } | null)?.role ?? null;
+    const isStaff = callerRole === "admin" || callerRole === "super_admin";
+    let isOperator = false;
+    if (typeof storeId === "string" && isUuid(storeId)) {
+      const { data: cop } = await service
+        .from("pilot_store_operators").select("user_id").eq("store_id", storeId).eq("user_id", callerUid)
+        .eq("status", "active").limit(1);
+      isOperator = (cop ?? []).length > 0;
+    }
+    const isCustomer = typeof order.user_id === "string" && order.user_id === callerUid;
+    if (!isStaff && !isOperator && !isCustomer) {
+      return json(403, { ok: false, code: "PUSH_NOT_ALLOWED", order_id: orderId });
+    }
+  }
+
+  // --- Recipients, server-side only. Settle events add the customer;
+  // --- the order_created webhook path stays staff-only (unchanged behavior).
   const { data: admins } = await service.from("users").select("id").in("role", ["admin", "super_admin"]);
   let operatorIds: string[] = [];
   if (typeof storeId === "string" && isUuid(storeId)) {
@@ -77,12 +136,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .from("pilot_store_operators").select("user_id").eq("store_id", storeId).eq("status", "active");
     operatorIds = (ops ?? []).map((r) => (r as { user_id: string }).user_id).filter((v) => typeof v === "string");
   }
-  const recipientIds = [...new Set([...(admins ?? []).map((r) => (r as { id: string }).id), ...operatorIds)];
+  const recipientIds = [...new Set([...(admins ?? []).map((r) => (r as { id: string }).id), ...operatorIds])];
+  if (!isWebhook && typeof order.user_id === "string") {
+    recipientIds.push(order.user_id);
+  }
   if (recipientIds.length === 0) return json(200, { ok: true, code: "NO_RECIPIENTS", order_id: orderId });
+
+  // --- Authoritative settle figures for the payload (server-computed).
+  let shortfall: number | null = null;
+  if (event === "settle_accepted" || event === "settle_rejected") {
+    if (typeof order.family_id === "string") {
+      const { data: rows } = await service.from("ledger").select("amount").eq("family_id", order.family_id);
+      const balance = (rows ?? []).reduce((s, r) => s + Number((r as { amount: number }).amount ?? 0), 0);
+      shortfall = Math.max(Number(order.total ?? 0) - Math.max(balance, 0), 0);
+    } else {
+      shortfall = 0;
+    }
+  }
 
   const { data: subs } = await service
     .from("push_subscriptions").select("user_id, endpoint, p256dh, auth")
-    .in("user_id", recipientIds)
+    .in("user_id", [...new Set(recipientIds)])
     .is("revoked_at", null);
   if (!subs || subs.length === 0) return json(200, { ok: true, code: "NO_SUBSCRIPTIONS", order_id: orderId });
 
@@ -90,21 +164,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const payload = JSON.stringify({
     order_id: orderId,
+    order_number: order.order_number ?? null,
     store_id: typeof storeId === "string" ? storeId : null,
-    total: typeof body.record?.total === "number" ? body.record.total : null,
+    total: typeof order.total === "number" ? order.total : null,
+    event,
+    shortfall,
     target: "pilot-store-ops",
   });
 
   let sent = 0;
   let skipped = 0;
   for (const s of subs as { user_id: string; endpoint: string; p256dh: string; auth: string }[]) {
-    // Claim-first idempotency: atomically claim (order_id, endpoint) BEFORE
-    // sending. Concurrent webhook deliveries race on the PRIMARY KEY — exactly
-    // one wins the claim and sends; losers skip. Sequential retries find the
-    // prior claim and skip without resending.
+    // Claim-first idempotency: atomically claim (order_id, endpoint, event)
+    // BEFORE sending. Concurrent deliveries race on the PRIMARY KEY —
+    // exactly one wins the claim and sends; losers skip. Sequential retries
+    // find the prior claim and skip without resending. Distinct events never
+    // collide (settle_accepted vs settle_rejected vs order_created).
     const { data: claimed, error: claimErr } = await service
       .from("push_log")
-      .insert({ order_id: orderId, endpoint: s.endpoint }, { onConflict: "order_id,endpoint", ignoreDuplicates: true })
+      .insert(
+        { order_id: orderId, endpoint: s.endpoint, event },
+        { onConflict: "order_id,endpoint,event", ignoreDuplicates: true },
+      )
       .select("order_id");
     if (claimErr || !claimed || (claimed as unknown[]).length === 0) {
       skipped += 1;
@@ -126,10 +207,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
         await service.from("push_subscriptions").update({ revoked_at: new Date().toISOString() }).eq("endpoint", s.endpoint);
       } else {
         // Transient failure: release the claim so a later retry may re-attempt.
-        await service.from("push_log").delete().eq("order_id", orderId).eq("endpoint", s.endpoint);
+        await service.from("push_log").delete().eq("order_id", orderId).eq("endpoint", s.endpoint).eq("event", event);
       }
     }
   }
 
-  return json(200, { ok: true, code: "PUSH_FANOUT", order_id: orderId, sent, skipped });
+  return json(200, { ok: true, code: "PUSH_FANOUT", order_id: orderId, event, sent, skipped });
 });
